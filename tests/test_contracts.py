@@ -52,7 +52,9 @@ IDEMPOTENCY_CASES = [
     IDEMPOTENCY_CASES,
     ids=[c[0] for c in IDEMPOTENCY_CASES],
 )
-def test_idempotency_key_identity(name: str, left: IdempotencyKey, right: IdempotencyKey, *, same: bool) -> None:
+def test_idempotency_key_identity(
+    name: str, left: IdempotencyKey, right: IdempotencyKey, *, same: bool
+) -> None:
     assert (left.value == right.value) is same
 
 
