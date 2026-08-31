@@ -8,6 +8,8 @@ dependencies = [
     "pydantic-settings>=2.5",
     "opentelemetry-api>=1.27",
     "opentelemetry-sdk>=1.27",
+    "openai>=1.50",
+    "pyjwt>=2.9",
 ]
 
 [project.optional-dependencies]
@@ -58,7 +60,7 @@ layers = [
     "(entrypoint)",
     "(router) | (loop)",
     "(context) | (tools) | (approvals)",
-    "(llm) | (state) | (policy) | (cost) | (idempotency) | (resilience) | (flow) | (identity) | (cassette)",
+    "llm | (state) | (policy) | (cost) | idempotency | (resilience) | (flow) | identity | (cassette)",
     "config | telemetry",
     "contracts",
 ]
@@ -72,8 +74,11 @@ type = "forbidden"
 source_modules = ["support_agent"]
 forbidden_modules = ["openai", "anthropic", "groq"]
 ignore_imports = [
+    "support_agent.llm -> openai",
     "support_agent.llm.* -> openai",
+    "support_agent.llm -> anthropic",
     "support_agent.llm.* -> anthropic",
+    "support_agent.llm -> groq",
     "support_agent.llm.* -> groq",
 ]
 unmatched_ignore_imports_alerting = "none"
@@ -83,7 +88,7 @@ name = "Only the tools module speaks MCP"
 type = "forbidden"
 source_modules = ["support_agent"]
 forbidden_modules = ["mcp"]
-ignore_imports = ["support_agent.tools.* -> mcp"]
+ignore_imports = ["support_agent.tools -> mcp", "support_agent.tools.* -> mcp"]
 unmatched_ignore_imports_alerting = "none"
 
 [[tool.importlinter.contracts]]
@@ -92,7 +97,9 @@ type = "forbidden"
 source_modules = ["support_agent"]
 forbidden_modules = ["psycopg"]
 ignore_imports = [
+    "support_agent.state -> psycopg",
     "support_agent.state.* -> psycopg",
+    "support_agent.idempotency -> psycopg",
     "support_agent.idempotency.* -> psycopg",
 ]
 unmatched_ignore_imports_alerting = "none"

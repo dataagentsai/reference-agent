@@ -27,7 +27,13 @@ from support_agent.contracts.model import (
     ToolCall,
     Usage,
 )
-from support_agent.contracts.protocols import Clock, LLMClient, Store, ToolClient
+from support_agent.contracts.protocols import (
+    CheckpointStore,
+    Clock,
+    IdempotencyLedger,
+    LLMClient,
+    ToolClient,
+)
 from support_agent.contracts.results import (
     Agentic,
     Completed,
@@ -54,6 +60,7 @@ from support_agent.contracts.tools import (
 __all__ = [
     "Agentic",
     "Approval",
+    "CheckpointStore",
     "Clock",
     "Completed",
     "ConversationId",
@@ -62,6 +69,7 @@ __all__ = [
     "Escalated",
     "Failed",
     "IdempotencyKey",
+    "IdempotencyLedger",
     "Identity",
     "Intent",
     "LLMClient",
@@ -77,7 +85,6 @@ __all__ = [
     "Route",
     "RunId",
     "SideEffectClass",
-    "Store",
     "TerminationReason",
     "ToolCall",
     "ToolClient",

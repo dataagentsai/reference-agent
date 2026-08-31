@@ -55,19 +55,29 @@ class ToolClient(Protocol):
 
 
 @runtime_checkable
-class Store(Protocol):
-    """Durability at P6 — the only position whose enforcement survives process
-    death, which is what makes it the right home for anything that must outlive
-    a crash.
+class CheckpointStore(Protocol):
+    """Durability at P6 for conversation and loop state — L5.
 
-    Agent-owned state only. This never reaches the simulated business world:
-    conversation, checkpoints, approvals and the idempotency ledger are the
-    oracle, and an oracle that can be faked is not one.
+    Agent-owned. This never reaches the simulated business world: conversation,
+    checkpoints and approvals are the oracle, and an oracle that can be faked is
+    not one.
     """
 
     async def checkpoint(self, run_id: RunId, state: bytes) -> None: ...
 
     async def resume(self, run_id: RunId) -> bytes | None: ...
+
+
+@runtime_checkable
+class IdempotencyLedger(Protocol):
+    """The dedupe record at P6 — L10.
+
+    Split from `CheckpointStore` deliberately. `state` and `idempotency` are
+    sibling modules that may not import each other, and a single protocol
+    spanning both would have forced one of them to depend on the other's
+    concerns. The architecture contract surfaced the design error; this is the
+    fix, not a workaround.
+    """
 
     async def seen(self, key: IdempotencyKey) -> ToolResult | None:
         """The result of a previous execution under this key, if any.
