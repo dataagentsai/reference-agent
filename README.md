@@ -9,13 +9,13 @@ which are the layers the catalogs exist to make visible.
 
 ## Status
 
-Early. `contracts` is built; everything else is declared in the architecture and
-not yet written.
+Early. `contracts`, `config` and `telemetry` are built; everything else is
+declared in the architecture and not yet written.
 
 The build order follows the dependency contract upward:
 
 ```
-contracts ✔ → config, telemetry → llm, state, identity, idempotency
+contracts ✔ → config ✔, telemetry ✔ → llm, state, identity, idempotency
           → tools, context → loop, router → entrypoint
 ```
 
