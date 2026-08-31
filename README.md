@@ -9,14 +9,15 @@ which are the layers the catalogs exist to make visible.
 
 ## Status
 
-Early. `contracts`, `config`, `telemetry`, `llm`, `identity` and `idempotency`
-are built; everything else is declared in the architecture and not yet written.
+Early. Eight of sixteen modules are built: `contracts`, `config`, `telemetry`,
+`llm`, `identity`, `idempotency`, `tools` and `context`. The rest are declared in
+the architecture and not yet written.
 
 The build order follows the dependency contract upward:
 
 ```
 contracts ✔ → config ✔, telemetry ✔ → llm ✔, identity ✔, idempotency ✔, state
-          → tools, context → loop, router → entrypoint
+          → tools ✔, context ✔ → loop, router → entrypoint
 ```
 
 ## The architecture is enforced, not documented
