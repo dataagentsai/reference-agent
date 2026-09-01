@@ -9,15 +9,18 @@ which are the layers the catalogs exist to make visible.
 
 ## Status
 
-Early. Eight of sixteen modules are built: `contracts`, `config`, `telemetry`,
-`llm`, `identity`, `idempotency`, `tools` and `context`. The rest are declared in
-the architecture and not yet written.
+Ten of sixteen modules are built: `contracts`, `config`, `telemetry`, `llm`,
+`identity`, `idempotency`, `tools`, `context`, `router` and `loop`. The agent
+runs end to end against an in-process MCP server with a scripted model — no
+network, zero cost. The rest are declared in the architecture and not yet
+written: `state`, `policy`, `cost`, `approvals`, `resilience`, `flow`,
+`cassette`, `entrypoint`.
 
 The build order follows the dependency contract upward:
 
 ```
 contracts ✔ → config ✔, telemetry ✔ → llm ✔, identity ✔, idempotency ✔, state
-          → tools ✔, context ✔ → loop, router → entrypoint
+          → tools ✔, context ✔ → loop ✔, router ✔ → entrypoint
 ```
 
 ## The architecture is enforced, not documented

@@ -61,7 +61,7 @@ type = "layers"
 containers = ["support_agent"]
 layers = [
     "(entrypoint)",
-    "(router) | (loop)",
+    "router | loop",
     "context | tools | (approvals)",
     "llm | (state) | (policy) | (cost) | idempotency | (resilience) | (flow) | identity | (cassette)",
     "config | telemetry",

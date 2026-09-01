@@ -113,7 +113,33 @@ __all__ = [
     "assemble",
     "budget_exceeded",
     "fence",
+    "model_tools",
     "render",
     "tool_message",
     "user_message",
 ]
+
+
+def model_tools(registry: object) -> tuple[dict[str, object], ...]:
+    """Tool definitions, as the model is told them.
+
+    This lives in `context` rather than `tools` on purpose: L1 owns *what the
+    model is told*, and a tool definition is told to the model. `tools` owns what
+    the model may **do**, which is a different question answered at a different
+    position.
+
+    Ordering is stable — the registry's order — because tool definitions render
+    before the system prompt in most providers' prompt layout, and a set that
+    reshuffles between calls invalidates every cached token after it.
+    """
+    return tuple(
+        {
+            "type": "function",
+            "function": {
+                "name": spec.name,
+                "description": spec.description,
+                "parameters": spec.input_schema,
+            },
+        }
+        for spec in registry.tools  # type: ignore[attr-defined]
+    )
