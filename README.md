@@ -9,14 +9,16 @@ which are the layers the catalogs exist to make visible.
 
 ## Status
 
-Sixteen of eighteen modules are built. The agent is drivable end to end through
+**Phase A complete: all eighteen modules built, all sixteen AHC layers covered.** The agent is drivable end to end through
 `entrypoint.Agent.handle()` — AHC-0010, the surface an evaluation drives —
 against an in-process MCP server with a scripted model: no network, zero cost.
 
 Built: `contracts`, `config`, `telemetry`, `llm`, `identity`, `idempotency`,
 `tools`, `context`, `router`, `loop`, `state`, `entrypoint`, `cost`, `approvals`,
-`cassette`, `policy`.
-Declared but not yet written: `flow`, `resilience` — see `TODO.md`.
+`cassette`, `policy`, `flow`, `resilience`.
+
+The layers contract has no parenthesised entries left, which is the mechanical
+form of that claim — the coverage delta for this agent reads "none".
 
 The build order follows the dependency contract upward:
 

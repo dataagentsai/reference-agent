@@ -36,6 +36,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from support_agent import context as ctx
+from support_agent import flow as flw
 from support_agent import policy as pol
 from support_agent import telemetry as tel
 from support_agent.approvals import RefundRequested
@@ -101,6 +102,7 @@ async def run(
     meter: Meter | None = None,
     local_tools: Mapping[str, LocalTool] | None = None,
     policy_rules: Mapping[pol.Position, tuple] | None = None,
+    fan_out: int = flw.DEFAULT_FAN_OUT,
 ) -> tuple[TurnResult, Trace]:
     budgets = budgets or Budgets()
     run_id = run_id or new_run_id()
@@ -178,6 +180,10 @@ async def run(
                     )
                 )
 
+                # Keys are minted and oscillation checked in the order the
+                # model emitted the calls, before anything runs. Scheduling must
+                # not change which call gets which key.
+                planned: list[tuple[object, IdempotencyKey]] = []
                 for call in response.tool_calls:
                     signature = _signature(call.name, call.arguments)
                     trace.tool_calls.append(signature)
@@ -189,28 +195,36 @@ async def run(
                             TerminationReason.OSCILLATION_DETECTED,
                             "I am going round in circles on this — let me pass you to a colleague.",
                         )
-
-                    key = IdempotencyKey(run_id=run_id, step=step, iteration=len(trace.tool_calls))
-                    try:
-                        result = await _invoke(tools, call, identity, key, local_tools)
-                    except RefundRequested as raised:
-                        # The only local tool that stops the loop. Letting the
-                        # model continue here would let it narrate a refund that
-                        # nobody has authorised.
-                        trace.termination = TerminationReason.AWAITING_APPROVAL
-                        run_span.set_attribute(tel.TERMINATION, trace.termination.value)
-                        return (
-                            NeedsApproval(
-                                approval_id=raised.approval.id,
-                                action=raised.approval.action,
-                                reason=raised.approval.reason,
-                                reply=(
-                                    "I have sent this to a colleague to authorise. "
-                                    "Nothing has been refunded yet."
-                                ),
+                    planned.append(
+                        (
+                            call,
+                            IdempotencyKey(
+                                run_id=run_id, step=step, iteration=len(trace.tool_calls)
                             ),
-                            trace,
                         )
+                    )
+
+                try:
+                    results = await _dispatch(
+                        tools, planned, identity, local_tools, registry, fan_out
+                    )
+                except RefundRequested as raised:
+                    trace.termination = TerminationReason.AWAITING_APPROVAL
+                    run_span.set_attribute(tel.TERMINATION, trace.termination.value)
+                    return (
+                        NeedsApproval(
+                            approval_id=raised.approval.id,
+                            action=raised.approval.action,
+                            reason=raised.approval.reason,
+                            reply=(
+                                "I have sent this to a colleague to authorise. "
+                                "Nothing has been refunded yet."
+                            ),
+                        ),
+                        trace,
+                    )
+
+                for (call, _), result in zip(planned, results, strict=True):
                     seen_results.append(result)
                     messages.append(ctx.tool_message(result, tool_call_id=call.id))
 
@@ -220,6 +234,39 @@ async def run(
             TerminationReason.STEP_BUDGET_EXHAUSTED,
             "I have not been able to resolve this — let me pass you to a colleague.",
         )
+
+
+async def _dispatch(
+    tools: ToolClient,
+    planned: list[tuple[object, IdempotencyKey]],
+    identity: Identity,
+    local_tools: Mapping[str, LocalTool],
+    registry,
+    fan_out: int,
+):
+    """Reads concurrently, everything else in the order the model asked.
+
+    A read that fails costs a retry. A write that fails halfway through a
+    parallel batch costs a reconciliation, in an order that depended on
+    scheduling — and a compensating path is far easier to reason about when the
+    writes happened one at a time.
+    """
+    from support_agent.contracts import SideEffectClass
+
+    def is_read(call) -> bool:
+        spec = registry.get(call.name)
+        return spec is not None and spec.side_effect is SideEffectClass.READ
+
+    if len(planned) > 1 and all(is_read(call) for call, _ in planned):
+        return await flw.gather_bounded(
+            [
+                (lambda c=call, k=key: _invoke(tools, c, identity, k, local_tools))
+                for call, key in planned
+            ],
+            limit=fan_out,
+        )
+
+    return [await _invoke(tools, call, identity, key, local_tools) for call, key in planned]
 
 
 async def _invoke(

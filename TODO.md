@@ -9,7 +9,7 @@ lands. When none remain, Phase A is done.
 
 ---
 
-## Phase A — finish the harness · 6 of 16 modules left
+## Phase A — finish the harness ✔ **COMPLETE**
 
 Ordered by what unblocks what, not by size.
 
@@ -50,12 +50,12 @@ Ordered by what unblocks what, not by size.
       *Gate:* fails closed (AAC-0091). A guardrail that errors and lets traffic
       through is worse than none, because it is believed.
 
-- [ ] **A5 · `flow`** (L8) — fan-out limits, backpressure, throttling.
+- [x] **A5 · `flow`** ✔ (L8) — fan-out limits, backpressure, throttling.
       *Concretely:* the loop runs parallel `tool_calls` sequentially today, and
       Groq's free-tier limits make a 429 storm realistic with no coordinated
       response.
 
-- [ ] **A6 · `resilience`** (L10) — retries, breaker, fallback, **compensation**.
+- [x] **A6 · `resilience`** ✔ (L10) — retries, breaker, fallback, **compensation**.
       *The half that matters:* idempotency stops an effect happening twice;
       compensation undoes one that should not have happened once. AHC-0058. The
       refund path needs both.
