@@ -21,14 +21,18 @@ Ordered by what unblocks what, not by size.
       *Gate:* a run that would exceed `max_cost_usd` stops with
       `COST_CEILING_REACHED`.
 
-- [ ] **A2 · `approvals`** (L14, P6+P8) — queue, decision record, resumption.
+- [~] **A2 · `approvals`** (L14, P6+P8) — queue, decision record, resumption.
+      **Mechanism built and proven end to end at the tool boundary.** Remaining:
+      wiring it through `Agent.handle()`, which needs a customer-facing
+      `request_refund` tool (reversible, in scope) that raises the approval, and
+      a resume path keyed off `Conversation.pending_approval_id`.
       *Why second:* it closes the only functional path in doc 24 that cannot
       currently complete. `state.Conversation.pending_approval_id` is already
       waiting for it.
-      *Decision to settle:* MCP `InputRequiredResult` + `elicitation/create` as
-      the resumption transport, versus our own. Leaning: the decision and its
-      audit trail are business state and belong in `agent_state`; how resumption
-      is *signalled* is a detail.
+      *Decision settled:* **own queue, not MCP elicitation.** Elicitation asks
+      the party on the other end of the connection and resolves inside one tool
+      call; an approval is decided by a different person and may span an hour and
+      a restart. How resumption is *signalled* stays a detail.
       *Gate:* refund over the threshold returns `NeedsApproval`, checkpoints, and
       a later turn resumes and completes it — with exactly one refund row.
 

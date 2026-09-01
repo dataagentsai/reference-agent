@@ -28,6 +28,7 @@ from support_agent.contracts.model import (
     Usage,
 )
 from support_agent.contracts.protocols import (
+    ApprovalStore,
     CheckpointStore,
     Clock,
     IdempotencyLedger,
@@ -60,6 +61,7 @@ from support_agent.contracts.tools import (
 __all__ = [
     "Agentic",
     "Approval",
+    "ApprovalStore",
     "CheckpointStore",
     "Clock",
     "Completed",

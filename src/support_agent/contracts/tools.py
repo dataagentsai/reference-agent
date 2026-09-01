@@ -125,6 +125,17 @@ class Approval(BaseModel):
     action: str
     args: dict[str, object] = Field(default_factory=dict)
     reason: str
+    customer_id: str
+    idempotency_key: str
+    """The key minted when the action was *requested*, carried across the wait.
+
+    This is what links L14 to L10. An approval granted an hour later executes
+    under the original key, so a resume that happens twice — a retry, a duplicate
+    click, a second process — still produces one effect. A key minted at
+    execution time would defeat the whole ledger.
+    """
+    created_at: int
+    expires_at: int
     decided: bool = False
     granted: bool = False
     decided_by: str | None = None

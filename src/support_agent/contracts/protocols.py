@@ -16,7 +16,7 @@ from typing import Protocol, runtime_checkable
 
 from support_agent.contracts.ids import IdempotencyKey, Identity, RunId
 from support_agent.contracts.model import ModelRequest, ModelResponse
-from support_agent.contracts.tools import ToolRegistry, ToolResult
+from support_agent.contracts.tools import Approval, ToolRegistry, ToolResult
 
 
 @runtime_checkable
@@ -88,6 +88,20 @@ class IdempotencyLedger(Protocol):
         ...
 
     async def record(self, key: IdempotencyKey, result: ToolResult) -> None: ...
+
+
+@runtime_checkable
+class ApprovalStore(Protocol):
+    """Where a pending decision waits — P6, because a human may take an hour and
+    a store that dies with the process is absent exactly when it was needed."""
+
+    async def put(self, approval: Approval) -> None: ...
+
+    async def get(self, approval_id: str) -> Approval | None: ...
+
+    async def pending(self) -> tuple[Approval, ...]:
+        """The queue a reviewer sees — P8."""
+        ...
 
 
 @runtime_checkable
