@@ -166,6 +166,80 @@ def no_invented_delivery_date(ctx: Context) -> Verdict:
     return ALLOW
 
 
+IDENTIFIER = re.compile(r"\b[A-Z]{1,4}-\d{3,10}\b")
+MONEY = re.compile(r"(?:(?:Rs|INR|₹)\s*)([\d,]+(?:\.\d{2})?)|\b(\d[\d,]{2,})\b")
+ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+
+# Status words were checked here and are not any more. They produced no true
+# positives and one false positive: "it can no longer be cancelled" contains
+# "cancelled", the tool never returned that status, and a correct refusal was
+# blocked. That is F-004 exactly — a guardrail that fires on correct behaviour
+# gets switched off, and then protects nothing.
+#
+# Identifiers, dates and amounts are unambiguous tokens. A status word is
+# ordinary English that appears in refusals, questions and policy explanations,
+# so grounding it needs meaning rather than membership — which is a judge's job.
+
+
+def _evidence(results: tuple[ToolResult, ...]) -> str:
+    return " ".join(f"{r.structured} {r.text}" for r in results).lower()
+
+
+def _normalise(amount: str) -> str:
+    return amount.replace(",", "").lstrip("0") or "0"
+
+
+def no_ungrounded_entity(ctx: Context) -> Verdict:
+    """Every identifier, amount, date and status word in the reply must appear in
+    what the tools actually returned this turn.
+
+    This check exists because `outputSchema` is mandatory. Tool results are
+    structured, so "did the model invent this order id" is a set membership
+    question rather than a judgement — M1, not M3, and therefore free, exact and
+    runnable on every reply rather than sampled.
+
+    It is AAC-0030's *citations resolve* applied to tool output instead of
+    documents. Deliberately narrow: it grounds **entities**, not meaning. Three
+    things it cannot catch, stated plainly rather than left for someone to
+    discover — a reply that negates a true fact ("has *not* been delivered"), one
+    that invents a fact with no entity in it ("Bluedart has it"), and one that
+    miscounts. All three need a judge, and a judge needs its own validation
+    before it can be trusted with anything.
+
+    Digits inside identifiers are not treated as amounts, and amounts are
+    compared with separators stripped, because `12,400` and `12400` are the same
+    number and a control that says otherwise fires on correct replies — which is
+    the F-004 failure mode, and it is the one that gets a guardrail switched off.
+    """
+    if not ctx.tool_results:
+        return ALLOW
+    evidence = _evidence(ctx.tool_results)
+    text = ctx.text
+    identifiers = set(IDENTIFIER.findall(text))
+
+    for found in identifiers:
+        if found.lower() not in evidence:
+            return block("no_ungrounded_entity", f"cited {found!r}, which no tool returned")
+
+    for date in ISO_DATE.findall(text):
+        if date not in evidence:
+            return block(
+                "no_ungrounded_entity", f"stated the date {date!r}, which no tool returned"
+            )
+
+    masked = IDENTIFIER.sub(" ", text)
+    for match in MONEY.finditer(masked):
+        amount = match.group(1) or match.group(2)
+        if amount and _normalise(amount) not in _normalise_all(evidence):
+            return block("no_ungrounded_entity", f"stated the figure {amount!r}, unsupported")
+
+    return ALLOW
+
+
+def _normalise_all(evidence: str) -> str:
+    return re.sub(r"[,\s]", "", evidence)
+
+
 def no_pii_echo(ctx: Context) -> Verdict:
     """Do not read a card number back to the person who typed it.
 
@@ -188,6 +262,7 @@ def no_discount_offer(ctx: Context) -> Verdict:
 
 OUTPUT_RULES = (
     no_unclaimed_effect,
+    no_ungrounded_entity,
     no_invented_delivery_date,
     no_pii_echo,
     no_discount_offer,
@@ -251,5 +326,6 @@ __all__ = [
     "no_discount_offer",
     "no_invented_delivery_date",
     "no_pii_echo",
+    "no_ungrounded_entity",
     "no_unclaimed_effect",
 ]

@@ -298,3 +298,65 @@ def test_a_refused_tool_result_does_not_license_the_claim() -> None:
 def test_a_successful_tool_result_does_license_it() -> None:
     ok = ToolResult(name="cancel_order", structured={"allowed": True, "reason": "allowed"})
     assert not pol.enforce(reply("I have cancelled that order.", ok)).blocked
+
+
+# --------------------------------------------------------------------------- #
+# Entity grounding. Possible only because `outputSchema` is mandatory — tool
+# results are structured, so "did the model invent this" is set membership
+# rather than judgement. M1, not M3.
+# --------------------------------------------------------------------------- #
+
+DELIVERED = ToolResult(
+    name="get_order",
+    structured={"id": "AB-10003", "status": "delivered", "days_since_delivery": 5},
+)
+REFUNDED = ToolResult(name="issue_refund", structured={"id": "AB-10001", "amount": "12400"})
+
+UNGROUNDED = [
+    ("an order id no tool returned", "Your order AB-99999 was delivered.", DELIVERED),
+    ("a date no tool returned", "It will arrive on 2026-09-14.", DELIVERED),
+    ("a figure no tool returned", "You will receive Rs 4,500 back.", DELIVERED),
+]
+
+
+@pytest.mark.parametrize(("name", "text", "evidence"), UNGROUNDED, ids=[c[0] for c in UNGROUNDED])
+@pytest.mark.discharges("AAC-0029", "AAC-0110")
+def test_an_invented_entity_is_blocked(name: str, text: str, evidence: ToolResult) -> None:
+    assert pol.enforce(reply(text, evidence)).rule == "no_ungrounded_entity"
+
+
+GROUNDED = [
+    ("the id and the age the tool gave", "Order AB-10003 was delivered 5 days ago.", DELIVERED),
+    ("a refusal naming the state", "That order has shipped, so it cannot be cancelled.", DELIVERED),
+    ("explaining the policy", "Orders can be cancelled until they are picked.", DELIVERED),
+    ("an amount the tool returned", "A refund of Rs 12,400 was requested.", REFUNDED),
+    ("no tools ran at all", "I am not sure — let me check.", None),
+]
+
+
+@pytest.mark.parametrize(("name", "text", "evidence"), GROUNDED, ids=[c[0] for c in GROUNDED])
+def test_a_grounded_reply_passes(name: str, text: str, evidence: ToolResult | None) -> None:
+    """The half that matters more. F-004's lesson: a control that fires on
+    correct behaviour is switched off, and then protects nothing."""
+    results = (evidence,) if evidence else ()
+    assert not pol.enforce(reply(text, *results)).blocked, f"blocked a truthful reply: {text!r}"
+
+
+def test_separators_do_not_make_a_real_amount_look_invented() -> None:
+    """`12,400` and `12400` are the same number, and a control that says
+    otherwise fires on correct replies."""
+    assert not pol.enforce(reply("We have refunded Rs 12,400.", REFUNDED)).blocked
+
+
+def test_what_entity_grounding_cannot_catch() -> None:
+    """Stated as a test so the limit is a fact rather than a hope.
+
+    All three contain only grounded tokens and are still false. They need a
+    judge, and a judge needs its own validation before it can be trusted.
+    """
+    for text in (
+        "That order has not been delivered yet.",  # negates a true fact
+        "Bluedart has it.",  # invents a fact with no entity
+        "All 3 items were delivered.",  # miscounts
+    ):
+        assert not pol.enforce(reply(text, DELIVERED)).blocked

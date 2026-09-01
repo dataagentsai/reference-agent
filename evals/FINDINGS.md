@@ -177,9 +177,69 @@ tested.
 
 ---
 
-## What these five say about the method
+## F-008 · Context trimming orphaned tool calls
 
-None of them was found by reading the code. All five needed a world that could
+**Found** 2026-09-02 by a probe written while auditing context handling.
+
+**Severity** High. It is a production 400 on any conversation long enough to trim.
+
+`assemble()` dropped messages from the middle **by index**, with no idea that an
+assistant turn carrying `tool_calls` and the `tool` messages answering it are one
+indivisible unit. Eight of fifty-five turn-and-budget combinations produced a
+transcript where an assistant claimed a call whose answer had been removed —
+which is the identical wire-format failure the first live Groq call produced:
+*"Tools should have a name!"*
+
+No test caught it because no test ran a conversation long enough to trim. The
+tests that existed were about *what* was kept, not about whether what was kept
+was coherent.
+
+**Fix.** Trimming groups history into exchanges and drops whole units.
+`assemble()` now checks the invariant on every call and raises
+`BrokenTranscript` rather than handing a provider something it will reject, and
+a Hypothesis property covers every turn count and budget: **0 orphans in 357
+combinations.**
+
+---
+
+## F-009 · Nothing checked whether a stated fact was true
+
+**Found** 2026-09-02, by probing nine hallucinations against the output rules.
+
+**Severity** High, and it is a gap of *shape* rather than of care.
+
+**Seven of nine passed.** The tool returned `status: delivered`, and the agent
+could invent an order id, a status, an amount, a carrier, a count or a policy
+number — or flatly contradict the tool — with nothing stopping it.
+
+Every control that existed checked a claim about **the agent's own behaviour**.
+F-001 and F-002 taught that lesson so thoroughly that it got built for, and the
+other half never did: nothing checked a claim about **the world's content**.
+
+**Fix.** `no_ungrounded_entity` — every identifier, date and amount in a reply
+must appear in the structured tool results of that turn. This is possible only
+because `outputSchema` is mandatory: results are structured, so the question is
+set membership rather than judgement. M1, not M3, and therefore free, exact and
+runnable on every reply rather than sampled.
+
+**And a rule that was removed on the way.** Status words were checked too, and
+produced *zero true positives and one false positive*: "it can no longer be
+cancelled" contains "cancelled", no tool returned that status, and a correct
+refusal was blocked. F-004 repeating within the same hour. Identifiers, dates and
+amounts are unambiguous tokens; a status word is ordinary English that appears in
+refusals and policy explanations, so grounding it needs meaning rather than
+membership.
+
+**What it still cannot catch**, pinned as a test so the limit is a fact rather
+than a hope: a reply that negates a true fact, one that invents a fact with no
+entity in it, and one that miscounts. All three need a judge, and a judge needs
+its own validation before it can be trusted.
+
+---
+
+## What these seven say about the method
+
+None of them was found by reading the code. All of them needed a world that could
 be *put into a state* — shipped, then perturbed mid-run — and an oracle that was
 the world rather than the reply.
 

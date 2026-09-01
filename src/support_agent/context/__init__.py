@@ -74,33 +74,79 @@ def user_message(text: str) -> Message:
     return Message(role="user", content=text, provenance="user")
 
 
+def exchanges(history: Sequence[Message]) -> list[list[Message]]:
+    """Group messages into indivisible units.
+
+    An assistant turn that carries `tool_calls` and the `tool` messages answering
+    them are **one unit**. Splitting them produces a transcript where an
+    assistant says it called something and the answer is absent — which the
+    provider rejects outright, and which is exactly the wire-format failure the
+    first live call produced.
+    """
+    units: list[list[Message]] = []
+    for message in history:
+        if message.role == "tool" and units:
+            units[-1].append(message)
+        else:
+            units.append([message])
+    return units
+
+
+def orphaned(messages: Sequence[Message]) -> tuple[set[str], set[str]]:
+    """Tool calls with no answer, and answers with no call.
+
+    Returned rather than asserted so a caller can check the invariant cheaply;
+    `assemble` checks it on every call, because a trimming bug is silent until a
+    conversation gets long enough and then fails every request.
+    """
+    called = {c.id for m in messages for c in m.tool_calls}
+    answered = {m.tool_call_id for m in messages if m.role == "tool" and m.tool_call_id}
+    return called - answered, answered - called
+
+
+class BrokenTranscript(Exception):
+    """Assembly produced a transcript no provider will accept."""
+
+
 def assemble(
     *,
     system: str,
     history: Sequence[Message],
     max_chars: int = 24_000,
 ) -> tuple[Message, ...]:
-    """Order for cache friendliness, then trim from the middle.
+    """Order for cache friendliness, then trim whole exchanges from the middle.
 
     The system prompt is a stable prefix and goes first and unchanged: any byte
     that moves invalidates every cached token after it. Trimming takes from the
-    middle rather than the tail, because the most recent turns are what the
-    model is answering and the earliest establish the task.
+    middle rather than the tail, because the most recent turns are what the model
+    is answering and the earliest establish the task.
 
-    Compaction is deliberately absent for now — a summary would inherit the
-    provenance of everything it summarised, and getting that wrong is worse than
-    a shorter window. It arrives with `state`, where the durability boundary
-    makes it checkable.
+    **Trimming drops whole exchanges.** An earlier version dropped individual
+    messages by index and orphaned a tool call in eight of fifty-five
+    turn-and-budget combinations — an assistant turn claiming a call whose answer
+    had been removed, which every provider rejects. Nothing caught it because no
+    test ran a conversation long enough to trim.
+
+    Compaction is still deliberately absent: a summary inherits the provenance of
+    everything it summarised, and getting that wrong is worse than a shorter
+    window.
     """
     head = Message(role="system", content=system, provenance="operator")
-    kept = list(history)
+    units = exchanges(history)
 
-    def size(messages: Iterable[Message]) -> int:
-        return sum(len(m.content) for m in messages)
+    def size(groups: Iterable[list[Message]]) -> int:
+        return sum(len(m.content) for group in groups for m in group)
 
-    while len(kept) > 2 and size(kept) + len(system) > max_chars:
-        kept.pop(len(kept) // 2)
+    while len(units) > 2 and size(units) + len(system) > max_chars:
+        units.pop(len(units) // 2)
 
+    kept = [m for group in units for m in group]
+    missing_answers, missing_calls = orphaned(kept)
+    if missing_answers or missing_calls:
+        raise BrokenTranscript(
+            f"assembly orphaned tool calls {sorted(missing_answers)} "
+            f"and results {sorted(missing_calls)}"
+        )
     return (head, *kept)
 
 
@@ -109,10 +155,13 @@ def budget_exceeded(messages: Sequence[Message], *, max_chars: int) -> bool:
 
 
 __all__ = [
+    "BrokenTranscript",
     "FENCE_CLOSE",
     "FENCE_OPEN",
     "assemble",
     "budget_exceeded",
+    "exchanges",
+    "orphaned",
     "fence",
     "model_tools",
     "render",

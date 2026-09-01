@@ -329,3 +329,55 @@ def test_the_policy_covers_every_irreversible_action_not_just_refunds() -> None:
     }
     missing = irreversible - set(pol.CLAIM_PATTERNS)
     assert not missing, f"irreversible actions with no claim rule: {missing}"
+
+
+# --------------------------------------------------------------------------- #
+# F-008 — trimming must never split an exchange.
+# --------------------------------------------------------------------------- #
+
+
+def _long_history(turns: int):
+    from support_agent.contracts import Message as M
+    from support_agent.contracts import ToolCall as TC
+
+    history = []
+    for i in range(turns):
+        history.append(ctx.user_message(f"q{i} " + "x" * 300))
+        history.append(
+            M(
+                role="assistant",
+                content="",
+                tool_calls=(TC(id=f"tc{i}", name="get_order", arguments={}),),
+            )
+        )
+        history.append(
+            ctx.tool_message(ToolResult(name="get_order", structured={}), tool_call_id=f"tc{i}")
+        )
+    return history
+
+
+@settings(max_examples=80, deadline=None)
+@given(
+    turns=st.integers(min_value=1, max_value=25), budget=st.integers(min_value=200, max_value=6000)
+)
+@pytest.mark.discharges("AAC-0105")
+async def test_trimming_never_orphans_a_tool_call(turns: int, budget: int) -> None:
+    """An assistant turn claiming a call whose answer was trimmed away is a
+    transcript no provider accepts — the same 400 the first live call produced.
+
+    Stated as a property over every turn count and budget, because the original
+    defect appeared in eight combinations out of fifty-five and in none of the
+    ones anybody had thought to write down.
+    """
+    assembled = ctx.assemble(system="s", history=_long_history(turns), max_chars=budget)
+    missing_answers, missing_calls = ctx.orphaned(assembled)
+    assert not missing_answers and not missing_calls
+
+
+def test_trimming_keeps_the_ends() -> None:
+    """The earliest turn establishes the task; the latest is what is being
+    answered. The middle is what can go."""
+    assembled = ctx.assemble(system="s", history=_long_history(12), max_chars=2000)
+    body = [m for m in assembled if m.role == "user"]
+    assert "q0 " in body[0].content
+    assert "q11 " in body[-1].content
