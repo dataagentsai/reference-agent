@@ -9,18 +9,20 @@ which are the layers the catalogs exist to make visible.
 
 ## Status
 
-Ten of sixteen modules are built: `contracts`, `config`, `telemetry`, `llm`,
-`identity`, `idempotency`, `tools`, `context`, `router` and `loop`. The agent
-runs end to end against an in-process MCP server with a scripted model — no
-network, zero cost. The rest are declared in the architecture and not yet
-written: `state`, `policy`, `cost`, `approvals`, `resilience`, `flow`,
-`cassette`, `entrypoint`.
+Twelve of sixteen modules are built. The agent is drivable end to end through
+`entrypoint.Agent.handle()` — AHC-0010, the surface an evaluation drives —
+against an in-process MCP server with a scripted model: no network, zero cost.
+
+Built: `contracts`, `config`, `telemetry`, `llm`, `identity`, `idempotency`,
+`tools`, `context`, `router`, `loop`, `state`, `entrypoint`.
+Declared but not yet written: `policy`, `cost`, `approvals`, `resilience`,
+`flow`, `cassette`.
 
 The build order follows the dependency contract upward:
 
 ```
-contracts ✔ → config ✔, telemetry ✔ → llm ✔, identity ✔, idempotency ✔, state
-          → tools ✔, context ✔ → loop ✔, router ✔ → entrypoint
+contracts ✔ → config ✔, telemetry ✔ → llm ✔, identity ✔, idempotency ✔, state ✔
+          → tools ✔, context ✔ → loop ✔, router ✔ → entrypoint ✔
 ```
 
 ## The architecture is enforced, not documented

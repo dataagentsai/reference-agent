@@ -60,10 +60,10 @@ name = "Arrows point down"
 type = "layers"
 containers = ["support_agent"]
 layers = [
-    "(entrypoint)",
+    "entrypoint",
     "router | loop",
     "context | tools | (approvals)",
-    "llm | (state) | (policy) | (cost) | idempotency | (resilience) | (flow) | identity | (cassette)",
+    "llm | state | (policy) | (cost) | idempotency | (resilience) | (flow) | identity | (cassette)",
     "config | telemetry",
     "contracts",
 ]
