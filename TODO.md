@@ -21,11 +21,11 @@ Ordered by what unblocks what, not by size.
       *Gate:* a run that would exceed `max_cost_usd` stops with
       `COST_CEILING_REACHED`.
 
-- [~] **A2 · `approvals`** (L14, P6+P8) — queue, decision record, resumption.
-      **Mechanism built and proven end to end at the tool boundary.** Remaining:
-      wiring it through `Agent.handle()`, which needs a customer-facing
-      `request_refund` tool (reversible, in scope) that raises the approval, and
-      a resume path keyed off `Conversation.pending_approval_id`.
+- [x] **A2 · `approvals`** ✔ (L14, P6+P8) — queue, decision record, resumption.
+      Wired through `Agent.handle()` via a **harness-local** `request_refund`
+      tool — answered by the agent, never dispatched over MCP, because the
+      approval lives in agent-owned state and no tool on the business server
+      could create one without putting the oracle inside the simulated world.
       *Why second:* it closes the only functional path in doc 24 that cannot
       currently complete. `state.Conversation.pending_approval_id` is already
       waiting for it.

@@ -16,6 +16,7 @@ from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.contracts import IdempotencyKey, Identity, RunId, SideEffectClass
 from support_agent.idempotency import InMemoryLedger
+from support_agent.llm import ScriptedClient
 from support_agent.tools import META_REQUIRED_SCOPE, META_SIDE_EFFECT, connect
 
 T0 = 1_000_000
@@ -254,3 +255,133 @@ async def test_the_decision_is_on_the_trace(exporter) -> None:
     names = [s.name for s in exporter.get_finished_spans()]
     assert "agent.approval.request" in names
     assert "agent.approval.decide" in names
+
+
+# --------------------------------------------------------------------------- #
+# A2's gate: through Agent.handle(), across turns.
+# --------------------------------------------------------------------------- #
+
+
+def refund_agent(tools, store, approvals, llm):
+    from support_agent import entrypoint as ep
+
+    return ep.build(llm=llm, tools=tools, store=store, approvals=approvals)
+
+
+def wants_refund(amount: str):
+    from support_agent.contracts import ModelResponse, ToolCall
+
+    return ModelResponse(
+        tool_calls=(
+            ToolCall(
+                id="tc",
+                name=ap.REQUEST_REFUND,
+                arguments={"order_id": "AB-1", "amount": amount},
+            ),
+        )
+    )
+
+
+async def test_a_large_refund_waits_and_then_completes_across_turns(server) -> None:
+    """The whole gate, through the drivable surface.
+
+    Turn one asks and is told nothing has been refunded. A colleague authorises
+    it. Turn two resumes and completes — and the customer is never told a refund
+    happened before it did.
+    """
+    from support_agent.contracts import Completed, NeedsApproval
+    from support_agent.state import InMemoryCheckpointStore
+
+    approvals = ap.InMemoryApprovalStore()
+    ledger = InMemoryLedger()
+
+    async with connect(server, ledger=ledger) as tools:
+        agent = refund_agent(
+            tools,
+            InMemoryCheckpointStore(),
+            approvals,
+            ScriptedClient([wants_refund("12400")]),
+        )
+
+        first, conversation = await agent.handle(
+            "I want my money back for AB-1", identity=customer()
+        )
+        assert isinstance(first, NeedsApproval)
+        assert "Nothing has been refunded" in first.reply
+        assert server.state["refunds"] == 0
+        assert conversation.pending_approval_id == first.approval_id
+
+        await ap.decide(approvals, first.approval_id, granted=True, by="ops-7")
+
+        agent.llm = ScriptedClient([])  # a resume must not need the model
+        second, conversation = await agent.handle(
+            "any news?", identity=customer(), conversation=conversation
+        )
+
+    assert isinstance(second, Completed)
+    assert server.state["refunds"] == 1
+    assert conversation.pending_approval_id is None
+
+
+async def test_a_pending_approval_short_circuits_the_next_turn(server) -> None:
+    from support_agent.contracts import Completed, NeedsApproval
+    from support_agent.state import InMemoryCheckpointStore
+
+    approvals = ap.InMemoryApprovalStore()
+    async with connect(server, ledger=InMemoryLedger()) as tools:
+        agent = refund_agent(
+            tools, InMemoryCheckpointStore(), approvals, ScriptedClient([wants_refund("12400")])
+        )
+        first, conversation = await agent.handle("refund AB-1 please", identity=customer())
+        assert isinstance(first, NeedsApproval)
+
+        agent.llm = ScriptedClient([])
+        second, _ = await agent.handle("well?", identity=customer(), conversation=conversation)
+
+    assert isinstance(second, Completed)
+    assert "still with a colleague" in second.reply
+    assert server.state["refunds"] == 0
+
+
+async def test_a_refused_approval_is_reported_and_nothing_is_refunded(server) -> None:
+    from support_agent.contracts import Completed
+    from support_agent.state import InMemoryCheckpointStore
+
+    approvals = ap.InMemoryApprovalStore()
+    async with connect(server, ledger=InMemoryLedger()) as tools:
+        agent = refund_agent(
+            tools, InMemoryCheckpointStore(), approvals, ScriptedClient([wants_refund("12400")])
+        )
+        first, conversation = await agent.handle("refund AB-1", identity=customer())
+        await ap.decide(approvals, first.approval_id, granted=False, by="ops-7")
+
+        agent.llm = ScriptedClient([])
+        second, conversation = await agent.handle(
+            "and now?", identity=customer(), conversation=conversation
+        )
+
+    assert isinstance(second, Completed)
+    assert "could not authorise" in second.reply
+    assert server.state["refunds"] == 0
+    assert conversation.pending_approval_id is None
+
+
+async def test_an_agent_without_an_approval_store_cannot_refund_at_all(server) -> None:
+    """It does not fall back to issuing one — the tool is simply not advertised."""
+    from support_agent import entrypoint as ep
+    from support_agent.state import InMemoryCheckpointStore
+
+    async with connect(server, ledger=InMemoryLedger()) as tools:
+        agent = ep.build(
+            llm=ScriptedClient([wants_refund("12400"), _says()]),
+            tools=tools,
+            store=InMemoryCheckpointStore(),
+        )
+        await agent.handle("refund AB-1", identity=customer())
+    assert server.state["refunds"] == 0
+
+
+def _says():
+    from support_agent.contracts import ModelResponse
+
+    return ModelResponse(text="I cannot do that.")

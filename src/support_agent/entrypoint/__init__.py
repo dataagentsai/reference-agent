@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from support_agent import approvals as ap
 from support_agent import context as ctx
 from support_agent import loop as agent_loop
 from support_agent import router
@@ -28,6 +29,7 @@ from support_agent import telemetry as tel
 from support_agent.config import Budgets, RunConfig
 from support_agent.contracts import (
     Agentic,
+    ApprovalStore,
     CheckpointStore,
     Completed,
     Direct,
@@ -37,6 +39,7 @@ from support_agent.contracts import (
     IdempotencyKey,
     Identity,
     LLMClient,
+    NeedsApproval,
     Refuse,
     Refused,
     RunId,
@@ -68,6 +71,7 @@ class Agent:
     llm: LLMClient
     tools: ToolClient
     store: CheckpointStore
+    approvals: ApprovalStore | None = None
     config: RunConfig | None = None
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     budgets: Budgets = field(default_factory=Budgets)
@@ -99,6 +103,13 @@ class Agent:
             attributes[tel.RESOLUTION] = self.config.resolution
 
         with tel.span("agent.turn", **attributes):
+            if conversation.pending_approval_id is not None:
+                resumed = await self._resume(conversation, identity, run_id)
+                if resumed is not None:
+                    result, conversation = resumed
+                    await self.store.checkpoint(run_id, conversation.encode())
+                    return result, conversation
+
             decision = router.route(text, rules=self.rules)
             conversation = conversation.with_messages(ctx.user_message(text))
 
@@ -124,11 +135,88 @@ class Agent:
                         budgets=self.budgets,
                         run_id=run_id,
                         history=conversation.messages[:-1],
+                        local_tools=self._local_tools(identity, run_id),
                     )
 
             conversation = _record(conversation, result)
             await self.store.checkpoint(run_id, conversation.encode())
             return result, conversation
+
+    def _local_tools(self, identity: Identity, run_id: RunId) -> dict[str, ap.LocalTool]:
+        """Harness-answered tools. Empty when no approval store is wired, so an
+        agent without one simply cannot raise a refund — it does not fall back
+        to issuing one."""
+        if self.approvals is None:
+            return {}
+        tool = ap.refund_tool(
+            self.approvals,
+            identity=identity,
+            idempotency_key=IdempotencyKey(run_id=run_id, step=0, iteration=0),
+        )
+        return {tool.spec.name: tool}
+
+    async def _resume(
+        self, conversation: Conversation, identity: Identity, run_id: RunId
+    ) -> tuple[TurnResult, Conversation] | None:
+        """Pick up a decision made since the last turn.
+
+        Returns `None` when there is nothing to resume, so the turn proceeds
+        normally. A still-pending approval short-circuits: continuing would let
+        the customer's next message start work that the outstanding decision may
+        make pointless.
+        """
+        assert conversation.pending_approval_id is not None
+        if self.approvals is None:
+            return None
+
+        approval = await self.approvals.get(conversation.pending_approval_id)
+        if approval is None:
+            return None
+
+        with tel.span("agent.approval.resume", **{"agent.approval.id": approval.id}):
+            if not approval.decided:
+                return (
+                    Completed(reply="That is still with a colleague to authorise."),
+                    conversation,
+                )
+
+            cleared = conversation.model_copy(update={"pending_approval_id": None})
+
+            if not approval.granted:
+                return (
+                    Completed(reply="A colleague reviewed this and could not authorise it."),
+                    _record(cleared, Completed(reply="")),
+                )
+
+            try:
+                elevated = ap.granted_identity(approval, identity)
+            except ap.ApprovalError as exc:
+                return (
+                    Failed(
+                        customer_message=(
+                            "That authorisation is no longer valid — "
+                            "please ask again and I will raise it afresh."
+                        ),
+                        detail=str(exc),
+                    ),
+                    cleared,
+                )
+
+            result = await self.tools.call(
+                approval.action, dict(approval.args), elevated, ap.stored_key(approval)
+            )
+            if result.is_error:
+                return (
+                    Failed(
+                        customer_message="The refund could not be completed.",
+                        detail=result.text,
+                    ),
+                    cleared,
+                )
+            return (
+                Completed(reply="That has been authorised and the refund is on its way."),
+                cleared,
+            )
 
     async def _direct(self, decision: Direct, identity: Identity, run_id: RunId) -> TurnResult:
         """A deterministic handler. No model call, and the trace says so."""
@@ -168,7 +256,7 @@ def _record(conversation: Conversation, result: TurnResult) -> Conversation:
     operator and lives on the span. A conversation is what the customer can be
     shown.
     """
-    from support_agent.contracts import Message, NeedsApproval
+    from support_agent.contracts import Message
 
     reply = getattr(result, "reply", None) or getattr(result, "customer_message", "")
     updated = conversation.with_messages(
@@ -184,6 +272,7 @@ def build(
     llm: LLMClient,
     tools: ToolClient,
     store: CheckpointStore,
+    approvals: ApprovalStore | None = None,
     config: RunConfig | None = None,
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
 ) -> Agent:
@@ -198,6 +287,7 @@ def build(
         llm=llm,
         tools=tools,
         store=store,
+        approvals=approvals,
         config=config,
         system_prompt=system_prompt,
         budgets=config.budgets if config else Budgets(),

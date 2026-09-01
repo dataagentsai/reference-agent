@@ -44,13 +44,35 @@ from decimal import Decimal
 
 from support_agent import identity as ident
 from support_agent import telemetry as tel
-from support_agent.contracts import Approval, IdempotencyKey, Identity
+from support_agent.contracts import (
+    Approval,
+    IdempotencyKey,
+    Identity,
+    LocalTool,
+    SideEffectClass,
+    ToolResult,
+    ToolSpec,
+)
 
 REFUND_ACTION = "issue_refund"
 
 
 class ApprovalError(Exception):
     """Something about this decision is not allowed."""
+
+
+class RefundRequested(Exception):  # noqa: N818 — control flow, not a failure
+    """The model asked for a refund that needs a human.
+
+    Carried as an exception because it is the one thing a local tool can do that
+    the loop cannot express as a `ToolResult`: it must stop the loop rather than
+    feed a result back into it. Continuing would let the model narrate a refund
+    that has not been authorised.
+    """
+
+    def __init__(self, approval: Approval) -> None:
+        self.approval = approval
+        super().__init__(approval.id)
 
 
 @dataclass(frozen=True)
@@ -222,8 +244,80 @@ def stored_key(approval: Approval) -> IdempotencyKey:
     return IdempotencyKey(run_id=RunId(run_id), step=int(step), iteration=int(iteration))
 
 
+REQUEST_REFUND = "request_refund"
+
+REQUEST_REFUND_SPEC = ToolSpec(
+    name=REQUEST_REFUND,
+    description=(
+        "Request a refund for an order. Refunds above the approval threshold are "
+        "sent to a colleague to authorise; you will not be told the outcome in "
+        "this conversation. Never tell the customer a refund has been issued."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "order_id": {"type": "string"},
+            "amount": {"type": "string", "description": "Amount in INR"},
+        },
+        "required": ["order_id", "amount"],
+        "additionalProperties": False,
+    },
+    output_schema={
+        "type": "object",
+        "properties": {"status": {"type": "string"}, "approval_id": {"type": "string"}},
+        "required": ["status"],
+    },
+    side_effect=SideEffectClass.REVERSIBLE,
+)
+"""Harness-local. The description says outright that the model must not claim a
+refund happened — the gate is the control, but a model narrating a granted
+refund to the customer has already done the damage the gate exists to prevent."""
+
+
+def refund_tool(
+    store: object,
+    *,
+    identity: Identity,
+    idempotency_key: IdempotencyKey,
+    policy: Policy | None = None,
+    now: int | None = None,
+) -> LocalTool:
+    """Bind the request tool to one run's identity and key.
+
+    The key is bound *here*, at request time, so whatever the model passes as
+    arguments cannot influence which key the eventual execution runs under.
+    """
+    policy = policy or Policy()
+
+    async def handle(arguments: dict[str, object]) -> ToolResult:
+        reason = requires_approval(REFUND_ACTION, arguments, policy)
+        if reason is None:
+            return ToolResult(
+                name=REQUEST_REFUND,
+                structured={"status": "below_threshold"},
+                text="within the automatic limit",
+            )
+        approval = await request(
+            store,
+            action=REFUND_ACTION,
+            args=arguments,
+            reason=reason,
+            identity=identity,
+            idempotency_key=idempotency_key,
+            policy=policy,
+            now=now,
+        )
+        raise RefundRequested(approval)
+
+    return LocalTool(spec=REQUEST_REFUND_SPEC, handler=handle)
+
+
 __all__ = [
     "REFUND_ACTION",
+    "REQUEST_REFUND",
+    "REQUEST_REFUND_SPEC",
+    "RefundRequested",
+    "refund_tool",
     "ApprovalError",
     "InMemoryApprovalStore",
     "Policy",

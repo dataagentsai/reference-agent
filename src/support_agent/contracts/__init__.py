@@ -50,6 +50,7 @@ from support_agent.contracts.results import (
 )
 from support_agent.contracts.tools import (
     Approval,
+    LocalTool,
     MissingIdempotencyKey,
     ToolRegistry,
     ToolResult,
@@ -75,6 +76,7 @@ __all__ = [
     "Identity",
     "Intent",
     "LLMClient",
+    "LocalTool",
     "Message",
     "MissingIdempotencyKey",
     "ModelRequest",

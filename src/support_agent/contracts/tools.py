@@ -6,6 +6,8 @@ specification rather than from taste.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -139,3 +141,21 @@ class Approval(BaseModel):
     decided: bool = False
     granted: bool = False
     decided_by: str | None = None
+
+
+@dataclass(frozen=True)
+class LocalTool:
+    """A tool the harness answers itself, never dispatched over MCP.
+
+    Needed because some actions belong to the agent rather than to any external
+    system. Raising an approval is the example: the decision lives in
+    agent-owned state, so no tool on the business server could create one, and
+    pretending otherwise would put the oracle inside the world being simulated.
+
+    Advertised to the model exactly like any other tool, so the model does not
+    need to know the difference — but dispatched locally, so it never crosses
+    the MCP boundary and AgentTwin never has to project it.
+    """
+
+    spec: ToolSpec
+    handler: Callable[[dict[str, object]], Awaitable[ToolResult]]

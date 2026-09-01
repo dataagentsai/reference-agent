@@ -32,10 +32,12 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from support_agent import context as ctx
 from support_agent import telemetry as tel
+from support_agent.approvals import RefundRequested
 from support_agent.config import Budgets
 from support_agent.contracts import (
     Completed,
@@ -43,9 +45,11 @@ from support_agent.contracts import (
     IdempotencyKey,
     Identity,
     LLMClient,
+    LocalTool,
     Message,
     ModelRequest,
     ModelUnavailable,
+    NeedsApproval,
     RunId,
     TerminationReason,
     ToolClient,
@@ -93,6 +97,7 @@ async def run(
     history: tuple[Message, ...] = (),
     oscillation_threshold: int = 3,
     meter: Meter | None = None,
+    local_tools: Mapping[str, LocalTool] | None = None,
 ) -> tuple[TurnResult, Trace]:
     budgets = budgets or Budgets()
     run_id = run_id or new_run_id()
@@ -107,6 +112,10 @@ async def run(
         except ToolUnavailable as exc:
             return _failed(run_span, trace, "I cannot reach our order system right now.", str(exc))
 
+        local_tools = dict(local_tools or {})
+        registry = registry.model_copy(
+            update={"tools": (*registry.tools, *(t.spec for t in local_tools.values()))}
+        )
         tool_defs = ctx.model_tools(registry)
 
         for step in range(budgets.max_steps):
@@ -160,7 +169,26 @@ async def run(
                         )
 
                     key = IdempotencyKey(run_id=run_id, step=step, iteration=len(trace.tool_calls))
-                    result = await _invoke(tools, call, identity, key)
+                    try:
+                        result = await _invoke(tools, call, identity, key, local_tools)
+                    except RefundRequested as raised:
+                        # The only local tool that stops the loop. Letting the
+                        # model continue here would let it narrate a refund that
+                        # nobody has authorised.
+                        trace.termination = TerminationReason.AWAITING_APPROVAL
+                        run_span.set_attribute(tel.TERMINATION, trace.termination.value)
+                        return (
+                            NeedsApproval(
+                                approval_id=raised.approval.id,
+                                action=raised.approval.action,
+                                reason=raised.approval.reason,
+                                reply=(
+                                    "I have sent this to a colleague to authorise. "
+                                    "Nothing has been refunded yet."
+                                ),
+                            ),
+                            trace,
+                        )
                     messages.append(ctx.tool_message(result, tool_call_id=call.id))
 
         return _stopped(
@@ -171,7 +199,13 @@ async def run(
         )
 
 
-async def _invoke(tools: ToolClient, call, identity: Identity, key: IdempotencyKey):
+async def _invoke(
+    tools: ToolClient,
+    call,
+    identity: Identity,
+    key: IdempotencyKey,
+    local_tools: Mapping[str, LocalTool],
+):
     """Every failure is reported back to the model rather than raised.
 
     A tool that does not exist, or arguments that do not validate, are things the
@@ -180,6 +214,11 @@ async def _invoke(tools: ToolClient, call, identity: Identity, key: IdempotencyK
     none here: nothing ran.
     """
     from support_agent.contracts import ToolResult, UnknownTool
+
+    local = local_tools.get(call.name)
+    if local is not None:
+        with tel.span("agent.tool.local", **{tel.GEN_AI_TOOL_NAME: call.name}):
+            return await local.handler(call.arguments)
 
     try:
         return await tools.call(call.name, call.arguments, identity, key)
