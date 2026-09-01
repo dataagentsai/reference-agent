@@ -43,7 +43,7 @@ Ordered by what unblocks what, not by size.
       re-keying, which is the whole fix-and-regress loop.
       *Gate:* a run recorded once replays byte-identically with no network.
 
-- [ ] **A4 · `policy`** (L7, P3+P5) — middleware at four enforcement points.
+- [x] **A4 · `policy`** ✔ (L7, P3+P5) — middleware at four enforcement points.
       *Why fourth:* most surface, and it benefits from knowing what the three
       above need. Today nothing checks what the model **says** — that is most of
       test family F6.
@@ -68,6 +68,8 @@ have a module, so the coverage delta for this agent reads "none".
 ## Phase B — the first real model call
 
 - [ ] **B1** — run the agent against Groq for real, once, by hand.
+      **Blocked:** no provider key in the environment. Set
+      `AGENT_PROVIDER_API_KEY` to a free Groq key and this can run.
       **Everything so far is scripted.** No line of this system has met a real
       model. The first real call is where instruction-following, tool-argument
       escaping and latency stop being assumptions.

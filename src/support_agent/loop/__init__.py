@@ -36,6 +36,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from support_agent import context as ctx
+from support_agent import policy as pol
 from support_agent import telemetry as tel
 from support_agent.approvals import RefundRequested
 from support_agent.config import Budgets
@@ -53,6 +54,7 @@ from support_agent.contracts import (
     RunId,
     TerminationReason,
     ToolClient,
+    ToolResult,
     ToolUnavailable,
     TurnResult,
     Usage,
@@ -98,11 +100,13 @@ async def run(
     oscillation_threshold: int = 3,
     meter: Meter | None = None,
     local_tools: Mapping[str, LocalTool] | None = None,
+    policy_rules: Mapping[pol.Position, tuple] | None = None,
 ) -> tuple[TurnResult, Trace]:
     budgets = budgets or Budgets()
     run_id = run_id or new_run_id()
     trace = Trace()
     messages: list[Message] = [*history, ctx.user_message(goal)]
+    seen_results: list[ToolResult] = []
 
     with tel.span(
         "agent.run", **{tel.RUN_ID: run_id, tel.TENANT: identity.customer_id}
@@ -144,6 +148,18 @@ async def run(
                     run_span.set_attribute(tel.COST_USD, trace.spend_usd)
 
                 if not response.wants_tools:
+                    verdict = pol.enforce(
+                        pol.Context(
+                            position=pol.Position.POST_MODEL,
+                            identity=identity,
+                            text=response.text,
+                            tool_results=tuple(seen_results),
+                        ),
+                        None if policy_rules is None else policy_rules.get(pol.Position.POST_MODEL),
+                    )
+                    if verdict.blocked:
+                        run_span.set_attribute("agent.policy.blocked_by", verdict.rule)
+                        return _stopped(run_span, trace, TerminationReason.REFUSED, pol.SAFE_REPLY)
                     return _completed(run_span, trace, response.text)
 
                 if meter is not None and meter.exceeded:
@@ -189,6 +205,7 @@ async def run(
                             ),
                             trace,
                         )
+                    seen_results.append(result)
                     messages.append(ctx.tool_message(result, tool_call_id=call.id))
 
         return _stopped(
