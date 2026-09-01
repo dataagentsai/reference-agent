@@ -13,6 +13,7 @@ dependencies = [
     "mcp>=1.9",
     "jsonschema>=4.23",
     "jinja2>=3.1",
+    "pyyaml>=6.0",
     "psycopg[binary,pool]>=3.2",
 ]
 
@@ -87,6 +88,13 @@ ignore_imports = [
     "support_agent.llm.* -> groq",
 ]
 unmatched_ignore_imports_alerting = "none"
+
+[[tool.importlinter.contracts]]
+# A system that can see its own simulator is a system whose results mean nothing.
+name = "The agent cannot see its simulator"
+type = "forbidden"
+source_modules = ["support_agent"]
+forbidden_modules = ["agenttwin"]
 
 [[tool.importlinter.contracts]]
 name = "Only the tools module speaks MCP"

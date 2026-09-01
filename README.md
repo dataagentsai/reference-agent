@@ -61,6 +61,24 @@ Three further contracts fail *closed*: only `llm` may import a provider SDK,
 only `tools` may speak MCP, only `state` and `idempotency` may touch the
 database. A new module inherits every ban without anyone remembering to add it.
 
+## AgentTwin
+
+`agenttwin/` twins the agent's **world**, not the agent. The agent under test is
+real; its environment is the twin. The import contract forbids `support_agent`
+from importing it — a system that can see its own simulator is a system whose
+results mean nothing.
+
+A world is declared in YAML — entities, the ontology, the rows at t₀, and the
+**eligibility policy as data**. The projection generates an MCP server from it
+with no per-tool code, so a second world is a second file.
+
+```bash
+uv run pytest tests/test_agenttwin.py
+```
+
+The proof that the premise holds: the same 34 golden cases pass against the
+projected server and against a hand-written one.
+
 ## Conformance
 
 Every test run ends with a report against the **AI Assurance Catalog**, archetype

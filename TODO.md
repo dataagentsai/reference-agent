@@ -115,19 +115,27 @@ why and what would change it.
 
 ## Phase D — AgentTwin, Tier 0
 
-- [ ] **D1 · the projection** — world state → MCP tool responses. **Build this
-      first.** It is the one component nobody has written, and where the
-      single-world premise either holds or breaks.
-- [ ] **D2** — a `world.yaml`: five entities, one MCP server, a seed. A draft,
-      not a schema.
-- [ ] **D3** — seed from world state (Faker for the cold start).
-- [ ] **D4** — snapshot `world₀` / `world₁` and diff. The strongest oracle there
-      is, and one no transcript-grading eval can produce.
-- [ ] **D5** — the run record: seed, config hash, verdicts tagged with AAC ids,
-      trace, cassette.
+- [x] **D1 · the projection** ✔ — `agenttwin/projection.py`. Every tool is
+      generated from the declaration: schema from the entity, metadata from the
+      action, behaviour from `allowed_when` and `sets`. No per-tool code, which
+      is the whole claim. **The premise held**: the same 34 golden cases pass
+      against the projected server and the hand-written one.
+- [x] **D2** ✔ — `worlds/clothing.yaml`. Two entities, five actions, five rows,
+      a declared ontology and a fidelity block naming what it is **not** faithful
+      about. Eligibility is data, so "return on day 31" is a case you write.
+- [~] **D3** — rows are declared in the world file and validated at load
+      (enums, dangling foreign keys). Faker generation for volume is not built;
+      nothing yet needs more than five orders.
+- [x] **D4** ✔ — `Live.snapshot()` and `record.diff()`. The gate asserts on the
+      diff, not on the reply.
+- [x] **D5** ✔ — `RunRecord`: scenario, world, seed, resolution, config
+      fingerprint, **determinism class**, world diff, effects, verdicts and the
+      AAC ids discharged.
 
-**Gate:** *cancel an order already `shipped`* → the diff shows zero cancellation
-rows, and the agent refused rather than failed.
+**Gate held.** *Cancel an order already `shipped`* → the agent refused rather
+than failed, and the world diff is empty. The control case on a `pending` order
+shows exactly one change, because a gate that passes because nothing ever
+happens is not a gate.
 
 ---
 

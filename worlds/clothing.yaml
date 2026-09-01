@@ -1,0 +1,103 @@
+# A clothing e-commerce world.
+#
+# The declared environment a support agent is exercised in. The eligibility
+# policy below is DATA — the agent does not know the return window, and neither
+# does the tool server until it is projected from this file.
+#
+# That is what makes "return on day 31" a case you write rather than a fixture
+# you edit, and what will let a second world state a 60-day window without a
+# line of code changing.
+
+name: clothing-ecom
+version: 1
+seed: 20260901
+
+fidelity:
+  faithful_about:
+    - order.status and the transitions between states
+    - the return window, in whole days since delivery
+    - the final-sale exclusion
+    - which actions are irreversible
+  not_faithful_about:
+    - product descriptions, sizes and prices
+    - carrier names and real delivery timing
+    - payment authorisation and settlement
+    - anything about stock
+  verified_against: null   # asserted, not yet tested. `shadow` mode is what fixes this.
+
+entities:
+  customer:
+    key: id
+    fields:
+      id: {type: id}
+      email: {type: email}
+
+  order:
+    key: id
+    fields:
+      id: {type: id}
+      customer_id: {type: id, ref: customer.id}   # the ontology, stated once
+      status:
+        type: enum
+        values: [pending, confirmed, picked, shipped, out_for_delivery,
+                 delivered, cancelled, returned, refunded]
+      days_since_delivery: {type: int}
+      final_sale: {type: bool}
+
+systems:
+  ecom:
+    binding: mcp
+    resolution: mock
+    actions:
+
+      get_order:
+        entity: order
+        side_effect: read
+        description: Look up an order's current status.
+
+      cancel_order:
+        entity: order
+        side_effect: irreversible
+        scope: orders:write
+        description: Cancel an order. Only possible before it has been picked.
+        allowed_when:
+          - {field: status, equals: [pending, confirmed]}
+        sets: {status: cancelled}
+        refusal: an order that is {status} can no longer be cancelled
+
+      open_return_request:
+        entity: order
+        side_effect: reversible
+        scope: returns:write
+        description: Open a return. Delivered orders only, inside the window, not final sale.
+        allowed_when:
+          - {field: status, equals: [delivered]}
+          - {field: days_since_delivery, at_most: 30}
+          - {field: final_sale, equals: [false]}
+        refusal: a return is not possible for this order
+
+      change_address:
+        entity: order
+        side_effect: reversible
+        scope: orders:write
+        description: Change the delivery address. Only while the order is still pending.
+        allowed_when:
+          - {field: status, equals: [pending]}
+        refusal: the carrier owns the address once an order is {status}
+
+      issue_refund:
+        entity: order
+        side_effect: irreversible
+        scope: refunds:write
+        description: Issue a refund. Requires the elevated scope a granted approval mints.
+        sets: {status: refunded}
+
+records:
+  customer:
+    - {id: C-1042, email: basant@example.com}
+  order:
+    - {id: AB-10001, customer_id: C-1042, status: shipped, days_since_delivery: 0, final_sale: false}
+    - {id: AB-10002, customer_id: C-1042, status: pending, days_since_delivery: 0, final_sale: false}
+    - {id: AB-10003, customer_id: C-1042, status: delivered, days_since_delivery: 5, final_sale: false}
+    - {id: AB-10004, customer_id: C-1042, status: delivered, days_since_delivery: 31, final_sale: false}
+    - {id: AB-10005, customer_id: C-1042, status: delivered, days_since_delivery: 3, final_sale: true}
