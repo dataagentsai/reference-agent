@@ -36,7 +36,7 @@ Ordered by what unblocks what, not by size.
       *Gate:* refund over the threshold returns `NeedsApproval`, checkpoints, and
       a later turn resumes and completes it — with exactly one refund row.
 
-- [ ] **A3 · `cassette`** (L9) — record and replay at the L2 choke point.
+- [x] **A3 · `cassette`** ✔ (L9) — record and replay at the L2 choke point.
       *Why third:* the first genuine piece of AgentTwin. Turns `ScriptedClient`
       from a hand-written fixture into recordings of real runs, and makes
       AHC-0029 possible — a production record becoming a dataset row without
