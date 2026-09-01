@@ -1,0 +1,9 @@
+{
+  "taken": "2026-09-01",
+  "note": "Regenerate deliberately. Say in the commit why a number moved.",
+  "measurements": {
+    "golden_cases": 34,
+    "context_chars": 180,
+    "cost_per_task_usd": 0.000945
+  }
+}

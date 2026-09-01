@@ -1,0 +1,34 @@
+{"id": "golden-000", "action": "open_return_request", "status": "delivered", "days_since_delivery": 30, "final_sale": false, "expected_allowed": true, "boundary": "the last day of the window"}
+{"id": "golden-001", "action": "open_return_request", "status": "delivered", "days_since_delivery": 31, "final_sale": false, "expected_allowed": false, "boundary": "one day past the window"}
+{"id": "golden-002", "action": "open_return_request", "status": "delivered", "days_since_delivery": 0, "final_sale": true, "expected_allowed": false, "boundary": "final sale, inside the window"}
+{"id": "golden-003", "action": "cancel_order", "status": "confirmed", "days_since_delivery": 0, "final_sale": false, "expected_allowed": true, "boundary": "the last state that can be cancelled"}
+{"id": "golden-004", "action": "cancel_order", "status": "picked", "days_since_delivery": 0, "final_sale": false, "expected_allowed": false, "boundary": "the first state that cannot"}
+{"id": "golden-005", "action": "change_address", "status": "pending", "days_since_delivery": 0, "final_sale": false, "expected_allowed": true, "boundary": "the only state the address is ours"}
+{"id": "golden-006", "action": "change_address", "status": "confirmed", "days_since_delivery": 0, "final_sale": false, "expected_allowed": false, "boundary": "one state too late"}
+{"id": "golden-007", "action": "cancel_order", "status": "pending", "days_since_delivery": 0, "final_sale": false, "expected_allowed": true, "boundary": null}
+{"id": "golden-008", "action": "open_return_request", "status": "confirmed", "days_since_delivery": 30, "final_sale": false, "expected_allowed": false, "boundary": null}
+{"id": "golden-009", "action": "change_address", "status": "picked", "days_since_delivery": 31, "final_sale": false, "expected_allowed": false, "boundary": null}
+{"id": "golden-010", "action": "change_address", "status": "shipped", "days_since_delivery": 30, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-011", "action": "open_return_request", "status": "out_for_delivery", "days_since_delivery": 0, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-012", "action": "cancel_order", "status": "delivered", "days_since_delivery": 31, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-013", "action": "cancel_order", "status": "cancelled", "days_since_delivery": 30, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-014", "action": "open_return_request", "status": "returned", "days_since_delivery": 31, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-015", "action": "change_address", "status": "refunded", "days_since_delivery": 0, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-016", "action": "change_address", "status": "returned", "days_since_delivery": 0, "final_sale": false, "expected_allowed": false, "boundary": null}
+{"id": "golden-017", "action": "open_return_request", "status": "cancelled", "days_since_delivery": 0, "final_sale": false, "expected_allowed": false, "boundary": null}
+{"id": "golden-018", "action": "cancel_order", "status": "refunded", "days_since_delivery": 31, "final_sale": false, "expected_allowed": false, "boundary": null}
+{"id": "golden-019", "action": "cancel_order", "status": "shipped", "days_since_delivery": 0, "final_sale": false, "expected_allowed": false, "boundary": null}
+{"id": "golden-020", "action": "open_return_request", "status": "picked", "days_since_delivery": 0, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-021", "action": "change_address", "status": "delivered", "days_since_delivery": 0, "final_sale": false, "expected_allowed": false, "boundary": null}
+{"id": "golden-022", "action": "change_address", "status": "pending", "days_since_delivery": 31, "final_sale": true, "expected_allowed": true, "boundary": null}
+{"id": "golden-023", "action": "open_return_request", "status": "pending", "days_since_delivery": 30, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-024", "action": "cancel_order", "status": "out_for_delivery", "days_since_delivery": 31, "final_sale": false, "expected_allowed": false, "boundary": null}
+{"id": "golden-025", "action": "cancel_order", "status": "confirmed", "days_since_delivery": 0, "final_sale": true, "expected_allowed": true, "boundary": null}
+{"id": "golden-026", "action": "open_return_request", "status": "delivered", "days_since_delivery": 30, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-027", "action": "change_address", "status": "confirmed", "days_since_delivery": 31, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-028", "action": "change_address", "status": "out_for_delivery", "days_since_delivery": 30, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-029", "action": "open_return_request", "status": "shipped", "days_since_delivery": 31, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-030", "action": "cancel_order", "status": "picked", "days_since_delivery": 30, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-031", "action": "cancel_order", "status": "returned", "days_since_delivery": 30, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-032", "action": "open_return_request", "status": "refunded", "days_since_delivery": 30, "final_sale": true, "expected_allowed": false, "boundary": null}
+{"id": "golden-033", "action": "change_address", "status": "cancelled", "days_since_delivery": 31, "final_sale": true, "expected_allowed": false, "boundary": null}

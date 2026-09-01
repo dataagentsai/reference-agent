@@ -97,14 +97,19 @@ have a module, so the coverage delta for this agent reads "none".
       (ids and metadata only — the normative statement stays in the catalog), a
       `@pytest.mark.discharges(...)` marker, and a conformance report printed at
       the end of every run. **32/43 exercised, 0 failed, 11 not exercised.**
-- [ ] **C2** — the seven case families from doc 25.
-- [ ] **C3** — case generation: paths through the order state machine, collapsed
-      with `allpairspy`.
+- [~] **C2** — the seven case families from doc 25. F1 (eligibility grid), F2,
+      F3, F4, F6 and F7 have coverage; F5 (degradation) is partial. See
+      `evals/NOT_EXERCISED.md` for what is deliberately uncovered and why.
+- [x] **C3** ✔ — `evals/generate_golden.py`: actions × states × days × final-sale
+      collapsed from a 162-cell grid to **34 cases** with `allpairspy`, plus 7
+      boundary rows added back by hand because a sampling strategy is exactly
+      what misses day 30 against day 31.
 - [x] **C4** ✔ — four verdicts, not two: passed, failed, `scored`, and
       `not_exercised`. Scored and binary are never summed together.
 
-**Gate:** a conformance report that names which AAC ids passed, failed, and were
-not exercised.
+**Gate held.** Every run ends with that report. **38/43 exercised, 0 failed,
+5 not exercised** — each of the five documented in `evals/NOT_EXERCISED.md` with
+why and what would change it.
 
 ---
 

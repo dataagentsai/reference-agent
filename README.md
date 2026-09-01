@@ -61,6 +61,26 @@ Three further contracts fail *closed*: only `llm` may import a provider SDK,
 only `tools` may speak MCP, only `state` and `idempotency` may touch the
 database. A new module inherits every ban without anyone remembering to add it.
 
+## Conformance
+
+Every test run ends with a report against the **AI Assurance Catalog**, archetype
+A6 (tool-using agent):
+
+```
+  exercised     38/43
+  passed        38
+  failed        0
+  NOT exercised 5
+```
+
+The unexercised five are named in [`evals/NOT_EXERCISED.md`](evals/NOT_EXERCISED.md)
+with why and what would change it. There is deliberately no "not applicable"
+verdict — it would be the right label for three of them, and it would also be the
+label every inconvenient obligation eventually acquired.
+
+`evals/a6_obligations.json` carries identifiers and metadata only. The normative
+statement of each obligation stays in the catalog: cite, don't restate.
+
 ## Licence
 
 Apache 2.0.
