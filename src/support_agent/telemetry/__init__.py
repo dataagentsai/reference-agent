@@ -53,6 +53,11 @@ CONFIG_FINGERPRINT = "agent.config.fingerprint"
 ROUTE_KIND = "agent.route.kind"
 ROUTE_REASON = "agent.route.reason"
 """AAC-0100 — the serving route is recorded, with its reason and its cost."""
+COST_USD = "agent.cost.usd"
+COST_CALL_USD = "agent.cost.call_usd"
+TENANT = "agent.tenant"
+"""AAC-0104 — spend is attributable to tenant, feature and route. Tenant here,
+feature is the handler or intent, route is ROUTE_KIND above."""
 IDEMPOTENCY_KEY = "agent.idempotency.key"
 SIDE_EFFECT = "agent.tool.side_effect"
 TERMINATION = "agent.termination.reason"
@@ -155,6 +160,8 @@ def attributes_of(finished: ReadableSpan) -> Mapping[str, Any]:
 
 __all__ = [
     "CONFIG_FINGERPRINT",
+    "COST_CALL_USD",
+    "COST_USD",
     "GEN_AI_INPUT_TOKENS",
     "GEN_AI_OPERATION",
     "GEN_AI_OUTPUT_TOKENS",
@@ -170,6 +177,7 @@ __all__ = [
     "RUN_ID",
     "SIDE_EFFECT",
     "STEP",
+    "TENANT",
     "TERMINATION",
     "attributes_of",
     "configure",

@@ -9,14 +9,14 @@ which are the layers the catalogs exist to make visible.
 
 ## Status
 
-Twelve of sixteen modules are built. The agent is drivable end to end through
+Thirteen of sixteen modules are built. The agent is drivable end to end through
 `entrypoint.Agent.handle()` — AHC-0010, the surface an evaluation drives —
 against an in-process MCP server with a scripted model: no network, zero cost.
 
 Built: `contracts`, `config`, `telemetry`, `llm`, `identity`, `idempotency`,
-`tools`, `context`, `router`, `loop`, `state`, `entrypoint`.
-Declared but not yet written: `policy`, `cost`, `approvals`, `resilience`,
-`flow`, `cassette`.
+`tools`, `context`, `router`, `loop`, `state`, `entrypoint`, `cost`.
+Declared but not yet written: `approvals`, `cassette`, `policy`, `flow`,
+`resilience` — in that order, see `TODO.md`.
 
 The build order follows the dependency contract upward:
 

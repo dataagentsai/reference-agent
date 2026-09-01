@@ -13,7 +13,7 @@ lands. When none remain, Phase A is done.
 
 Ordered by what unblocks what, not by size.
 
-- [ ] **A1 · `cost`** (L13) — price map, usage → money, attribution at P3 and the
+- [x] **A1 · `cost`** ✔ (L13) — price map, usage → money, attribution at P3 and the
       ceiling at P4.
       *Why first:* the loop bounds **steps, not spend**. A model emitting 100k
       tokens per step sits comfortably inside a 12-step budget and costs real
