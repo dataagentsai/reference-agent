@@ -62,6 +62,7 @@ def tool_message(result: ToolResult, *, tool_call_id: str) -> Message:
         role="tool",
         content=body,
         tool_call_id=tool_call_id,
+        tool_name=result.name,
         provenance="tool",
     )
 

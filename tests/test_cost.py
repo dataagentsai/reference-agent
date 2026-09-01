@@ -25,7 +25,7 @@ from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
 from support_agent.tools import META_SIDE_EFFECT, connect
 
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 FLAT = {"m": Price(Decimal("1.00"), Decimal("2.00"))}
 
 
@@ -229,7 +229,7 @@ def test_the_default_price_map_is_dated_and_flagged() -> None:
     """These figures are an input to a budget, not a quotation. If the map grows
     silently this test is the reminder that it must be verified."""
     assert set(PRICES) == {
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
         "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.8-27b",
     }

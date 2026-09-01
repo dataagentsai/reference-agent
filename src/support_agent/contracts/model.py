@@ -17,12 +17,35 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ToolCall(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    name: str
+    arguments: dict[str, object]
+
+
 class Message(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     role: Literal["system", "user", "assistant", "tool"]
     content: str
     tool_call_id: str | None = None
+    tool_name: str | None = None
+    """Which tool a `tool` message answers.
+
+    Redundant with `tool_call_id` in principle and required in practice: some
+    providers render the transcript from the tool *name*, and a result whose
+    name they cannot resolve is a 400 rather than a degraded answer.
+    """
+    tool_calls: tuple[ToolCall, ...] = ()
+    """The calls an `assistant` turn made.
+
+    Dropping these was the first defect the live provider found. A `tool` message
+    references an id, and if the assistant turn that produced that id is not in
+    the transcript there is nothing for it to reference. Scripted tests never
+    caught it because they never serialised anything.
+    """
     provenance: Literal["operator", "user", "tool", "retrieved"] = "operator"
     """Where this text came from.
 
@@ -35,14 +58,6 @@ class Message(BaseModel):
     A summary inherits the provenance of its source: a summary of untrusted
     content is untrusted content.
     """
-
-
-class ToolCall(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    id: str
-    name: str
-    arguments: dict[str, object]
 
 
 class Usage(BaseModel):

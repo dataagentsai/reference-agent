@@ -59,9 +59,9 @@ class Price:
 # this system is published or acted on. Listed in the "verify before publishing"
 # section of TODO.md for that reason.
 PRICES: dict[str, Price] = {
-    "llama-3.3-70b-versatile": Price(Decimal("0.59"), Decimal("0.79")),
-    "llama-3.1-8b-instant": Price(Decimal("0.05"), Decimal("0.08")),
     "openai/gpt-oss-120b": Price(Decimal("0.15"), Decimal("0.75")),
+    "openai/gpt-oss-20b": Price(Decimal("0.10"), Decimal("0.50")),
+    "qwen/qwen3.8-27b": Price(Decimal("0.15"), Decimal("0.60")),
 }
 
 

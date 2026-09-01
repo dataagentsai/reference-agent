@@ -1,0 +1,41 @@
+{
+  "format": 1,
+  "exchanges": [
+    {
+      "fingerprint": "52bd4443baf5783e",
+      "response": {
+        "text": "",
+        "tool_calls": [
+          {
+            "id": "fc_269c024b-b332-4414-838f-a9c828186b35",
+            "name": "get_order",
+            "arguments": {
+              "order_id": "AB-77120"
+            }
+          }
+        ],
+        "usage": {
+          "input_tokens": 206,
+          "output_tokens": 52,
+          "cached_input_tokens": 0
+        },
+        "model": "openai/gpt-oss-120b",
+        "stop_reason": "tool_calls"
+      }
+    },
+    {
+      "fingerprint": "e359afe66548ff4e",
+      "response": {
+        "text": "Your order **AB\u201177120** is currently **out for delivery** and is being handled by **Delhivery**.",
+        "tool_calls": [],
+        "usage": {
+          "input_tokens": 282,
+          "output_tokens": 95,
+          "cached_input_tokens": 0
+        },
+        "model": "openai/gpt-oss-120b",
+        "stop_reason": "stop"
+      }
+    }
+  ]
+}

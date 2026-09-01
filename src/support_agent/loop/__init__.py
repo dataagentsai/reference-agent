@@ -170,7 +170,13 @@ async def run(
                         "I have not been able to resolve this — let me pass you to a colleague.",
                     )
 
-                messages.append(Message(role="assistant", content=response.text or ""))
+                messages.append(
+                    Message(
+                        role="assistant",
+                        content=response.text or "",
+                        tool_calls=response.tool_calls,
+                    )
+                )
 
                 for call in response.tool_calls:
                     signature = _signature(call.name, call.arguments)

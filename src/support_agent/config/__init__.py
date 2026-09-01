@@ -56,12 +56,20 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="AGENT_", env_file=".env", extra="ignore")
 
-    model: str = "llama-3.3-70b-versatile"
+    model: str = "openai/gpt-oss-120b"
     approved_models: tuple[str, ...] = (
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
         "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.8-27b",
     )
+    """Verified against the provider's own /models endpoint on 2026-09-01.
+
+    The previous list named `llama-3.3-70b-versatile` and `llama-3.1-8b-instant`,
+    which the provider no longer serves — every call returned 404. Nothing in a
+    scripted test suite can catch a model being retired, which is precisely the
+    class of failure the first live call exists to find. Re-check this list
+    whenever a run starts failing at the provider rather than in the loop.
+    """
     provider_base_url: str = "https://api.groq.com/openai/v1"
     provider_api_key: str = Field(default="", repr=False)
 

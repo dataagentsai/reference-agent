@@ -67,14 +67,21 @@ have a module, so the coverage delta for this agent reads "none".
 
 ## Phase B — the first real model call
 
-- [ ] **B1** — run the agent against Groq for real, once, by hand.
-      **Blocked:** no provider key in the environment. Set
-      `AGENT_PROVIDER_API_KEY` to a free Groq key and this can run.
-      **Everything so far is scripted.** No line of this system has met a real
-      model. The first real call is where instruction-following, tool-argument
-      escaping and latency stop being assumptions.
-      *Gate:* one successful end-to-end turn against a live provider, its
-      cassette recorded.
+- [x] **B1** ✔ — one live turn against Groq, recorded, then replayed offline.
+      `scripts/first_real_call.py`, cassette in `cassettes/`. 2 calls, $0.000183.
+
+      **It found two defects in one run, and neither was findable offline:**
+
+      *The model allowlist was stale.* `llama-3.3-70b-versatile` and
+      `llama-3.1-8b-instant` return 404 — the provider no longer serves them.
+      Nothing in a scripted suite can notice a model being retired. Now
+      `openai/gpt-oss-120b`, verified against the provider's `/models`.
+
+      *The wire format dropped assistant `tool_calls`.* A `tool` message
+      referenced an id whose originating turn was not in the transcript, so the
+      provider could not render it — `"Tools should have a name!"`, a 400 on the
+      second call of every tool-using conversation. 222 passing tests never saw
+      it because none of them serialised anything.
 
 - [ ] **B2** — Postgres, natively (`brew install postgresql@16`, not Docker —
       this machine has ~170 MB free). Two schemas: `agent_state` and `ecom`.

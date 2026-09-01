@@ -18,10 +18,10 @@ def settings(**overrides: object) -> Settings:
 # --------------------------------------------------------------------------- #
 
 MODEL_CASES = [
-    ("approved model resolves", "llama-3.3-70b-versatile", True),
-    ("second approved model resolves", "llama-3.1-8b-instant", True),
+    ("approved model resolves", "openai/gpt-oss-120b", True),
+    ("second approved model resolves", "openai/gpt-oss-20b", True),
     ("unapproved model is rejected", "some-unvetted-model", False),
-    ("near-miss typo is rejected", "llama-3.3-70b-versatil", False),
+    ("near-miss typo is rejected", "openai/gpt-oss-120", False),
 ]
 
 
@@ -66,7 +66,7 @@ def test_sealed_mode_fails_closed(name: str, sealed: bool, resolution: str, ok: 
 # --------------------------------------------------------------------------- #
 
 FINGERPRINT_CASES = [
-    ("model change", {"model": "llama-3.1-8b-instant"}, True),
+    ("model change", {"model": "openai/gpt-oss-20b"}, True),
     ("prompt version change", {"prompt_version": "v2"}, True),
     ("router rules change", {"router_rules_version": "v2"}, True),
     ("temperature change", {"temperature": 0.7}, True),

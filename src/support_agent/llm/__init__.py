@@ -42,6 +42,17 @@ def _to_wire(messages: Iterable[Message]) -> list[dict[str, object]]:
         entry: dict[str, object] = {"role": m.role, "content": m.content}
         if m.tool_call_id is not None:
             entry["tool_call_id"] = m.tool_call_id
+        if m.tool_name is not None:
+            entry["name"] = m.tool_name
+        if m.tool_calls:
+            entry["tool_calls"] = [
+                {
+                    "id": c.id,
+                    "type": "function",
+                    "function": {"name": c.name, "arguments": json.dumps(c.arguments)},
+                }
+                for c in m.tool_calls
+            ]
         wire.append(entry)
     return wire
 
