@@ -79,6 +79,14 @@ uv run pytest tests/test_agenttwin.py
 The proof that the premise holds: the same 34 golden cases pass against the
 projected server and against a hand-written one.
 
+## Findings
+
+Phase E found four real defects, recorded in
+[`evals/FINDINGS.md`](evals/FINDINGS.md) before being fixed. Two were invisible
+to 367 passing tests, because those tests asked *"did the effect happen?"* and
+the answer was correctly **no**. The question that found them is different:
+**"was the customer told the truth about it?"**
+
 ## Conformance
 
 Every test run ends with a report against the **AI Assurance Catalog**, archetype

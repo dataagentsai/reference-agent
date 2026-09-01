@@ -8,8 +8,21 @@ system whose test results mean nothing.
 """
 
 from agenttwin.loader import load
+from agenttwin.perturbation import ChannelError, Slow, StaleRead, Timeline, perturbed
 from agenttwin.projection import Live, project
 from agenttwin.record import RunRecord, diff
 from agenttwin.world import World
 
-__all__ = ["Live", "RunRecord", "World", "diff", "load", "project"]
+__all__ = [
+    "ChannelError",
+    "Live",
+    "RunRecord",
+    "Slow",
+    "StaleRead",
+    "Timeline",
+    "World",
+    "diff",
+    "load",
+    "perturbed",
+    "project",
+]

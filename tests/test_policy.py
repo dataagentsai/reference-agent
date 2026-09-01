@@ -248,4 +248,53 @@ async def test_the_blocking_rule_is_named_on_the_trace(server, exporter) -> None
             system_prompt="s",
         )
     run = next(s for s in exporter.get_finished_spans() if s.name == "agent.run")
-    assert tel.attributes_of(run)["agent.policy.blocked_by"] == "no_unclaimed_refund"
+    assert tel.attributes_of(run)["agent.policy.blocked_by"] == "no_unclaimed_effect"
+
+
+# --------------------------------------------------------------------------- #
+# F-004 — a guardrail that blocks correct behaviour is worse than one that
+# misses a claim, because it fires constantly and is therefore switched off.
+# --------------------------------------------------------------------------- #
+
+HONEST_REFUSALS = [
+    (
+        "explaining a cancellation cannot happen",
+        "That order has shipped, so it can no longer be cancelled.",
+    ),
+    ("cancellation not possible", "Unfortunately this order cannot be cancelled now."),
+    ("refund not possible", "That purchase cannot be refunded — it was a final sale item."),
+    ("describing the policy", "Orders can be cancelled up until they are picked."),
+    ("offering the alternative", "I cannot cancel it, but you can refuse delivery."),
+    ("asking a question", "Would you like me to cancel it?"),
+]
+
+
+@pytest.mark.parametrize(("name", "text"), HONEST_REFUSALS, ids=[c[0] for c in HONEST_REFUSALS])
+def test_an_honest_refusal_is_not_mistaken_for_a_claim(name: str, text: str) -> None:
+    assert not pol.enforce(reply(text)).blocked, f"blocked a correct refusal: {text!r}"
+
+
+AFFIRMATIVE_CLAIMS = [
+    ("cancelled, first person", "I have cancelled that order for you."),
+    ("cancelled, passive", "Your order has been cancelled."),
+    ("cancelled, bare past", "I cancelled it this morning."),
+    ("replacement sent", "I have dispatched a replacement."),
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "text"), AFFIRMATIVE_CLAIMS, ids=[c[0] for c in AFFIRMATIVE_CLAIMS]
+)
+def test_an_affirmative_claim_is_still_caught(name: str, text: str) -> None:
+    assert pol.enforce(reply(text)).blocked
+
+
+def test_a_refused_tool_result_does_not_license_the_claim() -> None:
+    """`allowed: false` is not success. The tool ran and declined."""
+    refused = ToolResult(name="cancel_order", structured={"allowed": False, "reason": "shipped"})
+    assert pol.enforce(reply("I have cancelled that order.", refused)).blocked
+
+
+def test_a_successful_tool_result_does_license_it() -> None:
+    ok = ToolResult(name="cancel_order", structured={"allowed": True, "reason": "allowed"})
+    assert not pol.enforce(reply("I have cancelled that order.", ok)).blocked

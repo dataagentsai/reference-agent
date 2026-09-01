@@ -79,7 +79,7 @@ def live_with(status: str, days: int = 0, final_sale: bool = False) -> Live:
 def test_the_declared_world_loads_and_states_its_ontology() -> None:
     world = load(WORLD)
     assert world.ontology() == {"order.customer_id": "customer.id"}
-    assert len(world.records["order"]) == 5
+    assert len(world.records["order"]) == 6
 
 
 def test_a_world_declares_what_it_is_not_faithful_about() -> None:

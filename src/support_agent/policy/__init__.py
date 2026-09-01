@@ -78,29 +78,72 @@ def block(rule: str, reason: str) -> Verdict:
 # Rules. Each is a plain callable returning a Verdict.
 # --------------------------------------------------------------------------- #
 
-REFUND_CLAIM = re.compile(
-    r"\b(?:i(?:'ve| have)?\s+)?(?:refunded|issued (?:your|the|a) refund|"
-    r"refund (?:has been|is) (?:issued|processed|completed|sent))\b",
-    re.I,
-)
+CLAIM_PATTERNS: dict[str, re.Pattern[str]] = {
+    "issue_refund": re.compile(
+        r"\b(?:i|we)(?:'ve| have|'ll| will)?\s+(?:now\s+)?refunded\b"
+        r"|\b(?:i|we)(?:'ve| have)?\s+issued\s+(?:your|the|a)\s+refund\b"
+        r"|\b(?:your|the|that)\s+refund\s+(?:has been|was|is now)\s+"
+        r"(?:issued|processed|completed|sent)\b",
+        re.I,
+    ),
+    "cancel_order": re.compile(
+        r"\b(?:i|we)(?:'ve| have)?\s+(?:now\s+)?cancell?ed\b"
+        r"|\b(?:your|the|that|this)?\s*(?:order|it)\s+(?:has been|was|is now)\s+cancell?ed\b",
+        re.I,
+    ),
+    "dispatch_replacement": re.compile(
+        r"\b(?:i|we)(?:'ve| have)?\s+(?:sent|dispatched|shipped)\s+"
+        r"(?:a |your )?replacement\b",
+        re.I,
+    ),
+}
+"""How a claim about each irreversible action looks in prose.
+
+Per-action because the verbs differ, and *complete with respect to the registry*
+because a test fails when an irreversible tool has no entry here. F-001 happened
+because a guardrail that names one action protects one action.
+
+**Each pattern requires an affirmative construction**, not merely the verb.
+F-004: the first version matched the bare word, so a correct refusal — *"that
+order has shipped, so it can no longer be cancelled"* — was blocked and the
+customer was handed to a colleague for no reason. A guardrail that blocks correct
+behaviour is worse than one that misses a claim, because it fires constantly and
+is therefore switched off.
+"""
+
 CARD = re.compile(r"\b\d{13,19}\b")
 DISCOUNT_OFFER = re.compile(r"\b(\d{1,2}%\s*(off|discount)|voucher|coupon code)\b", re.I)
 DATE_PROMISE = re.compile(r"\b(?:will (?:arrive|be delivered)|delivery (?:is|will be) on)\b", re.I)
 
 
-def no_unclaimed_refund(ctx: Context) -> Verdict:
-    """A refund may be *claimed* only if one actually happened this turn.
+def no_unclaimed_effect(ctx: Context) -> Verdict:
+    """An irreversible action may be *claimed* only if it actually happened.
 
-    The gate stops an unauthorised refund; this stops the agent telling the
-    customer it did one anyway. Both failures cost the same at the support desk,
-    and only one of them is visible in the ledger.
+    The approval gate stops an unauthorised effect; this stops the agent telling
+    the customer it did one anyway. Both failures cost the same at the support
+    desk, and only one of them is visible in the ledger.
+
+    Checked against what the tools returned **this turn**, not against what the
+    model believed when it started — which is what F-002 turned on: the agent had
+    read `pending`, the world moved, the write was refused, and the reply came
+    from the stale expectation.
+
+    A refusal is not a success. A tool that returned `allowed: false` did not do
+    the thing, and neither did one that errored.
     """
-    if not REFUND_CLAIM.search(ctx.text):
-        return ALLOW
-    refunded = any(r.name == "issue_refund" and not r.is_error for r in ctx.tool_results)
-    if refunded:
-        return ALLOW
-    return block("no_unclaimed_refund", "claimed a refund that did not happen")
+    for action, pattern in CLAIM_PATTERNS.items():
+        if not pattern.search(ctx.text):
+            continue
+        if not any(_succeeded(r, action) for r in ctx.tool_results):
+            return block("no_unclaimed_effect", f"claimed {action} happened when it did not")
+    return ALLOW
+
+
+def _succeeded(result: ToolResult, action: str) -> bool:
+    if result.name != action or result.is_error:
+        return False
+    structured = result.structured
+    return not (isinstance(structured, dict) and structured.get("allowed") is False)
 
 
 def no_invented_delivery_date(ctx: Context) -> Verdict:
@@ -144,7 +187,7 @@ def no_discount_offer(ctx: Context) -> Verdict:
 
 
 OUTPUT_RULES = (
-    no_unclaimed_refund,
+    no_unclaimed_effect,
     no_invented_delivery_date,
     no_pii_echo,
     no_discount_offer,
@@ -197,6 +240,7 @@ it says nothing false, and it moves the person forward.
 __all__ = [
     "ALLOW",
     "DEFAULT_RULES",
+    "CLAIM_PATTERNS",
     "OUTPUT_RULES",
     "SAFE_REPLY",
     "Context",
@@ -207,5 +251,5 @@ __all__ = [
     "no_discount_offer",
     "no_invented_delivery_date",
     "no_pii_echo",
-    "no_unclaimed_refund",
+    "no_unclaimed_effect",
 ]

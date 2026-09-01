@@ -141,14 +141,11 @@ happens is not a gate.
 
 ## Phase E — break it
 
-- [ ] **E1** — Hypothesis for degenerate input and argument fuzzing, with shrinking.
-- [ ] **E2** — perturbations: handle expiry, both MCP error channels, a stale read
-      between the eligibility check and the write.
-- [ ] **E3** — actors with declared determinism classes.
-- [ ] **E4** — adversarial: confused deputy, injection through order notes and
-      review text, social engineering.
-- [ ] **E5** — **publish the failures.** The deliverable is a report with its
-      failures in it.
+- [x] **E1** ✔ — Hypothesis over arbitrary order ids, arbitrary tool output through the fence, arbitrary router input. Properties stated over *all* text rather than the delimiters someone thought of.
+- [x] **E2** ✔ — `agenttwin/perturbation.py`: stale read, both MCP error channels, latency. Faults fire on a *named* call rather than randomly, and a fault that never fired is reported — a scenario whose fault did not land passes for the wrong reason.
+- [~] **E3** — the determinism class is declared on `RunRecord` and defaults to `scripted`. Model-driven actors are not built; nothing yet needs one, and adding one trades replay for realism.
+- [x] **E4** ✔ — a hostile instruction seeded into an order note in the world file. Three layers hold independently: it arrives fenced, the tool it demands is not on the identity's surface, and the eligibility rule refuses it anyway.
+- [x] **E5** ✔ — `evals/FINDINGS.md`. **Four findings**, recorded before being fixed. F-004 is the fix for F-001 introducing a worse defect, caught minutes later by the Phase D gate.
 
 ---
 

@@ -78,7 +78,7 @@ class UnknownRecord(Exception):
     """
 
 
-def project(live: Live, *, name: str = "ecom") -> MCPServer:
+def project(live: Live, *, name: str = "ecom", wrap=None) -> MCPServer:
     """Build an MCP server from a live world.
 
     Every tool is generated from the declaration: its schema from the entity, its
@@ -92,12 +92,12 @@ def project(live: Live, *, name: str = "ecom") -> MCPServer:
         raise KeyError(f"world {live.world.name!r} declares no system {name!r}")
 
     for action_name, action in system.actions.items():
-        _register(srv, live, action_name, action)
+        _register(srv, live, action_name, action, wrap)
 
     return srv
 
 
-def _register(srv: MCPServer, live: Live, action_name: str, action: Action) -> None:
+def _register(srv: MCPServer, live: Live, action_name: str, action: Action, wrap=None) -> None:
     entity = live.world.entities[action.entity]
     key_field = entity.key
 
@@ -124,6 +124,7 @@ def _register(srv: MCPServer, live: Live, action_name: str, action: Action) -> N
     handler.__name__ = action_name
     handler.__doc__ = action.description or action_name
 
+    typed = _typed(handler, action_name, entity, key_field, action)
     srv.tool(
         name=action_name,
         description=action.description or action_name,
@@ -132,7 +133,7 @@ def _register(srv: MCPServer, live: Live, action_name: str, action: Action) -> N
             **({META_REQUIRED_SCOPE: action.scope} if action.scope else {}),
         },
         structured_output=True,
-    )(_typed(handler, action_name, entity, key_field, action))
+    )(typed if wrap is None else wrap(action_name, typed))
 
 
 def _typed(handler, action_name: str, entity, key_field: str, action: Action):
