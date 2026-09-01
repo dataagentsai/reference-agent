@@ -37,8 +37,21 @@ the architecture**.
 ```bash
 uv sync --extra dev
 uv run lint-imports    # 4 contracts
-uv run pytest
+uv run pytest          # database tests skip if none is reachable
 ```
+
+Durable stores need Postgres (native, not Docker):
+
+```bash
+brew install postgresql@16 && brew services start postgresql@16
+createdb support_agent && psql -d support_agent -f sql/001_schemas.sql
+```
+
+Two schemas. `agent_state` is agent-owned — conversation, checkpoints,
+approvals, the idempotency ledger — and AgentTwin never projects it, because it
+is the oracle. `ecom` is the business world a simulation replaces, and its DDL
+is the ontology: `orders.customer_id REFERENCES customers(id)` states the join
+once, machine-readably, rather than repeating it in a world file.
 
 Modules in `(parentheses)` in that contract are declared but not yet built — the
 parentheses come off as each one lands, so the contract doubles as the build

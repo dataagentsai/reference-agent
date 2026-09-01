@@ -83,10 +83,11 @@ have a module, so the coverage delta for this agent reads "none".
       second call of every tool-using conversation. 222 passing tests never saw
       it because none of them serialised anything.
 
-- [ ] **B2** — Postgres, natively (`brew install postgresql@16`, not Docker —
-      this machine has ~170 MB free). Two schemas: `agent_state` and `ecom`.
-      Durable `CheckpointStore` and `IdempotencyLedger` replace the in-memory
-      ones. *Gate:* an approval survives a process restart.
+- [x] **B2** ✔ — Postgres, natively. It was already installed and running, so
+      nothing was added to a machine with ~70 MB free. Two schemas, three durable
+      stores, `sql/001_schemas.sql`. *Gate held:* an approval raised by one pool
+      is recovered, granted and made executable by another, under the original
+      idempotency key.
 
 ---
 
