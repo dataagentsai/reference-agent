@@ -93,13 +93,15 @@ have a module, so the coverage delta for this agent reads "none".
 
 ## Phase C — evals
 
-- [ ] **C1** — render the 43 A6 obligations as executable checks, split by their
-      `stages:` field. Offline/online is a rendering, not a new taxonomy.
+- [x] **C1** ✔ — the 43 A6 obligations vendored as `evals/a6_obligations.json`
+      (ids and metadata only — the normative statement stays in the catalog), a
+      `@pytest.mark.discharges(...)` marker, and a conformance report printed at
+      the end of every run. **32/43 exercised, 0 failed, 11 not exercised.**
 - [ ] **C2** — the seven case families from doc 25.
 - [ ] **C3** — case generation: paths through the order state machine, collapsed
       with `allpairspy`.
-- [ ] **C4** — enforce the verdict split: binary for deterministic cases, scored
-      pass-rate for model-driven ones, **never mixed in one report**.
+- [x] **C4** ✔ — four verdicts, not two: passed, failed, `scored`, and
+      `not_exercised`. Scored and binary are never summed together.
 
 **Gate:** a conformance report that names which AAC ids passed, failed, and were
 not exercised.
@@ -143,7 +145,9 @@ Deliberately last. Authoring loop obligations from a desk is what produced six
 cost obligations and one trajectory obligation.
 
 - [ ] **F1 · G1** — add A6 to AAC-0046, AAC-0047, AAC-0076 and AHC-0074. A tag
-      edit, not new authorship.
+      edit, not new authorship. **The evidence now generates itself:** the
+      conformance report has an "exercised but not tagged A6" section, and
+      AAC-0046 and AAC-0047 are in it with passing tests behind them.
 - [ ] **F2 · G2** — oscillation below the termination threshold. *Already
       implemented and tested here* — `TerminationReason.OSCILLATION_DETECTED` —
       so the obligation now has evidence behind it.

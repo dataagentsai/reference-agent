@@ -145,6 +145,7 @@ PER_TASK_CASES = [
 @pytest.mark.parametrize(
     ("name", "successes", "expected"), PER_TASK_CASES, ids=[c[0] for c in PER_TASK_CASES]
 )
+@pytest.mark.discharges("AAC-0008")
 def test_cost_per_successful_task(name: str, successes: int, expected: Decimal | None) -> None:
     """AAC-0008. An agent that fails cheaply four times and succeeds on the fifth
     was not cheap, and nothing succeeding is None — not infinity, and certainly
@@ -159,6 +160,7 @@ def test_cost_per_successful_task(name: str, successes: int, expected: Decimal |
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AAC-0093")
 async def test_the_ceiling_stops_the_run(server) -> None:
     meter = Meter(MODEL, ceiling_usd="0.60")
     async with connect(server, ledger=InMemoryLedger()) as tools:
@@ -207,6 +209,7 @@ async def test_a_single_call_may_overshoot_the_ceiling(server) -> None:
     assert trace.termination is TerminationReason.COST_CEILING_REACHED
 
 
+@pytest.mark.discharges("AAC-0104")
 async def test_spend_and_tenant_are_on_the_trace(server, exporter) -> None:
     """AAC-0104 — spend attributable to tenant, feature and route."""
     meter = Meter(MODEL, ceiling_usd="100.00")

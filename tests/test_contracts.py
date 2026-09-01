@@ -52,6 +52,7 @@ IDEMPOTENCY_CASES = [
     IDEMPOTENCY_CASES,
     ids=[c[0] for c in IDEMPOTENCY_CASES],
 )
+@pytest.mark.discharges("AAC-0047")
 def test_idempotency_key_identity(
     name: str, left: IdempotencyKey, right: IdempotencyKey, *, same: bool
 ) -> None:
@@ -140,6 +141,7 @@ TURN_CASES = [
 
 
 @pytest.mark.parametrize(("kind", "result"), TURN_CASES, ids=[c[0] for c in TURN_CASES])
+@pytest.mark.discharges("AAC-0002")
 def test_turn_result_round_trips(kind: str, result: TurnResult) -> None:
     restored = TURN_ADAPTER.validate_python(TURN_ADAPTER.dump_python(result))
     assert restored == result

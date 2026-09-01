@@ -127,6 +127,7 @@ def test_writes_are_never_direct() -> None:
         assert router.route(text).kind == "agentic"
 
 
+@pytest.mark.discharges("AAC-0100", "AAC-0101")
 def test_the_route_and_its_reason_are_on_the_trace(exporter) -> None:
     """AAC-0100 — the serving route is recorded, with its reason."""
     router.route("can I get a discount")
@@ -170,6 +171,7 @@ async def test_a_tool_call_then_an_answer(server) -> None:
     assert trace.steps == 2
 
 
+@pytest.mark.discharges("AAC-0055")
 async def test_the_step_budget_terminates_and_says_why(server) -> None:
     """AAC-0055 — hard termination under every condition. An unexplained stop is
     indistinguishable from a hang."""
@@ -187,6 +189,7 @@ async def test_the_step_budget_terminates_and_says_why(server) -> None:
     assert isinstance(result, Completed)
 
 
+@pytest.mark.discharges("AAC-0054")
 async def test_oscillation_is_caught_inside_the_budget(server) -> None:
     """G2 against the catalog: AAC-0055 catches hard non-termination and
     AAC-0054 scores path efficiency, but neither catches A-B-A-B that stops in
@@ -212,6 +215,7 @@ async def test_argument_order_does_not_hide_an_oscillation(server) -> None:
     assert _signature("t", {"a": 1, "b": 2}) == _signature("t", {"b": 2, "a": 1})
 
 
+@pytest.mark.discharges("AAC-0009")
 async def test_provider_failure_is_a_declared_path_not_a_stack_trace(server) -> None:
     """AAC-0009. The customer sees a sentence; the operator sees the detail."""
     async with open_tools(server) as tools:
@@ -228,6 +232,7 @@ async def test_provider_failure_is_a_declared_path_not_a_stack_trace(server) -> 
     assert trace.termination is TerminationReason.UNRECOVERABLE_ERROR
 
 
+@pytest.mark.discharges("AAC-0051")
 async def test_an_unknown_tool_is_reported_back_not_raised(server) -> None:
     """AAC-0051 — the model gets to choose again."""
     async with open_tools(server) as tools:
@@ -242,6 +247,7 @@ async def test_an_unknown_tool_is_reported_back_not_raised(server) -> None:
     assert trace.steps == 2
 
 
+@pytest.mark.discharges("AAC-0052")
 async def test_invalid_arguments_are_reported_back_not_raised(server) -> None:
     """AAC-0052. Nothing ran, so nothing was swallowed."""
     async with open_tools(server) as tools:
@@ -269,6 +275,7 @@ async def test_usage_accumulates_across_steps(server) -> None:
     assert trace.usage.output_tokens == 10
 
 
+@pytest.mark.discharges("AAC-0060", "AAC-0011")
 async def test_the_trajectory_is_reconstructable_from_the_trace(server, exporter) -> None:
     """AAC-0060, as an M5 assertion — structure and ordering, no transcript."""
     async with open_tools(server) as tools:

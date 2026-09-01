@@ -52,6 +52,7 @@ def test_adapters_satisfy_the_protocol_structurally(name: str, client: object) -
     assert isinstance(client, LLMClient)
 
 
+@pytest.mark.discharges("AAC-0059")
 async def test_scripted_client_is_deterministic_and_free() -> None:
     tel.configure()
     scripted = ScriptedClient([ModelResponse(text="one"), ModelResponse(text="two")])
@@ -69,12 +70,14 @@ async def test_exhausting_the_script_is_an_error_not_an_empty_reply() -> None:
         await scripted.complete(request())
 
 
+@pytest.mark.discharges("AAC-0009")
 async def test_provider_failure_is_typed_not_a_stack_trace() -> None:
     """AAC-0009 — degradation is a declared path."""
     with pytest.raises(ModelUnavailable):
         await UnavailableClient().complete(request())
 
 
+@pytest.mark.discharges("AAC-0011")
 async def test_model_call_emits_a_span_with_usage() -> None:
     exporter = tel.configure()
     scripted = ScriptedClient(
@@ -124,6 +127,7 @@ def test_a_short_secret_is_a_configuration_fault_not_a_warning() -> None:
         ident.mint("C-1", secret="too-short")
 
 
+@pytest.mark.discharges("AAC-0057")
 def test_customer_scopes_exclude_refunds() -> None:
     """A refund is irreversible and needs a human above the threshold, so the
     agent acting as the customer must not hold the scope that would skip it."""
@@ -133,6 +137,7 @@ def test_customer_scopes_exclude_refunds() -> None:
         ident.require(who, ident.SCOPE_REFUNDS_WRITE)
 
 
+@pytest.mark.discharges("AAC-0057", "AAC-0106")
 def test_confused_deputy_needs_a_different_token_not_a_different_claim() -> None:
     """T-AD-01. Whatever the model believes about who it is talking to, the
     identity it can act as is the one the token carries."""
@@ -150,6 +155,7 @@ def ok(name: str = "issue_refund") -> ToolResult:
     return ToolResult(name=name, structured={"refund_id": "rf_1"})
 
 
+@pytest.mark.discharges("AAC-0047")
 async def test_retry_under_the_same_key_does_not_execute_twice() -> None:
     """The timeout case: the call succeeded, the response was lost, the harness
     believes it failed. Without a key nothing can tell that from a fresh call."""
@@ -193,6 +199,7 @@ async def test_reads_bypass_the_ledger() -> None:
     assert len(ledger) == 0
 
 
+@pytest.mark.discharges("AAC-0046")
 async def test_failures_are_not_recorded_so_a_retry_can_reach_the_tool() -> None:
     """Recording failures would turn one transient 503 into a permanent refusal."""
     ledger, calls = InMemoryLedger(), []

@@ -1,0 +1,1020 @@
+{
+  "source": "github.com/dataagentsai/ai-assurance-catalog",
+  "catalog_version": "1.1.0",
+  "generated": "2026-09-01",
+  "archetype": "A6",
+  "note": "Identifiers and metadata only. The normative `statement` of each obligation is deliberately NOT copied \u2014 cite, don't restate.",
+  "obligations": [
+    {
+      "id": "AAC-0001",
+      "title": "Task accuracy on a frozen golden set",
+      "dimension": "correctness",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3"
+      ],
+      "mechanisms": [
+        "M2",
+        "M4"
+      ]
+    },
+    {
+      "id": "AAC-0002",
+      "title": "Output conforms to its declared contract",
+      "dimension": "format",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S4"
+      ],
+      "mechanisms": [
+        "M1"
+      ]
+    },
+    {
+      "id": "AAC-0003",
+      "title": "Instruction and constraint adherence",
+      "dimension": "instruction",
+      "level": "MUST",
+      "gate": false,
+      "stages": [
+        "S3",
+        "S5"
+      ],
+      "mechanisms": [
+        "M3"
+      ]
+    },
+    {
+      "id": "AAC-0004",
+      "title": "Resistance to injection from untrusted content",
+      "dimension": "security",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3",
+        "S4"
+      ],
+      "mechanisms": [
+        "M7",
+        "M3"
+      ]
+    },
+    {
+      "id": "AAC-0005",
+      "title": "Safety and policy compliance under adversarial input",
+      "dimension": "safety",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3",
+        "S4"
+      ],
+      "mechanisms": [
+        "M7",
+        "M3"
+      ]
+    },
+    {
+      "id": "AAC-0006",
+      "title": "No leakage of PII, secrets or credentials",
+      "dimension": "privacy",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S4",
+        "S5"
+      ],
+      "mechanisms": [
+        "M1",
+        "M3"
+      ]
+    },
+    {
+      "id": "AAC-0007",
+      "title": "Latency within budget at expected concurrency",
+      "dimension": "latency",
+      "level": "MUST",
+      "gate": false,
+      "stages": [
+        "S3",
+        "S5"
+      ],
+      "mechanisms": [
+        "M2"
+      ]
+    },
+    {
+      "id": "AAC-0008",
+      "title": "Cost per successful task, not per call",
+      "dimension": "cost",
+      "level": "MUST",
+      "gate": false,
+      "stages": [
+        "S3",
+        "S5"
+      ],
+      "mechanisms": [
+        "M2"
+      ]
+    },
+    {
+      "id": "AAC-0009",
+      "title": "Graceful degradation on provider failure",
+      "dimension": "reliability",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2"
+      ],
+      "mechanisms": [
+        "M1",
+        "M7"
+      ]
+    },
+    {
+      "id": "AAC-0010",
+      "title": "Variance across repeated runs is bounded",
+      "dimension": "determinism",
+      "level": "SHOULD",
+      "gate": false,
+      "stages": [
+        "S3"
+      ],
+      "mechanisms": [
+        "M2"
+      ]
+    },
+    {
+      "id": "AAC-0011",
+      "title": "Every call emits a complete trace",
+      "dimension": "observability",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S5"
+      ],
+      "mechanisms": [
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0012",
+      "title": "Model and prompt versions are pinned and rollback is exercised",
+      "dimension": "drift",
+      "level": "MUST",
+      "gate": false,
+      "stages": [
+        "S2"
+      ],
+      "mechanisms": [
+        "M1",
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0013",
+      "title": "Regression against the previous release",
+      "dimension": "drift",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3"
+      ],
+      "mechanisms": [
+        "M4",
+        "M2"
+      ]
+    },
+    {
+      "id": "AAC-0014",
+      "title": "Continuous scoring of sampled production traffic",
+      "dimension": "correctness",
+      "level": "SHOULD",
+      "gate": false,
+      "stages": [
+        "S5"
+      ],
+      "mechanisms": [
+        "M3",
+        "M2"
+      ]
+    },
+    {
+      "id": "AAC-0015",
+      "title": "Defined behaviour on degenerate input",
+      "dimension": "robustness",
+      "level": "MUST",
+      "gate": false,
+      "stages": [
+        "S2"
+      ],
+      "mechanisms": [
+        "M1",
+        "M7"
+      ]
+    },
+    {
+      "id": "AAC-0016",
+      "title": "Scheduled re-run against unchanged inputs",
+      "dimension": "drift",
+      "level": "SHOULD",
+      "gate": false,
+      "stages": [
+        "S6"
+      ],
+      "mechanisms": [
+        "M2",
+        "M4"
+      ]
+    },
+    {
+      "id": "AAC-0051",
+      "title": "Tool selection accuracy, including no-tool",
+      "dimension": "tool-use",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3"
+      ],
+      "mechanisms": [
+        "M5",
+        "M2"
+      ]
+    },
+    {
+      "id": "AAC-0052",
+      "title": "Arguments are valid syntactically and semantically",
+      "dimension": "tool-use",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S3"
+      ],
+      "mechanisms": [
+        "M1",
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0053",
+      "title": "Recovery from tool errors and empty results",
+      "dimension": "tool-use",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3"
+      ],
+      "mechanisms": [
+        "M7",
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0054",
+      "title": "Path efficiency against a reference trajectory",
+      "dimension": "trajectory",
+      "level": "MUST",
+      "gate": false,
+      "stages": [
+        "S3",
+        "S5"
+      ],
+      "mechanisms": [
+        "M5",
+        "M2"
+      ]
+    },
+    {
+      "id": "AAC-0055",
+      "title": "Hard termination under every condition",
+      "dimension": "reliability",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S4"
+      ],
+      "mechanisms": [
+        "M1",
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0056",
+      "title": "Destructive actions are gated",
+      "dimension": "safety",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3",
+        "S4"
+      ],
+      "mechanisms": [
+        "M7",
+        "M1"
+      ]
+    },
+    {
+      "id": "AAC-0057",
+      "title": "Least privilege is enforced server-side",
+      "dimension": "security",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S4"
+      ],
+      "mechanisms": [
+        "M1",
+        "M7"
+      ]
+    },
+    {
+      "id": "AAC-0058",
+      "title": "Injection arriving through tool output",
+      "dimension": "security",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3"
+      ],
+      "mechanisms": [
+        "M7"
+      ]
+    },
+    {
+      "id": "AAC-0059",
+      "title": "Reproducible trajectories with mocked tools",
+      "dimension": "determinism",
+      "level": "SHOULD",
+      "gate": false,
+      "stages": [
+        "S2"
+      ],
+      "mechanisms": [
+        "M5",
+        "M1"
+      ]
+    },
+    {
+      "id": "AAC-0060",
+      "title": "The full trajectory is reconstructable from the trace",
+      "dimension": "observability",
+      "level": "SHOULD",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S5"
+      ],
+      "mechanisms": [
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0091",
+      "title": "Guardrail enforcement fails closed",
+      "dimension": "safety",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S4"
+      ],
+      "mechanisms": [
+        "M1",
+        "M7"
+      ]
+    },
+    {
+      "id": "AAC-0092",
+      "title": "Streamed output is screened before it reaches the caller",
+      "dimension": "safety",
+      "level": "MAY",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S4"
+      ],
+      "mechanisms": [
+        "M1",
+        "M7"
+      ]
+    },
+    {
+      "id": "AAC-0093",
+      "title": "Per-caller quota and spend ceilings are enforced",
+      "dimension": "cost",
+      "level": "SHOULD",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S4"
+      ],
+      "mechanisms": [
+        "M1",
+        "M7"
+      ]
+    },
+    {
+      "id": "AAC-0094",
+      "title": "Only approved models are reachable",
+      "dimension": "oversight",
+      "level": "SHOULD",
+      "gate": false,
+      "stages": [
+        "S2",
+        "S4"
+      ],
+      "mechanisms": [
+        "M1",
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0095",
+      "title": "Logged prompts and responses are redacted and retention-bounded",
+      "dimension": "privacy",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S4"
+      ],
+      "mechanisms": [
+        "M1"
+      ]
+    },
+    {
+      "id": "AAC-0096",
+      "title": "Cached responses never cross a trust boundary",
+      "dimension": "privacy",
+      "level": "MAY",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S4"
+      ],
+      "mechanisms": [
+        "M1",
+        "M7"
+      ]
+    },
+    {
+      "id": "AAC-0097",
+      "title": "Processing region is enforced and recorded",
+      "dimension": "privacy",
+      "level": "MAY",
+      "gate": false,
+      "stages": [
+        "S4",
+        "S5"
+      ],
+      "mechanisms": [
+        "M1",
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0098",
+      "title": "Every reachable model is evaluated, not just the primary",
+      "dimension": "correctness",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3"
+      ],
+      "mechanisms": [
+        "M2",
+        "M4"
+      ]
+    },
+    {
+      "id": "AAC-0099",
+      "title": "The output contract holds on every route",
+      "dimension": "format",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S3"
+      ],
+      "mechanisms": [
+        "M1",
+        "M3"
+      ]
+    },
+    {
+      "id": "AAC-0100",
+      "title": "The serving route is recorded, with its reason and its cost",
+      "dimension": "observability",
+      "level": "MUST",
+      "gate": false,
+      "stages": [
+        "S2",
+        "S5"
+      ],
+      "mechanisms": [
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0101",
+      "title": "Routing changes are gated like model changes",
+      "dimension": "drift",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S3"
+      ],
+      "mechanisms": [
+        "M2",
+        "M4"
+      ]
+    },
+    {
+      "id": "AAC-0102",
+      "title": "Cost regression is gated at release",
+      "dimension": "cost",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3"
+      ],
+      "mechanisms": [
+        "M2"
+      ]
+    },
+    {
+      "id": "AAC-0103",
+      "title": "Context growth is tracked across releases",
+      "dimension": "cost",
+      "level": "SHOULD",
+      "gate": false,
+      "stages": [
+        "S3",
+        "S6"
+      ],
+      "mechanisms": [
+        "M2",
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0104",
+      "title": "Spend is attributable to tenant, feature and route",
+      "dimension": "cost",
+      "level": "SHOULD",
+      "gate": false,
+      "stages": [
+        "S5"
+      ],
+      "mechanisms": [
+        "M5",
+        "M2"
+      ]
+    },
+    {
+      "id": "AAC-0105",
+      "title": "Tool results are bounded before they enter context",
+      "dimension": "cost",
+      "level": "SHOULD",
+      "gate": false,
+      "stages": [
+        "S2",
+        "S3"
+      ],
+      "mechanisms": [
+        "M1",
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0106",
+      "title": "The system prompt is not a security boundary",
+      "dimension": "security",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3"
+      ],
+      "mechanisms": [
+        "M7",
+        "M1"
+      ]
+    },
+    {
+      "id": "AAC-0107",
+      "title": "Serving artifacts are the ones that were evaluated",
+      "dimension": "security",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S3"
+      ],
+      "mechanisms": [
+        "M1",
+        "M5"
+      ]
+    }
+  ],
+  "elsewhere_in_catalog": {
+    "AAC-0017": {
+      "title": "Per-slice accuracy, not just aggregate",
+      "archetypes": [
+        "A1"
+      ]
+    },
+    "AAC-0018": {
+      "title": "Stability under paraphrase and reordering",
+      "archetypes": [
+        "A1"
+      ]
+    },
+    "AAC-0019": {
+      "title": "Context-window overflow behaviour",
+      "archetypes": [
+        "A1"
+      ]
+    },
+    "AAC-0020": {
+      "title": "Over-refusal rate on in-scope inputs",
+      "archetypes": [
+        "A1"
+      ]
+    },
+    "AAC-0021": {
+      "title": "Position and length bias in the output",
+      "archetypes": [
+        "A1"
+      ]
+    },
+    "AAC-0022": {
+      "title": "Total schema validity, including nested and optional fields",
+      "archetypes": [
+        "A2"
+      ]
+    },
+    "AAC-0023": {
+      "title": "Type, unit and format fidelity",
+      "archetypes": [
+        "A2"
+      ]
+    },
+    "AAC-0024": {
+      "title": "Absent fields are null, never invented",
+      "archetypes": [
+        "A2"
+      ]
+    },
+    "AAC-0025": {
+      "title": "Field-level precision and recall against gold",
+      "archetypes": [
+        "A2"
+      ]
+    },
+    "AAC-0026": {
+      "title": "Schema evolution does not break consumers",
+      "archetypes": [
+        "A2"
+      ]
+    },
+    "AAC-0027": {
+      "title": "The downstream consumer is tested on real output",
+      "archetypes": [
+        "A2"
+      ]
+    },
+    "AAC-0028": {
+      "title": "Retrieval quality measured on its own",
+      "archetypes": [
+        "A3"
+      ]
+    },
+    "AAC-0029": {
+      "title": "Every claim is supported by retrieved context",
+      "archetypes": [
+        "A3"
+      ]
+    },
+    "AAC-0030": {
+      "title": "Citations resolve and actually support the sentence",
+      "archetypes": [
+        "A3"
+      ]
+    },
+    "AAC-0031": {
+      "title": "Abstention when the corpus cannot answer",
+      "archetypes": [
+        "A3"
+      ]
+    },
+    "AAC-0032": {
+      "title": "Retrieval respects the caller's permissions",
+      "archetypes": [
+        "A3"
+      ]
+    },
+    "AAC-0033": {
+      "title": "Context precision and noise tolerance",
+      "archetypes": [
+        "A3"
+      ]
+    },
+    "AAC-0034": {
+      "title": "Index rebuilds are gated by evaluation",
+      "archetypes": [
+        "A3"
+      ]
+    },
+    "AAC-0035": {
+      "title": "Conflicting and stale sources",
+      "archetypes": [
+        "A3"
+      ]
+    },
+    "AAC-0036": {
+      "title": "Injection carried in retrieved documents",
+      "archetypes": [
+        "A3"
+      ]
+    },
+    "AAC-0037": {
+      "title": "Goal completion across a full conversation",
+      "archetypes": [
+        "A4"
+      ]
+    },
+    "AAC-0038": {
+      "title": "State retention and self-consistency",
+      "archetypes": [
+        "A4"
+      ]
+    },
+    "AAC-0039": {
+      "title": "Correction and topic-switch handling",
+      "archetypes": [
+        "A4"
+      ]
+    },
+    "AAC-0040": {
+      "title": "Session and tenant isolation",
+      "archetypes": [
+        "A4"
+      ]
+    },
+    "AAC-0041": {
+      "title": "Memory writes are correct and poison-resistant",
+      "archetypes": [
+        "A4"
+      ]
+    },
+    "AAC-0042": {
+      "title": "Conversation-level cost and turns to resolution",
+      "archetypes": [
+        "A4"
+      ]
+    },
+    "AAC-0043": {
+      "title": "Escalation to a human works under load",
+      "archetypes": [
+        "A4"
+      ]
+    },
+    "AAC-0044": {
+      "title": "Each node is tested in isolation",
+      "archetypes": [
+        "A5"
+      ]
+    },
+    "AAC-0045": {
+      "title": "Seams are contract-tested in both directions",
+      "archetypes": [
+        "A5"
+      ]
+    },
+    "AAC-0046": {
+      "title": "Partial failure and compensating actions",
+      "archetypes": [
+        "A5"
+      ]
+    },
+    "AAC-0047": {
+      "title": "Retried steps are idempotent",
+      "archetypes": [
+        "A5"
+      ]
+    },
+    "AAC-0048": {
+      "title": "The graph is deterministic given fixed node outputs",
+      "archetypes": [
+        "A5"
+      ]
+    },
+    "AAC-0049": {
+      "title": "Every branch is exercised",
+      "archetypes": [
+        "A5"
+      ]
+    },
+    "AAC-0050": {
+      "title": "End-to-end budget as the sum of its parts",
+      "archetypes": [
+        "A5"
+      ]
+    },
+    "AAC-0061": {
+      "title": "Delegation routes to the right agent",
+      "archetypes": [
+        "A7"
+      ]
+    },
+    "AAC-0062": {
+      "title": "Handoff payloads are complete",
+      "archetypes": [
+        "A7"
+      ]
+    },
+    "AAC-0063": {
+      "title": "No loops or ping-pong between agents",
+      "archetypes": [
+        "A7"
+      ]
+    },
+    "AAC-0064": {
+      "title": "A budget ceiling spans the whole system",
+      "archetypes": [
+        "A7"
+      ]
+    },
+    "AAC-0065": {
+      "title": "One agent's failure is contained",
+      "archetypes": [
+        "A7"
+      ]
+    },
+    "AAC-0066": {
+      "title": "Contradictory sub-results are reconciled",
+      "archetypes": [
+        "A7"
+      ]
+    },
+    "AAC-0067": {
+      "title": "Per-agent attribution within one trace tree",
+      "archetypes": [
+        "A7"
+      ]
+    },
+    "AAC-0068": {
+      "title": "The artifact parses or compiles",
+      "archetypes": [
+        "A8"
+      ]
+    },
+    "AAC-0069": {
+      "title": "It executes in a sandbox without error",
+      "archetypes": [
+        "A8"
+      ]
+    },
+    "AAC-0070": {
+      "title": "It passes a functional test suite",
+      "archetypes": [
+        "A8"
+      ]
+    },
+    "AAC-0071": {
+      "title": "The generated artifact is security-linted",
+      "archetypes": [
+        "A8"
+      ]
+    },
+    "AAC-0072": {
+      "title": "Execution is sandboxed and blast radius bounded",
+      "archetypes": [
+        "A8"
+      ]
+    },
+    "AAC-0073": {
+      "title": "Runtime cost of the generated artifact",
+      "archetypes": [
+        "A8"
+      ]
+    },
+    "AAC-0074": {
+      "title": "House style and policy conformance",
+      "archetypes": [
+        "A8"
+      ]
+    },
+    "AAC-0075": {
+      "title": "Edits stay inside their declared scope",
+      "archetypes": [
+        "A8"
+      ]
+    },
+    "AAC-0076": {
+      "title": "Triggers fire once and only once",
+      "archetypes": [
+        "A9"
+      ]
+    },
+    "AAC-0077": {
+      "title": "An enforced kill switch on time, tokens and money",
+      "archetypes": [
+        "A9"
+      ]
+    },
+    "AAC-0078": {
+      "title": "Irreversible actions require approval",
+      "archetypes": [
+        "A9"
+      ]
+    },
+    "AAC-0079": {
+      "title": "Failure is loud, and so is silence",
+      "archetypes": [
+        "A9"
+      ]
+    },
+    "AAC-0080": {
+      "title": "Every action is reconstructable after the fact",
+      "archetypes": [
+        "A9"
+      ]
+    },
+    "AAC-0081": {
+      "title": "Actions can be rolled back",
+      "archetypes": [
+        "A9"
+      ]
+    },
+    "AAC-0082": {
+      "title": "Behaviour on unchanged inputs is watched over time",
+      "archetypes": [
+        "A9"
+      ]
+    },
+    "AAC-0083": {
+      "title": "Blast radius rehearsed in staging",
+      "archetypes": [
+        "A9"
+      ]
+    },
+    "AAC-0084": {
+      "title": "Agreement with human labels",
+      "archetypes": [
+        "A10"
+      ]
+    },
+    "AAC-0085": {
+      "title": "Known judge biases are probed",
+      "archetypes": [
+        "A10"
+      ]
+    },
+    "AAC-0086": {
+      "title": "Verdict stability across runs and rewording",
+      "archetypes": [
+        "A10"
+      ]
+    },
+    "AAC-0087": {
+      "title": "Confidence scores are calibrated",
+      "archetypes": [
+        "A10"
+      ]
+    },
+    "AAC-0088": {
+      "title": "Guardrail false-positive and false-negative rates",
+      "archetypes": [
+        "A10"
+      ]
+    },
+    "AAC-0089": {
+      "title": "Routing saves money without losing quality",
+      "archetypes": [
+        "A10"
+      ]
+    },
+    "AAC-0090": {
+      "title": "The judge is re-validated when it changes",
+      "archetypes": [
+        "A10"
+      ]
+    },
+    "AAC-0108": {
+      "title": "Corpus ingestion is controlled and auditable",
+      "archetypes": [
+        "A3"
+      ]
+    }
+  },
+  "elsewhere_note": "Obligations that exist in AAC but are not tagged A6. A test claiming one of these is not making a mistake \u2014 it is evidence that the obligation applies to this archetype and is not tagged for it."
+}

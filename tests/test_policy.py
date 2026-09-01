@@ -71,6 +71,7 @@ CLAIM_CASES = [
 
 
 @pytest.mark.parametrize(("name", "text", "blocked"), CLAIM_CASES, ids=[c[0] for c in CLAIM_CASES])
+@pytest.mark.discharges("AAC-0003")
 def test_a_refund_may_only_be_claimed_if_one_happened(name: str, text: str, blocked: bool) -> None:
     """The gate stops an unauthorised refund; this stops the agent saying it did
     one anyway. Both cost the same at the support desk, and only one shows up in
@@ -108,6 +109,7 @@ OUTPUT_CASES = [
     OUTPUT_CASES,
     ids=[c[0] for c in OUTPUT_CASES],
 )
+@pytest.mark.discharges("AAC-0006", "AAC-0005")
 def test_output_rules(name: str, text: str, evidence: tuple[str, ...], blocked: bool) -> None:
     results = tuple(ToolResult(name="get_order", structured={"eta": e}) for e in evidence)
     assert pol.enforce(reply(text, *results)).blocked is blocked
@@ -125,6 +127,7 @@ def test_a_discount_the_customer_never_asked_for_is_still_refused() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AAC-0091")
 def test_a_rule_that_raises_blocks_the_traffic() -> None:
     """A guardrail that errors open is believed and absent at the same time, and
     nobody goes looking for a control they think they have."""
@@ -196,6 +199,7 @@ def server():
     return srv
 
 
+@pytest.mark.discharges("AAC-0003", "AAC-0005")
 async def test_a_false_claim_never_reaches_the_customer(server) -> None:
     """End to end: the model lies, the customer does not hear it."""
     async with connect(server, ledger=InMemoryLedger()) as tools:

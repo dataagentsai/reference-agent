@@ -121,6 +121,7 @@ async def test_the_ledger_round_trips(pool) -> None:
     assert stored.structured["refund_id"] == "rf_1"
 
 
+@pytest.mark.discharges("AAC-0047")
 async def test_two_writers_racing_leave_one_row(pool) -> None:
     """`ON CONFLICT DO NOTHING`. An application-level check-then-insert has a
     window between the check and the insert, and the window is exactly where a
@@ -158,6 +159,7 @@ async def test_the_first_outcome_for_a_key_is_the_outcome(pool) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AAC-0056", "AAC-0047")
 async def test_an_approval_survives_a_process_restart(pool) -> None:
     """The whole reason P6 exists.
 
@@ -196,6 +198,7 @@ async def test_an_approval_survives_a_process_restart(pool) -> None:
         await reborn.close()
 
 
+@pytest.mark.discharges("AAC-0056")
 async def test_a_decision_is_terminal_across_processes(pool) -> None:
     """The rule has to hold in the store, not only in the module that wrote it."""
     from support_agent.state.postgres import PostgresApprovalStore

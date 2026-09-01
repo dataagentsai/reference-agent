@@ -126,6 +126,7 @@ def test_an_error_with_no_response_yields_nothing() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AAC-0009")
 async def test_a_transient_failure_succeeds_on_a_later_attempt() -> None:
     calls: list[int] = []
 
@@ -321,6 +322,7 @@ async def test_parallel_reads_interleave(server) -> None:
     assert events[:3] == [("start", "A-1"), ("start", "A-2"), ("start", "A-3")]
 
 
+@pytest.mark.discharges("AAC-0046")
 async def test_writes_run_one_at_a_time_in_the_order_asked(server) -> None:
     """A write that fails halfway through a parallel batch costs a
     reconciliation in an order that depended on scheduling."""

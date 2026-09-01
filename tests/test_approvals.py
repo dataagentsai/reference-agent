@@ -82,6 +82,7 @@ def test_only_refunds_are_gated() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AAC-0056", "AAC-0005")
 async def test_nobody_approves_their_own_request() -> None:
     """The confused deputy of the human path, and the control against "your
     colleague already approved this" — the claim would have to be true in the
@@ -139,6 +140,7 @@ ELEVATION_CASES = [
     ELEVATION_CASES,
     ids=[c[0] for c in ELEVATION_CASES],
 )
+@pytest.mark.discharges("AAC-0057", "AAC-0056")
 async def test_the_elevated_scope_is_refused_without_a_live_grant(
     name: str, decided: bool, granted: bool, when: int
 ) -> None:
@@ -205,6 +207,7 @@ def server():
     return srv
 
 
+@pytest.mark.discharges("AAC-0056")
 async def test_a_large_refund_cannot_be_issued_before_it_is_granted(server) -> None:
     """The customer's own surface does not contain the tool at all."""
     async with connect(server, ledger=InMemoryLedger()) as tools:
@@ -213,6 +216,7 @@ async def test_a_large_refund_cannot_be_issued_before_it_is_granted(server) -> N
     assert server.state["refunds"] == 0
 
 
+@pytest.mark.discharges("AAC-0047", "AAC-0056")
 async def test_the_whole_path_produces_exactly_one_refund(server) -> None:
     """Requested, waited, granted an hour later by someone else, resumed — and
     resumed *twice*, because a duplicate click and a retried process are the same
@@ -282,6 +286,7 @@ def wants_refund(amount: str):
     )
 
 
+@pytest.mark.discharges("AAC-0056", "AAC-0047")
 async def test_a_large_refund_waits_and_then_completes_across_turns(server) -> None:
     """The whole gate, through the drivable surface.
 

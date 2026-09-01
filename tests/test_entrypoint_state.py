@@ -131,6 +131,7 @@ async def test_an_ambiguous_turn_reaches_the_loop(server) -> None:
     assert len(llm.calls) == 2
 
 
+@pytest.mark.discharges("AAC-0009")
 async def test_provider_failure_returns_a_typed_result(server) -> None:
     async with open_tools(server) as tools:
         result, _ = await agent_with(tools, llm=UnavailableClient()).handle(
@@ -154,6 +155,7 @@ async def test_the_turn_is_recorded_on_the_conversation(server) -> None:
     assert conversation.customer_id == "C-1042"
 
 
+@pytest.mark.discharges("AAC-0006")
 async def test_operator_detail_never_reaches_the_conversation(server) -> None:
     """`Failed.detail` is for the operator and lives on the span. A conversation
     is what the customer can be shown."""
@@ -242,6 +244,7 @@ async def test_resuming_an_unknown_run_is_none_not_an_error(tmp_path) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AAC-0011", "AAC-0107")
 async def test_the_turn_span_carries_the_config_fingerprint(server, exporter) -> None:
     config = resolve(Settings(provider_api_key="k", resolution="mock", sealed=True))
     async with open_tools(server) as tools:
@@ -252,6 +255,7 @@ async def test_the_turn_span_carries_the_config_fingerprint(server, exporter) ->
     assert attrs[tel.RESOLUTION] == "mock"
 
 
+@pytest.mark.discharges("AAC-0100")
 async def test_a_direct_route_is_visible_on_the_trace(server, exporter) -> None:
     """A verdict that says "no model call" should be checkable without trusting
     the reply text."""

@@ -147,6 +147,7 @@ async def test_a_player_cannot_reach_a_provider_even_on_a_miss() -> None:
     assert not hasattr(player, "_inner")
 
 
+@pytest.mark.discharges("AAC-0016")
 async def test_a_changed_request_is_a_mismatch_not_a_silent_pass() -> None:
     """The drift a regression case exists to catch."""
     recorder = Recorder(ScriptedClient([says("recorded")]))
@@ -241,6 +242,7 @@ def test_the_format_version_is_pinned() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AAC-0059", "AAC-0010")
 async def test_a_whole_run_replays_from_disk_with_no_network(server, tmp_path) -> None:
     scripted = ScriptedClient(
         [
@@ -284,6 +286,7 @@ async def test_a_whole_run_replays_from_disk_with_no_network(server, tmp_path) -
     assert player.exhausted
 
 
+@pytest.mark.discharges("AAC-0100")
 async def test_replay_is_visible_on_the_trace(server, exporter, tmp_path) -> None:
     """A verdict is not interpretable without knowing which world produced it."""
     recorder = Recorder(ScriptedClient([says("hi")]))

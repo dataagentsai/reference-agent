@@ -102,6 +102,7 @@ async def test_a_tool_without_a_declared_side_effect_is_refused(server) -> None:
         assert any("undeclared" in r for r in client.rejected)
 
 
+@pytest.mark.discharges("AAC-0057")
 async def test_the_surface_is_scoped_to_the_identity(server) -> None:
     """MCP permits tools/list to vary by authorization, so this is protocol-legal
     rather than a local invention — and it is T-AD-01 at the protocol level."""
@@ -114,6 +115,7 @@ async def test_the_surface_is_scoped_to_the_identity(server) -> None:
         assert without.get("get_order") is not None
 
 
+@pytest.mark.discharges("AAC-0051")
 async def test_calling_a_tool_outside_the_surface_is_recoverable(server) -> None:
     """AAC-0051 — the loop reports it back so the model can choose again."""
     async with open_client(server) as client:
@@ -121,6 +123,7 @@ async def test_calling_a_tool_outside_the_surface_is_recoverable(server) -> None
             await client.call("issue_refund", {"order_id": "O-1"}, customer(), key())
 
 
+@pytest.mark.discharges("AAC-0052")
 async def test_invalid_arguments_are_rejected_before_dispatch(server) -> None:
     """AAC-0052 — arguments valid syntactically and semantically, at P5, the last
     place an action can be stopped while stopping it is cheap."""
@@ -162,6 +165,7 @@ async def test_a_later_iteration_is_a_genuine_second_execution(server) -> None:
         assert server.state["refunds"] == 2
 
 
+@pytest.mark.discharges("AAC-0053")
 async def test_an_execution_error_is_a_result_not_an_exception(server) -> None:
     """Two channels, kept apart. The model can act on this one."""
     async with open_client(server) as client:
@@ -170,6 +174,7 @@ async def test_an_execution_error_is_a_result_not_an_exception(server) -> None:
         assert result.error_channel == "execution"
 
 
+@pytest.mark.discharges("AAC-0011")
 async def test_the_tool_call_is_on_the_trace(server) -> None:
     async with open_client(server) as client:
         exporter = tel.configure()
@@ -193,6 +198,7 @@ INJECTION_CASES = [
 
 
 @pytest.mark.parametrize(("name", "hostile"), INJECTION_CASES, ids=[c[0] for c in INJECTION_CASES])
+@pytest.mark.discharges("AAC-0058", "AAC-0004")
 def test_tool_output_is_fenced_and_labelled(name: str, hostile: str) -> None:
     message = ctx.tool_message(
         ToolResult(name="get_order", structured={"note": hostile}), tool_call_id="tc_1"
@@ -202,6 +208,7 @@ def test_tool_output_is_fenced_and_labelled(name: str, hostile: str) -> None:
     assert message.content.rstrip().endswith(ctx.FENCE_CLOSE)
 
 
+@pytest.mark.discharges("AAC-0058")
 def test_a_closing_delimiter_in_the_payload_cannot_end_the_fence_early() -> None:
     """The fence is worthless if the untrusted text can close it."""
     message = ctx.tool_message(
