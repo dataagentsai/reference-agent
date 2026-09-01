@@ -58,6 +58,8 @@ DEFAULT_SYSTEM_PROMPT = (
     "tool has not confirmed. If you cannot do something, say so plainly."
 )
 
+LOOKUP_TOOL = "get_order"
+
 STATUS_REPLY = (
     "Order {{ order_id }} is currently {{ status }}."
     "{% if status == 'shipped' %} It is on its way.{% endif %}"
@@ -219,16 +221,40 @@ class Agent:
             )
 
     async def _direct(self, decision: Direct, identity: Identity, run_id: RunId) -> TurnResult:
-        """A deterministic handler. No model call, and the trace says so."""
+        """A deterministic handler. No model call, and the trace says so.
+
+        The tool's argument name is read from its declared schema rather than
+        assumed. An earlier version hard-coded `order_id`, which bound the
+        deterministic path to one tool signature — and a world whose key field is
+        `id` made it raise rather than degrade (F-005).
+
+        Every failure below returns a typed result. The output contract has to
+        hold on *this* route too, and this is the route where nobody expects a
+        surprise, which is exactly why one escaped.
+        """
         with tel.span("agent.direct", **{"agent.handler": decision.handler}):
             key = IdempotencyKey(run_id=run_id, step=0, iteration=0)
             try:
-                result = await self.tools.call("get_order", dict(decision.args), identity, key)
+                registry = await self.tools.list_tools(identity)
+                spec = registry.get(LOOKUP_TOOL)
+                if spec is None:
+                    return Failed(
+                        customer_message="I cannot look that up right now.",
+                        detail=f"{LOOKUP_TOOL} is not on this identity's surface",
+                    )
+                arguments = _bind(spec, decision.args)
+                result = await self.tools.call(LOOKUP_TOOL, arguments, identity, key)
             except ToolUnavailable as exc:
                 return Failed(
                     customer_message="I cannot reach our order system right now.",
                     detail=str(exc),
                 )
+            except Exception as exc:  # noqa: BLE001 — the contract holds here too
+                return Failed(
+                    customer_message="I could not look that up.",
+                    detail=f"{type(exc).__name__}: {exc}",
+                )
+
             if result.is_error or not isinstance(result.structured, dict):
                 return Failed(
                     customer_message="I could not find that order.",
@@ -237,10 +263,23 @@ class Agent:
             return Completed(
                 reply=ctx.render(
                     STATUS_REPLY,
-                    order_id=result.structured.get("order_id", ""),
+                    order_id=result.structured.get("order_id") or result.structured.get("id", ""),
                     status=result.structured.get("status", "unknown"),
                 )
             )
+
+
+def _bind(spec, args: dict[str, object]) -> dict[str, object]:
+    """Map the router's arguments onto whatever the tool actually declares.
+
+    The router knows it found an order id; it does not know what this world calls
+    that field. One required string property means one place to put it.
+    """
+    properties = spec.input_schema.get("properties", {})
+    required = [n for n in spec.input_schema.get("required", []) if n in properties]
+    if len(required) == 1 and len(args) == 1:
+        return {required[0]: next(iter(args.values()))}
+    return dict(args)
 
 
 def _refusal_text(decision: Refuse) -> str:

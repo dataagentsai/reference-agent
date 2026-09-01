@@ -143,7 +143,12 @@ happens is not a gate.
 
 - [x] **E1** ✔ — Hypothesis over arbitrary order ids, arbitrary tool output through the fence, arbitrary router input. Properties stated over *all* text rather than the delimiters someone thought of.
 - [x] **E2** ✔ — `agenttwin/perturbation.py`: stale read, both MCP error channels, latency. Faults fire on a *named* call rather than randomly, and a fault that never fired is reported — a scenario whose fault did not land passes for the wrong reason.
-- [~] **E3** — the determinism class is declared on `RunRecord` and defaults to `scripted`. Model-driven actors are not built; nothing yet needs one, and adding one trades replay for realism.
+- [x] **E3** ✔ — `agenttwin/actor.py` and `agenttwin/scenario.py`. Three declared
+      determinism classes, a run's class being the weakest of its actors. The
+      state machine is the useful middle: free, exactly reproducible, and able to
+      reach states no script contains because the branch depends on what the
+      agent actually said. `ModelActor` raises rather than being built casually —
+      the seam is declared so the cost is visible.
 - [x] **E4** ✔ — a hostile instruction seeded into an order note in the world file. Three layers hold independently: it arrives fenced, the tool it demands is not on the identity's surface, and the eligibility rule refuses it anyway.
 - [x] **E5** ✔ — `evals/FINDINGS.md`. **Four findings**, recorded before being fixed. F-004 is the fix for F-001 introducing a worse defect, caught minutes later by the Phase D gate.
 
@@ -154,18 +159,22 @@ happens is not a gate.
 Deliberately last. Authoring loop obligations from a desk is what produced six
 cost obligations and one trajectory obligation.
 
-- [ ] **F1 · G1** — add A6 to AAC-0046, AAC-0047, AAC-0076 and AHC-0074. A tag
+- [x] **F1 · G1** ✔ *(branch `evidence/a6-tagging-and-grounding`, not main)* — add A6 to AAC-0046, AAC-0047, AAC-0076 and AHC-0074. A tag
       edit, not new authorship. **The evidence now generates itself:** the
       conformance report has an "exercised but not tagged A6" section, and
       AAC-0046 and AAC-0047 are in it with passing tests behind them.
-- [ ] **F2 · G2** — oscillation below the termination threshold. *Already
-      implemented and tested here* — `TerminationReason.OSCILLATION_DETECTED` —
-      so the obligation now has evidence behind it.
-- [ ] **F3 · G3, G4** — a grounding obligation for A6; escalation correctness.
+- [x] **F2 · G2** ✔ — **AAC-0109**, non-productive repetition. Distinct from
+      AAC-0063, which is about handoffs *between agents*; a single loop can
+      ping-pong with itself.
+- [x] **F3 · G3** ✔ — **AAC-0110**, a claimed action is supported by that
+      action's result, plus AAC-0029 tagged A6. This is the obligation the whole
+      build existed to find, and F-001/F-002/F-004 are its three failure modes.
+      *G4 (escalation timeliness) still has no evidence — not authored.*
 - [ ] **F4 · G5** — thicken S6, the stage the fix-and-regress loop runs on.
-- [ ] **F5** — close AHC-0074's two open tensions, which this build answers:
-      *what if the downstream has no idempotency support*, and *is a model call
-      itself idempotent*.
+- [x] **F5** ✔ — both closed *(branch `evidence/a6-idempotency`)*. The ladder,
+      and: a model call is idempotent in effect and not in result, so it needs
+      **reproducibility rather than deduplication** — a recording at the
+      invocation seam, not a key at the tool boundary.
 - [ ] **F6** — reverse-engineer the world **schema** from what the projection
       actually needed.
 

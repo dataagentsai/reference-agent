@@ -136,9 +136,50 @@ and the customer was still failed.
 
 ---
 
-## What these four say about the method
+## F-005 · The deterministic route was bound to one tool signature, and could raise
 
-None of them was found by reading the code. All four needed a world that could
+**Found** 2026-09-02, by the first scenario run against a *projected* world
+rather than a hand-written one.
+
+**Severity** High. It breaks the output contract on the one route nobody watches.
+
+### What happened
+
+`entrypoint._direct` hard-coded both the tool name and its argument name
+(`order_id`). The declared world names its key field `id`, so schema validation
+rejected the call — and `_direct` caught only `ToolUnavailable`, so the
+`ValidationError` **escaped `Agent.handle()` entirely**.
+
+Two defects in one place:
+
+*Coupling.* The deterministic path assumed a tool signature. It worked for as
+long as exactly one world existed, which is the definition of a latent defect.
+
+*Not total.* AAC-0099 says the output contract holds on every route, and there is
+a test asserting it — but that test drove the direct route against the
+hand-written world, where the argument name happened to match. The obligation was
+discharged by a case that could not fail.
+
+### Why the actor found it and 393 tests did not
+
+Every earlier test either drove a hand-written server or called tools directly.
+This was the first time the **deterministic path** met a **projected world** —
+and a scenario is what put those two together, because an actor opens with what a
+customer would actually say rather than with the phrasing a test author picked to
+reach the branch they were testing.
+
+### Fix
+
+The argument name is read from the tool's declared schema. Every failure in
+`_direct` now returns a typed `Failed`, including the ones nobody anticipated —
+which is the only way "the contract holds on every route" can be true rather than
+tested.
+
+---
+
+## What these five say about the method
+
+None of them was found by reading the code. All five needed a world that could
 be *put into a state* — shipped, then perturbed mid-run — and an oracle that was
 the world rather than the reply.
 
@@ -151,6 +192,12 @@ F-004 adds the other half of that lesson: the fix for a real finding introduced 
 worse defect within minutes, and what caught it was an existing test asserting on
 something the fix was not thinking about. Both halves of the gate earned their
 place — the diff, and the reply.
+
+F-005 adds a third lesson, about coverage rather than correctness. AAC-0099 was
+marked discharged by a passing test — and the test drove a configuration where
+the defect could not appear. **An obligation is only as discharged as the
+narrowest case that claims it**, and a conformance report cannot see that
+distinction. Two worlds found in one run what one world had hidden for a day.
 
 That is the argument for building the runtime before writing the obligations, and
 it is now evidence rather than an assertion.

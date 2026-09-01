@@ -81,7 +81,7 @@ projected server and against a hand-written one.
 
 ## Findings
 
-Phase E found four real defects, recorded in
+Phase E and the actor work found five real defects, recorded in
 [`evals/FINDINGS.md`](evals/FINDINGS.md) before being fixed. Two were invisible
 to 367 passing tests, because those tests asked *"did the effect happen?"* and
 the answer was correctly **no**. The question that found them is different:
