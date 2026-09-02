@@ -281,9 +281,59 @@ mandatory `outputSchema` buys and a schema-less REST API does not.
 
 ---
 
+## R-015 · "You picked the wrong examples — and an agent is also software, nothing more nothing less"
+
+Four corrections in one exchange, each sharper than the last. Written up in full
+as [`29-three-jobs.md`](../DataAgents.ai/29-three-jobs.md); the parts that land on
+this repo:
+
+**The axis was wrong.** Doc 28 sorted five agents by framework — Claude SDK,
+LangGraph, Bedrock — one day after establishing that the framework is the one
+attribute that does not change the test surface. Redone as four *jobs*: support,
+researcher, Databricks cost, multi-agent research.
+
+**The world-diff oracle silently passes.** A researcher agent writes nothing, so
+`world₀ == world₁` and every scenario succeeds. Not missing coverage — a **false
+pass**, which is worse, because it ships looking like coverage. Any agent whose
+output is an artifact rather than a mutation hits it. Three oracle families are
+now named: world diff, provenance, bounds. We have one.
+
+**Three world shapes, not one.** Rows-snapshot (support) is covered; typed edges
+(corpus), aggregates over history (ops) and visibility/topology (multi-agent) are
+not. `ref` is our only edge and it is a referential string on a field.
+
+**We have been re-deriving solved problems.** F-011 is *constrained combinatorial
+testing* — forbidden tuples, in the CIT literature for twenty years. Coherent
+seeded state is *factories with traits*. The missing functional model is
+*model-based testing*. The missing oracle is *metamorphic testing*, from 1998.
+"Is the golden set any good" is *mutation score*. R-006 is *Jepsen*. The whole
+programme is *deterministic simulation testing*. **The gap is the description
+format, not the techniques** — which is a far more defensible thesis than "agent
+testing is new".
+
+**And the premise underneath:** an agent is software, nothing more nothing less.
+A keyword pass over AAC's 110 obligations finds 25 naming something LLM-specific
+and 85 that do not — and the clear cases (*conforms to its declared contract*,
+*latency within budget*, *cost per successful task*, *graceful degradation on
+provider failure*) are ordinary service engineering that would read the same in
+2010. What makes an obligation genuinely agent-specific is its **cause** —
+nondeterminism, natural language as interface, or instructions and data sharing a
+channel — not its topic.
+
+Also drawn out: **OpenUSD's composition arcs** are the largest unclaimed idea for
+this codebase. `perturbation.py` mutates the world; layering would make world₀ a
+base layer, the perturbation a non-destructive layer, the diff structural, and
+perturbations portable. And `worlds/electronics.yaml` is a **fork where USD would
+use a variant** — it worked, and it will not survive the tenth world.
+
+→ Build order reset. Nothing here is fixed yet; F-011 and the layering retrofit
+are the two that get dearer with every week of new code.
+
+---
+
 ## The pattern
 
-Fourteen questions, fourteen findings. Three were defects that would reach a
+Fifteen questions, fifteen findings. Three were defects that would reach a
 customer, and none of them was visible to the test suite at the time — because a
 test is written by the person who built the thing, and asks the question they
 already had.
