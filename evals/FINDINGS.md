@@ -237,6 +237,52 @@ its own validation before it can be trusted.
 
 ---
 
+## F-011 · Twelve of twenty-nine generated cases describe a world that cannot exist
+
+Raised in review: *"we also need to understand the semantics of those systems so
+that we can generate meaningful correlated data."* Measured immediately:
+
+```
+29 generated cases
+12 describe a world that cannot exist:
+  open_return_request  status=pending          days_since_delivery=30
+  change_address       status=confirmed        days_since_delivery=31
+  cancel_order         status=picked           days_since_delivery=30
+  open_return_request  status=shipped          days_since_delivery=31
+  cancel_order         status=out_for_delivery days_since_delivery=30
+```
+
+An order that is `pending` has not been delivered, so it cannot be thirty days
+since its delivery. Every one of these rows is **type-valid** — the int is an
+int — and **referentially valid** — the customer exists. They are semantically
+impossible.
+
+**Why the generator produces them.** `AllPairs` crosses `status` against
+`days_since_delivery` freely, because nothing in the world file says the two
+fields are related. `world.py` has `Entity`, `Field` and `Condition`; it has no
+concept of an **invariant** — a statement about which combinations of fields can
+coexist. Grepping for one returns nothing.
+
+**What it costs.** Not a wrong verdict: `evaluate()` reads the conditions and
+refuses correctly, so the assertions pass. The cost is that **41% of the golden
+set tests the rule against fiction.** A case that could never arise in production
+cannot fail in a way production would. Worse, it hides the case that matters:
+nothing generated tests `status=delivered, days_since_delivery=31` *against a
+customer who already opened a return*, because coherent multi-field states are
+not part of the space at all.
+
+This is the difference between a mock and a simulation. A mock returns
+well-typed answers. A simulation maintains a world that could exist — and only
+the second finds the bugs that need two facts to be true at once.
+
+**Fix shape:** invariants belong in the world file next to conditions, because
+they are the same kind of statement — the world declaring its own truth rather
+than Python asserting it. `days_since_delivery > 0 implies status in [delivered,
+returned, refunded]` prunes the generator's space *and* validates seeded rows
+*and* constrains perturbations, from one declaration. Open.
+
+---
+
 ## What these seven say about the method
 
 None of them was found by reading the code. All of them needed a world that could

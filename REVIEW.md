@@ -216,9 +216,79 @@ database.
 
 ---
 
+## R-013 · "Why are you saying AgentTwin does not cover the other four shapes?"
+
+**Exposed:** an overstatement of my own, in a document I had just written.
+
+Doc 28 scored four of five shapes ❌ and concluded *"AgentTwin only works for one
+of the five"*. Measuring the package refuted it: **five MCP-bound lines out of
+~984**, all in `projection.py`. `world`, `loader`, `actor`, `scenario` and
+`record` contain zero. The claim contradicted `projection.py`'s own docstring —
+*"one scene, many render delegates"* — which is to say I had designed the
+separation deliberately and then failed to credit it a day later.
+
+The correction is not a smaller number, it is a **different axis**. Two questions
+were being conflated: the **contract face** (MCP / HTTP / filesystem — a renderer,
+~40 lines) and the **world model** (rows / a git tree / a corpus — a research
+question). Scored on both: 1 covered, 2 need only a renderer, 2 need a genuinely
+different world model. The hard limit is real and it is not the protocol —
+`entities → fields → conditions` cannot describe a file tree, and `Condition`
+cannot say *"these two documents contradict each other"*.
+
+→ Doc 28 Finding 2 rewritten. **A claim in a committed document is a defect like
+any other**, and this is the first one review caught in prose rather than code.
+
+---
+
+## R-014 · "AgentTwin treats the agent as a box; it needs the semantics, and the agent's functional aspect"
+
+Stated as a restatement rather than a question, and it decomposes into six stages.
+Two of them do not exist.
+
+| | Stage | Status |
+|---|---|---|
+| 1 | Agent is a box talking to systems | ✅ intercept at the contract face; never imports the agent |
+| 2 | Mock or synthesise those systems | ✅ `projection.py` |
+| 3 | **Understand semantics → generate correlated data** | ❌ **F-011** |
+| 4 | **Understand the agent's functional aspect** | ❌ **nothing declares it** |
+| 5 | Generate scenarios and test cases | ⚠️ cases yes, scenarios hand-written |
+| 6 | Execute | ✅ `scenario.py`, world diff as oracle |
+
+**Stage 3, measured.** 12 of 29 generated golden cases describe a world that
+cannot exist — `status=pending` with `days_since_delivery=30`. Type-valid,
+referentially valid, semantically impossible, because `world.py` has `Entity`,
+`Field` and `Condition` and **no concept of an invariant**. → **F-011**, open.
+
+**Stage 4 is the larger gap and was not on any list.** The world file declares
+what *exists* and what is *allowed*. **Nothing anywhere declares what the agent is
+for.** AgentTwin has a complete model of the environment and no model of the job —
+which is exactly why stage 5 is half-built: cases generate mechanically from
+conditions, while scenarios are hand-written, because a scenario needs a *goal*
+and nothing knows what goals exist.
+
+The functional model is not missing information — doc 24 has it: intents, an
+action catalog, an eligibility matrix, success predicates. It is missing as
+**data**. It lives in prose, so a human has to read it and type scenarios. Make it
+a declaration and `intent × reachable world state → scenario + predicate`
+generates, the same way conditions already generate cases.
+
+Also raised, and the reason the box holds: *"that agent is written in A, B or C —
+it does not matter, till the contracts are well defined."* Recorded as doc 28
+Finding 2b. It is the mirror of the import contract we already enforce — *the
+agent cannot see its simulator*, and the simulator does not look inside the agent.
+Its condition: a face must be **declared and complete**, which is what MCP's
+mandatory `outputSchema` buys and a schema-less REST API does not.
+
+---
+
 ## The pattern
 
-Twelve questions, twelve findings. Three were defects that would reach a customer,
-and none of them was visible to the test suite at the time — because a test is
-written by the person who built the thing, and asks the question they already
-had.
+Fourteen questions, fourteen findings. Three were defects that would reach a
+customer, and none of them was visible to the test suite at the time — because a
+test is written by the person who built the thing, and asks the question they
+already had.
+
+R-013 extends that one step further. The subject was not the code but **a
+document about the code**, and the error was mine, written the same day, against
+a separation I had built on purpose. Prose is not audited by a test suite at all,
+so nothing but a reader was ever going to catch it.
