@@ -187,16 +187,17 @@ async def test_an_unknown_record_is_not_a_refusal() -> None:
 @pytest.mark.parametrize("case", CASES, ids=[c["id"] for c in CASES])
 @pytest.mark.discharges("AAC-0001", "AAC-0059")
 async def test_the_projection_agrees_with_the_hand_written_world(case: dict) -> None:
-    live = live_with(case["status"], case["days_since_delivery"], case["final_sale"])
+    row = case["row"]
+    live = live_with(row["status"], row["days_since_delivery"], row["final_sale"])
     async with connect(project(live), ledger=InMemoryLedger()) as tools:
         projected = await tools.call(case["action"], {"id": ORDER}, privileged(), key())
 
     hand = handwritten.World()
     hand.seed(
         ORDER,
-        OrderStatus(case["status"]),
-        days_since_delivery=case["days_since_delivery"],
-        final_sale=case["final_sale"],
+        OrderStatus(row["status"]),
+        days_since_delivery=row["days_since_delivery"],
+        final_sale=row["final_sale"],
     )
     async with connect(handwritten.build(hand), ledger=InMemoryLedger()) as tools:
         written = await tools.call(case["action"], {"order_id": ORDER}, privileged(), key())
@@ -319,3 +320,71 @@ def test_the_run_record_states_its_determinism_class() -> None:
     record = RunRecord(scenario="s", world="w", seed=1, resolution="mock")
     assert record.determinism_class == "scripted"
     assert "determinism  scripted" in record.render()
+
+
+# --------------------------------------------------------------------------- #
+# The claim the projection design exists to make: a second world costs one file.
+# --------------------------------------------------------------------------- #
+
+SECOND_WORLD = Path(__file__).parent.parent / "worlds" / "electronics.yaml"
+
+
+def test_a_second_world_generates_its_own_cases_with_no_code_change() -> None:
+    """The generator reads the world's conditions, so a different policy moves
+    the boundaries by itself.
+
+    An earlier version read the *agent's* status enum and a hard-coded action
+    list, so a second world produced zero new cases and a fourteen-day return
+    window was still tested against thirty. The declaration was decorative.
+    """
+    from evals.generate_golden import generate
+
+    clothing = generate(load(WORLD))
+    electronics = generate(load(SECOND_WORLD))
+
+    def on_limit(cases: list[dict]) -> int:
+        case = next(c for c in cases if c["boundary"] and "exactly" in c["boundary"])
+        return case["row"]["days_since_delivery"]
+
+    assert on_limit(clothing) == 30
+    assert on_limit(electronics) == 14
+    assert {c["expected_allowed"] for c in electronics} == {True, False}
+
+
+async def test_the_second_world_projects_and_enforces_its_own_policy() -> None:
+    """Not just different cases — a different running server, from the same
+    projection code, enforcing a rule nobody wrote in Python."""
+    live = Live.start(load(SECOND_WORLD))
+    live.rows["order"][ORDER] = {
+        "id": ORDER,
+        "customer_id": "C-1042",
+        "status": "delivered",
+        "days_since_delivery": 20,
+        "final_sale": False,
+    }
+
+    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+        result = await tools.call("open_return_request", {"id": ORDER}, privileged(), key())
+
+    # Twenty days is inside the clothing world's thirty and outside this one's
+    # fourteen. Same code, opposite answer, because the world says so.
+    assert result.structured["allowed"] is False
+
+
+async def test_the_second_world_also_widened_cancellation() -> None:
+    """Electronics are picked by hand, so cancellation survives one state
+    longer. In the clothing world this same call is refused."""
+    live = Live.start(load(SECOND_WORLD))
+    live.rows["order"][ORDER] = {
+        "id": ORDER,
+        "customer_id": "C-1042",
+        "status": "picked",
+        "days_since_delivery": 0,
+        "final_sale": False,
+    }
+
+    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+        result = await tools.call("cancel_order", {"id": ORDER}, privileged(), key())
+
+    assert result.structured["allowed"] is True
+    assert live.count("cancel_order") == 1

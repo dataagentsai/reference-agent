@@ -139,9 +139,86 @@ Open.
 
 ---
 
+## R-009 · "What is a span? What is a span contract? How does it help us?"
+
+**Exposed:** printing one real trace to answer the question found two things
+immediately.
+
+`agent.tools.list` appears **twice** per tool call — `MCPToolClient.call()`
+re-lists the whole tool surface every time. In tests that is 500µs; against a
+real server it is a network round trip **per tool call**. Invisible in the code,
+obvious the moment the trace is drawn.
+
+And the span contract I had just written has a blind spot: the MCP SDK emits its
+own spans, `configure()` only sets OpenTelemetry's global provider on the *first*
+call, so third-party spans land in an earlier exporter. **The contract validates
+what we emit, not what the trace contains.**
+
+Both open.
+
+---
+
+## R-010 · "Where is eval and observability in the eight positions?"
+
+**Exposed:** two different answers.
+
+*Observability is correctly not a position.* Its 11 capabilities sit at P1–P6 —
+everywhere — because position answers "where is a rule enforced" and telemetry
+enforces nothing. It is a layer that spans the row.
+
+*Eval found a real gap.* P7 is declared "Offline / CI … no ability to prevent
+anything in production", yet AHC-0029 (a production record becomes a dataset row)
+and AHC-0055 (silence is alertable) are parked there and are neither. Applying
+AHC's own test — *does the same capability at a different position catch
+different failures?* — CI sees curated inputs, production sees the ones nobody
+imagined. Different position.
+
+And AHC cannot say so: it deliberately refused AAC's stage axis, so **online eval
+is currently unsayable**. Proposal drafted: **P9 · Production telemetry / online**.
+
+---
+
+## R-011 · "Where is the model router — weak model or strong model?"
+
+**Exposed:** the layer×position grid has **L2 × P4 empty**. Model invocation has
+nothing at the control loop, so *"the last two attempts failed, escalate to the
+stronger model"* is unsayable. A gateway can route (L2×P2) and a library can
+route (L2×P3), but only P4 can see a trajectory.
+
+Also **L7 × P5 empty** — policy enforcement has nothing at the tool boundary,
+which is the position defined as *"the last place an action can be stopped while
+it is still cheap"*.
+
+And we do not route at all: three approved models, one pinned per run.
+
+→ **F-010**, and our AAC-0098 discharge is thinner than the obligation: it
+asserts each model is *configurable and priced*, not *evaluated*.
+
+---
+
+## R-012 · "Don't we need an ontology and a knowledge graph?"
+
+**Exposed:** we have an ontology — one edge — and the generator was ignoring it.
+`generate_golden.py` read the *agent's* status enum and a hard-coded action list,
+so a second world produced zero new cases and a fourteen-day return window was
+still tested against thirty. The declaration was decorative.
+
+**Fixed.** The parameter space is now derived from the world's own conditions,
+boundaries included: `at_most: 30` yields 0, 30 and 31 because the condition says
+where its edge is. A second world — `worlds/electronics.yaml`, fourteen-day
+returns, cancellation one state later — generates its own cases, moves both
+boundaries, and projects a server enforcing a rule nobody wrote in Python. **No
+code changed.**
+
+A knowledge graph is still not needed. What *will* be needed at the second system
+is identity across systems (`same_as:`), which is a field rather than a graph
+database.
+
+---
+
 ## The pattern
 
-Eight questions, eight findings. Three were defects that would reach a customer,
+Twelve questions, twelve findings. Three were defects that would reach a customer,
 and none of them was visible to the test suite at the time — because a test is
 written by the person who built the thing, and asks the question they already
 had.

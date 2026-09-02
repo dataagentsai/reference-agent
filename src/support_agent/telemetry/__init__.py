@@ -22,8 +22,9 @@ root.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 
 from opentelemetry import trace
@@ -74,6 +75,109 @@ _REDACTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+# --------------------------------------------------------------------------- #
+# The span contract.
+#
+# AHC-0011 says every call emits a **complete** trace. Complete against what?
+# Nothing answered that, so "complete" meant whatever each test happened to
+# assert. This is the answer: a declaration of which spans exist and what each
+# must carry, and a validator that checks it.
+#
+# An unlisted span name is a violation too. Un-contracted telemetry is telemetry
+# nobody can assert over, and it accumulates silently — one span at a time, each
+# added for a good reason, until the trace is a place things are written rather
+# than a thing that can be checked.
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class SpanSpec:
+    """What one span must carry, and what it may."""
+
+    required: frozenset[str]
+    optional: frozenset[str] = frozenset()
+
+    def violations(self, name: str, attributes: Mapping[str, Any]) -> list[str]:
+        present = set(attributes)
+        missing = self.required - present
+        unknown = present - self.required - self.optional
+        out = [f"{name}: missing {a}" for a in sorted(missing)]
+        out += [f"{name}: undeclared attribute {a}" for a in sorted(unknown)]
+        return out
+
+
+CONTRACT: dict[str, SpanSpec] = {
+    "agent.turn": SpanSpec(
+        required=frozenset({RUN_ID}),
+        optional=frozenset({CONFIG_FINGERPRINT, RESOLUTION}),
+    ),
+    "agent.run": SpanSpec(
+        required=frozenset({RUN_ID, TENANT}),
+        optional=frozenset({TERMINATION, COST_USD, COST_CALL_USD, "agent.policy.blocked_by"}),
+    ),
+    "agent.step": SpanSpec(required=frozenset({STEP, RUN_ID})),
+    "agent.route": SpanSpec(
+        required=frozenset({ROUTE_KIND, ROUTE_REASON, "agent.router.rules_version"})
+    ),
+    "agent.direct": SpanSpec(required=frozenset({"agent.handler"})),
+    "gen_ai.chat": SpanSpec(
+        required=frozenset({GEN_AI_SYSTEM}),
+        optional=frozenset(
+            {
+                GEN_AI_OPERATION,
+                GEN_AI_REQUEST_MODEL,
+                GEN_AI_RESPONSE_MODEL,
+                GEN_AI_INPUT_TOKENS,
+                GEN_AI_OUTPUT_TOKENS,
+                RESOLUTION,
+                "agent.cassette.match",
+                "prompt",
+                "response",
+            }
+        ),
+    ),
+    "agent.tool": SpanSpec(
+        required=frozenset({GEN_AI_TOOL_NAME, SIDE_EFFECT, IDEMPOTENCY_KEY}),
+        optional=frozenset({"agent.tool.replayed", "agent.tool.truncated"}),
+    ),
+    "agent.tool.local": SpanSpec(required=frozenset({GEN_AI_TOOL_NAME})),
+    "agent.tools.list": SpanSpec(required=frozenset({"agent.tools.count", "agent.tools.rejected"})),
+    "agent.policy": SpanSpec(
+        required=frozenset({"agent.policy.position"}),
+        optional=frozenset({"agent.policy.blocked_by", "agent.policy.errored"}),
+    ),
+    "agent.approval.request": SpanSpec(
+        required=frozenset({"agent.approval.id", "agent.approval.action"})
+    ),
+    "agent.approval.decide": SpanSpec(
+        required=frozenset({"agent.approval.id", "agent.approval.granted"})
+    ),
+    "agent.approval.resume": SpanSpec(required=frozenset({"agent.approval.id"})),
+    "agent.flow.fanout": SpanSpec(
+        required=frozenset({"agent.flow.count"}), optional=frozenset({"agent.flow.peak"})
+    ),
+    "agent.flow.throttled": SpanSpec(required=frozenset({"agent.flow.delay_s"})),
+    "agent.breaker": SpanSpec(required=frozenset({"agent.breaker.state"})),
+}
+
+
+def validate(spans: Iterable[ReadableSpan]) -> list[str]:
+    """Every way this trace departs from the contract.
+
+    Returns violations rather than raising: a caller decides whether an
+    incomplete trace fails a test or merely reports, and the eval harness wants
+    the list rather than the first one.
+    """
+    out: list[str] = []
+    for span in spans:
+        spec = CONTRACT.get(span.name)
+        if spec is None:
+            out.append(f"{span.name}: not in the span contract")
+            continue
+        out.extend(spec.violations(span.name, attributes_of(span)))
+    return out
+
+
 def redact(text: str, *, limit: int = 4000) -> str:
     """The single redaction point. Everything captured onto a span comes here.
 
@@ -90,6 +194,9 @@ def redact(text: str, *, limit: int = 4000) -> str:
 
 _CAPTURE_PAYLOADS = False
 _PROVIDER: TracerProvider | None = None
+_LAST_EXPORTER: InMemorySpanExporter | None = None
+"""The most recently configured exporter, so a harness can check the span
+contract without every test threading the exporter through."""
 
 
 def configure(*, capture_payloads: bool = False) -> InMemorySpanExporter:
@@ -111,6 +218,8 @@ def configure(*, capture_payloads: bool = False) -> InMemorySpanExporter:
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
     _PROVIDER = provider
+    global _LAST_EXPORTER
+    _LAST_EXPORTER = exporter
     trace.set_tracer_provider(provider)  # no-op after the first call; harmless
     return exporter
 
@@ -160,6 +269,7 @@ def attributes_of(finished: ReadableSpan) -> Mapping[str, Any]:
 
 __all__ = [
     "CONFIG_FINGERPRINT",
+    "CONTRACT",
     "COST_CALL_USD",
     "COST_USD",
     "GEN_AI_INPUT_TOKENS",
@@ -179,10 +289,12 @@ __all__ = [
     "STEP",
     "TENANT",
     "TERMINATION",
+    "SpanSpec",
     "attributes_of",
     "configure",
     "redact",
     "set_payload",
     "set_usage",
     "span",
+    "validate",
 ]

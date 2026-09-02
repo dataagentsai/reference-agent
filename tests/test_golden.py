@@ -67,12 +67,13 @@ def key(n: int = 0) -> IdempotencyKey:
 @pytest.mark.parametrize("case", CASES, ids=[c["id"] for c in CASES])
 @pytest.mark.discharges("AAC-0001", "AAC-0003")
 async def test_the_golden_set(case: dict) -> None:
+    row = case["row"]
     world = evalworld.World()
     world.seed(
         ORDER,
-        OrderStatus(case["status"]),
-        days_since_delivery=case["days_since_delivery"],
-        final_sale=case["final_sale"],
+        OrderStatus(row["status"]),
+        days_since_delivery=row["days_since_delivery"],
+        final_sale=row["final_sale"],
     )
 
     async with connect(evalworld.build(world), ledger=InMemoryLedger()) as tools:
@@ -81,10 +82,8 @@ async def test_the_golden_set(case: dict) -> None:
     assert not result.is_error, result.text
     allowed = result.structured["allowed"]
     assert allowed is case["expected_allowed"], (
-        f"{case['action']} on a {case['status']} order "
-        f"(day {case['days_since_delivery']}, final_sale={case['final_sale']}): "
-        f"expected allowed={case['expected_allowed']}, got {allowed} — "
-        f"{result.structured['reason']}"
+        f"{case['action']} on {row}: expected allowed={case['expected_allowed']}, "
+        f"got {allowed} — {result.structured['reason']}"
     )
 
 
@@ -93,11 +92,15 @@ def test_the_golden_set_is_frozen_and_covers_its_boundaries() -> None:
     """A set that grows silently is not a baseline. The boundary cases are named
     individually because a sampling strategy is exactly what misses them —
     day 30 and day 31 differ by one and by everything."""
-    assert len(CASES) == 34
+    assert len(CASES) == 29
     boundaries = {c["boundary"] for c in CASES if c["boundary"]}
-    assert "one day past the window" in boundaries
-    assert "the last day of the window" in boundaries
-    assert "final sale, inside the window" in boundaries
+    assert "days_since_delivery exactly on its limit" in boundaries
+    assert "days_since_delivery one past its limit" in boundaries
+    # Derived from the condition, not typed in. A world declaring a different
+    # window moves both without anyone editing this file.
+    on_limit = next(c for c in CASES if c["boundary"] and "exactly" in c["boundary"])
+    assert on_limit["row"]["days_since_delivery"] == 30
+    assert on_limit["expected_allowed"] is True
 
 
 @pytest.mark.discharges("AAC-0001")
