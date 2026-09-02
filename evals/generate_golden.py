@@ -124,7 +124,15 @@ def boundaries(actions: dict[str, Action], space: dict[str, list]) -> list[dict]
     return cases
 
 
-def generate(world: World, system: str = "ecom") -> list[dict]:
+def generate(world: World, system: str = "ecom", *, constrained: bool = True) -> list[dict]:
+    """Every case worth running against this world.
+
+    `constrained=False` reproduces the pre-invariant behaviour, and exists so
+    the effect of the constraints can be *measured* rather than asserted — a
+    constraint that prunes nothing is one nobody needed, and one that prunes a
+    boundary case is a world file with a mistake in it. Neither is visible from
+    the case count alone, and both are worth failing a test over.
+    """
     actions = {
         name: action
         for name, action in world.systems[system].actions.items()
@@ -132,6 +140,7 @@ def generate(world: World, system: str = "ecom") -> list[dict]:
     }
     entity, space = dimensions(world, actions)
     fields = sorted(space)
+    spec = world.entities[entity]
 
     cases: list[dict] = []
     seen: set[tuple] = set()
@@ -141,6 +150,8 @@ def generate(world: World, system: str = "ecom") -> list[dict]:
         if key in seen:
             return
         seen.add(key)
+        if constrained and spec.violations(row):
+            return
         allowed, _ = actions[action_name].evaluate(row)
         cases.append(
             {
@@ -153,10 +164,27 @@ def generate(world: World, system: str = "ecom") -> list[dict]:
             }
         )
 
+    def feasible(values: list) -> bool:
+        """`AllPairs`' own constraint hook, which is the right way to do this.
+
+        Filtering *after* generation would silently break the pairwise
+        guarantee — the sampler would believe it had covered a pair that only
+        ever appeared in a row we then dropped. Passing the constraint in lets
+        it cover every pair that is actually reachable, which is what
+        constrained combinatorial testing means and why the library has this
+        parameter at all.
+
+        It receives a partial combination, which is exactly why
+        `Invariant.violated_by` stays silent about absent fields.
+        """
+        return not spec.violations(dict(zip(fields, values[1:], strict=False)))
+
     for case in boundaries(actions, space):
         add(case["action"], case["row"], case["boundary"])
 
-    for combo in AllPairs([list(actions), *[space[f] for f in fields]]):
+    parameters = [list(actions), *[space[f] for f in fields]]
+    pairs = AllPairs(parameters, filter_func=feasible) if constrained else AllPairs(parameters)
+    for combo in pairs:
         action_name, *values = combo
         add(action_name, dict(zip(fields, values, strict=True)), None)
 
@@ -176,6 +204,15 @@ def main() -> None:
     print(f"  varying {fields}")
     print(f"  {allowed} expect allow, {len(cases) - allowed} expect refuse")
     print(f"  {sum(1 for c in cases if c['boundary'])} boundary cases, derived from conditions")
+
+    entity = cases[0]["entity"] if cases else next(iter(world.entities))
+    spec = world.entities[entity]
+    loose = generate(world, constrained=False)
+    impossible = sum(1 for c in loose if spec.violations(c["row"]))
+    print(
+        f"  {len(spec.invariants)} invariants pruned {impossible} impossible "
+        f"of {len(loose)} unconstrained cases"
+    )
 
 
 if __name__ == "__main__":

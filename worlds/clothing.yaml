@@ -45,6 +45,21 @@ entities:
       final_sale: {type: bool}
       note: {type: text}   # free text a customer or a warehouse operator wrote
 
+    # Which combinations of these fields can coexist. Not what the world
+    # PERMITS — what the world can BE. Without these the generator crossed
+    # status against days freely and 12 of 29 cases described an impossible
+    # order (F-011): type-valid, referentially valid, and fiction.
+    invariants:
+      - name: delivery age implies delivery happened
+        when: {field: days_since_delivery, at_least: 1}
+        then: {field: status, equals: [delivered, returned, refunded]}
+        because: an order that has not been delivered cannot be N days since delivery
+
+      - name: final sale orders are never returned
+        when: {field: final_sale, equals: [true]}
+        then: {field: status, not_equals: [returned]}
+        because: the final-sale exclusion is the reason a return cannot be opened
+
 systems:
   ecom:
     binding: mcp

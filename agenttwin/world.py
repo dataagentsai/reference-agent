@@ -66,18 +66,30 @@ class Entity(BaseModel):
 
     key: str = "id"
     fields: dict[str, Field_] = Field(default_factory=dict)
+    invariants: tuple[Invariant, ...] = ()
+    """Coherence rules the entity owns.
+
+    On the entity rather than the world because they are statements about one
+    row, and putting them here means the thing that declares a field also
+    declares what that field can coexist with.
+    """
 
     def refs(self) -> dict[str, str]:
         return {n: f.ref for n, f in self.fields.items() if f.ref}
 
+    def violations(self, row: dict) -> tuple[Invariant, ...]:
+        """Every invariant this row breaks. Empty means the row could exist."""
+        return tuple(i for i in self.invariants if i.violated_by(row))
+
 
 class Condition(BaseModel):
-    """One clause of an eligibility rule."""
+    """One clause of an eligibility rule — or of an invariant."""
 
     model_config = ConfigDict(frozen=True)
 
     field: str
     equals: tuple[Any, ...] | None = None
+    not_equals: tuple[Any, ...] | None = None
     at_most: int | None = None
     at_least: int | None = None
 
@@ -85,9 +97,72 @@ class Condition(BaseModel):
         value = row.get(self.field)
         if self.equals is not None and value not in self.equals:
             return False
+        if self.not_equals is not None and value in self.not_equals:
+            return False
         if self.at_most is not None and value is not None and value > self.at_most:
             return False
         return not (self.at_least is not None and value is not None and value < self.at_least)
+
+
+class Invariant(BaseModel):
+    """Which combinations of a row's own fields can coexist.
+
+    An eligibility `Condition` says what the world *permits*. An invariant says
+    what the world can *be*. They are different questions and only the first was
+    ever asked here: F-011 found that 12 of 29 generated cases described a world
+    that cannot exist — `status: pending` with `days_since_delivery: 30`. Every
+    one was type-valid and referentially valid, and 41% of the golden set was
+    therefore testing the rule against fiction.
+
+    ## Why this is `Condition → Condition`
+
+    Material implication over the predicate language that already exists. No new
+    grammar, and an invariant is therefore checkable anywhere a condition is —
+    which is the whole point, because the same declaration has to serve three
+    consumers that would otherwise each invent their own:
+
+    - the **generator**, as a forbidden-tuple constraint (see below);
+    - the **loader**, so a hand-seeded incoherent row fails at load rather than
+      producing verdicts about a world nobody meant to write;
+    - a **perturbation**, so injecting a fault cannot quietly leave the world in
+      a state it declared impossible.
+
+    ## This is constrained combinatorial testing, which is not new
+
+    The CIT literature has carried *forbidden tuples* for two decades and NIST's
+    ACTS takes constraints alongside the parameter space. Our `AllPairs` call was
+    the unconstrained version of a solved problem. Naming it correctly is the
+    point of R-015: the technique is off the shelf, and what was missing is a way
+    to *declare* the constraint next to the world it constrains.
+
+    ## What it deliberately cannot say
+
+    One row, its own fields. `warehouse.unused → zero rows in query_history` is a
+    cross-entity invariant and is **not** expressible here; so is anything over a
+    time series. Both are named in doc 29 as domain-schema work, and stating the
+    limit is better than a grammar that half-supports them.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    when: Condition
+    then: Condition
+    because: str = ""
+
+    def violated_by(self, row: dict) -> bool:
+        """An invariant is silent about a row that lacks the field it speaks of.
+
+        Necessary rather than lenient: the generator evaluates *partial* rows
+        while it is still choosing values, and a constraint that fired on absent
+        fields would prune combinations before they were built.
+        """
+        if self.when.field not in row:
+            return False
+        return self.when.holds(row) and not self.then.holds(row)
+
+
+Entity.model_rebuild()  # `Entity.invariants` forward-references `Invariant`
 
 
 class Action(BaseModel):
@@ -161,6 +236,7 @@ __all__ = [
     "Entity",
     "Fidelity",
     "Field_",
+    "Invariant",
     "Resolution",
     "System",
     "World",

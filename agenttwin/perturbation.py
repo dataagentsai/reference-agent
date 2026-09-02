@@ -30,6 +30,10 @@ from dataclasses import dataclass, field
 from agenttwin.projection import Live
 
 
+class IncoherentPerturbation(Exception):
+    """A scheduled fault would leave the world in a state it calls impossible."""
+
+
 @dataclass
 class Perturbation:
     """One scheduled misbehaviour, fired on the nth call to a named tool.
@@ -64,6 +68,17 @@ class StaleRead(Perturbation):
     def apply(self, live: Live) -> None:
         row = live.get(self.entity, self.key)
         if row is not None:
+            moved = {**row, **self.sets}
+            # A fault that lands the world in a state it declared impossible is
+            # a bug in the scenario, not a finding about the agent — and it is
+            # the kind that reads as a pass. Same invariants the loader and the
+            # generator use, enforced at the third place the world can move.
+            broken = live.world.entities[self.entity].violations(moved)
+            if broken:
+                raise IncoherentPerturbation(
+                    f"stale read on {self.entity} {self.key} would set {self.sets} "
+                    f"and break {broken[0].name!r}: {broken[0].because}"
+                )
             row.update(self.sets)
         self.fired = True
 

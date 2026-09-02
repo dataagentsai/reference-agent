@@ -49,6 +49,21 @@ entities:
       final_sale: {type: bool}
       note: {type: text}   # free text a customer or a warehouse operator wrote
 
+    # Identical to clothing's, and duplicated here because this world is a FORK
+    # where it should be a variant — doc 29 §G, and the reason item 6 exists.
+    # Two files that must be edited together is precisely what OpenUSD's variant
+    # sets prevent, and it will not survive the tenth world.
+    invariants:
+      - name: delivery age implies delivery happened
+        when: {field: days_since_delivery, at_least: 1}
+        then: {field: status, equals: [delivered, returned, refunded]}
+        because: an order that has not been delivered cannot be N days since delivery
+
+      - name: final sale orders are never returned
+        when: {field: final_sale, equals: [true]}
+        then: {field: status, not_equals: [returned]}
+        because: the final-sale exclusion is the reason a return cannot be opened
+
 systems:
   ecom:
     binding: mcp

@@ -275,11 +275,48 @@ This is the difference between a mock and a simulation. A mock returns
 well-typed answers. A simulation maintains a world that could exist — and only
 the second finds the bugs that need two facts to be true at once.
 
-**Fix shape:** invariants belong in the world file next to conditions, because
-they are the same kind of statement — the world declaring its own truth rather
-than Python asserting it. `days_since_delivery > 0 implies status in [delivered,
-returned, refunded]` prunes the generator's space *and* validates seeded rows
-*and* constrains perturbations, from one declaration. Open.
+**Fixed.** `Invariant` is `Condition → Condition` — material implication over the
+predicate language that already existed, so no new grammar and the same
+declaration reaches all three consumers:
+
+```
+world clothing-ecom -> 26 cases        (was 29)
+  2 invariants pruned 13 impossible of 29 unconstrained cases
+world electronics-ecom -> 26 cases
+  2 invariants pruned 14 impossible of 29 unconstrained cases
+```
+
+The set got **smaller and better**. Not 29 minus 13 — the sampler spent the
+freed budget on reachable combinations, so 26 coherent cases replaced 16
+coherent ones. Both boundaries survived: day 30 allowed, day 31 refused.
+
+**Constrained combinatorial testing, using the library rather than reimplementing
+it.** `allpairspy` already takes a `filter_func`, which is its forbidden-tuple
+support. Filtering *after* generation would have silently broken the pairwise
+guarantee — the sampler would believe it had covered a pair that only ever
+appeared in a row we then dropped. Passing the constraint in covers every pair
+that is actually reachable. That is what the CIT literature has meant by
+constraints for twenty years, and our `AllPairs` call was the 1997 version of it.
+
+**Three consumers, one declaration** — the point of the fix, and each was tested
+separately because a constraint honoured in one place and not the others is
+worse than none:
+
+- the **generator**, as forbidden tuples;
+- the **loader** — a hand-seeded incoherent row now raises `InvalidWorld`, so a
+  world nobody meant to write cannot silently produce verdicts;
+- **perturbations** — a stale read that would leave the world impossible raises
+  `IncoherentPerturbation` instead of running and reading as a finding about the
+  agent.
+
+**What forced it to be justified:** the frozen-baseline assertion (`len(CASES) ==
+29`) and the committed baseline both failed. That is exactly what they are for —
+the set could not shrink quietly.
+
+**Stated limit.** One row, its own fields. `warehouse.unused → zero rows in
+query_history` is cross-entity, and anything over a time series is temporal;
+neither is expressible and both are named in doc 29 as domain-schema work. A
+grammar that half-supported them would be worse than one that declines.
 
 ---
 

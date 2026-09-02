@@ -34,6 +34,15 @@ def _check(world: World) -> None:
         if field not in world.entities[entity].fields:
             raise InvalidWorld(f"{name} references unknown field {target!r}")
 
+    for entity_name, entity in world.entities.items():
+        for invariant in entity.invariants:
+            for clause, side in ((invariant.when, "when"), (invariant.then, "then")):
+                if clause.field not in entity.fields:
+                    raise InvalidWorld(
+                        f"{entity_name} invariant {invariant.name!r} ({side}) is about "
+                        f"{clause.field!r}, which {entity_name!r} does not have"
+                    )
+
     for system_name, system in world.systems.items():
         for action_name, action in system.actions.items():
             if action.entity not in world.entities:
@@ -65,6 +74,15 @@ def _check(world: World) -> None:
                         f"{entity_name} {row[entity.key]}: {field_name}="
                         f"{row[field_name]!r} is not one of {spec.values}"
                     )
+            # Coherence, checked the same way and for the same reason. A seeded
+            # row that could not exist produces verdicts about a world nobody
+            # meant to write — and unlike a bad enum, nothing downstream notices.
+            for invariant in entity.violations(row):
+                raise InvalidWorld(
+                    f"{entity_name} {row[entity.key]} violates {invariant.name!r}"
+                    + (f": {invariant.because}" if invariant.because else "")
+                )
+
             # Referential integrity, checked at load rather than discovered when
             # a scenario asks a question whose answer does not exist.
             for field_name, target in entity.refs().items():

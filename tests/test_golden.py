@@ -91,8 +91,14 @@ async def test_the_golden_set(case: dict) -> None:
 def test_the_golden_set_is_frozen_and_covers_its_boundaries() -> None:
     """A set that grows silently is not a baseline. The boundary cases are named
     individually because a sampling strategy is exactly what misses them —
-    day 30 and day 31 differ by one and by everything."""
-    assert len(CASES) == 29
+    day 30 and day 31 differ by one and by everything.
+
+    29 → 26 when the world gained invariants (F-011). The set got *smaller and
+    better*: 13 of the 29 described an order that cannot exist, and the pairwise
+    sampler spent its budget on reachable combinations instead. This assertion
+    is what forced the change to be noticed and justified rather than absorbed.
+    """
+    assert len(CASES) == 26
     boundaries = {c["boundary"] for c in CASES if c["boundary"]}
     assert "days_since_delivery exactly on its limit" in boundaries
     assert "days_since_delivery one past its limit" in boundaries
