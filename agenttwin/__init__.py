@@ -14,10 +14,12 @@ from agenttwin.projection import Live, project
 from agenttwin.record import RunRecord, diff
 from agenttwin.scenario import Scenario
 from agenttwin.scenario import run as run_scenario
+from agenttwin.truth import Contradiction, answer_is_true, contradictions
 from agenttwin.world import World
 
 __all__ = [
     "ChannelError",
+    "Contradiction",
     "Determinism",
     "Live",
     "Rule",
@@ -30,6 +32,8 @@ __all__ = [
     "Timeline",
     "Transcript",
     "World",
+    "answer_is_true",
+    "contradictions",
     "diff",
     "load",
     "perturbed",

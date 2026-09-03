@@ -320,6 +320,66 @@ grammar that half-supported them would be worse than one that declines.
 
 ---
 
+## F-012 · For a question, the oracle passed by being unable to see
+
+Stage 6 decides pass or fail by comparing the world before and after. For a
+question — *"where is my order?"* — nothing changes, so the comparison has
+nothing to say and **every predicate written against it passes automatically**.
+
+Not missing coverage. A **false pass**, which is worse, because it ships looking
+like coverage. And not an edge case: five of the ten support scenarios are
+questions, and reads are the majority of real support traffic.
+
+**Demonstrated rather than argued**, using the two predicates the existing
+scenario test already uses, unchanged:
+
+```python
+"nothing was changed":        lambda w, t: w.effects == [],
+"the customer got an answer": lambda w, t: bool(t.turns[0].heard),
+```
+
+The agent tells a customer their shipped order is delivered. Both pass. The
+first can only catch an effect that should not have happened; the second checks
+that a string is non-empty. Neither checks whether the answer is **true**.
+
+**And the runtime controls do not cover it either** — found while writing the
+test, and it locates the hole precisely. The first lie tried was *"your order
+was cancelled and has been refunded"*, and `no_unclaimed_effect` **blocked it**:
+that is an *action* claim, and `CLAIM_PATTERNS` exists for exactly those. But
+*"your order is delivered"* is a **state** claim, and F-009 deliberately removed
+status words from grounding because they produced zero true positives and one
+false positive — *"it can no longer be cancelled"* is a correct refusal
+containing the word.
+
+So the two controls divide the space and leave a gap between them:
+
+| claim | example | caught by |
+|---|---|---|
+| action | "I have cancelled that" | `no_unclaimed_effect` ✅ |
+| entity | "refund #R-88 on 3 Sept" | `no_ungrounded_entity` ✅ |
+| **state** | **"your order is delivered"** | **nothing** |
+
+Runtime cannot easily close it — it would need the world. **A test-time oracle
+can, because AgentTwin owns the world.**
+
+**Fixed.** `agenttwin/truth.py` compares what the reply asserts against what the
+world says. Not a judge and not a metamorphic relation: those are the tools for
+when correct output is *unknowable*, and here it is known — AB-10001 is
+`shipped`, so "delivered" is wrong and we can simply look. Reaching for a weaker
+instrument when a stronger one is available is how a suite ends up measuring its
+own cleverness.
+
+A claim needs a subject and a copula, and is discarded under a modal, a negation
+or a condition — F-004's lesson pinned as twelve table cases, including the six
+correct-agent sentences that must **not** trip it.
+
+**Its limits, stated:** declared enum fields only, one named entity. A reply that
+miscounts, invents an entity-free fact, or is wrong about an integer still
+passes. And a conjunction yields only its first claim, which changes no verdict
+since one contradiction already fails the run.
+
+---
+
 ## What these seven say about the method
 
 None of them was found by reading the code. All of them needed a world that could
