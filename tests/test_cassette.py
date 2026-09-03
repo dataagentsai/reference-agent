@@ -234,7 +234,11 @@ def test_an_unknown_format_is_refused_rather_than_reinterpreted(tmp_path) -> Non
 
 
 def test_the_format_version_is_pinned() -> None:
-    assert FORMAT_VERSION == 1
+    """1 → 2 when a cassette gained the configuration it was recorded under
+    (AAC-0096). Bumped deliberately: a version-1 file has no context, so loading
+    one under the new rules would silently look like a recording that declared
+    nothing, which is exactly the state the gate exists to refuse."""
+    assert FORMAT_VERSION == 2
 
 
 # --------------------------------------------------------------------------- #

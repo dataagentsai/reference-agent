@@ -43,7 +43,7 @@ from pathlib import Path
 from support_agent import telemetry as tel
 from support_agent.contracts import LLMClient, ModelRequest, ModelResponse, ModelUnavailable
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 
 
 class Match(StrEnum):
@@ -58,6 +58,64 @@ class CassetteMiss(Exception):
     the network is not a replay — it is an offline suite that silently costs
     money and stops being reproducible on the day it matters.
     """
+
+
+@dataclass(frozen=True)
+class Context:
+    """The configuration a recording is only valid under — AAC-0096.
+
+    A cassette is a cache, and the obligation says a cached response must never
+    cross a trust boundary. The per-request `fingerprint` below covers what was
+    *asked*; this covers what was *available to answer it*, which the request
+    does not carry:
+
+    **The model.** F-010. `ModelRequest` has no model field — the client holds
+    it — so a recording made against one model replayed against a run configured
+    for another matched happily and the run reported a pass for a model it never
+    called.
+
+    **The authorised tool surface.** MCP's `tools/list` varies by authorization,
+    so the tool surface *is* the authorization surface. A recording made while
+    `refunds:write` was reachable must not replay for a run where it is not.
+    Tool names appear in each fingerprint too, but only per call and only in
+    order — this refuses the whole cassette up front, which is the difference
+    between a wrong answer on call nine and a refusal on call zero.
+
+    **Temperature**, because a recording made at 0.0 says nothing about 0.9.
+
+    Checked once per cassette rather than per exchange: a recording is made under
+    one configuration, and saying so once is both cheaper and more honest than
+    re-deriving it from every entry.
+    """
+
+    model: str
+    tools: tuple[str, ...] = ()
+    temperature: float = 0.0
+
+    def key(self) -> str:
+        return json.dumps(
+            {"model": self.model, "tools": sorted(self.tools), "temperature": self.temperature},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+    def __str__(self) -> str:
+        return self.key()
+
+
+class TrustBoundaryCrossed(CassetteMiss):
+    """This recording was made under a configuration that is not this one.
+
+    A subclass of `CassetteMiss` so existing handling still catches it, and its
+    own type so a suite can tell "nothing recorded answers this" apart from
+    "something recorded answers this and must not be used".
+    """
+
+
+def _as_key(context: Context | str | None) -> str:
+    if context is None:
+        return ""
+    return context.key() if isinstance(context, Context) else context
 
 
 def fingerprint(request: ModelRequest) -> str:
@@ -103,8 +161,13 @@ class Exchange:
 class Cassette:
     """A recording. Reads and writes one JSON file."""
 
-    def __init__(self, exchanges: list[Exchange] | None = None) -> None:
+    def __init__(
+        self, exchanges: list[Exchange] | None = None, *, context: Context | str = ""
+    ) -> None:
         self.exchanges: list[Exchange] = list(exchanges or [])
+        self.context: str = _as_key(context)
+        """The configuration this was recorded under. Empty only for a cassette
+        built inline in a test, which by construction never left the process."""
 
     def __len__(self) -> int:
         return len(self.exchanges)
@@ -119,6 +182,7 @@ class Cassette:
             json.dumps(
                 {
                     "format": FORMAT_VERSION,
+                    "context": self.context,
                     "exchanges": [e.to_json() for e in self.exchanges],
                 },
                 indent=2,
@@ -134,7 +198,10 @@ class Cassette:
                 f"cassette format {version!r} is not {FORMAT_VERSION} — "
                 "re-record rather than reinterpreting an old recording"
             )
-        return cls([Exchange.from_json(e) for e in raw["exchanges"]])
+        return cls(
+            [Exchange.from_json(e) for e in raw["exchanges"]],
+            context=str(raw.get("context", "")),
+        )
 
 
 class Recorder:
@@ -145,14 +212,28 @@ class Recorder:
     which is the only way a recording is worth anything.
     """
 
-    def __init__(self, inner: LLMClient) -> None:
+    def __init__(self, inner: LLMClient, *, context: Context | str = "") -> None:
         self._inner = inner
-        self.cassette = Cassette()
+        self.cassette = Cassette(context=context)
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
         response = await self._inner.complete(request)
+        self._check(response)
         self.cassette.exchanges.append(Exchange(fingerprint(request), response))
         return response
+
+    def _check(self, response: ModelResponse) -> None:
+        """A declared context that the provider contradicts is worse than none.
+
+        The response says which model actually answered. If the recorder was
+        told something else, every later replay would be validated against a
+        claim that was false when it was written — so this fails at record time,
+        where somebody is present to fix it.
+        """
+        if response.model and self.cassette.context and response.model not in self.cassette.context:
+            raise TrustBoundaryCrossed(
+                f"recording declared {self.cassette.context} but {response.model!r} answered"
+            )
 
 
 class Player:
@@ -163,11 +244,34 @@ class Player:
     the type rather than a promise in a docstring.
     """
 
-    def __init__(self, cassette: Cassette, *, match: Match = Match.ORDERED) -> None:
+    def __init__(
+        self,
+        cassette: Cassette,
+        *,
+        match: Match = Match.ORDERED,
+        expect: Context | str | None = None,
+    ) -> None:
         self._cassette = cassette
         self._match = match
         self._position = 0
         self.plays = 0
+
+        # AAC-0096, and it fails closed in both directions. A cassette that
+        # declares what it was recorded under may only be replayed by a caller
+        # that says what it is replaying under — refusing to answer is the whole
+        # point of a trust boundary, and "the caller did not say" is not a
+        # reason to assume they match.
+        wanted = _as_key(expect)
+        if cassette.context and not wanted:
+            raise TrustBoundaryCrossed(
+                f"this recording was made under {cassette.context} and the "
+                "replay did not say what it is running under"
+            )
+        if cassette.context and wanted != cassette.context:
+            raise TrustBoundaryCrossed(
+                f"recorded under {cassette.context}, replaying under {wanted} — "
+                "re-record rather than reusing an answer given to a different question"
+            )
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
         with tel.span(
@@ -226,9 +330,11 @@ __all__ = [
     "FORMAT_VERSION",
     "Cassette",
     "CassetteMiss",
+    "Context",
     "Exchange",
     "Match",
     "Player",
     "Recorder",
+    "TrustBoundaryCrossed",
     "fingerprint",
 ]

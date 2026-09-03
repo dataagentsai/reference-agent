@@ -49,8 +49,14 @@ def test_the_manifest_carries_ids_but_not_normative_text() -> None:
         assert set(entry) == {"id", "title", "dimension", "level", "gate", "stages", "mechanisms"}
 
 
-def test_the_manifest_holds_the_forty_three_a6_obligations() -> None:
-    assert len(load()) == 43
+def test_the_manifest_holds_every_a6_obligation() -> None:
+    """43 → 49 when the manifest was synced from the catalog for the first time.
+
+    It had been hand-maintained and had drifted by six, which is why
+    `scripts/sync_obligations.py` now exists. The count stays pinned so the next
+    drift is a failing test rather than a quietly shrinking denominator.
+    """
+    assert len(load()) == 49
 
 
 # --------------------------------------------------------------------------- #
@@ -91,14 +97,37 @@ def test_an_uncovered_release_gate_is_called_out_separately() -> None:
 
 
 def test_an_obligation_from_another_archetype_is_a_tagging_gap_not_a_mistake() -> None:
-    """G1, mechanically. AAC-0047 says "no double charge" and is tagged A5 only;
-    a passing A6 test that discharges it is evidence the tag is missing, and the
-    report makes that case rather than someone arguing it."""
+    """The mechanism, on a fixture rather than a live id.
+
+    It used to assert on AAC-0047 directly. That broke — for the best possible
+    reason, see below — which is itself the lesson: a test of a *mechanism*
+    should not be anchored to a real identifier that the catalog is expected to
+    move. The next line down is where the live fact belongs.
+    """
     report = Report([obligation()])
-    report.record("AAC-0047", "tests/test_approvals.py::exactly_one_refund", passed=True)
-    assert "AAC-0047" in report.tagging_gaps
+    report.record("AAC-0017", "tests/test_x.py::somewhere", passed=True)
+    assert "AAC-0017" in report.tagging_gaps
     assert report.unknown_ids == set()
-    assert "A5" in load_elsewhere()["AAC-0047"]["archetypes"]
+
+
+def test_g1_was_accepted_by_the_catalog() -> None:
+    """**G1, closed — and we did not know.**
+
+    The conformance report spent a day reporting AAC-0029, AAC-0046 and AAC-0047
+    as *exercised but not tagged A6*: passing A6 tests were discharging
+    obligations the catalog listed for other archetypes only. That was the case
+    for a catalog change, generated mechanically rather than argued.
+
+    **The catalog accepted it.** All three are A6 as of 0.12.0. The agent's
+    manifest was hand-maintained and never picked it up, so the evidence went on
+    being re-reported as an open gap long after it had been acted on.
+
+    Pinned as a fact because it is the one that closes the loop: a finding
+    produced by the runtime changed the specification.
+    """
+    a6 = {o.id for o in load()}
+    assert {"AAC-0029", "AAC-0046", "AAC-0047"} <= a6
+    assert not {"AAC-0029", "AAC-0046", "AAC-0047"} & set(load_elsewhere())
 
 
 def test_an_id_that_exists_nowhere_is_a_defect_in_the_test() -> None:

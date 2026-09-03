@@ -331,9 +331,47 @@ are the two that get dearer with every week of new code.
 
 ---
 
+## R-016 · "Take ten agents, cover breadth"
+
+Ten agents run through the boundary method — research with subagents, hotel
+concierge, a ClickHouse cost analyst, a coding agent, a nightly remediator, an
+elderly companion, a supply-chain graph agent, clinical triage, a voice IVR, and
+email triage. Written up as [`31-ten-agents.md`](../DataAgents.ai/31-ten-agents.md).
+Three findings came out of the **count**, not any single write-up.
+
+**A fourth oracle family: omission.** Clinical triage's worst failure is a missed
+escalation. Nothing changed, nothing was claimed, no bound was exceeded, no
+falsehood was stated — so **diff, provenance, bounds and the truth oracle built
+this morning all report success**. It generalises: the concierge who never said
+the upgrade was refused, the ops agent that saw a runaway cluster and did
+nothing. *Failing to act is the failure mode with no evidence*, and it is
+currently unrepresentable here.
+
+**Time beats edges, six to two.** Availability, series, history, accumulation and
+vitals are needed by six of the ten; typed edges by two. The build order had
+edges first and that was wrong.
+
+**Only three of ten mutate as their main purpose.** The world diff — what
+AgentTwin was built around — is the primary oracle for a minority. Which
+retroactively justifies having built `truth.py` before the rest of the queue, and
+says omission should come next rather than anything currently listed.
+
+**And two AAC items are miscategorised.** AAC-0007 is filed as non-functional;
+for a voice agent latency *is* correctness, because three seconds of silence is a
+hung-up call rather than a degraded answer. An obligation whose class changes
+with the shape is one the catalog is describing from a single shape's point of
+view. AAC-0092 is theoretical for nine of these ten and **load-bearing** for the
+voice agent — the argument for writing its test now rather than when a voice
+agent turns up.
+
+→ Next: the two release gates with no test behind them, then omission, then
+temporal conditions.
+
+---
+
 ## The pattern
 
-Fifteen questions, fifteen findings. Three were defects that would reach a
+Sixteen questions, sixteen findings. Three were defects that would reach a
 customer, and none of them was visible to the test suite at the time — because a
 test is written by the person who built the thing, and asks the question they
 already had.

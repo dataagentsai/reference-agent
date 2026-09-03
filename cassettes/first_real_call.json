@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "exchanges": [
     {
       "fingerprint": "52bd4443baf5783e",
@@ -37,5 +37,6 @@
         "stop_reason": "stop"
       }
     }
-  ]
+  ],
+  "context": "{\"model\":\"openai/gpt-oss-120b\",\"temperature\":0.0,\"tools\":[]}"
 }

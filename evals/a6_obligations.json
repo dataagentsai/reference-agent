@@ -1,9 +1,9 @@
 {
   "source": "github.com/dataagentsai/ai-assurance-catalog",
-  "catalog_version": "1.1.0",
-  "generated": "2026-09-01",
   "archetype": "A6",
   "note": "Identifiers and metadata only. The normative `statement` of each obligation is deliberately NOT copied \u2014 cite, don't restate.",
+  "catalog_version": "0.12.0",
+  "generated": "2026-09-03",
   "obligations": [
     {
       "id": "AAC-0001",
@@ -232,6 +232,48 @@
       ]
     },
     {
+      "id": "AAC-0029",
+      "title": "Every claim is supported by retrieved context",
+      "dimension": "grounding",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3",
+        "S5"
+      ],
+      "mechanisms": [
+        "M3",
+        "M4"
+      ]
+    },
+    {
+      "id": "AAC-0046",
+      "title": "Partial failure and compensating actions",
+      "dimension": "reliability",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2"
+      ],
+      "mechanisms": [
+        "M7",
+        "M1"
+      ]
+    },
+    {
+      "id": "AAC-0047",
+      "title": "Retried steps are idempotent",
+      "dimension": "reliability",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2"
+      ],
+      "mechanisms": [
+        "M1"
+      ]
+    },
+    {
       "id": "AAC-0051",
       "title": "Tool selection accuracy, including no-tool",
       "dimension": "tool-use",
@@ -373,6 +415,19 @@
       ],
       "mechanisms": [
         "M5"
+      ]
+    },
+    {
+      "id": "AAC-0076",
+      "title": "Triggers fire once and only once",
+      "dimension": "reliability",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2"
+      ],
+      "mechanisms": [
+        "M1"
       ]
     },
     {
@@ -622,398 +677,405 @@
         "M1",
         "M5"
       ]
+    },
+    {
+      "id": "AAC-0109",
+      "title": "Non-productive repetition is detected and broken",
+      "dimension": "trajectory",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S3"
+      ],
+      "mechanisms": [
+        "M5",
+        "M1"
+      ]
+    },
+    {
+      "id": "AAC-0110",
+      "title": "A claimed action is supported by that action's result",
+      "dimension": "grounding",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S3",
+        "S4"
+      ],
+      "mechanisms": [
+        "M1",
+        "M5",
+        "M3"
+      ]
     }
   ],
   "elsewhere_in_catalog": {
     "AAC-0017": {
-      "title": "Per-slice accuracy, not just aggregate",
       "archetypes": [
         "A1"
-      ]
+      ],
+      "title": "Per-slice accuracy, not just aggregate"
     },
     "AAC-0018": {
-      "title": "Stability under paraphrase and reordering",
       "archetypes": [
         "A1"
-      ]
+      ],
+      "title": "Stability under paraphrase and reordering"
     },
     "AAC-0019": {
-      "title": "Context-window overflow behaviour",
       "archetypes": [
         "A1"
-      ]
+      ],
+      "title": "Context-window overflow behaviour"
     },
     "AAC-0020": {
-      "title": "Over-refusal rate on in-scope inputs",
       "archetypes": [
         "A1"
-      ]
+      ],
+      "title": "Over-refusal rate on in-scope inputs"
     },
     "AAC-0021": {
-      "title": "Position and length bias in the output",
       "archetypes": [
         "A1"
-      ]
+      ],
+      "title": "Position and length bias in the output"
     },
     "AAC-0022": {
-      "title": "Total schema validity, including nested and optional fields",
       "archetypes": [
         "A2"
-      ]
+      ],
+      "title": "Total schema validity, including nested and optional fields"
     },
     "AAC-0023": {
-      "title": "Type, unit and format fidelity",
       "archetypes": [
         "A2"
-      ]
+      ],
+      "title": "Type, unit and format fidelity"
     },
     "AAC-0024": {
-      "title": "Absent fields are null, never invented",
       "archetypes": [
         "A2"
-      ]
+      ],
+      "title": "Absent fields are null, never invented"
     },
     "AAC-0025": {
-      "title": "Field-level precision and recall against gold",
       "archetypes": [
         "A2"
-      ]
+      ],
+      "title": "Field-level precision and recall against gold"
     },
     "AAC-0026": {
-      "title": "Schema evolution does not break consumers",
       "archetypes": [
         "A2"
-      ]
+      ],
+      "title": "Schema evolution does not break consumers"
     },
     "AAC-0027": {
-      "title": "The downstream consumer is tested on real output",
       "archetypes": [
         "A2"
-      ]
+      ],
+      "title": "The downstream consumer is tested on real output"
     },
     "AAC-0028": {
-      "title": "Retrieval quality measured on its own",
       "archetypes": [
         "A3"
-      ]
-    },
-    "AAC-0029": {
-      "title": "Every claim is supported by retrieved context",
-      "archetypes": [
-        "A3"
-      ]
+      ],
+      "title": "Retrieval quality measured on its own"
     },
     "AAC-0030": {
-      "title": "Citations resolve and actually support the sentence",
       "archetypes": [
         "A3"
-      ]
+      ],
+      "title": "Citations resolve and actually support the sentence"
     },
     "AAC-0031": {
-      "title": "Abstention when the corpus cannot answer",
       "archetypes": [
         "A3"
-      ]
+      ],
+      "title": "Abstention when the corpus cannot answer"
     },
     "AAC-0032": {
-      "title": "Retrieval respects the caller's permissions",
       "archetypes": [
         "A3"
-      ]
+      ],
+      "title": "Retrieval respects the caller's permissions"
     },
     "AAC-0033": {
-      "title": "Context precision and noise tolerance",
       "archetypes": [
         "A3"
-      ]
+      ],
+      "title": "Context precision and noise tolerance"
     },
     "AAC-0034": {
-      "title": "Index rebuilds are gated by evaluation",
       "archetypes": [
         "A3"
-      ]
+      ],
+      "title": "Index rebuilds are gated by evaluation"
     },
     "AAC-0035": {
-      "title": "Conflicting and stale sources",
       "archetypes": [
         "A3"
-      ]
+      ],
+      "title": "Conflicting and stale sources"
     },
     "AAC-0036": {
-      "title": "Injection carried in retrieved documents",
       "archetypes": [
         "A3"
-      ]
+      ],
+      "title": "Injection carried in retrieved documents"
     },
     "AAC-0037": {
-      "title": "Goal completion across a full conversation",
       "archetypes": [
         "A4"
-      ]
+      ],
+      "title": "Goal completion across a full conversation"
     },
     "AAC-0038": {
-      "title": "State retention and self-consistency",
       "archetypes": [
         "A4"
-      ]
+      ],
+      "title": "State retention and self-consistency"
     },
     "AAC-0039": {
-      "title": "Correction and topic-switch handling",
       "archetypes": [
         "A4"
-      ]
+      ],
+      "title": "Correction and topic-switch handling"
     },
     "AAC-0040": {
-      "title": "Session and tenant isolation",
       "archetypes": [
         "A4"
-      ]
+      ],
+      "title": "Session and tenant isolation"
     },
     "AAC-0041": {
-      "title": "Memory writes are correct and poison-resistant",
       "archetypes": [
         "A4"
-      ]
+      ],
+      "title": "Memory writes are correct and poison-resistant"
     },
     "AAC-0042": {
-      "title": "Conversation-level cost and turns to resolution",
       "archetypes": [
         "A4"
-      ]
+      ],
+      "title": "Conversation-level cost and turns to resolution"
     },
     "AAC-0043": {
-      "title": "Escalation to a human works under load",
       "archetypes": [
         "A4"
-      ]
+      ],
+      "title": "Escalation to a human works under load"
     },
     "AAC-0044": {
-      "title": "Each node is tested in isolation",
       "archetypes": [
         "A5"
-      ]
+      ],
+      "title": "Each node is tested in isolation"
     },
     "AAC-0045": {
-      "title": "Seams are contract-tested in both directions",
       "archetypes": [
         "A5"
-      ]
-    },
-    "AAC-0046": {
-      "title": "Partial failure and compensating actions",
-      "archetypes": [
-        "A5"
-      ]
-    },
-    "AAC-0047": {
-      "title": "Retried steps are idempotent",
-      "archetypes": [
-        "A5"
-      ]
+      ],
+      "title": "Seams are contract-tested in both directions"
     },
     "AAC-0048": {
-      "title": "The graph is deterministic given fixed node outputs",
       "archetypes": [
         "A5"
-      ]
+      ],
+      "title": "The graph is deterministic given fixed node outputs"
     },
     "AAC-0049": {
-      "title": "Every branch is exercised",
       "archetypes": [
         "A5"
-      ]
+      ],
+      "title": "Every branch is exercised"
     },
     "AAC-0050": {
-      "title": "End-to-end budget as the sum of its parts",
       "archetypes": [
         "A5"
-      ]
+      ],
+      "title": "End-to-end budget as the sum of its parts"
     },
     "AAC-0061": {
-      "title": "Delegation routes to the right agent",
       "archetypes": [
         "A7"
-      ]
+      ],
+      "title": "Delegation routes to the right agent"
     },
     "AAC-0062": {
-      "title": "Handoff payloads are complete",
       "archetypes": [
         "A7"
-      ]
+      ],
+      "title": "Handoff payloads are complete"
     },
     "AAC-0063": {
-      "title": "No loops or ping-pong between agents",
       "archetypes": [
         "A7"
-      ]
+      ],
+      "title": "No loops or ping-pong between agents"
     },
     "AAC-0064": {
-      "title": "A budget ceiling spans the whole system",
       "archetypes": [
         "A7"
-      ]
+      ],
+      "title": "A budget ceiling spans the whole system"
     },
     "AAC-0065": {
-      "title": "One agent's failure is contained",
       "archetypes": [
         "A7"
-      ]
+      ],
+      "title": "One agent's failure is contained"
     },
     "AAC-0066": {
-      "title": "Contradictory sub-results are reconciled",
       "archetypes": [
         "A7"
-      ]
+      ],
+      "title": "Contradictory sub-results are reconciled"
     },
     "AAC-0067": {
-      "title": "Per-agent attribution within one trace tree",
       "archetypes": [
         "A7"
-      ]
+      ],
+      "title": "Per-agent attribution within one trace tree"
     },
     "AAC-0068": {
-      "title": "The artifact parses or compiles",
       "archetypes": [
         "A8"
-      ]
+      ],
+      "title": "The artifact parses or compiles"
     },
     "AAC-0069": {
-      "title": "It executes in a sandbox without error",
       "archetypes": [
         "A8"
-      ]
+      ],
+      "title": "It executes in a sandbox without error"
     },
     "AAC-0070": {
-      "title": "It passes a functional test suite",
       "archetypes": [
         "A8"
-      ]
+      ],
+      "title": "It passes a functional test suite"
     },
     "AAC-0071": {
-      "title": "The generated artifact is security-linted",
       "archetypes": [
         "A8"
-      ]
+      ],
+      "title": "The generated artifact is security-linted"
     },
     "AAC-0072": {
-      "title": "Execution is sandboxed and blast radius bounded",
       "archetypes": [
         "A8"
-      ]
+      ],
+      "title": "Execution is sandboxed and blast radius bounded"
     },
     "AAC-0073": {
-      "title": "Runtime cost of the generated artifact",
       "archetypes": [
         "A8"
-      ]
+      ],
+      "title": "Runtime cost of the generated artifact"
     },
     "AAC-0074": {
-      "title": "House style and policy conformance",
       "archetypes": [
         "A8"
-      ]
+      ],
+      "title": "House style and policy conformance"
     },
     "AAC-0075": {
-      "title": "Edits stay inside their declared scope",
       "archetypes": [
         "A8"
-      ]
-    },
-    "AAC-0076": {
-      "title": "Triggers fire once and only once",
-      "archetypes": [
-        "A9"
-      ]
+      ],
+      "title": "Edits stay inside their declared scope"
     },
     "AAC-0077": {
-      "title": "An enforced kill switch on time, tokens and money",
       "archetypes": [
         "A9"
-      ]
+      ],
+      "title": "An enforced kill switch on time, tokens and money"
     },
     "AAC-0078": {
-      "title": "Irreversible actions require approval",
       "archetypes": [
         "A9"
-      ]
+      ],
+      "title": "Irreversible actions require approval"
     },
     "AAC-0079": {
-      "title": "Failure is loud, and so is silence",
       "archetypes": [
         "A9"
-      ]
+      ],
+      "title": "Failure is loud, and so is silence"
     },
     "AAC-0080": {
-      "title": "Every action is reconstructable after the fact",
       "archetypes": [
         "A9"
-      ]
+      ],
+      "title": "Every action is reconstructable after the fact"
     },
     "AAC-0081": {
-      "title": "Actions can be rolled back",
       "archetypes": [
         "A9"
-      ]
+      ],
+      "title": "Actions can be rolled back"
     },
     "AAC-0082": {
-      "title": "Behaviour on unchanged inputs is watched over time",
       "archetypes": [
         "A9"
-      ]
+      ],
+      "title": "Behaviour on unchanged inputs is watched over time"
     },
     "AAC-0083": {
-      "title": "Blast radius rehearsed in staging",
       "archetypes": [
         "A9"
-      ]
+      ],
+      "title": "Blast radius rehearsed in staging"
     },
     "AAC-0084": {
-      "title": "Agreement with human labels",
       "archetypes": [
         "A10"
-      ]
+      ],
+      "title": "Agreement with human labels"
     },
     "AAC-0085": {
-      "title": "Known judge biases are probed",
       "archetypes": [
         "A10"
-      ]
+      ],
+      "title": "Known judge biases are probed"
     },
     "AAC-0086": {
-      "title": "Verdict stability across runs and rewording",
       "archetypes": [
         "A10"
-      ]
+      ],
+      "title": "Verdict stability across runs and rewording"
     },
     "AAC-0087": {
-      "title": "Confidence scores are calibrated",
       "archetypes": [
         "A10"
-      ]
+      ],
+      "title": "Confidence scores are calibrated"
     },
     "AAC-0088": {
-      "title": "Guardrail false-positive and false-negative rates",
       "archetypes": [
         "A10"
-      ]
+      ],
+      "title": "Guardrail false-positive and false-negative rates"
     },
     "AAC-0089": {
-      "title": "Routing saves money without losing quality",
       "archetypes": [
         "A10"
-      ]
+      ],
+      "title": "Routing saves money without losing quality"
     },
     "AAC-0090": {
-      "title": "The judge is re-validated when it changes",
       "archetypes": [
         "A10"
-      ]
+      ],
+      "title": "The judge is re-validated when it changes"
     },
     "AAC-0108": {
-      "title": "Corpus ingestion is controlled and auditable",
       "archetypes": [
         "A3"
-      ]
+      ],
+      "title": "Corpus ingestion is controlled and auditable"
     }
   },
   "elsewhere_note": "Obligations that exist in AAC but are not tagged A6. A test claiming one of these is not making a mistake \u2014 it is evidence that the obligation applies to this archetype and is not tagged for it."
