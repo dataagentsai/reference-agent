@@ -380,6 +380,58 @@ since one contradiction already fails the run.
 
 ---
 
+## F-013 · A granted refund crashes the agent
+
+Found within minutes of building the approver actor (F-007), which is the whole
+argument for building it.
+
+`issue_refund` **as projected from the world** takes the entity's declared key,
+`id`. `request_refund` is harness-local, hard-codes `order_id`, and stores its
+arguments verbatim. So on resumption the agent replays `{order_id, amount}` into
+a tool that declares neither, and `jsonschema.validate` raises.
+
+**The fix already exists in the codebase and is not called here.** `_bind` maps
+router arguments onto whatever the tool actually declares, and its docstring is
+this defect word for word:
+
+> *"The router knows it found an order id; it does not know what this world calls
+> that field."*
+
+It is applied on the deterministic route and **not** on the resume path. F-005
+was repaired where it was found rather than everywhere its class lives — which
+is the more useful lesson than the bug.
+
+**Severity.** The grant is recorded, the elevated identity is minted, and then it
+dies. Not a wrong answer: an unhandled exception, on the one path where money
+moves, after a human has already said yes. Every existing approval test misses it
+because they all run against a hand-written fixture server whose `issue_refund`
+happens to take `order_id` — **the projected world and the test fixture disagree,
+and only the fixture was ever exercised.**
+
+Pinned as an expected raise. Open: the fix needs a decision about *where*
+argument binding belongs, and guessing at it would repeat F-005 a third time.
+
+---
+
+## F-014 · The approval threshold is checked against a number no system holds
+
+`requires_approval` reads `args["amount"]` — whatever the model passed. The
+`order` entity has no `amount` field in either world, so there is nothing to
+check it against. The number arrives from the conversation and is believed.
+
+**What saves it today is an accident.** A below-threshold request returns
+`{"status": "below_threshold"}` and executes nothing at all, so a customer who
+understates an amount does not get an unapproved refund — they get no refund. The
+gate holds, but it holds because the cheap path is a no-op rather than because
+the number was verified.
+
+The threshold policy is therefore decorative in both worlds: ₹10,000 is compared
+against an ungrounded string. The fix is a world change — `order.amount` as a
+declared field — after which `no_ungrounded_entity` already grounds amounts
+against structured tool results, and the gate becomes real. Open.
+
+---
+
 ## What these seven say about the method
 
 None of them was found by reading the code. All of them needed a world that could

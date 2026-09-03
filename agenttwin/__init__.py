@@ -8,19 +8,24 @@ system whose test results mean nothing.
 """
 
 from agenttwin.actor import Determinism, Rule, ScriptedActor, StateMachineActor, Transcript
+from agenttwin.approver import Approver, Decision, Review
 from agenttwin.loader import load
 from agenttwin.perturbation import ChannelError, Slow, StaleRead, Timeline, perturbed
 from agenttwin.projection import Live, project
 from agenttwin.record import RunRecord, diff
-from agenttwin.scenario import Scenario
+from agenttwin.scenario import Clock, Scenario
 from agenttwin.scenario import run as run_scenario
 from agenttwin.truth import Contradiction, answer_is_true, contradictions
 from agenttwin.world import World
 
 __all__ = [
+    "Approver",
     "ChannelError",
+    "Clock",
     "Contradiction",
+    "Decision",
     "Determinism",
+    "Review",
     "Live",
     "Rule",
     "RunRecord",
