@@ -21,6 +21,7 @@ from support_agent.contracts.ids import (
 )
 from support_agent.contracts.model import (
     Message,
+    ModelMalformed,
     ModelRequest,
     ModelResponse,
     ModelUnavailable,
@@ -81,6 +82,7 @@ __all__ = [
     "MissingIdempotencyKey",
     "ModelRequest",
     "ModelResponse",
+    "ModelMalformed",
     "ModelUnavailable",
     "NeedsApproval",
     "OrderStatus",

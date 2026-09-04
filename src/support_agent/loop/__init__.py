@@ -49,6 +49,7 @@ from support_agent.contracts import (
     LLMClient,
     LocalTool,
     Message,
+    ModelMalformed,
     ModelRequest,
     ModelUnavailable,
     NeedsApproval,
@@ -70,6 +71,7 @@ class Trace:
     assert on the trajectory without reading spans."""
 
     steps: int = 0
+    malformed: int = 0
     usage: Usage = field(default_factory=Usage)
     spend_usd: float = 0.0
     tool_calls: list[tuple[str, str]] = field(default_factory=list)
@@ -137,6 +139,21 @@ async def run(
                 except ModelUnavailable as exc:
                     return _failed(
                         run_span, trace, "I am having trouble answering right now.", str(exc)
+                    )
+                except ModelMalformed as exc:
+                    # AHC-0001's `parse_failure` decision: fail into a declared
+                    # shape and **count** the failures. Retrying is deliberately
+                    # not the answer — unavailable may pass on a second attempt,
+                    # but the same prompt to the same model produced something
+                    # unreadable, so a retry mostly buys a second bill.
+                    #
+                    # Counted on the span rather than logged, because a parse
+                    # failure rate that lives in a log line is a number nobody
+                    # ever plots, and this one moves when a model is swapped.
+                    trace.malformed += 1
+                    run_span.set_attribute(tel.MODEL_MALFORMED, trace.malformed)
+                    return _failed(
+                        run_span, trace, "I am having trouble answering right now.", exc.reason
                     )
 
                 trace.usage = Usage(

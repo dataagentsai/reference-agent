@@ -61,6 +61,12 @@ TENANT = "agent.tenant"
 feature is the handler or intent, route is ROUTE_KIND above."""
 IDEMPOTENCY_KEY = "agent.idempotency.key"
 SIDE_EFFECT = "agent.tool.side_effect"
+MODEL_MALFORMED = "agent.model.malformed"
+"""How many provider responses could not be parsed this run — AHC-0001.
+
+An attribute rather than a log line: a parse failure rate is a number that moves
+when a model is swapped, and one that only exists in logs is one nobody plots."""
+
 TERMINATION = "agent.termination.reason"
 RESOLUTION = "agent.resolution"
 """mock | replay | real | shadow. A verdict is not interpretable without it."""
@@ -113,7 +119,9 @@ CONTRACT: dict[str, SpanSpec] = {
     ),
     "agent.run": SpanSpec(
         required=frozenset({RUN_ID, TENANT}),
-        optional=frozenset({TERMINATION, COST_USD, COST_CALL_USD, "agent.policy.blocked_by"}),
+        optional=frozenset(
+            {TERMINATION, COST_USD, COST_CALL_USD, MODEL_MALFORMED, "agent.policy.blocked_by"}
+        ),
     ),
     "agent.step": SpanSpec(required=frozenset({STEP, RUN_ID})),
     "agent.route": SpanSpec(

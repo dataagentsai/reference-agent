@@ -25,6 +25,7 @@ from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
 from support_agent import telemetry as tel
 from support_agent.contracts import (
     Message,
+    ModelMalformed,
     ModelRequest,
     ModelResponse,
     ModelUnavailable,
@@ -115,19 +116,43 @@ class GroqClient:
 
 
 def _from_wire(raw: object) -> ModelResponse:
-    choice = raw.choices[0]  # type: ignore[attr-defined]
+    """The typed boundary — AHC-0001. One parse, one place, two outcomes.
+
+    Everything here is defensive on purpose. A provider response is the least
+    trustworthy input the system takes: it is generated, it is truncated by
+    token limits, and its shape is the vendor's to change. Every failure below
+    was reachable before this function had a `try` at all — truncated tool
+    arguments raised `JSONDecodeError` straight out of the client, past the
+    loop's `except ModelUnavailable`, and out of the agent.
+    """
+    try:
+        choice = raw.choices[0]  # type: ignore[attr-defined]
+    except (AttributeError, IndexError, TypeError) as exc:
+        raise ModelMalformed(f"no choice in the response: {exc}") from exc
+
     message = choice.message
     calls: list[ToolCall] = []
     for call in message.tool_calls or []:
-        calls.append(
-            ToolCall(
-                id=call.id,
-                name=call.function.name,
-                # Arguments are parsed, never string-matched: escaping differs
-                # by provider and by model generation.
-                arguments=json.loads(call.function.arguments or "{}"),
+        # Arguments are parsed, never string-matched: escaping differs by
+        # provider and by model generation. A token limit that truncates the
+        # JSON mid-object is the common case, not an exotic one.
+        text = getattr(call.function, "arguments", "") or "{}"
+        try:
+            arguments = json.loads(text)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ModelMalformed(
+                f"tool call {call.function.name!r} has unreadable arguments: {exc}", raw=text
+            ) from exc
+        # A JSON scalar is valid JSON and not a call. Without this the error
+        # moves one layer up and arrives as a failure about the tool instead of
+        # about the model, which sends whoever debugs it to the wrong file.
+        if not isinstance(arguments, dict):
+            raise ModelMalformed(
+                f"tool call {call.function.name!r} arguments are {type(arguments).__name__}, "
+                "not an object",
+                raw=text,
             )
-        )
+        calls.append(ToolCall(id=call.id, name=call.function.name, arguments=arguments))
     usage = raw.usage  # type: ignore[attr-defined]
     return ModelResponse(
         text=message.content or "",

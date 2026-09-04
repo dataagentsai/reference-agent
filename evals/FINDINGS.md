@@ -458,6 +458,74 @@ against structured tool results, and the gate becomes real. Open.
 
 ---
 
+## F-015 · Malformed model output escaped the typed boundary
+
+Found by reading AHC-0001 — *every model response crosses a typed boundary* —
+and asking what we had actually built for it.
+
+Most of it was there. `_from_wire` is the single parse site, everything above it
+sees a frozen `ModelResponse`, and the import contract *"only `llm` may import a
+provider SDK"* makes a second parse site impossible rather than merely
+discouraged. That is the capability's `boundary_position` decision answered
+correctly, and its failure mode — *"the same validation written five times with
+five different opinions"* — prevented mechanically.
+
+**The other half was missing.** Only *provider* failures became typed:
+
+```python
+except (RateLimitError, APIConnectionError, APIError) as exc:
+    raise ModelUnavailable(str(exc)) from exc
+
+response = _from_wire(raw)   # ← no error handling at all
+```
+
+Measured rather than assumed:
+
+```
+well-formed    : {'order_id': 'AB-1'}
+truncated JSON : JSONDecodeError escapes complete()
+prose          : JSONDecodeError escapes complete()
+empty choices  : IndexError escapes complete()
+```
+
+So a model returning truncated tool-call arguments — **what a token limit does**,
+not an exotic case — raised `JSONDecodeError` out of the client, past the loop's
+`except ModelUnavailable`, and out of the agent unhandled. Precisely the failure
+mode AHC-0001 names.
+
+**And 495 tests never drove it.** The degenerate-input cases drive degenerate
+*customer* input — empty, emoji flood, control characters. **Nothing drove
+degenerate model output.** AAC-0015 was discharged on one side of a two-sided
+boundary, which is F-005 for the third time: *an obligation is only as discharged
+as the narrowest case that claims it.*
+
+**Fixed**, following the capability's own `parse_failure` decision — *fail into a
+declared shape and count the failures*:
+
+- `ModelMalformed`, its own type rather than a subclass of `ModelUnavailable`,
+  because the right response differs. Unavailable means nothing came back and a
+  retry may work; malformed means this model on this prompt produced something
+  unusable, so retrying the identical request mostly buys a second bill. **The
+  no-retry rule is asserted** so it cannot drift.
+- The loop returns the same declared `Failed` shape a provider outage does: a
+  sentence for the customer, the detail for the operator.
+- **Counted on the span** (`agent.model.malformed`) rather than logged. A parse
+  failure rate that lives in a log line is a number nobody plots, and this one
+  moves when a model is swapped — surviving quietly is exactly how a model change
+  silently degrades.
+- The `raw_retention` tension resolved toward explicability: held on the
+  exception in memory, redacted by `telemetry` before recording, never persisted.
+
+Also caught: a JSON *scalar* is valid JSON and not a call. Without an explicit
+check, `"AB-1"` as tool arguments failed one layer up as a problem with the tool
+rather than the model, sending whoever debugged it to the wrong file.
+
+**The span contract caught the new attribute** the moment it was emitted —
+`agent.run: undeclared attribute agent.model.malformed` — which is R-009's
+contract doing the job it was built for, on the first new attribute since.
+
+---
+
 ## What these seven say about the method
 
 None of them was found by reading the code. All of them needed a world that could

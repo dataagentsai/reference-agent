@@ -103,3 +103,31 @@ class ModelUnavailable(Exception):
     retries. Callers translate this into a declared degradation path (AAC-0009);
     it never reaches the customer as a stack trace.
     """
+
+
+class ModelMalformed(Exception):
+    """The provider answered and the answer could not be read.
+
+    A different condition from `ModelUnavailable` and deliberately its own type.
+    Unavailable means nothing came back and retrying may work; malformed means
+    something came back and *this model, on this prompt, produced something
+    unusable* — retrying the identical request is the least likely thing to help.
+
+    AHC-0001 requires that a parse failure be **a declared return shape callers
+    must handle, not an exception raised from wherever the parse happened to
+    fail**. Truncated tool-call arguments are the common case — a token limit
+    cuts the JSON mid-object — and without this they surfaced as a
+    `JSONDecodeError` escaping the client, past the loop's handler, out of the
+    agent.
+
+    `raw` is carried for the operator and never for the customer. The capability
+    flags the tension outright: discarding the raw response makes the failure
+    unexplainable later, and retaining it puts model output that may echo
+    sensitive input into storage. It is held in memory on the error, redacted by
+    `telemetry` before it is ever recorded, and not persisted.
+    """
+
+    def __init__(self, reason: str, *, raw: str = "") -> None:
+        self.reason = reason
+        self.raw = raw
+        super().__init__(reason)
