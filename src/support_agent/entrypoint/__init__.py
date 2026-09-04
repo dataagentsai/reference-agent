@@ -204,8 +204,35 @@ class Agent:
                     cleared,
                 )
 
+            # F-013. The stored arguments come from the harness-local request
+            # tool and the executing tool is projected from the world, so the two
+            # need not agree on names — and until now nobody asked them to. The
+            # registry is read with the **elevated** identity because that is the
+            # only surface `issue_refund` appears on: this cannot be done at
+            # request time, which is why it is done here.
+            registry = await self.tools.list_tools(elevated)
+            spec = registry.get(approval.action)
+            if spec is None:
+                return (
+                    Failed(
+                        customer_message="The refund could not be completed.",
+                        detail=f"{approval.action} is not on the elevated surface",
+                    ),
+                    cleared,
+                )
+            try:
+                arguments = _bind(spec, dict(approval.args))
+            except Unbindable as exc:
+                return (
+                    Failed(
+                        customer_message="The refund could not be completed.",
+                        detail=str(exc),
+                    ),
+                    cleared,
+                )
+
             result = await self.tools.call(
-                approval.action, dict(approval.args), elevated, ap.stored_key(approval)
+                approval.action, arguments, elevated, ap.stored_key(approval)
             )
             if result.is_error:
                 return (
@@ -269,17 +296,60 @@ class Agent:
             )
 
 
-def _bind(spec, args: dict[str, object]) -> dict[str, object]:
-    """Map the router's arguments onto whatever the tool actually declares.
+class Unbindable(Exception):
+    """These arguments cannot be fitted to that tool's declared schema."""
 
-    The router knows it found an order id; it does not know what this world calls
+
+def _bind(spec, args: dict[str, object]) -> dict[str, object]:
+    """Map arguments onto whatever the tool actually declares.
+
+    The caller knows it found an order id; it does not know what this world calls
     that field. One required string property means one place to put it.
+
+    **Extended for the resume path (F-013).** The router hands over exactly one
+    argument, which made the single-required/single-argument rule sufficient. An
+    approval does not: it stores `{order_id, amount}` from the harness-local
+    request tool, and the projected `issue_refund` declares only the entity's
+    key. So two more steps, in order of confidence:
+
+    1. **Keep what the tool declares.** An argument the schema does not mention
+       is dropped rather than passed — `additionalProperties: false` would reject
+       the whole call for it.
+    2. **Fill a missing required slot by name.** `order_id` for a required `id`
+       is the `<entity>_<key>` convention, and it is checked rather than assumed:
+       the spare must equal the required name, or end with `_id`-style suffix, or
+       carry it as a prefix. Exactly one candidate or nothing.
+
+    Ambiguity raises. On the path where money moves, guessing between two spare
+    values is worse than stopping — and stopping with a message beats the
+    `jsonschema` exception that was surfacing through three nested task groups.
     """
     properties = spec.input_schema.get("properties", {})
     required = [n for n in spec.input_schema.get("required", []) if n in properties]
     if len(required) == 1 and len(args) == 1:
         return {required[0]: next(iter(args.values()))}
-    return dict(args)
+
+    kept = {n: v for n, v in args.items() if n in properties}
+    spare = {n: v for n, v in args.items() if n not in properties}
+
+    for name in [n for n in required if n not in kept]:
+        candidates = [n for n in spare if _reads_as(n, name)]
+        if len(candidates) != 1:
+            raise Unbindable(
+                f"{spec.name} requires {name!r} and the stored arguments "
+                f"{sorted(args)} offer {candidates or 'nothing'} for it"
+            )
+        kept[name] = spare.pop(candidates[0])
+
+    return kept
+
+
+def _reads_as(offered: str, required: str) -> bool:
+    return (
+        offered == required
+        or offered.endswith(f"_{required}")
+        or offered.startswith(f"{required}_")
+    )
 
 
 def _refusal_text(decision: Refuse) -> str:

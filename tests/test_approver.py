@@ -110,33 +110,45 @@ def _flatten(error: BaseException) -> str:
 # --------------------------------------------------------------------------- #
 
 
-async def test_a_granted_refund_cannot_execute_against_a_projected_world() -> None:
-    """**F-013, pinned.** The reviewer says yes and the agent then crashes.
+async def test_a_granted_refund_executes_against_a_projected_world() -> None:
+    """**F-013, fixed.** It used to crash here.
 
     `issue_refund` as projected from the world takes the entity's declared key,
     `id`. `request_refund` is harness-local, hard-codes `order_id`, and stores
-    its arguments verbatim — so resumption replays `{order_id, amount}` into a
-    tool that declares neither, and `jsonschema.validate` raises.
+    its arguments verbatim — so resumption replayed `{order_id, amount}` into a
+    tool that declared neither, and `jsonschema.validate` raised through three
+    nested task groups. The grant was recorded, the elevated identity was minted,
+    and *then* it died: the one path where money moves.
 
-    The agent already has the fix for this. `_bind` exists, and its docstring is
-    this defect word for word: *"the router knows it found an order id; it does
-    not know what this world calls that field."* It is called on the
-    deterministic route and **not** on the resume path. F-005 was repaired where
-    it was found rather than everywhere its class lives.
-
-    Written as an expected raise rather than left failing, so the defect is a
-    fact in the suite. It is severe: the grant is recorded, the elevated identity
-    is minted, and *then* it dies — the one path where the money moves.
+    The fix is `_bind` on the resume path, which `_direct` had already been doing
+    since F-005. The binding has to happen **here** rather than at request time,
+    because `issue_refund` only appears on the elevated surface and the customer
+    identity that raises the request cannot see it.
     """
     approver = Approver.grants(store(), ap.decide)
+    world, record = await conversation(approver)
 
-    with pytest.raises(BaseExceptionGroup) as raised:
-        await conversation(approver)
+    assert [r.outcome for r in approver.reviewed if r.outcome != "waiting"] == ["granted"]
+    assert ("issue_refund", ORDER) in world.effects, world.effects
+    assert world.get("order", ORDER)["status"] == "refunded"
 
-    assert "is a required property" in _flatten(raised.value)
-    assert [r.outcome for r in approver.reviewed if r.outcome != "waiting"] == ["granted"], (
-        "the human did their part — the failure is entirely on our side of the gate"
-    )
+
+async def test_a_refund_the_world_cannot_take_fails_with_something_readable() -> None:
+    """The other half of the fix, and the reason it raises rather than guesses.
+
+    Two spare arguments and one empty required slot is a coin toss, and a coin
+    toss on the refund path is worse than a stop. What the customer gets is a
+    typed failure; what the operator gets is a sentence naming the tool, the
+    argument it wanted and what was on offer.
+    """
+    from support_agent.entrypoint import Unbindable, _bind
+
+    class Spec:
+        name = "issue_refund"
+        input_schema = {"properties": {"id": {}}, "required": ["id"]}
+
+    with pytest.raises(Unbindable, match="issue_refund"):
+        _bind(Spec(), {"reference": "AB-1", "amount": "24000"})
 
 
 async def test_a_reviewer_who_denies_produces_no_refund() -> None:

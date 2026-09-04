@@ -408,8 +408,34 @@ because they all run against a hand-written fixture server whose `issue_refund`
 happens to take `order_id` — **the projected world and the test fixture disagree,
 and only the fixture was ever exercised.**
 
-Pinned as an expected raise. Open: the fix needs a decision about *where*
-argument binding belongs, and guessing at it would repeat F-005 a third time.
+**Fixed**, and the decision about *where* binding belongs turned out to be forced
+rather than a matter of taste.
+
+The instinct was to bind at **request** time, so the approval stores the exact
+call it authorises — a human reviewing one thing while the system executes
+another is the class of bug approvals exist to prevent. That is not possible
+here: `issue_refund` requires `refunds:write`, `CUSTOMER_SCOPES` excludes it, and
+the identity raising the request therefore **cannot see the tool on its
+registry**. Binding has to happen at resume, after `granted_identity` mints the
+elevated identity. The privilege separation that makes the gate work is the same
+thing that decides this.
+
+`_bind` gained two steps beyond its single-argument rule: drop arguments the
+schema does not declare (`additionalProperties: false` would reject the whole
+call for one), then fill a missing required slot from the remaining arguments by
+name — `order_id` for a required `id` is the `<entity>_<key>` convention, checked
+rather than assumed.
+
+**Ambiguity raises.** Two spare values and one empty slot is a coin toss, and a
+coin toss on the refund path is worse than a stop. The customer gets a typed
+failure; the operator gets a sentence naming the tool, the argument it wanted and
+what was on offer — instead of a `jsonschema` exception surfacing through three
+nested task groups.
+
+**What it does not fix:** the approval says ₹24,000 and the world records only
+`status: refunded`, because `order` has no `amount` field. The amount a human
+approved is not an amount the system moves, since the system moves no amount at
+all. That is F-014, still open, and now visible rather than hidden behind a crash.
 
 ---
 
