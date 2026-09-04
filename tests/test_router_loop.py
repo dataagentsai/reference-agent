@@ -189,11 +189,17 @@ async def test_the_step_budget_terminates_and_says_why(server) -> None:
     assert isinstance(result, Completed)
 
 
-@pytest.mark.discharges("AAC-0054")
+@pytest.mark.discharges("AAC-0054", "AAC-0109")
 async def test_oscillation_is_caught_inside_the_budget(server) -> None:
-    """G2 against the catalog: AAC-0055 catches hard non-termination and
-    AAC-0054 scores path efficiency, but neither catches A-B-A-B that stops in
-    time. This is the implementation that will justify filling the gap."""
+    """**G2, closed.** This was written to justify filling a catalog gap, and
+    the catalog filled it: AAC-0109 arrived at 0.12.0 saying exactly this —
+    *"a loop that repeats three times and then stops within its step budget is
+    inside every limit and has still made no progress."*
+
+    AAC-0055 catches hard non-termination, AAC-0054 scores path efficiency, and
+    neither catches A-B-A-B that stops in time. Second time in two days a finding
+    from this runtime became an obligation, and the second time our own stale
+    manifest hid it — see `test_g1_was_accepted_by_the_catalog`."""
     async with open_tools(server) as tools:
         _, trace = await agent_loop.run(
             "go in circles",
@@ -208,6 +214,7 @@ async def test_oscillation_is_caught_inside_the_budget(server) -> None:
     assert trace.steps < 10
 
 
+@pytest.mark.discharges("AAC-0109")
 async def test_argument_order_does_not_hide_an_oscillation(server) -> None:
     """A detector that thinks {"a":1,"b":2} differs from {"b":2,"a":1} never fires."""
     from support_agent.loop import _signature
