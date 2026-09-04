@@ -107,6 +107,13 @@ systems:
         scope: refunds:write
         description: Issue a refund. Requires the elevated scope a granted approval mints.
         sets: {status: refunded}
+        # OWED, not merely permitted. Once a return has been received the money
+        # is the customer's, and an agent that opens a return and never refunds
+        # changes nothing wrongly, claims nothing untrue and exceeds no budget —
+        # so every other oracle passes it. This declaration is what lets the
+        # omission oracle see it at all.
+        required_when:
+          - {field: status, equals: [returned]}
 
 records:
   customer:

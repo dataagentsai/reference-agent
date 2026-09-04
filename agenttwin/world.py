@@ -179,6 +179,18 @@ class Action(BaseModel):
     side_effect: Literal["read", "reversible", "irreversible"] = "read"
     scope: str | None = None
     allowed_when: tuple[Condition, ...] = ()
+    required_when: tuple[Condition, ...] = ()
+    """When this action is **owed**, not merely permitted.
+
+    The complement `allowed_when` never had, and the gap doc 31 found: every
+    oracle we own detects an action that happened and should not have. None can
+    see an action that should have happened and did not.
+
+    A missed refund on a returned order changes nothing, claims nothing, exceeds
+    no bound and states no falsehood — so the world diff, the truth check and a
+    bounds check all pass. The failure with no evidence needs the world to say
+    what was owed, because nothing else in the system knows.
+    """
     sets: dict[str, Any] = Field(default_factory=dict)
     refusal: str = "that is not possible for an order that is {status}"
     description: str = ""

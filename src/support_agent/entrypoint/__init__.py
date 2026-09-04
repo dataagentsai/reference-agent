@@ -26,6 +26,7 @@ from support_agent import context as ctx
 from support_agent import loop as agent_loop
 from support_agent import router
 from support_agent import telemetry as tel
+from support_agent import trigger as trg
 from support_agent.config import Budgets, RunConfig
 from support_agent.contracts import (
     Agentic,
@@ -74,6 +75,7 @@ class Agent:
     tools: ToolClient
     store: CheckpointStore
     approvals: ApprovalStore | None = None
+    deliveries: object | None = None
     config: RunConfig | None = None
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     budgets: Budgets = field(default_factory=Budgets)
@@ -86,6 +88,7 @@ class Agent:
         identity: Identity,
         conversation: Conversation | None = None,
         run_id: RunId | None = None,
+        delivery_id: str | None = None,
     ) -> tuple[TurnResult, Conversation]:
         """One turn in, one typed result out.
 
@@ -93,6 +96,22 @@ class Agent:
         or a resumed approval — always holds the state that produced the result
         it is looking at.
         """
+        # AAC-0076. The guard is outermost, before a run id exists: a duplicate
+        # delivery must not mint a second run, because a second run gets its own
+        # idempotency key space and every control below this line is scoped to
+        # one run. Refusing here is the only place it can be refused.
+        if self.deliveries is not None and delivery_id is not None:
+            async with trg.once(self.deliveries, delivery_id):
+                return await self._turn(text, identity, conversation, run_id)
+        return await self._turn(text, identity, conversation, run_id)
+
+    async def _turn(
+        self,
+        text: str,
+        identity: Identity,
+        conversation: Conversation | None,
+        run_id: RunId | None,
+    ) -> tuple[TurnResult, Conversation]:
         run_id = run_id or new_run_id()
         conversation = conversation or Conversation(
             conversation_id=new_conversation_id(),
@@ -382,6 +401,7 @@ def build(
     tools: ToolClient,
     store: CheckpointStore,
     approvals: ApprovalStore | None = None,
+    deliveries: object | None = None,
     config: RunConfig | None = None,
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
 ) -> Agent:
@@ -395,6 +415,7 @@ def build(
     return Agent(
         llm=llm,
         tools=tools,
+        deliveries=deliveries,
         store=store,
         approvals=approvals,
         config=config,

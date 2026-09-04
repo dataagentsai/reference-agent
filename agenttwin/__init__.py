@@ -10,6 +10,7 @@ system whose test results mean nothing.
 from agenttwin.actor import Determinism, Rule, ScriptedActor, StateMachineActor, Transcript
 from agenttwin.approver import Approver, Decision, Review
 from agenttwin.loader import load
+from agenttwin.omission import Obligation, nothing_was_omitted, omitted, owed
 from agenttwin.perturbation import ChannelError, Slow, StaleRead, Timeline, perturbed
 from agenttwin.projection import Live, project
 from agenttwin.record import RunRecord, diff
@@ -27,6 +28,7 @@ __all__ = [
     "Determinism",
     "Review",
     "Live",
+    "Obligation",
     "Rule",
     "RunRecord",
     "Scenario",
@@ -40,6 +42,9 @@ __all__ = [
     "answer_is_true",
     "contradictions",
     "diff",
+    "nothing_was_omitted",
+    "omitted",
+    "owed",
     "load",
     "perturbed",
     "project",
