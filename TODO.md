@@ -79,6 +79,9 @@ have the same gap.
 
 **Status** Not started. Raised 2026-09-05. **Carries the fix for F-016 (critical).**
 
+→ **Designed in full: [`docs/DESIGN-auth.md`](docs/DESIGN-auth.md).** The summary
+below is a pointer; the design is the document.
+
 **What exists today.** `ident.mint()` signs a token in a script. There is no user
 store, no login, no password, no expiry policy anyone administers, no way to
 revoke, and no way to grant one customer something another does not have —
