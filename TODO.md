@@ -153,9 +153,154 @@ the tool boundary was written.
 
 ---
 
+## T-003 · Deduplication only works for one process — and the answer is mostly to adopt, not to build
+
+**Status** Not started. Raised 2026-09-05, and **revised the same day** after the
+right question: *why are we writing any of this?*
+
+**The defect in the plan, first.** The module currently claims the durable version
+is *"a swap rather than a redesign."* That is wrong. `settle` runs in a `finally`,
+which does not run when a process is killed outright.
+
+- *In memory*, the dictionary dies with the process. Nothing is stranded — it is
+  self-healing **by accident**.
+- *Durably*, the `in_flight` row outlives the process that wrote it and **nothing
+  will ever settle it.** Every redelivery then gets `OverlappingRun`, forever.
+  One crash permanently wedges that message.
+
+A durable claim therefore needs an expiry, which the in-memory one does not. That
+is the kind of thing normally discovered in production.
+
+---
+
+### But the real answer is to write much less of it
+
+**1 · Make the effect idempotent where the state lives.** The cleanest option by
+a distance, because it removes the coordination problem rather than solving it.
+
+```sql
+UPDATE orders SET status = 'cancelled'
+ WHERE id = %s AND status IN ('pending','confirmed');
+-- rowcount 1 = we did it.  rowcount 0 = somebody already did.
+```
+
+One statement, atomic, no lock, no lease, no claim table, no stuck rows. A
+duplicate becomes *harmless* instead of *prevented*, and harmless survives
+crashes that prevention does not.
+
+**2 · Let the queue do it, if a queue is delivering.** SQS FIFO
+(`MessageDeduplicationId`), Azure Service Bus duplicate detection, Pub/Sub
+exactly-once, Kafka's idempotent producer. **Configuration, not code.**
+
+The catch nobody mentions: a queue deduplicates *its own* deliveries inside *its*
+window, and only when the **producer** attaches a stable id per message. So the
+id is still the thing that matters — the queue is just somewhere to check it.
+**Whoever mints the id owns the correctness.** Our browser mints one per message
+rather than per attempt, which is the part that is already right.
+
+**3 · If durable multi-step execution is needed — and an agent needs it — adopt
+it rather than build it.** Temporal, Restate, DBOS, Inngest. Deduplication by
+workflow id is built in, a crash resumes where it stopped, and a workflow can
+sleep for an hour waiting on a human and wake up correctly.
+
+That last clause matters more than the deduplication. **Three modules here exist
+largely because we lack durable execution:**
+
+| module | what it re-implements |
+|---|---|
+| `trigger` | run-once semantics |
+| `state` | checkpoint and resume |
+| `approvals` | a long wait that survives a restart |
+
+Adopting Temporal would subsume most of all three. For a product that is
+straightforwardly the right call.
+
+**4 · Only if none of the above applies**, the claim table — `INSERT … ON CONFLICT
+DO NOTHING RETURNING`, so the unique constraint provides the mutual exclusion,
+plus a `claimed_at` expiry so a killed process cannot wedge a message.
+
+---
+
+### What the usual infrastructure does and does not do
+
+**Load balancer — no, and it is the *cause*.** It is what puts two copies of the
+agent behind one address, which is precisely why an in-memory dictionary stops
+working. It has no concept of a duplicate.
+
+**API gateway — less than people expect, and it may make things worse.** Gateways
+do authentication, rate limiting, routing. Response caching accidentally
+deduplicates identical reads and does nothing for writes. And **a gateway that
+retries on a timeout is a duplicate *generator*** — a large share of duplicates in
+real systems are manufactured by the infrastructure meant to add reliability.
+
+**Queue — yes, genuinely**, subject to the producer-id caveat above. Note it also
+changes the product: a queue implies the customer does not get an immediate
+answer.
+
+---
+
+### Does read-before-write in MCP solve it?
+
+**Partly, and it is worth being precise about how partly**, because this is the
+reason the duplicate in our own test did no damage.
+
+`cancel_order` re-reads the row and re-checks the conditions, so a second attempt
+finds the order already `cancelled` and refuses. **The world stopped it, not the
+harness** — and a control that works by accident of the business rules is worth
+naming as such.
+
+Three things it does not do.
+
+*It is not atomic.* Read-then-decide-then-write is the classic check-then-act
+race: two processes can both read `pending`, both conclude "allowed", and both
+write. The window is small, not zero — and it is exactly what the `StaleRead`
+perturbation already simulates. The fix is to make the write itself conditional,
+as in option 1 above; then the check and the act are one statement.
+
+*It only works when the effect destroys its own precondition.* Cancelling works
+because a cancelled order cannot be cancelled. **Sending an email, charging a
+card and calling a webhook have no state to re-read**, and for those, read-before-
+write offers nothing at all.
+
+*It protects the effect, not the conversation.* The second run refuses correctly
+and the customer may still be told something confusing or contradictory. The
+world is safe; the reply is not.
+
+So: a genuine second line of defence, and not a substitute for an identifier. It
+turns *"a duplicate causes harm"* into *"a duplicate causes a confusing reply"*,
+which is an improvement and not a fix.
+
+---
+
+### Why this repository hand-rolls it anyway
+
+Deliberately, and it should be said plainly rather than defended. This is a
+**reference implementation**, and its whole job is to show what a harness must
+contain. If the answer to *"how do you guarantee once"* is *"Temporal does it"*,
+a reader learns nothing about what was needed — and the catalogue's own output is
+supposed to be the **coverage delta**: *you chose X, here are the N things X does
+not give you*. That sentence cannot be written by someone who never held the
+problem.
+
+**For a real product this trade is the wrong way round.** Adopt durable
+execution, let the queue deduplicate, make the effects idempotent at the far end,
+and delete `trigger` entirely.
+
+**Where it lands.** Option 1 in the projected world and the real shop; option 3 as
+a documented alternative binding rather than a rewrite. The in-memory log stays
+for tests, with its docstring corrected — the durable version is a **superset**,
+not a swap.
+
+**AgentTwin needs it too.** Nothing runs two agents against one world, so a defect
+needing two processes cannot be seen — the same shape as F-016 needing two
+customers.
+
+---
+
 ## The queue
 
 | | Item | Raised |
 |---|---|---|
 | T-001 | Nothing happens when the chat opens | 2026-09-05 |
+| T-003 | Dedup works for one process only, and the durable port needs claim expiry | 2026-09-05 |
 | **T-002** | **No login exists, and the permission model cannot express ownership — carries F-016** | 2026-09-05 |
