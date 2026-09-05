@@ -350,6 +350,35 @@ fourth costs nothing and the resolution seam decides which runs.
 
 ---
 
+## T-005 · Carry the idempotency key to the far end
+
+**Status** Not started. Raised 2026-09-05. **Carries F-017.**
+
+Today the key is minted, used for a local lookup, and thrown away. The contract's
+own docstring says it is *"carried to the downstream system"* and it is not.
+
+**What that leaves unprotected**, in the docstring's own words: the call
+succeeded, the response was lost, and from this side that is indistinguishable
+from failure. Our ledger recorded nothing, so the retry goes out again. **Only
+the party that applied the effect can tell the difference** — and only if we told
+it the action's name.
+
+**Both halves are needed.**
+
+*Ours:* the key goes in the request. Either an argument the projected tool
+declares, or MCP request metadata. Which calls need it is **derivable** — the
+world already declares each action's side-effect class, so it is a rule rather
+than a list somebody maintains.
+
+*Theirs:* the far end must actually use it. The conditional write from T-003 is
+the cheap version; storing the key and refusing a repeat is the complete one.
+
+**Do this with T-003**, not separately. They are the same idea at two distances —
+make the effect safe to repeat, and give the repeat a name the far end
+recognises.
+
+---
+
 ## The queue
 
 | | Item | Raised |
@@ -357,4 +386,5 @@ fourth costs nothing and the resolution seam decides which runs.
 | T-001 | Nothing happens when the chat opens | 2026-09-05 |
 | T-003 | Dedup works for one process only, and the durable port needs claim expiry | 2026-09-05 |
 | T-004 | An Anthropic adapter at L2 — closes three open items, one module | 2026-09-05 |
+| T-005 | Carry the idempotency key downstream — carries F-017 | 2026-09-05 |
 | **T-002** | **No login exists, and the permission model cannot express ownership — carries F-016** | 2026-09-05 |

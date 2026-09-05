@@ -625,7 +625,72 @@ should be resisted until the rules are more complicated than *"it is yours"*.
 
 ---
 
-## What these seven say about the method
+## F-017 · The idempotency key never leaves the process
+
+**Found** 2026-09-05, by the question *"how does that id actually ensure
+idempotency?"*
+
+**Severity** High, and latent — the world is currently hiding it.
+
+### What the contract says
+
+`IdempotencyKey`'s own docstring:
+
+> *"Carried to the downstream system so a repeat is recognised **there**, rather
+> than being prevented only by the harness remembering not to retry. **The
+> timeout case is why:** the call succeeded and the response was lost, so the
+> harness believes it failed while the effect has already been applied."*
+
+### What the code does
+
+`MCPToolClient._invoke` calls `client.call_tool(name, arguments)`. **The key is
+not among the arguments and is not a header.** It is used for the local ledger
+lookup and then discarded. The stated design was never implemented, and the
+docstring has been describing an intention as though it were a mechanism.
+
+### Demonstrated
+
+The exact sequence the docstring names — the effect lands, the reply is lost:
+
+```
+effect actually applied : [('cancel_order', 'AB-10002')]
+ledger has the key?     : None
+after retry, effects    : [('cancel_order', 'AB-10002')]
+```
+
+The ledger is **empty**, because `record()` only runs on a successful result and
+to us the call failed. So `seen()` finds nothing and the retry goes through to
+the shop a second time.
+
+**The effect count did not grow — and not because anything in the harness stopped
+it.** `cancel_order` is refused by the world on the second attempt, since a
+cancelled order cannot be cancelled. The business rule saved us, exactly as in
+F-016 and in `test_without_a_delivery_id_the_second_run_acts_again`. Three
+findings now with the same shape: **a control we believe we have is being
+performed by the world.**
+
+For an action whose precondition its own effect does not destroy — sending an
+email, charging a card, calling a webhook — nothing would stop the second one.
+
+### Why the local ledger cannot fix this
+
+Not a bug in the ledger, which is correct for what it can see. The ledger only
+knows outcomes it received. A call that succeeded and whose reply was lost is
+*indistinguishable* from a call that failed, **from this side**. Only the party
+that applied the effect can tell the difference, and it can only do so if we tell
+it the name of the action.
+
+### Fix shape
+
+The key travels with the request, and the far end recognises it. Two halves:
+
+- **Ours:** put it in the call — an argument the projected tool declares, or MCP
+  request metadata. The world file already knows every action's side-effect
+  class, so which calls need it is derivable rather than a list to maintain.
+- **Theirs:** the conditional write from T-003 — `UPDATE ... WHERE status IN (...)`
+  with a row count, or a stored key the shop refuses to apply twice.
+
+Queued as **T-005**. Not fixed.
 
 None of them was found by reading the code. All of them needed a world that could
 be *put into a state* — shipped, then perturbed mid-run — and an oracle that was
