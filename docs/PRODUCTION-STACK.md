@@ -45,8 +45,50 @@ and it stops a reader mistaking the hand-rolled version for the recommendation.
 | | |
 |---|---|
 | **We built** | One adapter, an approved-model list checked against the provider, a typed boundary, three exits. |
-| **Adopt** | **LiteLLM** (one interface, budgets, fallbacks), **OpenRouter**, **Portkey**, **Envoy AI Gateway**, or a cloud gateway — Bedrock, Vertex. |
-| **Still yours** | **Which model for which job.** And that a gateway *hides* provider differences rather than removing them: cache control and thinking blocks do not survive an OpenAI-shaped shim, whoever writes it. |
+| **Adopt** | **The provider's own SDK** — `anthropic`, and note this is *not* the Claude Agent SDK. Or a gateway: **LiteLLM**, **OpenRouter**, **Portkey**, **Envoy AI Gateway**, Bedrock, Vertex. |
+| **Still yours** | **Which model for which job**, and the knowledge that a gateway *hides* provider differences rather than removing them. |
+
+**The distinction that matters here, because it is routinely confused.**
+
+`anthropic` (the API SDK) and `claude-agent-sdk` are different packages solving
+different layers:
+
+| | brings a loop? | lives at |
+|---|---|---|
+| **`anthropic`** — the API SDK | **no** | **L2** |
+| `client.beta.messages.tool_runner` — a helper inside it | a thin one, with per-turn hooks | L2 + a slice of L4 |
+| **`claude-agent-sdk`** — Claude Code as a library | **yes**, plus built-in tools, context management, hooks, permissions, sessions | **L4** |
+| Managed Agents | yes, *and* hosts the sandbox | L4 + deployment |
+
+So **you can keep your own loop and still get every API-level benefit**, because
+those benefits are features of `POST /v1/messages` rather than of anybody's loop.
+The L4 decision and the L2 decision are independent, and conflating them is how a
+team ends up adopting a whole harness to get prompt caching.
+
+**What the native SDK gives you that an OpenAI-shaped shim structurally cannot,**
+because the request has no field to carry it:
+
+- **Prompt caching** — `cache_control: {"type": "ephemeral"}`, up to four
+  breakpoints, prefix-matched in `tools` → `system` → `messages` order, verified
+  through `usage.cache_read_input_tokens`. The largest cost lever there is.
+- **Token counting** — `client.messages.count_tokens()`. This would close our own
+  residual gap directly: the context budget here is measured in **characters**
+  because nothing can count tokens.
+- **The Batch API** — half price, asynchronous. Offline eval suites are exactly
+  the workload it exists for, and ours currently pays full rate.
+- **Adaptive thinking** and `output_config.effort`.
+- **Server-side compaction** and **context editing** — the long-conversation
+  problem solved above the harness rather than inside it.
+- **Mid-conversation system messages** — an operator instruction appended to
+  `messages` that does **not** invalidate the cached prefix, and is the
+  injection-safe operator channel. That is directly relevant to L7 here.
+- **Structured outputs**, strict tool schemas, refusal `stop_details`, citations,
+  the Files API.
+
+This is R-004 restated with the current API: the distinction that matters is
+**harness features versus API features**. Harness features we rebuilt on purpose.
+API features have no substitute, and they are reached by choosing the SDK at L2 —
+which costs nothing at L4.
 
 ## L3 · Tool layer
 
