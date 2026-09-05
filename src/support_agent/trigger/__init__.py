@@ -1,6 +1,14 @@
 """What starts a turn, and whether it should have.
 
-L14 · P1. AAC-0076 — *triggers fire once and only once*.
+L15 · L10 · P1. AAC-0076 — *triggers fire once and only once*, and **AHC-0053**,
+*a trigger produces exactly one run*.
+
+The layers were wrong here until 2026-09-05: this module claimed L14, which is
+human-in-the-loop, and a trigger is plainly not a person. The catalogue already
+had the right home — L15 because a trigger is configuration, L10 because
+duplicate firing is a failure mode — and nothing checked our claim against it.
+A mislabelled layer is not cosmetic: it is how a capability ends up counted in
+the wrong row of a coverage report.
 
 The obligation is about the edge, not the agent: **an agent that runs twice takes
 every action twice**, and it does so correctly each time. Nothing inside the run
@@ -81,9 +89,15 @@ class InMemoryDeliveryLog:
 
     `durable = False` is the honest statement: this survives neither a restart
     nor a second process, so it answers the obligation for one instance and not
-    for a deployment. The shape is the same as the durable version — claim,
-    settle — so replacing it is a swap rather than a redesign, and the same tests
-    drive both.
+    for a deployment.
+
+    **The durable version is a superset, not a swap** — an earlier draft of this
+    docstring said otherwise and was wrong (T-003). `settle` runs in a `finally`,
+    which does not run when a process is killed outright. Here the dictionary
+    dies with the process so nothing is stranded, which is self-healing *by
+    accident*. A durable `in_flight` row outlives its writer and nothing would
+    ever settle it, so one crash would wedge that message permanently. A durable
+    claim therefore needs an expiry this one does not.
     """
 
     durable = False
