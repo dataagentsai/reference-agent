@@ -1,188 +1,175 @@
-# Stack families
+# Stack choices — four axes, not eight families
 
-*Written 2026-09-05, answering a question first asked weeks ago: is the space of
-possible stacks infinite, or finite?*
+*Written 2026-09-05 and **rewritten twice the same day**, both times because a
+reader pointed out the list was sorted on the wrong thing. The corrections are
+kept because they are more instructive than the answer.*
 
-**Finite, and small.** The permutations are enormous — any loop, any client, any
-store, any framework — but a stack is not a permutation. A stack is a set of
-choices that **reinforce each other**, and coherence is a much stronger
-constraint than compatibility.
+## The two mistakes worth keeping
 
-There are roughly eight families. What makes each one a family is that its
-choices share an **organising axis**: a vendor, a cloud, a protocol, a runtime
-guarantee, or a framework. Inside a family the seams are cheap. Across families
-you pay at every seam, which is fine when you chose to and expensive when you
-did not notice.
+**First draft: eight "families"** — Anthropic native, OpenAI native,
+cloud-platform, portable, framework-first, durable-execution, self-hosted
+open-weight, fully managed.
 
----
+That list **mixed how you write code with where things run.** *Framework-first*
+is a code-structure decision; *self-hosted open-weight* is a hosting and
+weight-sourcing decision. They are not alternatives — **LangGraph on self-hosted
+vLLM is perfectly coherent** — and the list implied a choice between them.
 
-## The eight
+**Second draft: three axes**, and *cloud-platform* was still filed under
+how-you-reach-the-model. It is not. **Bedrock and Vertex are hosting**, and the
+code barely changes.
 
-### 1 · Single-vendor native — Anthropic
-
-**Organising axis:** one provider's full API surface.
-
-`anthropic` SDK at L2 · your own loop, the tool runner, or the Agent SDK at L4 ·
-MCP for tools · Managed Agents if you also want the deployment.
-
-*You get:* everything the provider offers — prompt caching, token counting,
-batch, adaptive thinking, server-side compaction, structured outputs. Nothing is
-lost at a seam because there is no translation seam.
-
-*You give up:* the ability to change provider without rewriting L2.
-
-*Choose it when* cost per task and capability matter more than portability —
-which, for a product with a large stable prompt prefix, is most of the time.
-
-### 2 · Single-vendor native — OpenAI
-
-The mirror image, and the argument is identical with the names swapped. Same
-shape, same trade, different vendor.
-
-### 3 · Cloud-platform native — AWS · GCP · Azure
-
-**Organising axis:** the cloud contract you already signed.
-
-Bedrock / Vertex / Foundry at L2 · the cloud's IAM at L16 · its secrets, queues
-and observability · Step Functions or Durable Functions at L10.
-
-*You get:* one bill, one identity system, one compliance story, and a
-procurement conversation that is already finished.
-
-*You give up:* features arrive later than on the first-party API, and some never
-arrive. Availability is partner-gated.
-
-*Choose it when* procurement or compliance is the binding constraint — which it
-frequently is, and engineers under-weight it.
-
-### 4 · Portable / multi-provider
-
-**Organising axis:** the ability to switch.
-
-A gateway at L2 — LiteLLM, Portkey, OpenRouter · your loop or a framework at L4.
-
-*You get:* provider substitution, cost routing, failover, one interface.
-
-*You give up:* **the intersection is all you can have.** A cross-provider
-interface can only carry what every provider shares, so provider-specific
-features are not merely inconvenient — they are unreachable by construction.
-
-*Choose it when* portability is a **requirement**: a contract, a regulation, an
-availability commitment. Not when it is a hope.
-
-### 5 · Framework-first
-
-**Organising axis:** one mental model for the whole application.
-
-LangGraph, LangChain, Pydantic AI, Mastra, CrewAI at L4 · model access through
-the framework's provider classes · often the framework's own tracing at L11.
-
-*You get:* speed of assembly, an ecosystem, and other people's solutions to
-problems you have not hit yet.
-
-*You give up:* the framework owns your control loop, and **the loop is the only
-position that can see a trajectory.** You also inherit its opinions about context
-management, which are usually invisible until they are wrong.
-
-*Choose it when* time to first working system dominates. And apply the test in
-Q5: can you attach a provider-specific field, and can you see it took effect?
-
-### 6 · Durable-execution-first
-
-**Organising axis:** the guarantee that work survives a crash.
-
-Temporal, Restate, DBOS, Inngest at L4 and L10 · the agent loop is a workflow,
-each step an activity · any SDK inside an activity.
-
-*You get:* crash safety, resumption, retries, and — the underrated part — a
-process that can **sleep for an hour waiting for a human** and wake up correctly.
-It subsumes checkpointing, run-once semantics, and the waiting half of approvals.
-
-*You give up:* operational weight, and a genuine shift in how you think about
-control flow.
-
-*Choose it when* the work is long-running, moves money, or waits on a person.
-**That is exactly this support agent**, which is why three of its modules are
-re-implementations of this family.
-
-### 7 · Self-hosted open-weight
-
-**Organising axis:** the data never leaves.
-
-vLLM, Ollama, TGI, SGLang · open-weight models · an OpenAI-shaped API by
-convention.
-
-*You get:* no data egress, capital rather than marginal cost, total control of
-versioning, and no rate limits but your own hardware.
-
-*You give up:* frontier capability, and you now operate a serving system.
-
-*Choose it when* regulation, air-gapping, or volume economics decide it.
-
-### 8 · Fully managed agent platform
-
-**Organising axis:** buy the harness *and* the deployment.
-
-Managed Agents, Bedrock Agents, Azure AI Agent Service · the loop and the
-sandbox are both somebody else's.
-
-*You get:* the least code of any option here, by a wide margin.
-
-*You give up:* the loop is not yours, so nothing in it is yours to instrument,
-bound or reason about.
-
-*Choose it when* the agent is not the product.
+Both are the same error as doc 28, which sorted ten agents by framework and had
+to be redone: **an axis that does not vary the thing you are reasoning about
+should not be the axis you sort on.** Making it three times in one project is
+worth writing down, because it is evidently not an easy mistake to stop making —
+each version *looked* like a taxonomy right up until somebody asked what varied.
 
 ---
 
-## Which family is this repository?
+## Four decisions, and only one of them is about code
 
-A deliberate hybrid, and worth naming honestly: **hand-written loop** (family 1's
-shape at L4) over an **OpenAI-shaped client pointed at open-weight models**
-(family 7 at L2), with Postgres and OpenTelemetry.
+Corrected twice. The first draft had eight families; the second had three axes
+and still filed *cloud-platform* under how-you-reach-the-model. **It is not** —
+Bedrock and Vertex are hosting decisions. Your code still speaks the Messages
+API; only the backend differs:
 
-That combination is coherent for a *teaching* artifact — the loop is exposed
-because exposing it is the point, and the models are free because the exercise
-runs hundreds of times a day. It is **not** the recommendation for a product.
+```python
+Anthropic()                                   # first-party
+AnthropicBedrockMantle(aws_region="...")      # AWS hosts it
+AnthropicVertex(project_id=..., region=...)   # Google hosts it
+```
 
-**For production, this agent wants family 6 + family 1**: Temporal for durable
-execution, the Anthropic SDK for the model. Those two do not conflict, for the
-reason below.
+Same `messages.create` surface, same request shape, same features expressible.
+Different bill, different identity system, different region policy. That is
+procurement and operations, not architecture.
 
----
+So the axes are:
 
-## The test for combining families
+### A · Who owns the control loop  → L4
 
-Families combine cleanly when their organising axes are **different**, and fight
-when they are the same.
-
-| Combination | Conflict? |
+| | |
 |---|---|
-| Durable execution (6) + native SDK (1) | **No.** One organises L4 and L10, the other L2. Different axes |
-| LangGraph (5) + native SDK called inside a node (1) | **No**, provided the node body is yours |
-| Gateway (4) + wanting provider-specific features (1) | **Yes.** Same layer, opposite goals — a gateway is *defined* by not exposing them |
-| Agent SDK (1 at L4) + your own loop | **Yes.** Same layer, same axis, only one can win |
-| Cloud-native (3) + native first-party features (1) | **Partly.** The cloud lags the first-party API; you get most, later |
-| Managed platform (8) + custom control-loop rules | **Yes.** You cannot instrument a loop you do not run |
+| **A1** | **You write it.** A `while` loop. What this repository does |
+| **A2** | **A thin helper.** A tool runner — the loop with per-turn hooks, still your harness |
+| **A3** | **A framework.** LangGraph, Pydantic AI, Mastra, CrewAI |
+| **A4** | **A durable-execution engine.** Temporal, Restate, DBOS — the workflow *is* the loop |
+| **A5** | **A vendor's agent SDK.** Loop, built-in tools and context management included |
+| **A6** | **A hosted platform.** Somebody else runs it |
 
-So the question to ask of any two choices is not *"do these work together"* —
-almost everything works together. It is:
+**The only axis that is about how you write code**, and the one that decides what
+the harness still owes you — because the loop is the only position that can see a
+*trajectory*.
+
+### B · Which API surface you speak  → L2
+
+| | |
+|---|---|
+| **B1** | **A provider's native surface.** The Messages API, the Responses API |
+| **B2** | **An OpenAI-shaped surface.** Including compatibility endpoints in front of other providers |
+| **B3** | **A gateway's own surface.** LiteLLM, Portkey — the intersection by construction |
+
+**This axis decides which features you can express**, and nothing else does. It is
+where prompt caching, structured outputs and thinking live or die, and it is
+independent of who hosts anything.
+
+### C · Who hosts the model
+
+| | |
+|---|---|
+| **C1** | The provider, first-party |
+| **C2** | A cloud — Bedrock, Vertex, Foundry |
+| **C3** | A hosted open-weight provider — Groq, Together, Fireworks |
+| **C4** | You, on your own GPUs — vLLM, Ollama, TGI |
+
+**Decides what is actually available**, along with price, latency, region and
+compliance. Features reach partner platforms later than first-party ones, and
+some never arrive.
+
+### D · Where your own process runs
+
+| | |
+|---|---|
+| **D1** | Anywhere — VM, container, serverless, Kubernetes |
+| **D2** | One cloud's managed services, for its identity, queues and billing |
+| **D3** | A vendor's platform — you run nothing |
+| **D4** | On-premises or air-gapped, usually forced by a data rule |
+
+---
+
+## The formulation that makes this useful
+
+Two axes are constantly confused and they fail differently:
+
+> **The surface decides what you can *express*.
+> The host decides what is *available*.**
+
+An OpenAI-shaped request **cannot express** `cache_control` — there is no field,
+so no host can rescue it. A partner platform **may not yet serve** a feature your
+surface can express perfectly well. Two different failures, two different fixes,
+and conflating them is why teams try to solve a surface problem by changing
+clouds.
+
+---
+
+## Where the axes are genuinely tied
+
+Three ties, and they are the only thing resembling a bundle:
+
+**A6 → D3.** If somebody else runs the loop, they host it. That is the offer.
+
+**C4 → D1 or D4.** Self-hosting weights means having GPUs somewhere. The only
+case where a decision here is really a hardware decision.
+
+**C2 pulls D2.** Not forced — you can call Bedrock from anywhere — but the reason
+to choose it is usually that the identity, billing and compliance story is
+already there, and taking half the bundle wastes most of the benefit.
+
+**Everything else composes freely.** A3 + B1 + C4 + D4 — LangGraph, native
+surface, your own GPUs, air-gapped — is entirely coherent.
+
+---
+
+## The one test for a combination
 
 > **Do these two decisions want to own the same layer?**
 
-If yes, one of them is decoration. If no, they compose, and the stack is coherent
-however many families it draws from.
+A5 + A1 is incoherent: the agent SDK and your own loop both want L4, and only one
+can win. A4 + B1 is fine: Temporal owns L4 and L10, the SDK owns L2, and they
+never meet.
+
+The gateway is the subtle case. **B3 conflicts with no other axis** — it
+conflicts with a *requirement*. If you need prompt caching, B3 cannot give it to
+you whoever writes your loop and whoever hosts the model. That conflict is
+between a choice and a goal, which is why it survives review so often: nothing on
+the architecture diagram looks wrong.
+
+---
+
+## What this repository is
+
+**A1 · B2 · C3 · D1.** A hand-written loop, speaking an OpenAI-shaped surface,
+against a hosted open-weight provider, running anywhere.
+
+Coherent for a *teaching* artifact: the loop is exposed because exposing it is
+the entire point, and the models are free because the exercise runs hundreds of
+times a day.
+
+**Not the recommendation for a product**, which would be **A4 · B1 · C1 or C2 ·
+D1 or D2** — durable execution for the loop, a native surface so features are
+expressible, and hosting wherever the rest of the estate already lives.
 
 ---
 
 ## Why this is finite
 
-A stack has sixteen layers and each has several plausible answers, which is
-combinatorially enormous. But the choices are not independent: picking a family
-at one layer determines or strongly constrains several others, because that is
-what a family *is*.
+Six loop choices × three surfaces × four model hosts × four deployment targets is
+288, minus what the ties forbid. A large number and a useless one.
 
-Which is the same reason the catalogue is finite. **Sixteen layers × eight
-coherent families is a table somebody can read** — and the useful artifact is not
-the list of families but the row underneath each: *you chose this one, here is
-what it does not give you.*
+The useful observation is underneath it: **four decisions, and they answer
+different questions.** A decides what the harness still owes you. B decides what
+you can express. C and D are procurement and operations.
+
+Which is why the coverage grid that follows is really a grid over **A** — the
+other three barely move it. A team agonising over which cloud to use has usually
+not yet made the decision that matters.
