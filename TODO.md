@@ -297,10 +297,64 @@ customers.
 
 ---
 
+## T-004 · An Anthropic adapter at L2 — the loop stays ours
+
+**Status** Not started. Raised 2026-09-05.
+
+**What this is not.** Not adopting the Claude Agent SDK, and not giving up the
+hand-written loop. Those are L4 decisions. This is L2: which client the adapter
+wraps. `anthropic` brings **no loop** — you call `client.messages.create()`
+inside whatever loop you already have, which is the ordinary case rather than a
+workaround.
+
+**Why it is one module.** The import contract already says *only `llm` may import
+a provider SDK*, enforced by import-linter on every run. So the blast radius of
+this change is `llm/__init__.py` and nothing else — the contract was written for
+precisely this.
+
+**Three open items it closes at once**, which is what makes it worth doing:
+
+*The context budget is measured in characters.* Left over from F-008 and recorded
+as "deferred and handled are different words." `client.messages.count_tokens()`
+makes it tokens, which is what every budget in the system actually meant.
+
+*Offline evals pay full price.* The Batch API is half, asynchronous, and an eval
+suite is exactly the latency-insensitive workload it exists for.
+
+*Prompt caching is unreachable.* R-004 noted the stable-prefix ordering is
+**already in place**, so `cache_control` on the system block would work on the
+first attempt. An OpenAI-shaped request has no field to carry it, so this is not
+a matter of effort — the shim structurally cannot.
+
+**And two things it would make newly possible**, both of which land on layers we
+already own:
+
+*Mid-conversation system messages.* An operator instruction appended to
+`messages` that does not invalidate the cached prefix, and is the
+injection-safe operator channel. That is L7's `PRE_MODEL` position — one of the
+three declared and empty ones (R-008).
+
+*Server-side compaction and context editing.* The long-conversation problem
+answered above the harness rather than inside it, where `context` currently
+trims by hand.
+
+**What it does not change.** The loop, the router, the tool boundary, the policy
+positions, the oracles, the world. All of L4 stays exactly as written, which is
+the point: **the L2 and L4 decisions are independent**, and conflating them is
+how a team adopts an entire harness in order to obtain prompt caching.
+
+**Cost note.** This repository's standing constraint is free hosted open-weight
+providers. An Anthropic adapter would sit *alongside* the Groq one rather than
+replacing it — `LLMClient` is already a protocol with three implementations, so a
+fourth costs nothing and the resolution seam decides which runs.
+
+---
+
 ## The queue
 
 | | Item | Raised |
 |---|---|---|
 | T-001 | Nothing happens when the chat opens | 2026-09-05 |
 | T-003 | Dedup works for one process only, and the durable port needs claim expiry | 2026-09-05 |
+| T-004 | An Anthropic adapter at L2 — closes three open items, one module | 2026-09-05 |
 | **T-002** | **No login exists, and the permission model cannot express ownership — carries F-016** | 2026-09-05 |
