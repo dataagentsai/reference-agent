@@ -369,9 +369,38 @@ temporal conditions.
 
 ---
 
+## R-017 · "Who is the client of `handle`?"
+
+**Exposed: nothing is.** Every caller in the repository is a test or the
+scenario runner. There is no HTTP server, no CLI, no queue consumer — the agent
+has a door and nothing on the other side of it.
+
+`handle` takes `text`, `identity`, `conversation`, `run_id` and `delivery_id`.
+Three of those have obvious production sources: the request body, a verified
+session token, the queue's message id. **`conversation` does not.** A real client
+holds a conversation id the customer presented and must load the state for it —
+and cannot, because checkpoints are filed under *run* id and every turn mints a
+fresh one.
+
+That is F-006, and this question changed its status. It had been recorded as an
+abstract memory problem. It is not: **it is the first thing that would stop
+anyone writing the HTTP handler.** The tests never meet it because they pass the
+conversation object through in memory, which is precisely the shape of blindness
+R-002 first described and nobody had connected to a caller that does not exist.
+
+The same absence explains two other open items rather than leaving them
+unrelated. Nothing mints a `delivery_id`, so AAC-0076's guard has no production
+source. And nothing drives concurrent load, which is why AAC-0007 is unmeasurable
+rather than merely untested — five of the nine partly-proven AHC capabilities are
+blocked on that single obligation.
+
+→ **P1 is not thin. P1 is empty**, and doc 28's table understated it. Open.
+
+---
+
 ## The pattern
 
-Sixteen questions, sixteen findings. Three were defects that would reach a
+Seventeen questions, seventeen findings. Three were defects that would reach a
 customer, and none of them was visible to the test suite at the time — because a
 test is written by the person who built the thing, and asks the question they
 already had.
