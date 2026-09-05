@@ -20,10 +20,21 @@ CREATE SCHEMA IF NOT EXISTS ecom;
 -- --------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS agent_state.checkpoints (
-    run_id      text PRIMARY KEY,
-    state       bytea       NOT NULL,
-    updated_at  timestamptz NOT NULL DEFAULT now()
+    run_id          text PRIMARY KEY,
+    -- F-006. A run id is minted fresh every turn and no customer ever holds
+    -- one, so a table keyed only by run could be written but never read back by
+    -- anything outside the process that wrote it. The conversation id is the
+    -- only handle a caller actually has.
+    conversation_id text,
+    state           bytea       NOT NULL,
+    updated_at      timestamptz NOT NULL DEFAULT now()
 );
+
+-- Reading a conversation always asks for its newest turn, so the index carries
+-- the sort as well as the filter — otherwise every lookup reads every turn the
+-- conversation ever had and throws all but one away.
+CREATE INDEX IF NOT EXISTS checkpoints_conversation
+    ON agent_state.checkpoints (conversation_id, updated_at DESC);
 
 CREATE TABLE IF NOT EXISTS agent_state.idempotency (
     key         text PRIMARY KEY,

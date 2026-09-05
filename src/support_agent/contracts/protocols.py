@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from support_agent.contracts.ids import IdempotencyKey, Identity, RunId
+from support_agent.contracts.ids import ConversationId, IdempotencyKey, Identity, RunId
 from support_agent.contracts.model import ModelRequest, ModelResponse
 from support_agent.contracts.tools import Approval, ToolRegistry, ToolResult
 
@@ -63,9 +63,25 @@ class CheckpointStore(Protocol):
     not one.
     """
 
-    async def checkpoint(self, run_id: RunId, state: bytes) -> None: ...
+    async def checkpoint(
+        self, run_id: RunId, state: bytes, *, conversation_id: ConversationId
+    ) -> None: ...
 
     async def resume(self, run_id: RunId) -> bytes | None: ...
+
+    async def latest(self, conversation_id: ConversationId) -> bytes | None: ...
+
+    """The most recent state of a conversation — F-006.
+
+    Checkpoints are filed under **run** id and a fresh run id is minted every
+    turn, so `resume` can only be called by something that already knows the
+    run — which a customer never does. A caller holds a *conversation* id, and
+    until this existed there was no way to turn one into state.
+
+    Nothing noticed for weeks because every test passes the conversation object
+    through in memory. It took writing an actual HTTP handler for the gap to
+    become unavoidable: that handler cannot be written without this method.
+    """
 
 
 @runtime_checkable

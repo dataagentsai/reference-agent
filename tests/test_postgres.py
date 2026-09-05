@@ -72,7 +72,9 @@ def conversation(text: str = "hello") -> Conversation:
 async def test_a_checkpoint_survives_a_new_store_and_a_new_pool(pool) -> None:
     from support_agent.state.postgres import PostgresCheckpointStore
 
-    await PostgresCheckpointStore(pool).checkpoint(RunId("run_a"), conversation().encode())
+    await PostgresCheckpointStore(pool).checkpoint(
+        RunId("run_a"), conversation().encode(), conversation_id=ConversationId("cnv_1")
+    )
 
     second = await _pool()
     try:
@@ -90,8 +92,12 @@ async def test_a_checkpoint_is_never_briefly_absent(pool) -> None:
     from support_agent.state.postgres import PostgresCheckpointStore
 
     store = PostgresCheckpointStore(pool)
-    await store.checkpoint(RunId("run_b"), conversation("first").encode())
-    await store.checkpoint(RunId("run_b"), conversation("second").encode())
+    await store.checkpoint(
+        RunId("run_b"), conversation("first").encode(), conversation_id=ConversationId("cnv_1")
+    )
+    await store.checkpoint(
+        RunId("run_b"), conversation("second").encode(), conversation_id=ConversationId("cnv_1")
+    )
 
     raw = await store.resume(RunId("run_b"))
     assert raw is not None

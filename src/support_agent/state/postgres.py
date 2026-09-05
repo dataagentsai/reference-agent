@@ -21,7 +21,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
 
-from support_agent.contracts import Approval, RunId
+from support_agent.contracts import Approval, ConversationId, RunId
 
 
 class PostgresCheckpointStore:
@@ -37,17 +37,47 @@ class PostgresCheckpointStore:
     def __init__(self, pool: AsyncConnectionPool) -> None:
         self._pool = pool
 
-    async def checkpoint(self, run_id: RunId, state: bytes) -> None:
+    async def checkpoint(
+        self, run_id: RunId, state: bytes, *, conversation_id: ConversationId
+    ) -> None:
         async with self._pool.connection() as conn:
+            # One statement, both indexes — F-006. The conversation id goes in
+            # the same row rather than a second table, so the two can never
+            # disagree and no transaction is needed to keep them together.
             await conn.execute(
                 """
-                INSERT INTO agent_state.checkpoints (run_id, state, updated_at)
-                VALUES (%s, %s, now())
+                INSERT INTO agent_state.checkpoints
+                    (run_id, conversation_id, state, updated_at)
+                VALUES (%s, %s, %s, now())
                 ON CONFLICT (run_id) DO UPDATE
-                    SET state = EXCLUDED.state, updated_at = now()
+                    SET state = EXCLUDED.state,
+                        conversation_id = EXCLUDED.conversation_id,
+                        updated_at = now()
                 """,
-                (run_id, state),
+                (run_id, conversation_id, state),
             )
+
+    async def latest(self, conversation_id: ConversationId) -> bytes | None:
+        """The newest turn of this conversation.
+
+        `ORDER BY updated_at DESC LIMIT 1` because a conversation has many runs
+        and only the last one is state worth resuming from. The index on
+        (conversation_id, updated_at) is what stops this being a table scan on
+        a busy day.
+        """
+        async with self._pool.connection() as conn:
+            row = await (
+                await conn.execute(
+                    """
+                    SELECT state FROM agent_state.checkpoints
+                    WHERE conversation_id = %s
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """,
+                    (conversation_id,),
+                )
+            ).fetchone()
+        return None if row is None else bytes(row[0])
 
     async def resume(self, run_id: RunId) -> bytes | None:
         async with self._pool.connection() as conn:

@@ -67,15 +67,27 @@ class InMemoryCheckpointStore:
 
     def __init__(self) -> None:
         self._runs: dict[str, bytes] = {}
+        self._conversations: dict[str, bytes] = {}
         self._lock = asyncio.Lock()
 
-    async def checkpoint(self, run_id: RunId, state: bytes) -> None:
+    async def checkpoint(
+        self, run_id: RunId, state: bytes, *, conversation_id: ConversationId
+    ) -> None:
         async with self._lock:
             self._runs[run_id] = state
+            # The same bytes under both keys — F-006. The run index explains a
+            # past turn; the conversation index is the only one a caller can
+            # reach, because a customer holds a conversation id and never a run
+            # id. One write, because two writes can disagree.
+            self._conversations[conversation_id] = state
 
     async def resume(self, run_id: RunId) -> bytes | None:
         async with self._lock:
             return self._runs.get(run_id)
+
+    async def latest(self, conversation_id: ConversationId) -> bytes | None:
+        async with self._lock:
+            return self._conversations.get(conversation_id)
 
 
 class FileCheckpointStore:
@@ -100,17 +112,35 @@ class FileCheckpointStore:
     def _path(self, run_id: RunId) -> Path:
         return self._dir / f"{run_id}.json"
 
-    async def checkpoint(self, run_id: RunId, state: bytes) -> None:
+    def _conversation_path(self, conversation_id: ConversationId) -> Path:
+        return self._dir / f"conversation-{conversation_id}.json"
+
+    async def checkpoint(
+        self, run_id: RunId, state: bytes, *, conversation_id: ConversationId
+    ) -> None:
         async with self._lock:
-            target = self._path(run_id)
-            with tempfile.NamedTemporaryFile(dir=self._dir, delete=False, suffix=".tmp") as handle:
-                handle.write(state)
-                temporary = Path(handle.name)
-            temporary.replace(target)
+            self._write(self._path(run_id), state)
+            # Written second and separately rather than symlinked or indexed:
+            # both are atomic replaces, so a crash between them leaves the run
+            # record correct and the conversation pointer one turn stale, which
+            # is recoverable. An index that could point at a half-written file
+            # would not be.
+            self._write(self._conversation_path(conversation_id), state)
+
+    def _write(self, target: Path, state: bytes) -> None:
+        with tempfile.NamedTemporaryFile(dir=self._dir, delete=False, suffix=".tmp") as handle:
+            handle.write(state)
+            temporary = Path(handle.name)
+        temporary.replace(target)
 
     async def resume(self, run_id: RunId) -> bytes | None:
+        return await self._read(self._path(run_id))
+
+    async def latest(self, conversation_id: ConversationId) -> bytes | None:
+        return await self._read(self._conversation_path(conversation_id))
+
+    async def _read(self, target: Path) -> bytes | None:
         async with self._lock:
-            target = self._path(run_id)
             if not target.exists():
                 return None
             raw = target.read_bytes()

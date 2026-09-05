@@ -220,7 +220,9 @@ async def test_a_file_checkpoint_survives_a_new_store_instance(tmp_path) -> None
         customer_id="C-1042",
         messages=(Message(role="user", content="hello"),),
     )
-    await FileCheckpointStore(tmp_path).checkpoint(run_id, conversation.encode())
+    await FileCheckpointStore(tmp_path).checkpoint(
+        run_id, conversation.encode(), conversation_id=conversation.conversation_id
+    )
 
     recovered = await FileCheckpointStore(tmp_path).resume(run_id)
     assert recovered is not None

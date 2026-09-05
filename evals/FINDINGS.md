@@ -526,6 +526,44 @@ contract doing the job it was built for, on the first new attribute since.
 
 ---
 
+## F-006 · Fixed — by writing the caller that could not be written
+
+Open since R-002, recorded as an abstract memory problem: checkpoints filed
+under **run** id, a fresh run id minted every turn, so nothing could look up a
+conversation by anything a customer holds.
+
+**R-017 changed its status.** Asked who calls `Agent.handle`, the answer was
+nothing — every caller was a test or the simulator. So P1 was not thin, it was
+empty, and F-006 was not an abstract gap: **it is the first thing that stops
+anyone writing the HTTP handler.** Three lines into `chat()` you need to turn a
+conversation id into state, and there was no method that could.
+
+**Fixed in all three stores.** `CheckpointStore` gained `latest(conversation_id)`
+and `checkpoint` now takes the conversation id explicitly rather than decoding
+the state to find it — a store that parsed its own payload would be coupled to
+the encoding.
+
+- **In memory:** the same bytes under both keys, in one write, because two
+  writes can disagree.
+- **On disk:** two atomic replaces rather than an index. A crash between them
+  leaves the run record correct and the conversation pointer one turn stale,
+  which is recoverable; an index pointing at a half-written file is not.
+- **Postgres:** one row, one statement, both indexes — so they cannot diverge and
+  no transaction is needed to hold them together. Plus
+  `(conversation_id, updated_at DESC)`, which carries the sort as well as the
+  filter: every read wants the newest turn, and without it each lookup reads
+  every turn the conversation ever had and throws all but one away.
+
+The live database needed migrating as well as the schema file — the tests failed
+with `column "conversation_id" does not exist`, which is the correct failure and
+the reason the Postgres tests exist.
+
+**Proven over real HTTP**, not just in a unit test: two `curl` requests, the
+second carrying the conversation id from the first, continuing the same
+conversation.
+
+---
+
 ## What these seven say about the method
 
 None of them was found by reading the code. All of them needed a world that could

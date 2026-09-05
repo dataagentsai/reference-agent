@@ -64,11 +64,12 @@ name = "Arrows point down"
 type = "layers"
 containers = ["support_agent"]
 layers = [
+    "serve",
     "entrypoint",
     "router | loop",
     "context | tools | approvals",
     "llm | state | policy | cost | idempotency | trigger | resilience | flow | identity | cassette",
-    "config | telemetry",
+    "config | telemetry | ui",
     "conformance | contracts",
 ]
 exhaustive = true

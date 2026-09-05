@@ -128,7 +128,11 @@ class Agent:
                 resumed = await self._resume(conversation, identity, run_id)
                 if resumed is not None:
                     result, conversation = resumed
-                    await self.store.checkpoint(run_id, conversation.encode())
+                    await self.store.checkpoint(
+                        run_id,
+                        conversation.encode(),
+                        conversation_id=conversation.conversation_id,
+                    )
                     return result, conversation
 
             decision = router.route(text, rules=self.rules)
@@ -160,7 +164,9 @@ class Agent:
                     )
 
             conversation = _record(conversation, result)
-            await self.store.checkpoint(run_id, conversation.encode())
+            await self.store.checkpoint(
+                run_id, conversation.encode(), conversation_id=conversation.conversation_id
+            )
             return result, conversation
 
     def _local_tools(self, identity: Identity, run_id: RunId) -> dict[str, ap.LocalTool]:

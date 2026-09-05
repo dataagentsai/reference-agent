@@ -123,6 +123,13 @@ CONTRACT: dict[str, SpanSpec] = {
             {TERMINATION, COST_USD, COST_CALL_USD, MODEL_MALFORMED, "agent.policy.blocked_by"}
         ),
     ),
+    "http.chat": SpanSpec(
+        # P1. Nothing is required: a request refused before its token is read
+        # has no tenant to record, and demanding one would force the edge to
+        # invent a value for exactly the requests it knows least about.
+        required=frozenset(),
+        optional=frozenset({TENANT, "http.status_code", "http.refusal_detail", "agent.result"}),
+    ),
     "agent.step": SpanSpec(required=frozenset({STEP, RUN_ID})),
     "agent.route": SpanSpec(
         required=frozenset({ROUTE_KIND, ROUTE_REASON, "agent.router.rules_version"})

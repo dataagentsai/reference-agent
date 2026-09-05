@@ -1,0 +1,1 @@
+{"conversation_id":"cnv_4e5cafebef1443d8","customer_id":"C-1042","messages":[{"role":"user","content":"where is my order AB-10003","tool_call_id":null,"tool_name":null,"tool_calls":[],"provenance":"user"},{"role":"assistant","content":"Order AB-10003 is currently delivered.","tool_call_id":null,"tool_name":null,"tool_calls":[],"provenance":"operator"}],"pending_approval_id":null}
