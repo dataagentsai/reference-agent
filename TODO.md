@@ -75,8 +75,84 @@ have the same gap.
 
 ---
 
+## T-002 · Nothing issues or maintains logins, and the permission model is the wrong shape
+
+**Status** Not started. Raised 2026-09-05. **Carries the fix for F-016 (critical).**
+
+**What exists today.** `ident.mint()` signs a token in a script. There is no user
+store, no login, no password, no expiry policy anyone administers, no way to
+revoke, and no way to grant one customer something another does not have —
+`CUSTOMER_SCOPES` is a frozenset constant in the source.
+
+**Three separate problems, and they need different answers.**
+
+### 1 · The signature is symmetric — and that is the wrong shape for a token
+
+`ALGORITHM = "HS256"`. One shared secret both signs and verifies, so **anything
+able to check a token is also able to forge one**. The agent process holds it, so
+a read of that process's memory or environment yields the ability to mint a
+session for any customer.
+
+Production wants asymmetric: the issuer signs with a private key it never shares,
+and the agent verifies with a public key it fetches. A compromised agent can then
+still read tokens and cannot write them. This is a small change — `verify()`
+swaps a shared secret for a JWKS lookup — and it arrives free with any real
+identity provider.
+
+### 2 · Nothing issues the token
+
+There is no login. Whichever provider is chosen replaces `mint()` entirely, and
+the agent keeps only `verify()`.
+
+### 3 · The permission model cannot express the rule that actually matters
+
+This is the important one, and F-016 is its consequence.
+
+`orders:write` says *this caller may write orders*. The rule the business needs is
+*this caller may write **their own** orders*. The first is a permission about a
+**verb**; the second is about a **row**, and a scope list has no way to say it.
+
+Fixing that is **not** a job for an authorization service. The tool boundary
+already holds both the caller's identity and the row it is about to act on, so
+ownership is a comparison. The world file even declares the relationship —
+`customer_id: {ref: customer.id}` — and nothing reads it at call time, exactly as
+the ontology went unread until R-012 made the generator consume it.
+
+A policy engine earns its place when the rules stop being *"it is yours"*:
+household accounts, a partner acting for a customer, an agent acting for a
+partner. Reaching for one now would add a network hop to answer a field
+comparison.
+
+**Open source, and what each is for.**
+
+*Issuing tokens and running a login* — **Keycloak** (the incumbent; heavyweight,
+Java, its own database, an admin UI that already does everything), **Zitadel**
+(Go, multi-tenant by design, modern), **Authentik** (Python, friendlier admin),
+**Ory Hydra** with **Kratos** (API-first, no UI, most composable and the most
+assembly required). Any of them gives asymmetric signing and JWKS, so problem 1
+resolves as a side effect of solving problem 2.
+
+*Fine-grained authorization, later* — **OpenFGA** or **SpiceDB** for
+relationship rules in the Zanzibar style, **Cedar** or **OPA** for policy as
+code, **Casbin** if it should stay in-process. None of these is needed to fix
+F-016.
+
+**Where it lands.** `identity` (verify against JWKS rather than a secret), the
+tool boundary (the ownership check), and the world file, which may want to say
+*which* field carries ownership rather than having the agent assume `customer_id`.
+
+**AgentTwin needs it too, and this is why the defect survived.** Every test,
+scenario and golden case uses one customer. `C-1042` is in the fixtures, the
+world seeds one customer, and the actor is always that customer. **A defect that
+takes two customers to see cannot be seen by a suite that has never had two.**
+A second seeded customer and one hostile actor would have caught F-016 on the day
+the tool boundary was written.
+
+---
+
 ## The queue
 
 | | Item | Raised |
 |---|---|---|
 | T-001 | Nothing happens when the chat opens | 2026-09-05 |
+| **T-002** | **No login exists, and the permission model cannot express ownership — carries F-016** | 2026-09-05 |

@@ -564,6 +564,67 @@ conversation.
 
 ---
 
+## F-016 · Any customer can act on any order
+
+**Found** 2026-09-05, by the question *"who maintains the login and its
+permissions?"* — before writing any code for it.
+
+**Severity: critical.** It is the highest-severity defect in this repository.
+
+### What happens
+
+```
+AB-10002 belongs to: C-1042
+C-9999 called cancel_order on C-1042's order -> {'allowed': True, ...}
+order status now: cancelled
+effects recorded: [('cancel_order', 'AB-10002')]
+```
+
+A stranger with a **perfectly valid token** and **ordinary customer scopes**
+cancelled somebody else's order. Nothing was forged, nothing was escalated, no
+guardrail was bypassed. Every control did exactly what it was written to do.
+
+### Why every control passed
+
+Because **none of them was ever asked this question.** `customer_id` appears
+nowhere in `projection.py` and nowhere in `tools/__init__.py` — grep returns
+nothing. The scope check asks *may this caller write orders?* and the answer is
+yes. It never asks *whose order is this?*
+
+That is the gap between two different sentences that look alike:
+
+| | |
+|---|---|
+| `orders:write` says | this caller may write **orders** |
+| what is needed | this caller may write **their own** orders |
+
+The first is a permission about a *verb*. The second is a permission about a
+*row*, and the token has no way to express it. This is
+**broken object-level authorization** — OWASP's number one API risk, and it has
+been sitting under nine layers of correct guardrails the whole time.
+
+### Why nothing caught it
+
+Every test, every scenario and every golden case uses **one customer**. `C-1042`
+is hard-coded in the fixtures, the world seeds one customer, and the actor is
+always that customer. A defect that requires two customers to observe cannot be
+observed by a suite that has never had two.
+
+The world file even declares the relationship — `customer_id: {ref: customer.id}`
+is right there in the ontology — and nothing reads it at call time. The
+declaration exists and no enforcement consumes it, which is the same shape as
+R-012, where the ontology was decorative until the generator was made to read it.
+
+### Not fixed
+
+Recorded rather than repaired, on instruction — the queue is being written before
+any of it is built. **T-002** carries the fix, and it is a small one: the tool
+boundary already has both the caller and the row, so ownership is a comparison
+rather than an architecture. The temptation to reach for an authorization service
+should be resisted until the rules are more complicated than *"it is yours"*.
+
+---
+
 ## What these seven say about the method
 
 None of them was found by reading the code. All of them needed a world that could
