@@ -98,6 +98,10 @@ class Agent:
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     budgets: Budgets = field(default_factory=Budgets)
     rules: router.Rules = field(default_factory=router.Rules)
+    capacity: esc.Capacity | None = None
+    """What the desk can actually absorb. `None` means unmeasured, and the agent
+    then promises a reference and no time — which is true, where "a few minutes"
+    would not be."""
     tier_2: t2.RuleSet | None = None
     """State-derived escalation rules. `None` uses the defaults; an agent with no
     escalation store never reaches them at all."""
@@ -263,7 +267,7 @@ class Agent:
             now=self._now(),
         )
         return Escalated(
-            reply=esc.RAISED_REPLY.format(ticket=raised.id),
+            reply=await self._handoff_text(raised.id),
             reason=rule.reason,
             ticket_id=raised.id,
             rule_id=raised.rule_id,
@@ -304,11 +308,31 @@ class Agent:
             now=self._now(),
         )
         return Escalated(
-            reply=esc.RAISED_REPLY.format(ticket=raised.id),
+            reply=await self._handoff_text(raised.id),
             reason=decision.reason,
             ticket_id=raised.id,
             rule_id=raised.rule_id,
         )
+
+    async def _handoff_text(self, ticket: str) -> str:
+        """Say only what the queue supports.
+
+        Three answers, and the agent is never the one choosing between them —
+        the desk's state is. Closed means nobody is there and the reply says so;
+        a measured desk gets a real number from depth over throughput; an
+        unmeasured one gets a reference and no promise about time.
+        """
+        capacity = self.capacity
+        if capacity is None:
+            return esc.RAISED_REPLY.format(ticket=ticket)
+        if not capacity.open:
+            return esc.CLOSED_REPLY.format(ticket=ticket)
+
+        depth = len(await self.escalations.pending()) if self.escalations else 0
+        waiting = capacity.estimate_s(depth)
+        if waiting is None:
+            return esc.RAISED_REPLY.format(ticket=ticket)
+        return esc.QUEUED_REPLY.format(ticket=ticket, wait=esc.humanise(waiting))
 
     async def _still_with_a_colleague(
         self, conversation: Conversation
@@ -660,6 +684,7 @@ def build(
     store: CheckpointStore,
     approvals: ApprovalStore | None = None,
     escalations: EscalationStore | None = None,
+    capacity: esc.Capacity | None = None,
     deliveries: object | None = None,
     clock: Clock | None = None,
     config: RunConfig | None = None,
@@ -679,6 +704,7 @@ def build(
         store=store,
         approvals=approvals,
         escalations=escalations,
+        capacity=capacity,
         clock=clock,
         config=config,
         system_prompt=system_prompt,

@@ -169,7 +169,7 @@ async def main() -> None:
             TRACE.clear()
             DEPTH[0] = 0
             print(f"\n{'═' * 76}")
-            print(f"TURN {n}   \"{text}\"")
+            print(f'TURN {n}   "{text}"')
             print(f"{'─' * 76}\n  {why}\n")
 
             try:
@@ -208,9 +208,11 @@ async def state(conversation, ledger, approvals, deliveries, world) -> None:
     if conversation is None:
         print("    conversation   (not started)")
     else:
-        print(f"    conversation   {conversation.conversation_id}  "
-              f"{len(conversation.messages)} messages  "
-              f"pending_approval={conversation.pending_approval_id}")
+        print(
+            f"    conversation   {conversation.conversation_id}  "
+            f"{len(conversation.messages)} messages  "
+            f"pending_approval={conversation.pending_approval_id}"
+        )
     entries = ledger._entries
     print(f"    ledger         {len(entries)} action(s) recorded")
     for key, value in entries.items():
@@ -218,11 +220,11 @@ async def state(conversation, ledger, approvals, deliveries, world) -> None:
     items = approvals._items
     print(f"    approvals      {len(items)}")
     for a in items.values():
-        state_word = (
-            "waiting" if not a.decided else ("granted" if a.granted else "refused")
+        state_word = "waiting" if not a.decided else ("granted" if a.granted else "refused")
+        print(
+            f"                     {a.id}  {a.action} {a.args.get('amount')}  "
+            f"{state_word}  by={a.decided_by}  key={a.idempotency_key}"
         )
-        print(f"                     {a.id}  {a.action} {a.args.get('amount')}  "
-              f"{state_word}  by={a.decided_by}  key={a.idempotency_key}")
     print(f"    deliveries     {sorted(deliveries._seen)}")
     print(f"    world          {world.effects or '(nothing has changed)'}")
 

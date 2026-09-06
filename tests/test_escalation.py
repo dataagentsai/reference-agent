@@ -323,3 +323,114 @@ def test_a_conversation_carries_the_flag_across_encoding() -> None:
 def test_the_router_carries_the_rule_id_into_the_decision() -> None:
     assert Escalate(reason="x").rule_id == "", "default stays empty for hand-built decisions"
     assert router.route("transfer me").tier == 1
+
+
+# --------------------------------------------------------------------------- #
+# Step 6 — never promise a colleague the desk cannot supply.
+# --------------------------------------------------------------------------- #
+
+CAPACITY = [
+    ("unmeasured desk promises no time", esc.Capacity(), 0, "they will pick this up"),
+    ("closed desk says so", esc.Capacity(open=False, per_hour=12), 0, "not available right now"),
+    ("open desk gives a real number", esc.Capacity(per_hour=12), 0, "the wait is about"),
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "capacity", "depth", "expected"), CAPACITY, ids=[c[0] for c in CAPACITY]
+)
+async def test_the_reply_says_only_what_the_queue_supports(
+    server, name: str, capacity, depth: int, expected: str
+) -> None:
+    """The defect this closes: "let me pass you to a colleague" with nothing
+    behind it, from a system whose own prompt forbids promising what no tool has
+    confirmed."""
+    async with connect(server, ledger=InMemoryLedger()) as tools:
+        agent = ep.build(
+            llm=ScriptedClient([]),
+            tools=tools,
+            store=InMemoryCheckpointStore(),
+            escalations=esc.InMemoryEscalationStore(),
+            capacity=capacity,
+        )
+        result, _ = await agent.handle("put me through to a human", identity=customer())
+
+    assert isinstance(result, Escalated)
+    assert expected in result.reply, result.reply
+
+
+WAITS = [
+    ("a short queue", 12.0, 1, "5 minutes"),
+    ("a busy hour", 12.0, 4, "20 minutes"),
+    ("a backlog", 12.0, 24, "2 hours"),
+    ("nothing measured", None, 4, None),
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "per_hour", "depth", "expected"), WAITS, ids=[c[0] for c in WAITS]
+)
+def test_the_estimate_comes_from_depth_and_throughput(
+    name: str, per_hour, depth: int, expected
+) -> None:
+    """Divided, not guessed. A desk whose rate nobody measured produces no
+    estimate at all rather than a plausible one."""
+    seconds = esc.Capacity(per_hour=per_hour).estimate_s(depth)
+    assert (esc.humanise(seconds) if seconds is not None else None) == expected
+
+
+async def test_the_sweeper_lapses_what_nobody_came_for(server) -> None:
+    """The queue's phantom work.
+
+    Lapse used to run only when the customer sent another turn, so an escalation
+    on a conversation somebody abandoned never expired — it sat in the desk's
+    queue forever, and the depth every wait estimate divides by drifted upward
+    with it.
+    """
+    store = esc.InMemoryEscalationStore()
+    stale = await esc.raise_for(
+        store,
+        conversation_id="cnv_gone",
+        run_id="run_1",
+        customer_id="C-1042",
+        reason="the customer asked for a human",
+        rule_id="asked-for-human",
+        rules_version="v1",
+        ttl_s=60,
+        now=1000,
+    )
+    fresh = await esc.raise_for(
+        store,
+        conversation_id="cnv_here",
+        run_id="run_2",
+        customer_id="C-1042",
+        reason="the customer asked for a human",
+        rule_id="asked-for-human",
+        rules_version="v1",
+        ttl_s=3600,
+        now=1000,
+    )
+
+    lapsed = await esc.sweep(store, now=2000)
+
+    assert [e.id for e in lapsed] == [stale.id], "only what actually expired"
+    assert (await store.get(stale.id)).state is EscalationState.EXPIRED
+    assert [e.id for e in await store.pending()] == [fresh.id]
+
+
+async def test_sweeping_twice_lapses_nothing_the_second_time() -> None:
+    """It runs on a timer, so it runs against a queue it has already swept."""
+    store = esc.InMemoryEscalationStore()
+    await esc.raise_for(
+        store,
+        conversation_id="c",
+        run_id="r",
+        customer_id="C-1042",
+        reason="x",
+        rule_id="asked-for-human",
+        rules_version="v1",
+        ttl_s=60,
+        now=1000,
+    )
+    assert len(await esc.sweep(store, now=2000)) == 1
+    assert await esc.sweep(store, now=3000) == ()

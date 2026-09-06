@@ -34,6 +34,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
+from dataclasses import dataclass
 
 from support_agent import telemetry as tel
 from support_agent.contracts import Escalation, EscalationOutcome, EscalationState
@@ -56,12 +57,88 @@ WAITING_REPLY = (
     "That is still with a colleague — your reference is {ticket}. I have not forgotten about it."
 )
 
+QUEUED_REPLY = (
+    "Let me pass you to a colleague — your reference is {ticket}, and the wait is about {wait}."
+)
+"""Says a number, and only a number it can defend.
+
+The estimate comes from queue depth divided by measured throughput. When there
+is nothing to divide by — a desk whose rate we do not know — the agent falls
+back to `RAISED_REPLY`, which promises a reference and no time at all. An
+invented "just a few minutes" is the whole class of thing the system prompt
+forbids."""
+
+CLOSED_REPLY = (
+    "The team is not available right now. I have logged this as {ticket} and "
+    "they will pick it up when they are back."
+)
+"""Nobody is there. Saying so beats a reference number that implies somebody
+is."""
+
 LAPSED_REPLY = (
     "Nobody has picked up {ticket} yet, so I am back with you in the meantime. "
     "Tell me what you need and I will do what I can."
 )
 """The honest version of a bad outcome. It does not pretend the escalation
 succeeded, and it does not leave the customer with nothing."""
+
+
+@dataclass(frozen=True)
+class Capacity:
+    """Whether anyone is actually there, and how long the queue really is.
+
+    The current design's worst habit was promising a colleague with nothing
+    behind it. This is the smallest honest correction: before speaking, ask how
+    many are waiting and whether the desk is open, and say only what those two
+    numbers support.
+
+    `per_hour` is deliberately optional. A desk whose throughput nobody has
+    measured produces no estimate rather than a plausible one — the agent then
+    promises a reference and no time, which is true.
+    """
+
+    open: bool = True
+    per_hour: float | None = None
+    """Escalations this desk closes per hour, measured. Not a target."""
+
+    def estimate_s(self, depth: int) -> int | None:
+        if not self.per_hour or self.per_hour <= 0:
+            return None
+        return int((depth / self.per_hour) * 3600)
+
+
+def humanise(seconds: int) -> str:
+    """A wait a person can act on. Rounded, because false precision in a promise
+    reads as a guarantee."""
+    if seconds < 90:
+        return "a minute"
+    minutes = round(seconds / 60)
+    if minutes < 60:
+        return f"{minutes} minutes"
+    hours = round(minutes / 60)
+    return "an hour" if hours == 1 else f"{hours} hours"
+
+
+async def sweep(store: object, *, now: int | None = None) -> tuple[Escalation, ...]:
+    """Lapse everything nobody came for.
+
+    The lapse path was lazy: it only ran when the customer sent another turn. So
+    an escalation on a conversation somebody abandoned never expired, and sat in
+    the desk's queue as permanent phantom work — the queue depth that the wait
+    estimate above divides by would drift upward forever, and every promise made
+    from it would get worse.
+
+    Deliberately a plain function rather than a background thread. The caller
+    decides the cadence: a periodic task in the server, one call in a test, a
+    cron job in a deployment. A sweeper that owns its own scheduling is one
+    nobody can drive from a scenario.
+    """
+    moment = int(time.time()) if now is None else now
+    lapsed: list[Escalation] = []
+    for escalation in await store.pending():  # type: ignore[attr-defined]
+        if escalation.lapsed(moment):
+            lapsed.append(await lapse(store, escalation, now=moment))
+    return tuple(lapsed)
 
 
 def new_escalation_id() -> str:
@@ -262,14 +339,19 @@ async def lapse(store: object, escalation: Escalation, *, now: int | None = None
 
 
 __all__ = [
+    "CLOSED_REPLY",
     "DEFAULT_TTL_S",
+    "QUEUED_REPLY",
+    "Capacity",
     "EscalationError",
     "LAPSED_REPLY",
     "RAISED_REPLY",
     "WAITING_REPLY",
     "InMemoryEscalationStore",
+    "humanise",
     "lapse",
     "new_escalation_id",
     "raise_for",
     "resolve",
+    "sweep",
 ]
