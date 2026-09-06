@@ -74,5 +74,14 @@ class TerminationReason(StrEnum):
     COST_CEILING_REACHED = "cost_ceiling_reached"
     OSCILLATION_DETECTED = "oscillation_detected"
     AWAITING_APPROVAL = "awaiting_approval"
+    AWAITING_HUMAN = "awaiting_human"
+    """A person owns the conversation now.
+
+    Distinct from `AWAITING_APPROVAL`: an approval is a decision about one action
+    the agent proposed, and the agent resumes afterwards. This is the whole
+    conversation changing hands. Both are "not finished", which is why both
+    answer 202 rather than 200 — but a dashboard that could not tell them apart
+    would report a handoff as a stalled refund.
+    """
     REFUSED = "refused"
     UNRECOVERABLE_ERROR = "unrecoverable_error"

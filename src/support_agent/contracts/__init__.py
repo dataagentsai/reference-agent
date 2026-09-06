@@ -11,6 +11,11 @@ from support_agent.contracts.domain import (
     SideEffectClass,
     TerminationReason,
 )
+from support_agent.contracts.human import (
+    Escalation,
+    EscalationOutcome,
+    EscalationState,
+)
 from support_agent.contracts.ids import (
     ConversationId,
     IdempotencyKey,
@@ -32,6 +37,7 @@ from support_agent.contracts.protocols import (
     ApprovalStore,
     CheckpointStore,
     Clock,
+    EscalationStore,
     IdempotencyLedger,
     LLMClient,
     ToolClient,
@@ -71,6 +77,10 @@ __all__ = [
     "Direct",
     "Escalate",
     "Escalated",
+    "Escalation",
+    "EscalationOutcome",
+    "EscalationState",
+    "EscalationStore",
     "Failed",
     "IdempotencyKey",
     "IdempotencyLedger",

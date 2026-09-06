@@ -89,7 +89,8 @@ class GroqClient:
         with tel.span(
             "gen_ai.chat",
             **{
-                tel.GEN_AI_SYSTEM: "groq",
+                tel.GEN_AI_PROVIDER: "groq",
+                tel.GEN_AI_SYSTEM: "groq",  # deprecated; emitted during migration
                 tel.GEN_AI_OPERATION: "chat",
                 tel.GEN_AI_REQUEST_MODEL: self._model,
             },
@@ -184,7 +185,11 @@ class ScriptedClient:
         self.calls.append(request)
         with tel.span(
             "gen_ai.chat",
-            **{tel.GEN_AI_SYSTEM: "scripted", tel.GEN_AI_OPERATION: "chat"},
+            **{
+                tel.GEN_AI_PROVIDER: "scripted",
+                tel.GEN_AI_SYSTEM: "scripted",  # deprecated; emitted during migration
+                tel.GEN_AI_OPERATION: "chat",
+            },
         ) as span:
             if not self._queue:
                 raise ModelUnavailable(f"scripted client exhausted after {len(self.calls)} calls")

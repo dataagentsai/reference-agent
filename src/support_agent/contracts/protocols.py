@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from support_agent.contracts.human import Escalation
 from support_agent.contracts.ids import ConversationId, IdempotencyKey, Identity, RunId
 from support_agent.contracts.model import ModelRequest, ModelResponse
 from support_agent.contracts.tools import Approval, ToolRegistry, ToolResult
@@ -117,6 +118,31 @@ class ApprovalStore(Protocol):
 
     async def pending(self) -> tuple[Approval, ...]:
         """The queue a reviewer sees — P8."""
+        ...
+
+
+@runtime_checkable
+class EscalationStore(Protocol):
+    """Where a conversation waits for a person — P6, same argument as
+    `ApprovalStore` and one step larger: a lost approval loses one action, a lost
+    escalation loses a customer nobody knows is waiting.
+
+    `open_for` rather than `get` on the read path the agent uses. The agent never
+    holds an escalation id it did not just write, and a conversation is the handle
+    it *does* hold — the same F-006 lesson the checkpoint store already learned.
+    """
+
+    async def put(self, escalation: Escalation) -> None: ...
+
+    async def get(self, escalation_id: str) -> Escalation | None: ...
+
+    async def open_for(self, conversation_id: str) -> Escalation | None:
+        """The unresolved escalation on this conversation, if any."""
+        ...
+
+    async def pending(self) -> tuple[Escalation, ...]:
+        """The queue a reviewer will see — P8. Nothing reads this yet; the
+        reviewer surface is step 4."""
         ...
 
 

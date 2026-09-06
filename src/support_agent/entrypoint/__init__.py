@@ -19,10 +19,12 @@ and **only one of them reaches the model**:
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 
 from support_agent import approvals as ap
 from support_agent import context as ctx
+from support_agent import escalation as esc
 from support_agent import loop as agent_loop
 from support_agent import router
 from support_agent import telemetry as tel
@@ -36,6 +38,7 @@ from support_agent.contracts import (
     Direct,
     Escalate,
     Escalated,
+    EscalationStore,
     Failed,
     IdempotencyKey,
     Identity,
@@ -75,6 +78,11 @@ class Agent:
     tools: ToolClient
     store: CheckpointStore
     approvals: ApprovalStore | None = None
+    escalations: EscalationStore | None = None
+    """Absent means the agent cannot escalate durably, and it says so rather than
+    pretending: with no store, `Escalated.ticket_id` stays `None` and the reply
+    promises no reference. Same honesty as `_local_tools` refusing to offer a
+    refund tool when no approval store is wired."""
     deliveries: object | None = None
     config: RunConfig | None = None
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
@@ -118,12 +126,40 @@ class Agent:
             customer_id=identity.customer_id,
         )
 
-        attributes = {tel.RUN_ID: run_id}
+        attributes = {
+            tel.RUN_ID: run_id,
+            # Standard names, so a backend groups turns into a conversation and
+            # attributes them to a customer with no mapping. Emitted here rather
+            # than at the edge because a turn reaches this point whether it
+            # arrived over HTTP or from a test, and a join key that only some
+            # callers produce is one nothing downstream can rely on.
+            tel.SESSION_ID: conversation.conversation_id,
+            tel.USER_ID: identity.customer_id,
+        }
         if self.config is not None:
             attributes[tel.CONFIG_FINGERPRINT] = self.config.fingerprint
             attributes[tel.RESOLUTION] = self.config.resolution
 
         with tel.span("agent.turn", **attributes):
+            # Checked before the approval resume, and before routing. A person
+            # owns this conversation: nothing the customer says should start work
+            # the colleague may be about to make pointless, and answering as
+            # though no handoff happened is the exact defect this closes.
+            if conversation.pending_escalation_id is not None:
+                held = await self._still_with_a_colleague(conversation)
+                if held is not None:
+                    result, conversation = held
+                    await self.store.checkpoint(
+                        run_id,
+                        conversation.encode(),
+                        conversation_id=conversation.conversation_id,
+                    )
+                    return result, conversation
+                # Nothing holds it any more — resolved, missing, or no store to
+                # read. The flag is stale and is cleared here rather than left to
+                # re-answer the same question on every future turn.
+                conversation = conversation.model_copy(update={"pending_escalation_id": None})
+
             if conversation.pending_approval_id is not None:
                 resumed = await self._resume(conversation, identity, run_id)
                 if resumed is not None:
@@ -144,10 +180,7 @@ class Agent:
                         reply=_refusal_text(decision), reason=decision.reason
                     )
                 case Escalate():
-                    result = Escalated(
-                        reply="Let me pass you to a colleague who can help with that.",
-                        reason=decision.reason,
-                    )
+                    result = await self._escalate(decision, conversation, identity, run_id)
                 case Direct():
                     result = await self._direct(decision, identity, run_id)
                 case Agentic():
@@ -168,6 +201,96 @@ class Agent:
                 run_id, conversation.encode(), conversation_id=conversation.conversation_id
             )
             return result, conversation
+
+    async def _escalate(
+        self,
+        decision: Escalate,
+        conversation: Conversation,
+        identity: Identity,
+        run_id: RunId,
+    ) -> TurnResult:
+        """Write the record, then say something true about it.
+
+        With no store the reply is deliberately weaker — no reference number,
+        because there is no record to reference. An agent that invented a ticket
+        id would be doing precisely what the system prompt forbids.
+        """
+        if self.escalations is None:
+            return Escalated(
+                reply="Let me pass you to a colleague who can help with that.",
+                reason=decision.reason,
+                rule_id=decision.rule_id,
+            )
+
+        raised = await esc.raise_for(
+            self.escalations,
+            conversation_id=conversation.conversation_id,
+            run_id=run_id,
+            customer_id=identity.customer_id,
+            reason=decision.reason,
+            rule_id=decision.rule_id,
+            rules_version=self.rules.version,
+            tier=decision.tier,
+        )
+        return Escalated(
+            reply=esc.RAISED_REPLY.format(ticket=raised.id),
+            reason=decision.reason,
+            ticket_id=raised.id,
+            rule_id=raised.rule_id,
+        )
+
+    async def _still_with_a_colleague(
+        self, conversation: Conversation
+    ) -> tuple[TurnResult, Conversation] | None:
+        """Hold the conversation while a person owns it — or hand it back.
+
+        Returns `None` when there is nothing to hold, so the turn proceeds
+        normally. Three ways that happens, and each is a real case rather than a
+        defensive branch:
+
+        *No store.* The flag was set by an agent that had one and this one does
+        not. Clearing it beats holding a conversation against a record nobody
+        here can read.
+
+        *The record is gone or already closed.* A colleague finished, or the
+        store lost it. Either way the customer is served again.
+
+        *Nobody came.* The escalation lapsed. This is the case that makes step 1
+        shippable before the reviewer surface exists — without it, every
+        escalated conversation would be held open forever by a queue no human can
+        yet see.
+        """
+        assert conversation.pending_escalation_id is not None
+        if self.escalations is None:
+            return None
+
+        open_now = await self.escalations.get(conversation.pending_escalation_id)
+        if open_now is None or not open_now.open:
+            return None
+
+        if open_now.lapsed(int(time.time())):
+            lapsed = await esc.lapse(self.escalations, open_now)
+            handed_back = Completed(reply=esc.LAPSED_REPLY.format(ticket=lapsed.id))
+            return handed_back, _record(
+                conversation.model_copy(update={"pending_escalation_id": None}), handed_back
+            )
+
+        with tel.span(
+            "agent.escalation.wait",
+            **{
+                tel.ESCALATION_ID: open_now.id,
+                "agent.escalation.waited_s": int(time.time()) - open_now.created_at,
+            },
+        ):
+            return (
+                Escalated(
+                    reply=esc.WAITING_REPLY.format(ticket=open_now.id),
+                    reason=open_now.reason,
+                    ticket_id=open_now.id,
+                    rule_id=open_now.rule_id,
+                ),
+                conversation,
+            )
 
     def _local_tools(self, identity: Identity, run_id: RunId) -> dict[str, ap.LocalTool]:
         """Harness-answered tools. Empty when no approval store is wired, so an
@@ -398,6 +521,11 @@ def _record(conversation: Conversation, result: TurnResult) -> Conversation:
     )
     if isinstance(result, NeedsApproval):
         return updated.model_copy(update={"pending_approval_id": result.approval_id})
+    # Only when there is a record to point at. An escalation with no `ticket_id`
+    # is one no store accepted, and flagging the conversation against a record
+    # that does not exist would hold it closed with nothing able to reopen it.
+    if isinstance(result, Escalated) and result.ticket_id is not None:
+        return updated.model_copy(update={"pending_escalation_id": result.ticket_id})
     return updated
 
 
@@ -407,6 +535,7 @@ def build(
     tools: ToolClient,
     store: CheckpointStore,
     approvals: ApprovalStore | None = None,
+    escalations: EscalationStore | None = None,
     deliveries: object | None = None,
     config: RunConfig | None = None,
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
@@ -424,6 +553,7 @@ def build(
         deliveries=deliveries,
         store=store,
         approvals=approvals,
+        escalations=escalations,
         config=config,
         system_prompt=system_prompt,
         budgets=config.budgets if config else Budgets(),

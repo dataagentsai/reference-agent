@@ -1262,6 +1262,8 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pyjwt" },
     { name = "pyyaml" },
+    { name = "starlette" },
+    { name = "uvicorn" },
 ]
 
 [package.optional-dependencies]
@@ -1293,6 +1295,8 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
+    { name = "starlette", specifier = ">=1.6" },
+    { name = "uvicorn", specifier = ">=0.52" },
 ]
 provides-extras = ["dev"]
 

@@ -1,0 +1,651 @@
+<title>The Escalation Rebuild</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  :root {
+    --ground: #F4F6F8;
+    --surface: #FFFFFF;
+    --surface-2: #E9EDF2;
+    --ink: #141C25;
+    --ink-muted: #56646F;
+    --rule: #D7DFE7;
+    --rule-strong: #B4C0CB;
+    --escalate: #A6620A;
+    --escalate-wash: #FAEFDC;
+    --yes: #0D6A64;
+    --yes-wash: #E2F0EE;
+    --no: #9C3850;
+    --no-wash: #F8E7EB;
+    --model: #4A53B4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #10151B; --surface: #171D25; --surface-2: #1E2630;
+      --ink: #E3E9EF; --ink-muted: #94A2B0; --rule: #2A333E; --rule-strong: #3C4854;
+      --escalate: #EDA94A; --escalate-wash: #2B2213;
+      --yes: #47B5AA; --yes-wash: #122422; --no: #E2839A; --no-wash: #2A171C;
+      --model: #9098EF;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #10151B; --surface: #171D25; --surface-2: #1E2630;
+    --ink: #E3E9EF; --ink-muted: #94A2B0; --rule: #2A333E; --rule-strong: #3C4854;
+    --escalate: #EDA94A; --escalate-wash: #2B2213;
+    --yes: #47B5AA; --yes-wash: #122422; --no: #E2839A; --no-wash: #2A171C;
+    --model: #9098EF;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1100px; margin: 0 auto; padding: 0 28px 96px; }
+  .measure { max-width: 68ch; }
+
+  header.masthead {
+    padding: 56px 0 30px; border-bottom: 1px solid var(--rule);
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--ink-muted);
+  }
+  h1 {
+    font-family: "IBM Plex Sans", sans-serif; font-weight: 700;
+    font-size: clamp(34px, 5vw, 50px); line-height: 1.05;
+    letter-spacing: -.022em; margin: 0; text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 20px; line-height: 1.5; color: var(--ink-muted);
+    max-width: 62ch; margin: 0;
+  }
+
+  section { padding-top: 54px; }
+  h2 {
+    font-family: "IBM Plex Sans", sans-serif; font-weight: 600; font-size: 27px;
+    letter-spacing: -.012em; line-height: 1.2; margin: 0 0 8px; text-wrap: balance;
+  }
+  h2 .num {
+    font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 400;
+    color: var(--escalate); margin-right: 12px; letter-spacing: .04em;
+  }
+  h3 {
+    font-family: "IBM Plex Sans", sans-serif; font-weight: 600; font-size: 17.5px;
+    letter-spacing: -.004em; margin: 30px 0 4px;
+  }
+  p { margin: 14px 0; }
+  ul, ol { margin: 14px 0; padding-left: 22px; }
+  li { margin: 6px 0; }
+  a { color: var(--escalate); text-underline-offset: 2px; }
+
+  code {
+    font-family: "IBM Plex Mono", monospace; font-size: .86em;
+    background: var(--surface-2); padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    font-family: "IBM Plex Mono", monospace; font-size: 12.5px; line-height: 1.6;
+    background: var(--surface); border: 1px solid var(--rule);
+    border-left: 3px solid var(--rule-strong);
+    padding: 16px 18px; overflow-x: auto; margin: 20px 0;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  pre .cm { color: var(--ink-muted); }
+  pre .hl { color: var(--escalate); }
+
+  .table-wrap { overflow-x: auto; margin: 22px 0; }
+  table {
+    border-collapse: collapse; width: 100%;
+    font-family: "IBM Plex Sans", sans-serif; font-size: 14px; line-height: 1.5;
+    background: var(--surface); border: 1px solid var(--rule);
+  }
+  th {
+    text-align: left; font-weight: 600; font-size: 12px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-muted); padding: 10px 14px;
+    border-bottom: 1px solid var(--rule-strong); white-space: nowrap;
+  }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { font-size: 12.5px; }
+
+  figure {
+    margin: 30px 0; background: var(--surface);
+    border: 1px solid var(--rule); padding: 26px 24px 18px;
+  }
+  figure svg { display: block; width: 100%; max-width: 100%; height: auto; }
+  figcaption {
+    font-family: "IBM Plex Sans", sans-serif; font-size: 13.5px; line-height: 1.55;
+    color: var(--ink-muted); margin-top: 18px; padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+
+  .verdict {
+    border-left: 3px solid var(--escalate); background: var(--escalate-wash);
+    padding: 18px 22px; margin: 26px 0; font-size: 16.5px;
+  }
+  .verdict p { margin: 8px 0; }
+  .verdict p:first-of-type { margin-top: 0; }
+  .verdict p:last-child { margin-bottom: 0; }
+  .verdict-label {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--escalate); display: block; margin-bottom: 6px;
+  }
+
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1px;
+          background: var(--rule); border: 1px solid var(--rule); margin: 24px 0; }
+  .col { background: var(--surface); padding: 20px 22px 22px; }
+  .col h3 { margin-top: 0; }
+  .col ul { margin: 10px 0 0; padding-left: 18px; font-size: 15px; }
+  .col li { color: var(--ink-muted); }
+  .col li strong { color: var(--ink); font-weight: 600; }
+  .col .tag {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; display: block; margin-bottom: 6px;
+  }
+  .col.pro .tag { color: var(--yes); }
+  .col.con .tag { color: var(--no); }
+
+  .tier {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-left: 3px solid var(--rule-strong);
+    padding: 18px 22px 20px; margin: 16px 0;
+  }
+  .tier.t1 { border-left-color: var(--yes); }
+  .tier.t2 { border-left-color: var(--escalate); }
+  .tier.t3 { border-left-color: var(--model); }
+  .tier h3 { margin: 0 0 2px; }
+  .tier .who {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-muted); display: block; margin-bottom: 8px;
+  }
+  .tier p { margin: 8px 0; font-size: 16px; }
+
+  footer {
+    margin-top: 76px; padding-top: 22px; border-top: 1px solid var(--rule);
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+    color: var(--ink-muted); line-height: 1.7;
+  }
+  :focus-visible { outline: 2px solid var(--escalate); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="page">
+
+<header class="masthead">
+  <span class="eyebrow">reference-agent · design proposal · pre-implementation</span>
+  <h1>The Escalation Rebuild</h1>
+  <p class="standfirst">Escalation today is a regex, a string, and nothing else. This is the design for making it
+    a durable, measurable, three-tier decision with a human on the other end — and the argument for building it on
+    a table rather than a broker.</p>
+</header>
+
+<section>
+  <div class="measure">
+    <h2><span class="num">01</span>Queue or no queue</h2>
+    <p>You asked this directly, so it goes first. The answer turns on separating two things the word "queue"
+      usually welds together:</p>
+    <ul>
+      <li><strong>A durable record of outstanding work</strong> — what must not be lost.</li>
+      <li><strong>A transport that pushes it to a consumer</strong> — how someone finds out.</li>
+    </ul>
+    <p>A Postgres table gives you the first outright. It gives you the second too, via <code>LISTEN/NOTIFY</code>.
+      A broker is only strictly required when you need the second across service boundaries, to many independent
+      consumers, with backpressure you don't control.</p>
+  </div>
+
+  <div class="cols">
+    <div class="col pro">
+      <span class="tag">Broker — Kafka / SQS / Rabbit</span>
+      <h3>What you gain</h3>
+      <ul>
+        <li><strong>Fanout.</strong> CRM, paging, analytics and the agent desk all consume without the writer knowing they exist.</li>
+        <li><strong>Backpressure and DLQ</strong> as infrastructure rather than as code you maintain.</li>
+        <li><strong>Consumer groups.</strong> Twenty desks pulling work without a <code>SELECT … FOR UPDATE SKIP LOCKED</code> you wrote yourself.</li>
+        <li><strong>Cross-service reach</strong> when escalation leaves this process for a system you don't own.</li>
+      </ul>
+    </div>
+    <div class="col con">
+      <span class="tag">Broker — the cost</span>
+      <h3>What it breaks</h3>
+      <ul>
+        <li><strong>Two sources of truth.</strong> Writing the row and publishing the message is not atomic — the dual-write problem. Fixing it properly means a transactional outbox, which is <em>more</em> machinery, not less.</li>
+        <li><strong>A second place duplicates enter.</strong> At-least-once delivery is the same class of bug as AAC-0076, which you already paid for once in <code>trigger</code>.</li>
+        <li><strong>It contradicts the codebase's own rule.</strong> <em>"One write, because two writes can disagree"</em> — <code>InMemoryCheckpointStore</code>. <em>"The conversation id goes in the same row rather than a second table, so the two can never disagree and no transaction is needed"</em> — <code>PostgresCheckpointStore</code>.</li>
+        <li><strong>Another system in the P6 durability story</strong> to run, secure and reason about.</li>
+      </ul>
+    </div>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 820 300" role="img" aria-label="Option A writes one row to Postgres and pushes with LISTEN NOTIFY. Option B writes a row and separately publishes to a broker, a non-atomic dual write that can leave the two disagreeing unless an outbox poller reads the same table.">
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon points="0,1 10,5 0,9" fill="currentColor"></polygon>
+        </marker>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon points="0,1 10,5 0,9" fill="var(--no)"></polygon>
+        </marker>
+      </defs>
+
+      <text x="10" y="20" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--yes)">OPTION A · queue-as-table</text>
+      <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">
+        <rect x="10" y="36" width="120" height="44" fill="var(--surface-2)" stroke="currentColor" stroke-opacity=".3"></rect>
+        <text x="70" y="62" text-anchor="middle">agent turn</text>
+        <rect x="200" y="36" width="150" height="44" fill="var(--yes-wash)" stroke="var(--yes)" stroke-width="1.5"></rect>
+        <text x="275" y="56" text-anchor="middle" fill="var(--yes)">escalations row</text>
+        <text x="275" y="72" text-anchor="middle" font-size="10" fill="var(--yes)">one write · one truth</text>
+        <rect x="430" y="36" width="150" height="44" fill="none" stroke="currentColor" stroke-opacity=".45"></rect>
+        <text x="505" y="62" text-anchor="middle">agent desk</text>
+      </g>
+      <g fill="none" stroke="var(--yes)" stroke-width="1.75">
+        <line x1="130" y1="58" x2="194" y2="58" marker-end="url(#a1)" stroke="currentColor" opacity=".55"></line>
+        <line x1="350" y1="58" x2="424" y2="58" marker-end="url(#a1)" stroke="currentColor" opacity=".55"></line>
+      </g>
+      <text x="387" y="48" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--yes)">NOTIFY</text>
+      <text x="600" y="62" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--ink-muted)">push, no broker</text>
+
+      <line x1="10" y1="112" x2="810" y2="112" stroke="currentColor" stroke-opacity=".2"></line>
+
+      <text x="10" y="140" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--no)">OPTION B · broker</text>
+      <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">
+        <rect x="10" y="156" width="120" height="44" fill="var(--surface-2)" stroke="currentColor" stroke-opacity=".3"></rect>
+        <text x="70" y="182" text-anchor="middle">agent turn</text>
+        <rect x="200" y="146" width="150" height="40" fill="none" stroke="currentColor" stroke-opacity=".45"></rect>
+        <text x="275" y="170" text-anchor="middle">escalations row</text>
+        <rect x="200" y="204" width="150" height="40" fill="none" stroke="var(--no)" stroke-opacity=".7"></rect>
+        <text x="275" y="228" text-anchor="middle" fill="var(--no)">broker publish</text>
+        <rect x="430" y="182" width="150" height="44" fill="none" stroke="currentColor" stroke-opacity=".45"></rect>
+        <text x="505" y="208" text-anchor="middle">agent desk</text>
+      </g>
+      <g fill="none" stroke="var(--no)" stroke-width="1.5">
+        <path d="M130 172 L194 166" marker-end="url(#a2)"></path>
+        <path d="M130 190 L194 222" marker-end="url(#a2)"></path>
+        <line x1="350" y1="224" x2="424" y2="210" marker-end="url(#a2)"></line>
+      </g>
+      <text x="163" y="146" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--no)">two writes</text>
+      <text x="163" y="252" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--no)">not atomic</text>
+
+      <g fill="none" stroke="var(--yes)" stroke-width="1.5" stroke-dasharray="5 4">
+        <path d="M275 186 L275 200" marker-end="url(#a1)" stroke="var(--yes)"></path>
+      </g>
+      <text x="292" y="197" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--yes)">outbox poller — the fix, and more code</text>
+
+      <text x="10" y="285" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--ink-muted)">B only beats A once consumers live outside this system — and then B still needs A's table underneath it.</text>
+    </svg>
+    <figcaption>The broker doesn't remove the table; it adds a second write beside it. The outbox pattern that
+      makes the pair safe is itself a poller over the same table Option A already has.</figcaption>
+  </figure>
+
+  <div class="verdict">
+    <span class="verdict-label">Recommendation</span>
+    <p><strong>Start with queue-as-table in Postgres plus <code>LISTEN/NOTIFY</code>.</strong> One row is the
+      truth, written in the same transaction as the checkpoint. Notification is a side effect of the commit, so
+      the two cannot disagree.</p>
+    <p>Run the arithmetic before buying a broker: at 1M conversations/day and a 5% escalation rate you are at
+      ~0.6 escalations/second. Postgres does not notice that. Brokers earn their place at fanout and
+      cross-service reach, not at this volume.</p>
+    <p><strong>Add a broker when — and only when — a consumer you don't own needs the event.</strong> At that
+      point add it as a transactional outbox reading this same table, so the table stays the source of truth and
+      the broker becomes a projection of it. That is a later, additive change, not a rewrite.</p>
+  </div>
+</section>
+
+<section>
+  <div class="measure">
+    <h2><span class="num">02</span>Does the catalog cover this?</h2>
+    <p>You asked whether AHC and AAC cover over- and under-escalation. I checked all 49 A6-tagged obligations in
+      <code>evals/a6_obligations.json</code> (catalog v0.12.0).</p>
+  </div>
+
+  <div class="verdict">
+    <span class="verdict-label">Finding</span>
+    <p><strong>Not one A6 obligation mentions escalation, handoff, deferral, or human oversight of a decision.</strong>
+      The single obligation tagged <code>oversight</code> in A6 is AAC-0094, <em>"only approved models are
+      reachable"</em> — model governance, not human oversight.</p>
+  </div>
+
+  <div class="measure">
+    <p>Five relevant obligations do exist — all tagged to other archetypes. The file's own
+      <code>elsewhere_note</code> sanctions claiming them: <em>"A test claiming one of these is not making a
+      mistake — it is evidence that the obligation applies to this archetype and is not tagged for it."</em></p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Obligation</th><th>Tagged</th><th>Title</th><th>What it governs here</th></tr></thead>
+      <tbody>
+        <tr><td><code>AAC-0020</code></td><td>A1</td><td>Over-refusal rate on in-scope inputs</td><td>the exact shape of <strong>over-escalation</strong></td></tr>
+        <tr><td><code>AAC-0088</code></td><td>A10</td><td>Guardrail false-positive and false-negative rates</td><td>the FP/FN frame both directions need</td></tr>
+        <tr><td><code>AAC-0043</code></td><td>A4</td><td>Escalation to a human works under load</td><td>the path holds at concurrency</td></tr>
+        <tr><td><code>AAC-0062</code></td><td>A7</td><td>Handoff payloads are complete</td><td>what the human actually receives</td></tr>
+        <tr><td><code>AAC-0087</code></td><td>A10</td><td>Confidence scores are calibrated</td><td>prerequisite for the model-driven tier</td></tr>
+        <tr><td><code>AAC-0042</code></td><td>A4</td><td>Conversation-level cost and turns to resolution</td><td>the frustration proxy</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="measure">
+    <p><strong>Under-escalation has no obligation in any archetype.</strong> The closest is AAC-0088's
+      false-negative half, written for guardrails rather than handoff. That gap is worth filing upstream — and
+      you found it independently already: the omission oracle in <code>agenttwin/omission.py</code> exists
+      because <em>"a clinical triage agent's worst failure is a missed escalation, and every oracle we own
+      reports success on it."</em></p>
+    <p>Practically: claim AAC-0020, AAC-0043, AAC-0062, AAC-0087 and AAC-0088 with
+      <code>@pytest.mark.discharges</code>, and express under-escalation as <code>required_when</code>
+      declarations the omission oracle can see — the mechanism is already built and currently has no escalation
+      rules in it.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">03</span>When to escalate — three tiers</h2>
+  <div class="measure">
+    <p>Your instinct is right that this is a business rule set, configurable and versioned. The structural
+      principle that keeps it auditable: <strong>the model proposes, a deterministic rule disposes.</strong>
+      A model score is an input to a threshold, never the decision itself — otherwise no escalation is
+      reproducible from its trace, and AAC-0059 and AAC-0100 both fail.</p>
+  </div>
+
+  <div class="tier t1">
+    <span class="who">Tier 1 · deterministic · pre-model · exists today</span>
+    <h3>Explicit request and hard policy classes</h3>
+    <p>The customer asks for a person; the case class is one the agent may not resolve alone. Regex or classifier
+      over the raw turn, checked before intent, costing nothing. <strong>Keep exactly as is</strong> — but tighten
+      rule 1, which currently fires on <em>"the delivery agent left it at the wrong door."</em> Anchor on the
+      request (<code>talk to|speak to|get me|put me through</code> + person-noun), not the noun alone.</p>
+  </div>
+
+  <div class="tier t2">
+    <span class="who">Tier 2 · deterministic · over state, not text · missing</span>
+    <h3>Rules the conversation earns</h3>
+    <p>This is the tier that answers <em>"escalation without the customer asking."</em> All computable, all
+      testable, none needing a model:</p>
+    <ul>
+      <li>same intent unresolved across <em>N</em> turns</li>
+      <li><em>N</em> consecutive tool failures, or a <code>Failed</code> result on a money path</li>
+      <li>loop terminated on <code>STEP_BUDGET_EXHAUSTED</code>, <code>COST_CEILING_REACHED</code> or <code>OSCILLATION_DETECTED</code></li>
+      <li>order value or refund amount over a threshold</li>
+      <li>customer tier, or a prior escalation within 24h</li>
+      <li>an approval that has sat undecided past its window</li>
+    </ul>
+    <p>Evaluated at the end of each loop iteration as well as per turn — which closes the <strong>R-011 / L2×P4</strong>
+      gap where a failing trajectory currently has no way to say <em>"hand this to a person."</em></p>
+  </div>
+
+  <div class="tier t3">
+    <span class="who">Tier 3 · model signal · thresholded deterministically · missing</span>
+    <h3>Frustration and novelty</h3>
+    <p>A cheap classifier emits <code>{frustration: 0.0–1.0, novelty: 0.0–1.0}</code> per turn. It does not
+      escalate. A Tier-2-style rule compares it to a configured threshold and escalates. The score, the model id,
+      the threshold and the rule id all go on the span, so any decision replays exactly.</p>
+    <p>Gate this tier on AAC-0087: an uncalibrated score thresholded at 0.7 is a number with no meaning. Ship
+      Tiers 1 and 2 first; Tier 3 needs labelled data that only running the first two produces.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 780 260" role="img" aria-label="A turn passes Tier 1 explicit rules, then Tier 2 state rules, then a Tier 3 model signal which feeds a deterministic threshold; all three converge on one escalate decision that records which rule fired.">
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon points="0,1 10,5 0,9" fill="currentColor"></polygon>
+        </marker>
+      </defs>
+      <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">
+        <rect x="10" y="96" width="96" height="46" fill="var(--surface-2)" stroke="currentColor" stroke-opacity=".3"></rect>
+        <text x="58" y="124" text-anchor="middle">turn</text>
+
+        <rect x="150" y="20" width="170" height="52" fill="var(--yes-wash)" stroke="var(--yes)" stroke-width="1.4"></rect>
+        <text x="235" y="42" text-anchor="middle" fill="var(--yes)">T1 · asked for it</text>
+        <text x="235" y="59" text-anchor="middle" font-size="10" fill="var(--yes)">text patterns</text>
+
+        <rect x="150" y="93" width="170" height="52" fill="var(--escalate-wash)" stroke="var(--escalate)" stroke-width="1.4"></rect>
+        <text x="235" y="115" text-anchor="middle" fill="var(--escalate)">T2 · state rules</text>
+        <text x="235" y="132" text-anchor="middle" font-size="10" fill="var(--escalate)">turns · failures · value</text>
+
+        <rect x="150" y="166" width="170" height="52" fill="none" stroke="var(--model)" stroke-opacity=".75"></rect>
+        <text x="235" y="188" text-anchor="middle" fill="var(--model)">T3 · model signal</text>
+        <text x="235" y="205" text-anchor="middle" font-size="10" fill="var(--model)">frustration · novelty</text>
+
+        <rect x="368" y="166" width="150" height="52" fill="none" stroke="currentColor" stroke-opacity=".45" stroke-dasharray="4 4"></rect>
+        <text x="443" y="188" text-anchor="middle" font-size="11">threshold ≥ 0.7</text>
+        <text x="443" y="205" text-anchor="middle" font-size="10" opacity=".65">deterministic</text>
+
+        <rect x="566" y="93" width="200" height="52" fill="var(--escalate-wash)" stroke="var(--escalate)" stroke-width="1.6"></rect>
+        <text x="666" y="115" text-anchor="middle" fill="var(--escalate)" font-weight="500">Escalate(rule_id, tier)</text>
+        <text x="666" y="132" text-anchor="middle" font-size="10" fill="var(--escalate)">reproducible from the trace</text>
+      </g>
+      <g fill="none" stroke="currentColor" stroke-width="1.25" opacity=".55">
+        <path d="M106 112 L128 112 L128 46 L144 46" marker-end="url(#a3)"></path>
+        <path d="M128 112 L144 119" marker-end="url(#a3)"></path>
+        <path d="M128 112 L128 192 L144 192" marker-end="url(#a3)"></path>
+        <line x1="320" y1="192" x2="362" y2="192" marker-end="url(#a3)"></line>
+        <path d="M320 46 L540 46 L540 112 L560 112" marker-end="url(#a3)"></path>
+        <line x1="320" y1="119" x2="560" y2="119" marker-end="url(#a3)"></line>
+        <path d="M518 192 L540 192 L540 126 L560 126" marker-end="url(#a3)"></path>
+      </g>
+      <text x="10" y="248" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--ink-muted)">the model never reaches the decision box directly — only through a threshold someone configured</text>
+    </svg>
+    <figcaption>Three sources, one decision, one recorded reason. The dashed box is what keeps a model-driven
+      escalation as replayable as a regex one.</figcaption>
+  </figure>
+
+  <div class="measure">
+    <p>Rules live beside <code>router.Rules</code> as versioned configuration, so <strong>AAC-0101</strong>
+      already gates changing them the way it gates a model change. Give the rule set its own
+      <code>version</code> and put it on every span.</p>
+  </div>
+</section>
+
+<section>
+  <div class="measure">
+    <h2><span class="num">04</span>Over- and under-escalation</h2>
+    <p>These are a confusion matrix, and you cannot tune one without measuring the other. Both need a ground
+      truth that only the human on the far end can supply — which is why <em>outcome capture is part of the data
+      model, not a later analytics concern.</em> Without it, neither rate is computable and every threshold is a
+      guess.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Escalated</th><th>Not escalated</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Human was needed</strong></td>
+          <td style="color:var(--yes)">correct handoff</td>
+          <td style="color:var(--no)"><strong>under-escalation</strong> — customer stranded; leaves no evidence</td>
+        </tr>
+        <tr>
+          <td><strong>Agent could resolve</strong></td>
+          <td style="color:var(--no)"><strong>over-escalation</strong> — human time burnt, queue swamped, slower for the customer</td>
+          <td style="color:var(--yes)">correct autonomy</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="measure">
+    <h3>How each becomes visible</h3>
+    <ul>
+      <li><strong>Over-escalation</strong> — the resolving human marks the outcome <code>agent_could_have</code>.
+        Directly countable, and cheap: the person closing the ticket is the label. Mirrors AAC-0020's over-refusal rate.</li>
+      <li><strong>Under-escalation</strong> — leaves no trace by construction. Three complementary detectors:
+        <ol>
+          <li><code>required_when</code> declarations in the world, read by the existing omission oracle — the offline half.</li>
+          <li>A customer who re-opens, or escalates on turn <em>N+3</em> having been refused at <em>N</em> — countable from the conversation store.</li>
+          <li>Sampled human review of non-escalated conversations, per AAC-0014's continuous-scoring shape.</li>
+        </ol>
+      </li>
+    </ul>
+    <p>Set the target asymmetrically and say so out loud. For support, an under-escalation costs a stranded
+      customer while an over-escalation costs a few minutes of agent time — so bias toward escalating and cap
+      the over-rate by budget rather than driving it to zero. Write the chosen numbers into the config; a
+      threshold nobody wrote down is a threshold nobody can review.</p>
+  </div>
+</section>
+
+<section>
+  <div class="measure">
+    <h2><span class="num">05</span>The data model</h2>
+    <p>One new table, in <code>agent_state</code> — the schema that is never simulated, because this is oracle
+      data. Written in the same transaction as the checkpoint that records the turn.</p>
+  </div>
+
+  <pre><code>CREATE TABLE agent_state.escalations (
+    id              text PRIMARY KEY,          <span class="cm">-- the customer-facing ticket handle</span>
+    conversation_id text NOT NULL,
+    run_id          text NOT NULL,             <span class="cm">-- the turn that raised it</span>
+    customer_id     text NOT NULL,
+
+    <span class="cm">-- why, and reproducibly</span>
+    tier            smallint NOT NULL,         <span class="cm">-- 1 | 2 | 3</span>
+    rule_id         text NOT NULL,             <span class="cm">-- which rule, not just which tier</span>
+    rules_version   text NOT NULL,             <span class="cm">-- AAC-0101</span>
+    reason          text NOT NULL,
+    signal          jsonb,                     <span class="cm">-- tier 3: score, model id, threshold</span>
+
+    <span class="cm">-- AAC-0062: what the human receives, captured at raise time</span>
+    handoff         jsonb NOT NULL,            <span class="cm">-- transcript ref, order ids, what was tried</span>
+
+    <span class="cm">-- lifecycle</span>
+    state           text NOT NULL,             <span class="cm">-- queued|assigned|in_progress|resolved|abandoned|expired</span>
+    priority        smallint NOT NULL DEFAULT 5,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    assigned_to     text,
+    assigned_at     timestamptz,
+    resolved_at     timestamptz,
+    expires_at      timestamptz NOT NULL,      <span class="cm">-- borrowed from approvals</span>
+
+    <span class="cm">-- the ground truth that makes FP/FN computable at all</span>
+    <span class="hl">outcome         text,</span>                     <span class="cm">-- resolved|agent_could_have|misrouted|customer_gone</span>
+    <span class="hl">outcome_by      text,</span>
+    <span class="hl">outcome_note    text</span>
+);
+
+<span class="cm">-- the desk's read: oldest waiting work, highest priority first</span>
+CREATE INDEX escalations_queue ON agent_state.escalations (state, priority DESC, created_at)
+    WHERE state IN ('queued', 'assigned');
+
+<span class="cm">-- the customer's read, and the resume check on the next turn</span>
+CREATE INDEX escalations_conversation ON agent_state.escalations (conversation_id, created_at DESC);</code></pre>
+
+  <div class="measure">
+    <p>And one field on the conversation, mirroring what approvals already do:</p>
+  </div>
+
+  <pre><code>class Conversation(BaseModel):
+    ...
+    pending_approval_id: str | None = None
+    <span class="hl">pending_escalation_id: str | None = None</span>   <span class="cm"># the "not sticky" fix</span></code></pre>
+
+  <div class="measure">
+    <p>That single field is what stops the agent silently answering the next message as though no handoff
+      happened. <code>_turn</code> checks it exactly where it already checks <code>pending_approval_id</code>.</p>
+    <p>Claiming work is <code>SELECT … FOR UPDATE SKIP LOCKED</code> — the standard queue-as-table claim, and the
+      same shape as <code>InMemoryDeliveryLog.claim</code>, which already taught you that a claim needs an expiry
+      because a settling <code>finally</code> does not survive SIGKILL.</p>
+  </div>
+</section>
+
+<section>
+  <div class="measure">
+    <h2><span class="num">06</span>When no human is available</h2>
+    <p>This is where the current design fails hardest, and the fix is a rule the codebase already states:
+      <strong>never promise what a tool has not confirmed.</strong> Today the agent says <em>"Let me pass you to
+      a colleague"</em> with nothing behind it. The rebuilt path must check capacity before it speaks.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Situation</th><th>What the agent says</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td>Desk open, wait under SLA</td><td>"Connecting you now — about 4 minutes."</td><td>queue, real estimate from queue depth ÷ throughput</td></tr>
+        <tr><td>Desk open, long queue</td><td>"About 25 minutes. I can stay on this, or call you back."</td><td>queue, offer callback, keep serving other topics</td></tr>
+        <tr><td>Desk closed</td><td>"The team is back at 09:00. I've logged this as #E-4417."</td><td>queue with a real handle, promise a time you can keep</td></tr>
+        <tr><td>Nobody claims it before <code>expires_at</code></td><td>proactive: "Still waiting — I haven't forgotten."</td><td>raise priority, page the on-call, never silently drop</td></tr>
+        <tr><td>Customer leaves</td><td>—</td><td>state <code>abandoned</code>, outcome <code>customer_gone</code> — a countable failure, not a disappearance</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="measure">
+    <p>The distinction that matters: a queued escalation is <strong>202, not 200</strong> — accepted, not
+      finished — matching what <code>NeedsApproval</code> already returns. The status code is the difference
+      between "we did it" and "we owe you."</p>
+
+    <h3>Frustration</h3>
+    <p>Handle it as a Tier 2 input first, not a Tier 3 one. Repeated same intent, turns-to-resolution over the
+      AAC-0042 budget, a second refusal in one conversation — these are countable and need no classifier. Add
+      sentiment scoring only once those are in place, because a model that escalates on tone alone is the fastest
+      route to an over-escalation problem you cannot explain.</p>
+  </div>
+</section>
+
+<section>
+  <div class="measure">
+    <h2><span class="num">07</span>Tracing it for analysis</h2>
+    <p>The join key is <code>escalation_id</code>, and it must appear on the raising span, the desk's claim, and
+      the resolution — otherwise queue wait and handle time are not computable from the trace.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Span</th><th>Attributes</th><th>Answers</th></tr></thead>
+      <tbody>
+        <tr><td><code>agent.escalation.raise</code></td><td><code>escalation.id</code>, <code>.tier</code>, <code>.rule_id</code>, <code>.rules_version</code>, <code>.signal.score</code>, <code>.signal.threshold</code>, <code>.priority</code></td><td>why this fired, and would it fire again</td></tr>
+        <tr><td><code>agent.escalation.queue</code></td><td><code>.depth_at_raise</code>, <code>.estimate_s</code>, <code>.desk_open</code></td><td>was the promise we made keepable</td></tr>
+        <tr><td><code>agent.escalation.claim</code></td><td><code>.assigned_to</code>, <code>.wait_s</code></td><td>queue wait distribution, by rule</td></tr>
+        <tr><td><code>agent.escalation.resolve</code></td><td><code>.outcome</code>, <code>.handle_s</code></td><td><strong>the FP/FN numerators</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="measure">
+    <p>Add each to <code>telemetry.CONTRACT</code> with the required set, so a span missing <code>rule_id</code>
+      fails conformance rather than quietly producing analytics nobody can slice. Sliced by <code>rule_id</code>,
+      the resolve span answers the question that actually tunes the system: <em>which rule produces escalations
+      humans say the agent could have handled?</em></p>
+  </div>
+</section>
+
+<section>
+  <div class="measure">
+    <h2><span class="num">08</span>Build order</h2>
+    <p>Each step is shippable and leaves the system better than it found it. Nothing here needs a broker.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Step</th><th>Closes</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><code>escalations</code> table + <code>pending_escalation_id</code>; raise writes a row and fills <code>ticket_id</code>; 202 not 200</td><td>the dead field, "not sticky", the false promise</td></tr>
+        <tr><td>2</td><td><code>_turn</code> short-circuits on a pending escalation, with a truthful holding reply</td><td>the agent answering over a live handoff</td></tr>
+        <tr><td>3</td><td>Tighten Tier 1 rule 1 to request-anchored patterns</td><td>"the delivery agent left it at the wrong door"</td></tr>
+        <tr><td>4</td><td>Reviewer surface: <code>GET /escalations</code>, <code>POST /escalations/{id}/claim</code>, <code>/resolve</code> with outcome capture</td><td>"we built the queue and never built the actor"</td></tr>
+        <tr><td>5</td><td>Tier 2 rules, evaluated per turn <em>and</em> per loop iteration</td><td>implicit escalation; R-011 / L2×P4</td></tr>
+        <tr><td>6</td><td>Capacity check + real wait estimates + expiry sweeper</td><td>promising a colleague who isn't there</td></tr>
+        <tr><td>7</td><td>Spans, contract entries, FP/FN dashboards by <code>rule_id</code></td><td>AAC-0020, AAC-0088</td></tr>
+        <tr><td>8</td><td><code>required_when</code> escalation rules for the omission oracle</td><td>under-escalation, offline</td></tr>
+        <tr><td>9</td><td>SSE push to the browser; <code>LISTEN/NOTIFY</code> to the desk</td><td>"does the user keep asking?"</td></tr>
+        <tr><td>10</td><td>Tier 3 signal, gated on calibration</td><td>AAC-0087 — last, deliberately</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="verdict">
+    <span class="verdict-label">The one thing to decide before coding</span>
+    <p>Steps 1–9 need no broker and no new infrastructure. Step 4 is the pivot: <strong>who is the human?</strong>
+      An internal desk you build (this design), or an existing system — Zendesk, Intercom, a Slack channel? If
+      it's an external system, the escalations table becomes an outbox projecting into it, and that is the one
+      place a broker starts to earn its keep.</p>
+  </div>
+</section>
+
+<footer>
+  Grounded in · evals/a6_obligations.json (catalog v0.12.0, 49 A6 obligations, 61 elsewhere) ·
+  src/support_agent/{router,entrypoint,approvals,state,serve,telemetry} · agenttwin/{omission,approver}.py ·
+  sql/001_schemas.sql · REVIEW.md R-011 · docs/PRODUCTION-STACK.md L6<br>
+  Companion to · docs/ESCALATION-FLOW.html — what exists today
+</footer>
+
+</div>

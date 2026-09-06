@@ -44,6 +44,14 @@ class Conversation(BaseModel):
     """Set when a turn ended in `NeedsApproval`. The next turn resumes from here
     rather than starting again — which is what "the approval returns, it does not
     block" means in storage terms."""
+    pending_escalation_id: str | None = None
+    """Set when a turn ended in `Escalated`. A person owns the conversation.
+
+    Without this the escalation was not sticky: the agent said a colleague would
+    take over and then answered the customer's next message itself, because
+    nothing in what survives a turn recorded that the handoff had happened. One
+    field, and it is the difference between a promise and a state.
+    """
 
     def with_messages(self, *added: Message) -> Conversation:
         return self.model_copy(update={"messages": (*self.messages, *added)})

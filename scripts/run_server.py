@@ -32,6 +32,7 @@ from agenttwin import Live, load, project
 
 from support_agent import approvals as ap
 from support_agent import entrypoint as ep
+from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
@@ -87,6 +88,7 @@ async def main(real: bool, port: int) -> None:
             tools=tools,
             store=FileCheckpointStore(os.path.join(HERE, ".state")),
             approvals=ap.InMemoryApprovalStore(),
+            escalations=esc.InMemoryEscalationStore(),
             deliveries=trg.InMemoryDeliveryLog(),
         )
         app = serve.build(agent, secret=SECRET)

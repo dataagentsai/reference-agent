@@ -154,11 +154,17 @@ async def decode(request: Request, *, secret: str) -> Inbound:
     )
 
 
-REPLY_STATUS = {Completed: 200, Refused: 200, Escalated: 200, NeedsApproval: 202, Failed: 502}
+REPLY_STATUS = {Completed: 200, Refused: 200, Escalated: 202, NeedsApproval: 202, Failed: 502}
 """A refusal is a **200**: the agent worked correctly and the answer is no.
 Returning 4xx would make every dashboard count correct behaviour as an error
 rate. `NeedsApproval` is 202 — accepted, not finished. `Failed` is 502, because
-the thing that failed was downstream of us."""
+the thing that failed was downstream of us.
+
+`Escalated` moved from 200 to **202** when escalations became records. As long as
+the route only produced a sentence, 200 was the honest answer: the turn really
+was finished, because nothing was outstanding. Now something is — a person owes
+this conversation an answer — and 202 is the same statement `NeedsApproval`
+makes. The status code is the difference between *we did it* and *we owe you*."""
 
 
 def build(agent: Agent | AgentFactory, *, secret: str, store: object | None = None) -> Starlette:

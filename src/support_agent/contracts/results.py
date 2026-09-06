@@ -63,6 +63,14 @@ class Escalate(_Frozen):
 
     kind: Literal["escalate"] = "escalate"
     reason: str
+    rule_id: str = ""
+    """Which rule fired, not just why in prose.
+
+    The reason is for a person reading a trace; this is for grouping. Asking
+    *"which rule produces escalations the human said were unnecessary"* is the
+    question that tunes the rule set, and it cannot be asked of a sentence.
+    """
+    tier: int = 1
 
 
 Route = Annotated[Direct | Agentic | Refuse | Escalate, Field(discriminator="kind")]
@@ -104,10 +112,21 @@ class Refused(_Frozen):
 
 
 class Escalated(_Frozen):
+    """Handed to a person, and — unlike every earlier version of this — written
+    down first. `ticket_id` is the record's id, and it is `None` only when no
+    escalation store is wired, which is the same honesty `_local_tools` applies
+    to refunds: without the substrate the capability is absent, not faked.
+    """
+
     kind: Literal["escalated"] = "escalated"
     reply: str
     reason: str
     ticket_id: str | None = None
+    rule_id: str = ""
+    termination: TerminationReason = TerminationReason.AWAITING_HUMAN
+    """Present for the same reason every other variant has one: AAC-0055 wants a
+    stated reason under every condition, and an escalation used to be the one
+    outcome a dashboard grouping by termination silently dropped."""
 
 
 class Failed(_Frozen):

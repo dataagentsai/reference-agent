@@ -15,6 +15,13 @@ dependencies = [
     "jinja2>=3.1",
     "pyyaml>=6.0",
     "psycopg[binary,pool]>=3.2",
+    # The P1 edge. Declared rather than inherited: `serve` imports Starlette and
+    # `scripts/run_server.py` runs uvicorn, and until now both arrived only as
+    # transitive dependencies of `mcp`. A stdio-only MCP transport, or an SDK
+    # release that drops them, would have broken the HTTP edge at import time
+    # with nothing in this manifest to explain why.
+    "starlette>=1.6",
+    "uvicorn>=0.52",
 ]
 
 [project.optional-dependencies]
@@ -67,7 +74,7 @@ layers = [
     "serve",
     "entrypoint",
     "router | loop",
-    "context | tools | approvals",
+    "context | tools | approvals | escalation",
     "llm | state | policy | cost | idempotency | trigger | resilience | flow | identity | cassette",
     "config | telemetry | ui",
     "conformance | contracts",
