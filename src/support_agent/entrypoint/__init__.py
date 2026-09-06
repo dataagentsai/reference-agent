@@ -54,7 +54,8 @@ from support_agent.contracts import (
     new_conversation_id,
     new_run_id,
 )
-from support_agent.state import Conversation
+from support_agent.escalation import rules as t2
+from support_agent.state import Conversation, TurnNote
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a customer support agent for a clothing retailer. "
@@ -97,6 +98,9 @@ class Agent:
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     budgets: Budgets = field(default_factory=Budgets)
     rules: router.Rules = field(default_factory=router.Rules)
+    tier_2: t2.RuleSet | None = None
+    """State-derived escalation rules. `None` uses the defaults; an agent with no
+    escalation store never reaches them at all."""
 
     async def handle(
         self,
@@ -205,11 +209,65 @@ class Agent:
                         local_tools=self._local_tools(identity, run_id),
                     )
 
+            conversation = conversation.with_turn(_note(decision, result))
+
+            # Tier 2, after the work rather than before it. Every rule here asks
+            # how the turn *went* — did the loop give up, did the tools answer,
+            # is this the third time they have asked — and none of those facts
+            # exist until the route has run. That is also what closes R-011:
+            # a trajectory that exhausted its budget can now fetch a person,
+            # without the loop knowing this module exists.
+            escalated = await self._tier_two(conversation, identity, run_id, result)
+            if escalated is not None:
+                result = escalated
+
             conversation = _record(conversation, result)
             await self.store.checkpoint(
                 run_id, conversation.encode(), conversation_id=conversation.conversation_id
             )
             return result, conversation
+
+    async def _tier_two(
+        self,
+        conversation: Conversation,
+        identity: Identity,
+        run_id: RunId,
+        result: TurnResult,
+    ) -> TurnResult | None:
+        """Raise on a state-derived rule, or leave the turn alone.
+
+        Returns `None` far more often than not, and deliberately never overrides
+        a Tier 1 escalation: a turn that already fetched a person does not need
+        a second reason to. Nor does it override `NeedsApproval` — an outstanding
+        approval is a human already engaged, and replacing that with an
+        escalation would discard the decision they are in the middle of making.
+        """
+        if self.escalations is None or isinstance(result, Escalated | NeedsApproval):
+            return None
+
+        facts = _facts(conversation)
+        rule = t2.evaluate(facts, self.tier_2)
+        if rule is None:
+            return None
+
+        raised = await esc.raise_for(
+            self.escalations,
+            conversation_id=conversation.conversation_id,
+            run_id=run_id,
+            customer_id=identity.customer_id,
+            reason=rule.reason,
+            rule_id=rule.id,
+            rules_version=(self.tier_2 or t2.RuleSet()).version,
+            tier=2,
+            ttl_s=rule.ttl_s,
+            now=self._now(),
+        )
+        return Escalated(
+            reply=esc.RAISED_REPLY.format(ticket=raised.id),
+            reason=rule.reason,
+            ticket_id=raised.id,
+            rule_id=raised.rule_id,
+        )
 
     def _now(self) -> int:
         return self.clock() if self.clock is not None else int(time.time())
@@ -514,6 +572,53 @@ def _reads_as(offered: str, required: str) -> bool:
     )
 
 
+def _note(decision, result: TurnResult) -> TurnNote:
+    """Reduce a turn to what a rule can ask about.
+
+    The intent is only known on a `Direct` route; `Agentic` carries candidates
+    rather than a decision, and recording a guess as a fact is how a rule ends up
+    counting something nobody classified.
+    """
+    return TurnNote(
+        route=decision.kind,
+        result=result.kind,
+        intent=decision.intent.value if isinstance(decision, Direct) else None,
+        termination=getattr(result, "termination", None),
+    )
+
+
+def _facts(conversation: Conversation) -> t2.Facts:
+    """Turn the remembered outcomes into the numbers rules read.
+
+    Computed rather than stored, so a rule change never needs a migration and a
+    conversation written last week answers today's rules.
+    """
+    recent = conversation.recent
+    failed = 0
+    for note in reversed(recent):
+        if note.result != "failed":
+            break
+        failed += 1
+
+    repeated = 0
+    for note in reversed(recent):
+        if note.result == "completed" or note.intent is None:
+            break
+        if note.intent != recent[-1].intent:
+            break
+        repeated += 1
+
+    return t2.Facts(
+        turn_count=conversation.turn_count,
+        termination=recent[-1].termination if recent else None,
+        consecutive_failed=failed,
+        refusals=sum(1 for n in recent if n.result == "refused"),
+        repeated_intent=repeated,
+        escalations=len(conversation.escalated_rules),
+        already_fired=frozenset(conversation.escalated_rules),
+    )
+
+
 def _refusal_text(decision: Refuse) -> str:
     if decision.alternative:
         return f"I am sorry — {decision.reason}. {decision.alternative}"
@@ -539,7 +644,12 @@ def _record(conversation: Conversation, result: TurnResult) -> Conversation:
     # is one no store accepted, and flagging the conversation against a record
     # that does not exist would hold it closed with nothing able to reopen it.
     if isinstance(result, Escalated) and result.ticket_id is not None:
-        return updated.model_copy(update={"pending_escalation_id": result.ticket_id})
+        fired = updated.escalated_rules
+        if result.rule_id and result.rule_id not in fired:
+            fired = (*fired, result.rule_id)
+        return updated.model_copy(
+            update={"pending_escalation_id": result.ticket_id, "escalated_rules": fired}
+        )
     return updated
 
 

@@ -26,6 +26,33 @@ from pydantic import BaseModel, ConfigDict
 
 from support_agent.contracts import ConversationId, Message, RunId
 
+RECENT_TURNS = 12
+"""How many turn outcomes are kept.
+
+Bounded on purpose. A checkpoint is written every turn and read every turn, and
+the docstring below is not decoration — an unbounded history is how a
+conversation that runs all day becomes a row nobody can load. Twelve is more
+than any Tier 2 rule looks back over, and the rules are what this exists for.
+"""
+
+
+class TurnNote(BaseModel):
+    """One turn, reduced to what a rule can ask about.
+
+    Not the reply, not the goal, not the tool calls — those are the trace's job.
+    This is the smallest thing that lets *"they have asked three times and none
+    of it worked"* be a computation rather than an impression.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    route: str
+    """direct · agentic · refuse · escalate."""
+    result: str
+    """completed · refused · escalated · failed · needs_approval."""
+    intent: str | None = None
+    termination: str | None = None
+
 
 class Conversation(BaseModel):
     """What survives between turns.
@@ -40,6 +67,21 @@ class Conversation(BaseModel):
     conversation_id: ConversationId
     customer_id: str
     messages: tuple[Message, ...] = ()
+    recent: tuple[TurnNote, ...] = ()
+    """The last few turn outcomes, newest last, capped at `RECENT_TURNS`.
+
+    Added for Tier 2 escalation, which asks how the conversation is *going* —
+    and nothing here recorded that. The messages hold what was said; these hold
+    what happened, and no rule can be written over the first."""
+    turn_count: int = 0
+    """Every turn, not just the remembered ones. `len(recent)` stops at the cap
+    and a rule about a long conversation needs the real number."""
+    escalated_rules: tuple[str, ...] = ()
+    """Which rules have already fetched a person for this conversation.
+
+    The cooldown, in storage terms. A Tier 2 condition does not stop holding
+    because an escalation lapsed, so without this the same rule would raise,
+    lapse and raise again for as long as the customer kept talking."""
     pending_approval_id: str | None = None
     """Set when a turn ended in `NeedsApproval`. The next turn resumes from here
     rather than starting again — which is what "the approval returns, it does not
@@ -55,6 +97,15 @@ class Conversation(BaseModel):
 
     def with_messages(self, *added: Message) -> Conversation:
         return self.model_copy(update={"messages": (*self.messages, *added)})
+
+    def with_turn(self, note: TurnNote) -> Conversation:
+        """Record what this turn did, dropping the oldest once the cap is hit."""
+        return self.model_copy(
+            update={
+                "recent": (*self.recent, note)[-RECENT_TURNS:],
+                "turn_count": self.turn_count + 1,
+            }
+        )
 
     def encode(self) -> bytes:
         return self.model_dump_json().encode()
@@ -159,4 +210,10 @@ class FileCheckpointStore:
         return raw
 
 
-__all__ = ["Conversation", "FileCheckpointStore", "InMemoryCheckpointStore"]
+__all__ = [
+    "RECENT_TURNS",
+    "Conversation",
+    "FileCheckpointStore",
+    "InMemoryCheckpointStore",
+    "TurnNote",
+]
