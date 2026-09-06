@@ -188,6 +188,15 @@ CONTRACT: dict[str, SpanSpec] = {
         required=frozenset({ESCALATION_ID}),
         optional=frozenset({"agent.escalation.waited_s"}),
     ),
+    "agent.escalation.queue": SpanSpec(
+        required=frozenset({TENANT}), optional=frozenset({"agent.escalation.depth"})
+    ),
+    "agent.escalation.refused": SpanSpec(
+        # Nothing required: a request refused before its token is read has no
+        # tenant to record, the same reasoning `http.chat` already carries.
+        required=frozenset(),
+        optional=frozenset({"http.refusal_detail"}),
+    ),
     "agent.escalation.resolve": SpanSpec(
         # The outcome is required. It is the ground truth behind the
         # over-escalation rate, and a close that did not record one is a close

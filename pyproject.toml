@@ -22,6 +22,12 @@ dependencies = [
     # with nothing in this manifest to explain why.
     "starlette>=1.6",
     "uvicorn>=0.52",
+    # The reviewer surface only. `/chat` stays hand-wired Starlette: its error
+    # contract is pinned by tests (400 where FastAPI answers 422, and a
+    # deliberately opaque 401 body), and converting it would buy documentation
+    # nobody reads. Six routes with three scopes is where dependency injection
+    # and a real integration surface start paying, so that is where it lands.
+    "fastapi>=0.115",
 ]
 
 [project.optional-dependencies]
@@ -48,6 +54,15 @@ src = ["src"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "TID"]
 
+[tool.ruff.lint.flake8-bugbear]
+# B008 forbids a function call in an argument default, and it is right almost
+# everywhere: a mutable default evaluated once at definition is a classic bug.
+# FastAPI's `Depends`/`Header`/`Path` are the documented exception — the call
+# *is* the declaration, and the framework reads it rather than using it as a
+# value. Listed by name rather than silenced with `# noqa`, so the exemption is
+# one reviewable decision instead of a comment repeated on every route.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Path", "fastapi.Query"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
 asyncio_mode = "auto"
@@ -72,6 +87,7 @@ type = "layers"
 containers = ["support_agent"]
 layers = [
     "serve",
+    "reviewer",
     "entrypoint",
     "router | loop",
     "context | tools | approvals | escalation",

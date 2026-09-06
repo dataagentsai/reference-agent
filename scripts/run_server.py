@@ -83,15 +83,16 @@ async def main(real: bool, port: int) -> None:
             if real and settings is not None
             else demo_replies()
         )
+        escalations = esc.InMemoryEscalationStore()
         agent = ep.build(
             llm=llm,
             tools=tools,
             store=FileCheckpointStore(os.path.join(HERE, ".state")),
             approvals=ap.InMemoryApprovalStore(),
-            escalations=esc.InMemoryEscalationStore(),
+            escalations=escalations,
             deliveries=trg.InMemoryDeliveryLog(),
         )
-        app = serve.build(agent, secret=SECRET)
+        app = serve.build(agent, secret=SECRET, escalations=escalations)
 
         token = ident.mint("C-1042", secret=SECRET, ttl_s=8 * 3600, now=int(time.time()))
         print("\n  Support agent running against the simulated clothing shop")
