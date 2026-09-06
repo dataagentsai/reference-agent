@@ -92,6 +92,21 @@ ESCALATION_RULE = "agent.escalation.rule_id"
 """Which rule fired. Sliced by this, the outcome of an escalation answers the
 question that tunes the rule set — AAC-0020's over-refusal rate, in the shape
 this agent actually has."""
+CONTEXT_CHARS = "agent.context.chars"
+"""How full the assembled transcript was on this call.
+
+AAC-0103 says context growth is tracked across releases, and a committed
+baseline does that between releases. This does it *per call*, which is the half
+that tells you whether a threshold is anywhere near right — a system that never
+trims has headroom it is not using, and one that trims constantly is losing
+information silently."""
+CONTEXT_EXCHANGES = "agent.context.exchanges"
+CONTEXT_TRIMMED = "agent.context.trimmed"
+"""Units dropped to make the call fit. The number that decides whether the rest
+of the context work is justified or premature."""
+CONTEXT_STORED = "agent.context.stored_chars"
+"""What the checkpoint actually holds, which is a different question from what
+the model was sent and was for a long time nobody's."""
 SIDE_EFFECT = "agent.tool.side_effect"
 MODEL_MALFORMED = "agent.model.malformed"
 """How many provider responses could not be parsed this run — AHC-0001.
@@ -152,7 +167,7 @@ CONTRACT: dict[str, SpanSpec] = {
         # missing silently, which is the one failure that cannot be repaired
         # after the fact.
         required=frozenset({RUN_ID, SESSION_ID, USER_ID}),
-        optional=frozenset({CONFIG_FINGERPRINT, RESOLUTION}),
+        optional=frozenset({CONFIG_FINGERPRINT, RESOLUTION, CONTEXT_STORED}),
     ),
     "agent.run": SpanSpec(
         required=frozenset({RUN_ID, TENANT}),
@@ -167,7 +182,10 @@ CONTRACT: dict[str, SpanSpec] = {
         required=frozenset(),
         optional=frozenset({TENANT, "http.status_code", "http.refusal_detail", "agent.result"}),
     ),
-    "agent.step": SpanSpec(required=frozenset({STEP, RUN_ID})),
+    "agent.step": SpanSpec(
+        required=frozenset({STEP, RUN_ID}),
+        optional=frozenset({CONTEXT_CHARS, CONTEXT_EXCHANGES, CONTEXT_TRIMMED}),
+    ),
     "agent.route": SpanSpec(
         required=frozenset({ROUTE_KIND, ROUTE_REASON, "agent.router.rules_version"})
     ),
@@ -264,6 +282,18 @@ def validate(spans: Iterable[ReadableSpan]) -> list[str]:
             continue
         out.extend(spec.violations(span.name, attributes_of(span)))
     return out
+
+
+def set_current_attribute(name: str, value: Any) -> None:
+    """Record onto whatever span is already open.
+
+    For the case where the fact is learned in a helper several calls below the
+    span that should carry it, and threading the span down would mean four
+    signatures growing a parameter to serve one attribute. A no-op when nothing
+    is open, which is the honest behaviour for a caller that may run outside a
+    turn.
+    """
+    trace.get_current_span().set_attribute(name, value)
 
 
 def redact(text: str, *, limit: int = 4000) -> str:
@@ -378,6 +408,10 @@ def attributes_of(finished: ReadableSpan) -> Mapping[str, Any]:
 __all__ = [
     "CONFIG_FINGERPRINT",
     "CONTRACT",
+    "CONTEXT_CHARS",
+    "CONTEXT_EXCHANGES",
+    "CONTEXT_STORED",
+    "CONTEXT_TRIMMED",
     "COST_CALL_USD",
     "COST_USD",
     "GEN_AI_INPUT_TOKENS",
@@ -407,6 +441,7 @@ __all__ = [
     "attributes_of",
     "configure",
     "redact",
+    "set_current_attribute",
     "set_payload",
     "set_usage",
     "span",

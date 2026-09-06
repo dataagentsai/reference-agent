@@ -128,9 +128,16 @@ async def run(
 
         for step in range(budgets.max_steps):
             trace.steps = step + 1
-            with tel.span("agent.step", **{tel.STEP: step, tel.RUN_ID: run_id}):
+            with tel.span("agent.step", **{tel.STEP: step, tel.RUN_ID: run_id}) as step_span:
+                # Measured on the way past rather than computed separately: the
+                # assembly already knows what it dropped, and asking a second
+                # time would do the work twice to learn the same thing.
+                built = ctx.assembled(system=system_prompt, history=messages)
+                step_span.set_attribute(tel.CONTEXT_CHARS, built.chars)
+                step_span.set_attribute(tel.CONTEXT_EXCHANGES, built.exchanges)
+                step_span.set_attribute(tel.CONTEXT_TRIMMED, built.trimmed)
                 request = ModelRequest(
-                    messages=ctx.assemble(system=system_prompt, history=messages),
+                    messages=built.messages,
                     tools=tool_defs,
                     max_tokens=budgets.max_output_tokens,
                 )

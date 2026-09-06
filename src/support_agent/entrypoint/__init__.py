@@ -284,9 +284,9 @@ class Agent:
         bounded = conversation.model_copy(
             update={"messages": ctx.bounded(conversation.messages, max_chars=self.history_chars)}
         )
-        await self.store.checkpoint(
-            run_id, bounded.encode(), conversation_id=bounded.conversation_id
-        )
+        raw = bounded.encode()
+        tel.set_current_attribute(tel.CONTEXT_STORED, len(raw))
+        await self.store.checkpoint(run_id, raw, conversation_id=bounded.conversation_id)
         return bounded
 
     def _now(self) -> int:

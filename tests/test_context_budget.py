@@ -212,3 +212,68 @@ async def test_bounding_does_not_touch_what_rules_read(server) -> None:
     assert conversation.turn_count == 8
     assert len(conversation.recent) == 8
     assert len(conversation.messages) < 16, "the transcript was trimmed"
+
+
+# --------------------------------------------------------------------------- #
+# Measured, not guessed. Every threshold after this one is picked from these.
+# --------------------------------------------------------------------------- #
+
+
+def test_the_assembly_reports_what_it_cost() -> None:
+    """Nothing here could previously answer *how full is a typical call* or *how
+    often do we trim*, so every context decision after it would have been argued
+    from intuition."""
+    history = tuple(said("x" * 300) for _ in range(20))
+    built = ctx.assembled(system="sys", history=history, max_chars=1_200)
+
+    assert built.trimmed == 17
+    assert built.exchanges == 3
+    assert built.chars <= 1_200
+    assert len(built.messages) == built.exchanges + 1, "plus the system prompt"
+
+
+def test_a_call_with_room_reports_no_trimming() -> None:
+    """The number that decides whether the rest of the context work is justified
+    or premature. Zero here means headroom nobody is using."""
+    built = ctx.assembled(system="sys", history=(said("hello"),), max_chars=24_000)
+    assert built.trimmed == 0
+
+
+def test_assemble_still_returns_only_the_transcript() -> None:
+    """The older call site is untouched — the stats are additive, not a new
+    contract every caller has to learn."""
+    history = (said("hi"),)
+    assert (
+        ctx.assemble(system="sys", history=history)
+        == ctx.assembled(system="sys", history=history).messages
+    )
+
+
+async def test_the_step_span_carries_how_full_the_call_was(server, exporter) -> None:
+    async with connect(server, ledger=InMemoryLedger()) as tools:
+        agent = ep.build(
+            llm=ScriptedClient([ModelResponse(text="ok")]),
+            tools=tools,
+            store=InMemoryCheckpointStore(),
+        )
+        await agent.handle("something ambiguous", identity=customer())
+
+    step = next(s for s in exporter.get_finished_spans() if s.name == "agent.step")
+    assert step.attributes[tel.CONTEXT_CHARS] > 0
+    assert step.attributes[tel.CONTEXT_EXCHANGES] >= 1
+    assert step.attributes[tel.CONTEXT_TRIMMED] == 0
+
+
+async def test_the_turn_span_carries_what_was_actually_stored(server, exporter) -> None:
+    """A different question from what the model was sent, and one that was
+    nobody's for a long time."""
+    async with connect(server, ledger=InMemoryLedger()) as tools:
+        agent = ep.build(
+            llm=ScriptedClient([ModelResponse(text="ok")]),
+            tools=tools,
+            store=InMemoryCheckpointStore(),
+        )
+        _, conversation = await agent.handle("something ambiguous", identity=customer())
+
+    turn = next(s for s in exporter.get_finished_spans() if s.name == "agent.turn")
+    assert turn.attributes[tel.CONTEXT_STORED] == len(conversation.encode())
