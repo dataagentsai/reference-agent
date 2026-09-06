@@ -1,0 +1,401 @@
+<title>The Context Budget</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  :root {
+    --ground:#F4F6F8; --surface:#FFFFFF; --surface-2:#E9EDF2;
+    --ink:#141C25; --ink-muted:#56646F; --rule:#D7DFE7; --rule-strong:#B4C0CB;
+    --accent:#8A5A1F; --accent-wash:#F7EFE2;
+    --free:#0D6A64; --free-wash:#E2F0EE;
+    --costly:#9C3850; --costly-wash:#F8E7EB;
+    --model:#4A53B4;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --ground:#10151B; --surface:#171D25; --surface-2:#1E2630;
+    --ink:#E3E9EF; --ink-muted:#94A2B0; --rule:#2A333E; --rule-strong:#3C4854;
+    --accent:#E0A75C; --accent-wash:#2A2114;
+    --free:#47B5AA; --free-wash:#122422; --costly:#E2839A; --costly-wash:#2A171C;
+    --model:#9098EF;
+  }}
+  :root[data-theme="dark"] {
+    --ground:#10151B; --surface:#171D25; --surface-2:#1E2630;
+    --ink:#E3E9EF; --ink-muted:#94A2B0; --rule:#2A333E; --rule-strong:#3C4854;
+    --accent:#E0A75C; --accent-wash:#2A2114;
+    --free:#47B5AA; --free-wash:#122422; --costly:#E2839A; --costly-wash:#2A171C;
+    --model:#9098EF;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--ground);color:var(--ink);font-family:"Source Serif 4",Georgia,serif;
+       font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .page{max-width:1120px;margin:0 auto;padding:0 28px 96px}
+  .measure{max-width:68ch}
+  header.masthead{padding:56px 0 30px;border-bottom:1px solid var(--rule);
+                  display:flex;flex-direction:column;gap:16px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.1em;
+           text-transform:uppercase;color:var(--ink-muted)}
+  h1{font-family:"IBM Plex Sans",sans-serif;font-weight:700;font-size:clamp(34px,5vw,50px);
+     line-height:1.05;letter-spacing:-.022em;margin:0;text-wrap:balance}
+  .standfirst{font-size:20px;line-height:1.5;color:var(--ink-muted);max-width:62ch;margin:0}
+  section{padding-top:54px}
+  h2{font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:27px;letter-spacing:-.012em;
+     line-height:1.2;margin:0 0 8px;text-wrap:balance}
+  h2 .num{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:400;
+          color:var(--accent);margin-right:12px;letter-spacing:.04em}
+  h3{font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:17.5px;margin:28px 0 4px}
+  p{margin:14px 0} ul,ol{margin:14px 0;padding-left:22px} li{margin:6px 0}
+  a{color:var(--accent)}
+  code{font-family:"IBM Plex Mono",monospace;font-size:.86em;background:var(--surface-2);
+       padding:1px 5px;border-radius:3px}
+  pre{font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.6;background:var(--surface);
+      border:1px solid var(--rule);border-left:3px solid var(--rule-strong);padding:16px 18px;
+      overflow-x:auto;margin:20px 0}
+  pre code{background:none;padding:0;font-size:inherit}
+  pre .cm{color:var(--ink-muted)} pre .hl{color:var(--accent)}
+  .table-wrap{overflow-x:auto;margin:22px 0}
+  table{border-collapse:collapse;width:100%;font-family:"IBM Plex Sans",sans-serif;font-size:14px;
+        line-height:1.5;background:var(--surface);border:1px solid var(--rule)}
+  th{text-align:left;font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+     color:var(--ink-muted);padding:10px 14px;border-bottom:1px solid var(--rule-strong);white-space:nowrap}
+  td{padding:11px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:11px;
+        padding:3px 8px;border-radius:20px;white-space:nowrap}
+  .pill.free{background:var(--free-wash);color:var(--free)}
+  .pill.cost{background:var(--costly-wash);color:var(--costly)}
+  .pill.mid{background:var(--accent-wash);color:var(--accent)}
+  figure{margin:30px 0;background:var(--surface);border:1px solid var(--rule);padding:26px 24px 18px}
+  figure svg{display:block;width:100%;max-width:100%;height:auto}
+  figcaption{font-family:"IBM Plex Sans",sans-serif;font-size:13.5px;line-height:1.55;
+             color:var(--ink-muted);margin-top:18px;padding-top:14px;border-top:1px solid var(--rule)}
+  .verdict{border-left:3px solid var(--accent);background:var(--accent-wash);padding:18px 22px;
+           margin:26px 0;font-size:16.5px}
+  .verdict p{margin:8px 0} .verdict p:first-of-type{margin-top:0} .verdict p:last-child{margin-bottom:0}
+  .verdict-label{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.1em;
+                 text-transform:uppercase;color:var(--accent);display:block;margin-bottom:6px}
+  .handler{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--rule-strong);
+           padding:18px 22px 20px;margin:14px 0}
+  .handler.free{border-left-color:var(--free)} .handler.mid{border-left-color:var(--accent)}
+  .handler.cost{border-left-color:var(--model)}
+  .handler h3{margin:0 0 2px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .handler .what{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.08em;
+                 text-transform:uppercase;color:var(--ink-muted);display:block;margin-bottom:8px}
+  .handler p{margin:8px 0;font-size:16px}
+  footer{margin-top:76px;padding-top:22px;border-top:1px solid var(--rule);
+         font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-muted);line-height:1.7}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="page">
+
+<header class="masthead">
+  <span class="eyebrow">reference-agent · design proposal · pre-implementation</span>
+  <h1>The Context Budget</h1>
+  <p class="standfirst">When to act on context growth, the seven handlers that can act on it, and which
+    compaction to reach for — under one constraint this agent already imposes and most designs ignore.</p>
+</header>
+
+<section>
+  <div class="measure">
+    <h2><span class="num">01</span>When</h2>
+    <p>"When the context is full" is the wrong answer, and it is the common one. By the time the window is full
+      the only affordable move is the crudest one, because compaction itself needs room and a model call to run
+      in. Growth is handled at <strong>five points</strong>, and four of them are before anything is full.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 820 300" role="img" aria-label="Five points where context growth is handled: bounding at the tool boundary, deduplicating and offloading at turn start, trimming at assembly, structuring at checkpoint write, and compaction crossing a soft threshold before the hard limit.">
+      <defs>
+        <marker id="c1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon points="0,1 10,5 0,9" fill="currentColor"></polygon>
+        </marker>
+      </defs>
+
+      <g font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">
+        <rect x="10" y="46" width="140" height="52" fill="var(--free-wash)" stroke="var(--free)" stroke-width="1.4"></rect>
+        <text x="80" y="68" text-anchor="middle" fill="var(--free)">1 · tool boundary</text>
+        <text x="80" y="85" text-anchor="middle" font-size="10" fill="var(--free)">bound, always</text>
+
+        <rect x="180" y="46" width="140" height="52" fill="var(--free-wash)" stroke="var(--free)" stroke-width="1.4"></rect>
+        <text x="250" y="68" text-anchor="middle" fill="var(--free)">2 · turn start</text>
+        <text x="250" y="85" text-anchor="middle" font-size="10" fill="var(--free)">dedupe · offload</text>
+
+        <rect x="350" y="46" width="140" height="52" fill="var(--accent-wash)" stroke="var(--accent)" stroke-width="1.4"></rect>
+        <text x="420" y="68" text-anchor="middle" fill="var(--accent)">3 · soft threshold</text>
+        <text x="420" y="85" text-anchor="middle" font-size="10" fill="var(--accent)">compact, ~60%</text>
+
+        <rect x="520" y="46" width="140" height="52" fill="none" stroke="currentColor" stroke-opacity=".5"></rect>
+        <text x="590" y="68" text-anchor="middle">4 · assembly</text>
+        <text x="590" y="85" text-anchor="middle" font-size="10" opacity=".7">trim, hard limit</text>
+
+        <rect x="690" y="46" width="120" height="52" fill="var(--free-wash)" stroke="var(--free)" stroke-width="1.4"></rect>
+        <text x="750" y="68" text-anchor="middle" fill="var(--free)">5 · checkpoint</text>
+        <text x="750" y="85" text-anchor="middle" font-size="10" fill="var(--free)">bound what persists</text>
+      </g>
+
+      <g fill="none" stroke="currentColor" stroke-width="1.2" opacity=".45">
+        <line x1="150" y1="72" x2="174" y2="72" marker-end="url(#c1)"></line>
+        <line x1="320" y1="72" x2="344" y2="72" marker-end="url(#c1)"></line>
+        <line x1="490" y1="72" x2="514" y2="72" marker-end="url(#c1)"></line>
+        <line x1="660" y1="72" x2="684" y2="72" marker-end="url(#c1)"></line>
+      </g>
+
+      <g>
+        <rect x="10" y="150" width="800" height="26" fill="var(--surface-2)"></rect>
+        <rect x="10" y="150" width="480" height="26" fill="var(--free-wash)"></rect>
+        <rect x="490" y="150" width="200" height="26" fill="var(--accent-wash)"></rect>
+        <rect x="690" y="150" width="120" height="26" fill="var(--costly-wash)"></rect>
+        <line x1="490" y1="142" x2="490" y2="184" stroke="var(--accent)" stroke-width="1.5"></line>
+        <line x1="690" y1="142" x2="690" y2="184" stroke="var(--costly)" stroke-width="1.5"></line>
+      </g>
+      <g font-family="IBM Plex Mono, monospace" font-size="10.5">
+        <text x="16" y="167" fill="var(--free)">room to work</text>
+        <text x="496" y="167" fill="var(--accent)">compaction window</text>
+        <text x="696" y="167" fill="var(--costly)">trim only</text>
+        <text x="490" y="200" text-anchor="middle" fill="var(--accent)">soft ~60%</text>
+        <text x="690" y="200" text-anchor="middle" fill="var(--costly)">hard limit</text>
+      </g>
+
+      <text x="10" y="240" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--ink-muted)">Compaction costs a model call and needs headroom. Waiting for the hard limit means</text>
+      <text x="10" y="258" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--ink-muted)">only eviction is affordable — which is why the soft threshold exists at all.</text>
+      <text x="10" y="284" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--free)">1, 2 and 5 are free and unconditional. 3 costs a call. 4 is the last resort.</text>
+    </svg>
+    <figcaption>The soft threshold is the whole design. Everything left of it is cheap and preventative;
+      everything right of it is a choice between paying for a summary and losing information outright.</figcaption>
+  </figure>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Point</th><th>Trigger</th><th>Cost</th><th>Here today</th></tr></thead>
+      <tbody>
+        <tr><td><strong>1 · Tool boundary</strong></td><td>every tool result, unconditionally</td><td><span class="pill free">free</span></td><td>✅ <code>max_tool_result_chars</code> 8k</td></tr>
+        <tr><td><strong>2 · Turn start</strong></td><td>duplicate or offloadable content present</td><td><span class="pill free">free</span></td><td>❌</td></tr>
+        <tr><td><strong>3 · Soft threshold</strong></td><td>~60% of budget, or a topic switch</td><td><span class="pill cost">a model call</span></td><td>❌</td></tr>
+        <tr><td><strong>4 · Assembly</strong></td><td>over the hard limit</td><td><span class="pill free">free, lossy</span></td><td>✅ <code>assemble</code> trims mid-out</td></tr>
+        <tr><td><strong>5 · Checkpoint write</strong></td><td>every turn</td><td><span class="pill free">free</span></td><td>⚠️ <code>recent</code> capped, <strong><code>messages</code> is not</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="measure">
+    <p>Point 5 is the live bug. <code>Conversation.messages</code> has no cap, so a day-long conversation writes
+      an ever-larger row on <em>every turn</em> and reads it back on the next — while the class docstring says
+      keeping trace and checkpoint apart is *"what stops a checkpoint growing without bound."</em> Trimming at
+      assembly hides it from the model and not from the database.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">02</span>Seven handlers</h2>
+  <div class="measure">
+    <p>They are not alternatives to choose between once. They compose, and the cheap ones should run first so
+      the expensive one has less to do.</p>
+  </div>
+
+  <div class="handler free">
+    <span class="what">free · no model · lossy at the edge</span>
+    <h3>1 · Bounder <span class="pill free">have it</span></h3>
+    <p>Truncate one item before it enters. A 4 MB tool response is not a context problem yet — it becomes one
+      the moment it is appended. Cheapest possible intervention, and the only one that needs no policy: it
+      applies to everything, always.</p>
+  </div>
+
+  <div class="handler free">
+    <span class="what">free · no model · lossless</span>
+    <h3>2 · Deduplicator</h3>
+    <p>Collapse identical repeats — the same tool called with the same arguments three times, a system reminder
+      re-emitted each turn. Pure win, no judgement required, and in tool-heavy agents it routinely recovers
+      more than trimming would.</p>
+  </div>
+
+  <div class="handler free">
+    <span class="what">free at write · a round trip to read back</span>
+    <h3>3 · Offloader</h3>
+    <p>Move the payload to a store and leave a handle the model can re-fetch by tool call. Lossless, which no
+      summariser is. The trade is latency and a step budget: the model must decide to look. Best for large,
+      structurally separable artifacts — a full order history, a policy document, a diff.</p>
+  </div>
+
+  <div class="handler free">
+    <span class="what">free · no model · permanently lossy</span>
+    <h3>4 · Trimmer / Evictor <span class="pill free">have it</span></h3>
+    <p>Drop whole units by policy. This agent takes from the middle, keeping the earliest turns that establish
+      the task and the latest that are being answered. <strong>Whole exchanges only</strong> — an earlier version
+      dropped by index and orphaned tool calls in 8 of 55 turn/budget combinations, which every provider rejects.</p>
+  </div>
+
+  <div class="handler mid">
+    <span class="what">free · no model · lossy by design</span>
+    <h3>5 · Structurer / Notetaker</h3>
+    <p>Maintain a running record of <em>facts</em> rather than transcript. Extract order ids, decisions,
+      constraints, open questions into a small object carried forward; drop the prose that produced them.</p>
+    <p>This agent already has the primitive: <code>TurnNote</code> keeps route, result, intent and termination
+      per turn in twelve slots. It exists for Tier 2 escalation rules, and it is the seed of the best context
+      handler available here — because it is assertable, diffable, and cannot hallucinate.</p>
+  </div>
+
+  <div class="handler cost">
+    <span class="what">a model call · lossy · provenance-sensitive</span>
+    <h3>6 · Compactor / Summariser</h3>
+    <p>Replace <em>n</em> units with generated text. The only handler that reduces size while keeping some of
+      the meaning of everything it touched — and the only one with a correctness risk of its own. Section 03.</p>
+  </div>
+
+  <div class="handler cost">
+    <span class="what">a retrieval per turn · lossy by relevance</span>
+    <h3>7 · Selector / Retriever</h3>
+    <p>Stop carrying history and fetch the relevant slice per turn. The right answer when the corpus is large,
+      mostly irrelevant, and stable — product policies, past conversations, documentation. Wrong for the active
+      transcript, where "relevant" is exactly what you cannot judge before answering.</p>
+  </div>
+</section>
+
+<section>
+  <div class="measure">
+    <h2><span class="num">03</span>Kinds of compaction</h2>
+    <p>"Compact" is four different operations with different failure modes. Choosing between them is the real
+      decision; running one on a timer is not a strategy.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Kind</th><th>What it produces</th><th>Fails by</th><th>Run it when</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Extractive</strong></td>
+          <td>a subset of the original messages, verbatim</td>
+          <td>dropping the one line that mattered</td>
+          <td><strong>default here.</strong> Cannot invent, and provenance survives intact per message</td>
+        </tr>
+        <tr>
+          <td><strong>Structured</strong></td>
+          <td>a filled schema — entities, decisions, open questions</td>
+          <td>a field the schema has no slot for</td>
+          <td>agent loops, long tasks. Assertable and diffable; pairs with the Structurer</td>
+        </tr>
+        <tr>
+          <td><strong>Abstractive</strong></td>
+          <td>new prose describing the old</td>
+          <td>inventing, and flattening provenance</td>
+          <td>only over content that is uniformly trusted</td>
+        </tr>
+        <tr>
+          <td><strong>Rolling / recursive</strong></td>
+          <td>a summary that absorbs the next chunk each time</td>
+          <td><em>drift</em> — a summary of a summary, repeatedly</td>
+          <td>very long sessions where old detail genuinely does not matter</td>
+        </tr>
+        <tr>
+          <td><strong>Hierarchical</strong></td>
+          <td>summaries at several granularities, originals kept</td>
+          <td>complexity, and cost</td>
+          <td>when the model may need to zoom back in — pairs with the Offloader</td>
+        </tr>
+        <tr>
+          <td><strong>Anchored</strong></td>
+          <td>a pinned set that is never compacted</td>
+          <td>pinning too much</td>
+          <td><strong>always, as a modifier.</strong> Never a strategy on its own</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="verdict">
+    <span class="verdict-label">The constraint that decides it here</span>
+    <p>This agent already states the rule that most compaction designs violate: <em>"A summary inherits the
+      provenance of its source. A summary of untrusted content is untrusted content."</em></p>
+    <p>Tool output is fenced and marked untrusted precisely so an instruction planted in an order note cannot be
+      read as operator text. <strong>An abstractive summary that mixes a fenced tool result with the operator's
+      own turns produces one blob that must be treated as entirely untrusted</strong> — which usually means it
+      cannot do the job it was made for. The compaction step becomes the injection path the fence was built to
+      close.</p>
+    <p>So: <strong>compact trusted and untrusted content separately, never into one summary</strong>, and prefer
+      extractive or structured compaction, where each surviving unit keeps the provenance it arrived with.</p>
+  </div>
+
+  <div class="measure">
+    <h3>Three rules any compactor here must obey</h3>
+    <ol>
+      <li><strong>Never touch the stable prefix.</strong> The system prompt is first and unchanged because any
+        byte that moves invalidates every cached token after it — the largest cost lever available.</li>
+      <li><strong>Whole exchanges only.</strong> An assistant turn and the tool messages answering it are one
+        indivisible unit. <code>orphaned()</code> already checks this on every assembly; a compactor must run
+        through the same check.</li>
+      <li><strong>Anchor the goal and the last <em>n</em> turns.</strong> Compacting what the model is currently
+        answering is how an agent forgets the question mid-task.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="measure">
+    <h2><span class="num">04</span>Which handler, given what</h2>
+    <p>The signal, not the size, picks the handler. Size only tells you that <em>something</em> must happen.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>What is actually large</th><th>Reach for</th><th>Not</th></tr></thead>
+      <tbody>
+        <tr><td>One enormous tool result</td><td>Bounder, then Offloader</td><td>summarising it — the next call needs the same data</td></tr>
+        <tr><td>The same tool called repeatedly</td><td>Deduplicator</td><td>trimming, which drops distinct turns first</td></tr>
+        <tr><td>A long low-density conversation</td><td>Trimmer</td><td>compaction — nothing worth preserving is being lost</td></tr>
+        <tr><td>A long high-density conversation</td><td>Structurer, then extractive compaction</td><td>abstractive summary; the details <em>are</em> the value</td></tr>
+        <tr><td>Many loop steps in one task</td><td>Structurer (running scratchpad) + Offloader</td><td>trimming, which orphans the reasoning chain</td></tr>
+        <tr><td>A large stable corpus</td><td>Selector / Retriever</td><td>carrying it at all</td></tr>
+        <tr><td>Topic switch mid-conversation</td><td>Compact the closed topic, anchor the new one</td><td>waiting for a size threshold</td></tr>
+        <tr><td>Handoff to a person</td><td>Structured compaction into the handoff payload</td><td>sending the raw transcript — AAC-0062</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="measure">
+    <p>That last row connects to work already done. <code>agent_state.escalations</code> has a <code>handoff</code>
+      slot in the design for exactly this: a reviewer picking up a ticket needs the structured facts of the
+      conversation, not four thousand words of it. The context handler and the handoff payload are the same
+      computation.</p>
+  </div>
+</section>
+
+<section>
+  <div class="measure">
+    <h2><span class="num">05</span>What to build, in order</h2>
+    <p>Cheapest and most certain first. Nothing here needs a model call until step 4, and step 4 may never be
+      needed for a support agent whose conversations are short.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Step</th><th>Closes</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Bound <code>Conversation.messages</code> at checkpoint write, keeping whole exchanges</td><td>the live bug — unbounded durable growth, written every turn</td></tr>
+        <tr><td>2</td><td>Measure before deciding: emit assembled size and turn count per call, alongside the AAC-0103 baseline</td><td>you cannot pick a threshold you have not observed</td></tr>
+        <tr><td>3</td><td>Deduplicator over identical tool calls</td><td>free recovery in the tool-heavy case</td></tr>
+        <tr><td>4</td><td>Structurer: promote <code>TurnNote</code> into a facts record carried forward</td><td>the handler with no hallucination risk, and the handoff payload</td></tr>
+        <tr><td>5</td><td>Soft threshold + extractive compaction, anchored and exchange-safe</td><td>the first thing that costs a call</td></tr>
+        <tr><td>6</td><td>Offloader for large artifacts, behind a re-fetch tool</td><td>losslessness where summarising would be wrong</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="verdict">
+    <span class="verdict-label">One thing to fix first, and one to accept</span>
+    <p><strong>Fix:</strong> step 1. Everything else is optimisation; that one is a durable structure growing
+      without bound on every turn.</p>
+    <p><strong>Accept, for now:</strong> every budget here is counted in <em>characters</em>, not tokens.
+      R-004 already recorded why — the provider choice means no <code>count_tokens</code> equivalent, so accurate
+      counting is lost to the provider rather than to hand-rolling. Characters are a reasonable proxy for English
+      prose and a poor one for JSON. Before tuning any threshold precisely, know that the ruler is approximate.</p>
+  </div>
+</section>
+
+<footer>
+  Grounded in · src/support_agent/context/__init__.py (assemble · fence · exchanges · orphaned) ·
+  state/__init__.py (RECENT_TURNS · TurnNote) · tools/__init__.py (max_result_chars) ·
+  config/__init__.py (Budgets) · REVIEW.md R-004 · AAC-0103 · AAC-0105 · AAC-0062<br>
+  Companion to · docs/ESCALATION-DESIGN.html
+</footer>
+
+</div>
