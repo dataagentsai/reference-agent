@@ -150,6 +150,43 @@ def assemble(
     return (head, *kept)
 
 
+def bounded(history: Sequence[Message], *, max_chars: int) -> tuple[Message, ...]:
+    """The same trim, applied to what is *stored* rather than what is sent.
+
+    `assemble` bounds the transcript on the way to the model, per call, and that
+    hid a real problem for as long as it existed: the trimming was invisible to
+    the database. `Conversation.messages` had no cap at all, so a conversation
+    that ran all day wrote a larger row on every turn and read it back on the
+    next — while the class it lives on claims the trace/checkpoint split is
+    "what stops a checkpoint growing without bound".
+
+    Deliberately the *same* middle-out policy, not a different one. A stored
+    history shaped differently from the one the model saw is a second thing to
+    reason about, and the argument holds either way round: the earliest turns
+    establish the task and the latest are what is being answered.
+
+    **This trim is permanent**, which `assemble`'s is not. That is the reason the
+    default here is more generous than the model's window: losing the middle of a
+    conversation from storage is not recoverable, so the cap is a guard against
+    unbounded growth rather than an attempt to be tight.
+    """
+    units = exchanges(history)
+    while len(units) > 2 and sum(len(m.content) for u in units for m in u) > max_chars:
+        units.pop(len(units) // 2)
+
+    kept = tuple(m for unit in units for m in unit)
+    missing_answers, missing_calls = orphaned(kept)
+    if missing_answers or missing_calls:
+        # The same guard `assemble` runs, for the same reason and one layer
+        # earlier: a trimming bug is silent until a conversation is long enough
+        # to trim, and this one would persist the broken transcript.
+        raise BrokenTranscript(
+            f"bounding orphaned tool calls {sorted(missing_answers)} "
+            f"and results {sorted(missing_calls)}"
+        )
+    return kept
+
+
 def budget_exceeded(messages: Sequence[Message], *, max_chars: int) -> bool:
     return sum(len(m.content) for m in messages) > max_chars
 
@@ -159,6 +196,7 @@ __all__ = [
     "FENCE_CLOSE",
     "FENCE_OPEN",
     "assemble",
+    "bounded",
     "budget_exceeded",
     "exchanges",
     "orphaned",

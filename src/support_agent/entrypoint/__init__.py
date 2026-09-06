@@ -102,6 +102,14 @@ class Agent:
     """What the desk can actually absorb. `None` means unmeasured, and the agent
     then promises a reference and no time — which is true, where "a few minutes"
     would not be."""
+    history_chars: int = 32_000
+    """How much transcript survives a checkpoint.
+
+    More generous than `assemble`'s window on purpose: that trim is per call and
+    reversible, this one is permanent. The number is a guard against unbounded
+    growth, not an attempt to be tight — and it is counted in characters rather
+    than tokens because R-004 recorded that accurate counting is lost to the
+    provider choice. The ruler is approximate; the bound is not."""
     tier_2: t2.RuleSet | None = None
     """State-derived escalation rules. `None` uses the defaults; an agent with no
     escalation store never reaches them at all."""
@@ -166,12 +174,7 @@ class Agent:
                 held = await self._still_with_a_colleague(conversation)
                 if held is not None:
                     result, conversation = held
-                    await self.store.checkpoint(
-                        run_id,
-                        conversation.encode(),
-                        conversation_id=conversation.conversation_id,
-                    )
-                    return result, conversation
+                    return result, await self._persist(run_id, conversation)
                 # Nothing holds it any more — resolved, missing, or no store to
                 # read. The flag is stale and is cleared here rather than left to
                 # re-answer the same question on every future turn.
@@ -181,12 +184,7 @@ class Agent:
                 resumed = await self._resume(conversation, identity, run_id)
                 if resumed is not None:
                     result, conversation = resumed
-                    await self.store.checkpoint(
-                        run_id,
-                        conversation.encode(),
-                        conversation_id=conversation.conversation_id,
-                    )
-                    return result, conversation
+                    return result, await self._persist(run_id, conversation)
 
             decision = router.route(text, rules=self.rules)
             conversation = conversation.with_messages(ctx.user_message(text))
@@ -226,10 +224,7 @@ class Agent:
                 result = escalated
 
             conversation = _record(conversation, result)
-            await self.store.checkpoint(
-                run_id, conversation.encode(), conversation_id=conversation.conversation_id
-            )
-            return result, conversation
+            return result, await self._persist(run_id, conversation)
 
     async def _tier_two(
         self,
@@ -272,6 +267,27 @@ class Agent:
             ticket_id=raised.id,
             rule_id=raised.rule_id,
         )
+
+    async def _persist(self, run_id: RunId, conversation: Conversation) -> Conversation:
+        """Bound the history, write it, and hand back what was actually stored.
+
+        Every checkpoint goes through here, which is the point: three call sites
+        wrote the conversation and none of them capped it, so the one durable
+        structure in the system grew without limit on every turn.
+
+        The bounded copy is **returned**, not just written. A caller holding a
+        larger history than the store does would be looking at state that no
+        longer exists anywhere — and this class already promises the opposite:
+        the conversation comes back so a caller always holds what produced the
+        result it is looking at.
+        """
+        bounded = conversation.model_copy(
+            update={"messages": ctx.bounded(conversation.messages, max_chars=self.history_chars)}
+        )
+        await self.store.checkpoint(
+            run_id, bounded.encode(), conversation_id=bounded.conversation_id
+        )
+        return bounded
 
     def _now(self) -> int:
         return self.clock() if self.clock is not None else int(time.time())
@@ -689,6 +705,7 @@ def build(
     clock: Clock | None = None,
     config: RunConfig | None = None,
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+    history_chars: int = 32_000,
 ) -> Agent:
     """The composition root.
 
@@ -706,6 +723,7 @@ def build(
         escalations=escalations,
         capacity=capacity,
         clock=clock,
+        history_chars=history_chars,
         config=config,
         system_prompt=system_prompt,
         budgets=config.budgets if config else Budgets(),
