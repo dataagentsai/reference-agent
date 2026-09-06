@@ -233,3 +233,46 @@ async def test_a_frustrated_customer_is_never_escalated_today() -> None:
 
     assert await desk.store.pending() == ()  # type: ignore[attr-defined]
     assert desk.handled == [], "no escalation was ever raised, so the desk saw nothing"
+
+
+async def test_the_clock_drives_expiry_rather_than_a_rewritten_row() -> None:
+    """`contracts.Clock`, finally implemented by something.
+
+    The lapse test in `test_escalation.py` has to reach into the store and
+    rewrite `expires_at`, because the agent read the wall clock and no caller
+    could move it. That tests the predicate, not the path: it proves
+    `lapsed()` compares two numbers, and says nothing about a real
+    conversation crossing a real window.
+
+    Here the scenario's clock is the agent's clock. Nobody touches the record —
+    time simply passes, and the customer is told the truth about it.
+    """
+    ticking = Clock(step_s=20 * MINUTE)
+    desk = Desk.never_comes(store(), esc.resolve)
+    world = Live.start(load(WORLD))
+    actor = ScriptedActor(["I want to speak to a human", "any update?"])
+
+    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+        agent = ep.build(
+            llm=patient(),
+            tools=tools,
+            store=InMemoryCheckpointStore(),
+            escalations=desk.store,
+            clock=ticking,
+        )
+        record = await run_scenario(
+            Scenario(name="nobody ever came", max_turns=2),
+            live=world,
+            actor=actor,
+            agent=agent,
+            identity=who(),
+            desk=desk,
+            clock=ticking,
+        )
+
+    raised = desk.handled[0].escalation_id
+    lapsed = await desk.store.get(raised)  # type: ignore[attr-defined]
+    assert lapsed is not None
+    assert lapsed.state is EscalationState.EXPIRED, "the window passed and nobody came"
+    assert raised in record.reply, "the customer is told which reference lapsed"
+    assert await desk.store.pending() == ()  # type: ignore[attr-defined]

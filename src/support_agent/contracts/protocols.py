@@ -152,6 +152,14 @@ class Clock(Protocol):
 
     A frozen clock is the cheapest way to make "return on day 31" a
     deterministic test rather than one that passes until the calendar moves.
+
+    **Epoch seconds, and callable.** It said `now_ms()` until nothing had ever
+    implemented it — and meanwhile every module that actually needed a moment
+    grew its own `now: int | None = None` parameter in seconds. A declared seam
+    that disagrees with the convention around it is worse than no seam: it reads
+    as a decision when it is really a stale draft, and the simulator could not
+    drive expiry through it. This is the shape the codebase already speaks, so
+    `agenttwin.Clock` satisfies it without knowing this protocol exists.
     """
 
-    def now_ms(self) -> int: ...
+    def __call__(self) -> int: ...

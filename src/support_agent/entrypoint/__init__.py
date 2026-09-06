@@ -34,6 +34,7 @@ from support_agent.contracts import (
     Agentic,
     ApprovalStore,
     CheckpointStore,
+    Clock,
     Completed,
     Direct,
     Escalate,
@@ -84,6 +85,14 @@ class Agent:
     promises no reference. Same honesty as `_local_tools` refusing to offer a
     refund tool when no approval store is wired."""
     deliveries: object | None = None
+    clock: Clock | None = None
+    """Epoch seconds, injected. Defaults to the wall clock.
+
+    An escalation expires, and an expiry the caller cannot control is one no
+    simulation can reach: AgentTwin could drive the *desk's* moment but not the
+    agent's, so the lapse path had to be tested by rewriting `expires_at` behind
+    the agent's back. A seam that only one side of a conversation can see is not
+    one."""
     config: RunConfig | None = None
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     budgets: Budgets = field(default_factory=Budgets)
@@ -202,6 +211,9 @@ class Agent:
             )
             return result, conversation
 
+    def _now(self) -> int:
+        return self.clock() if self.clock is not None else int(time.time())
+
     async def _escalate(
         self,
         decision: Escalate,
@@ -231,6 +243,7 @@ class Agent:
             rule_id=decision.rule_id,
             rules_version=self.rules.version,
             tier=decision.tier,
+            now=self._now(),
         )
         return Escalated(
             reply=esc.RAISED_REPLY.format(ticket=raised.id),
@@ -268,8 +281,9 @@ class Agent:
         if open_now is None or not open_now.open:
             return None
 
-        if open_now.lapsed(int(time.time())):
-            lapsed = await esc.lapse(self.escalations, open_now)
+        moment = self._now()
+        if open_now.lapsed(moment):
+            lapsed = await esc.lapse(self.escalations, open_now, now=moment)
             handed_back = Completed(reply=esc.LAPSED_REPLY.format(ticket=lapsed.id))
             return handed_back, _record(
                 conversation.model_copy(update={"pending_escalation_id": None}), handed_back
@@ -279,7 +293,7 @@ class Agent:
             "agent.escalation.wait",
             **{
                 tel.ESCALATION_ID: open_now.id,
-                "agent.escalation.waited_s": int(time.time()) - open_now.created_at,
+                "agent.escalation.waited_s": moment - open_now.created_at,
             },
         ):
             return (
@@ -537,6 +551,7 @@ def build(
     approvals: ApprovalStore | None = None,
     escalations: EscalationStore | None = None,
     deliveries: object | None = None,
+    clock: Clock | None = None,
     config: RunConfig | None = None,
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
 ) -> Agent:
@@ -554,6 +569,7 @@ def build(
         store=store,
         approvals=approvals,
         escalations=escalations,
+        clock=clock,
         config=config,
         system_prompt=system_prompt,
         budgets=config.budgets if config else Budgets(),
