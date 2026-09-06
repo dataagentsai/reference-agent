@@ -188,6 +188,14 @@ CONTRACT: dict[str, SpanSpec] = {
         required=frozenset({ESCALATION_ID}),
         optional=frozenset({"agent.escalation.waited_s"}),
     ),
+    "agent.escalation.resolve": SpanSpec(
+        # The outcome is required. It is the ground truth behind the
+        # over-escalation rate, and a close that did not record one is a close
+        # that taught us nothing — which is how the false-positive rate stays
+        # unmeasurable forever.
+        required=frozenset({ESCALATION_ID, ESCALATION_RULE, "agent.escalation.outcome"}),
+        optional=frozenset({"agent.escalation.waited_s"}),
+    ),
     "gen_ai.chat": SpanSpec(
         # The current name is required; the deprecated one is merely allowed, so
         # dropping it later is a deletion rather than a contract change.
