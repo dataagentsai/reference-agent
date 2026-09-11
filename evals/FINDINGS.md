@@ -816,6 +816,18 @@ route, and "this path's text is safe" is an assumption the next edit breaks.
 **Fix** Enforce at the single point every reply leaves through — the slimmed
 `_turn` — rather than per route.
 
+**Fixed — 2026-09-12 (G0.5), from AHC-0094.** A `REPLY` policy position runs at
+the one point every reply leaves `_turn`, whichever route produced it. It holds
+the rules that judge a reply on its own text — card numbers, discount offers,
+date promises. The grounding rules stay where the model speaks: outside the loop
+there is no evidence to compare a claim with, and run without it they would
+block "the refund is on its way" on the one path that only says it after the
+refund succeeded. A blocked reply keeps its result type — an escalation raised
+stays raised, with its handoff — and only its words are replaced.
+`test_no_route_reaches_the_customer_unscreened` plants a bad template on the
+refusal, deterministic and escalation routes; with the screen removed, all three
+reach the customer.
+
 ---
 
 ## F-021 · Approval expiry reads the wall clock even when a clock is injected

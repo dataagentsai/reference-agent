@@ -38,6 +38,9 @@ class Position(StrEnum):
     POST_MODEL = "post_model"
     PRE_TOOL = "pre_tool"
     POST_TOOL = "post_tool"
+    REPLY = "reply"
+    """What the customer is about to read, on every route — not only the one
+    where the model wrote it (F-020)."""
 
 
 @dataclass(frozen=True)
@@ -268,6 +271,20 @@ OUTPUT_RULES = (
     no_discount_offer,
 )
 
+REPLY_RULES = (
+    no_invented_delivery_date,
+    no_pii_echo,
+    no_discount_offer,
+)
+"""The rules that judge a reply on its own text, run on **every** route.
+
+The grounding rules are not here, deliberately. They compare a claim with what
+the tools returned, and outside the loop there is nothing to compare against —
+run with no evidence, they would block "the refund is on its way" on the one
+path that only says it after the refund succeeded. The deterministic routes are
+grounded by construction: they render from tool data. What they are *not*
+protected against, until now, is the next edit to one of their templates."""
+
 Rule = Callable[[Context], Verdict]
 """A rule is a pure function of what is being inspected. Typed, so a rule that
 returns something other than a verdict fails the build rather than the call."""
@@ -277,6 +294,7 @@ DEFAULT_RULES: dict[Position, tuple[Rule, ...]] = {
     Position.POST_MODEL: OUTPUT_RULES,
     Position.PRE_TOOL: (),
     Position.POST_TOOL: (),
+    Position.REPLY: REPLY_RULES,
 }
 
 
@@ -322,6 +340,7 @@ __all__ = [
     "DEFAULT_RULES",
     "CLAIM_PATTERNS",
     "OUTPUT_RULES",
+    "REPLY_RULES",
     "SAFE_REPLY",
     "Context",
     "Position",

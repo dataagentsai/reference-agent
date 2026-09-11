@@ -28,6 +28,7 @@ from typing import assert_never
 from support_agent import context as ctx
 from support_agent import escalation as esc
 from support_agent import loop as agent_loop
+from support_agent import policy as pol
 from support_agent import router
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
@@ -37,15 +38,18 @@ from support_agent.contracts import (
     ApprovalStore,
     CheckpointStore,
     Clock,
+    Completed,
     Direct,
     Escalate,
     EscalationStore,
+    Failed,
     Identity,
     LLMClient,
     Refuse,
     Refused,
     Route,
     RunId,
+    TerminationReason,
     ToolClient,
     TurnResult,
     new_conversation_id,
@@ -170,6 +174,7 @@ class Agent:
             if escalated is not None:
                 result = escalated
 
+            result = _screened(result, identity)
             return result, await self._persist(run_id, conversation.recording(result))
 
     async def _gates(
@@ -268,6 +273,25 @@ class Agent:
 
     def _now(self) -> int:
         return self.clock() if self.clock is not None else int(time.time())
+
+
+def _screened(result: TurnResult, identity: Identity) -> TurnResult:
+    """Every reply passes the reply guardrails before the customer reads it —
+    whichever route produced it (F-020). One point, so the next template edit on
+    any route is screened without anyone remembering to screen it. The verdict
+    and the rule that fired are on the `agent.policy` span `enforce` opens."""
+    text = result.customer_message if isinstance(result, Failed) else result.reply
+    verdict = pol.enforce(pol.Context(position=pol.Position.REPLY, identity=identity, text=text))
+    if not verdict.blocked:
+        return result
+    # The words are replaced; what the turn *did* is not. An escalation that was
+    # raised stays raised and an approval stays pending — replacing the result
+    # type would drop the handoff the reply was about.
+    if isinstance(result, Failed):
+        return result.model_copy(update={"customer_message": pol.SAFE_REPLY})
+    if isinstance(result, Completed):
+        return Completed(reply=pol.SAFE_REPLY, termination=TerminationReason.REFUSED)
+    return result.model_copy(update={"reply": pol.SAFE_REPLY})
 
 
 def build(
