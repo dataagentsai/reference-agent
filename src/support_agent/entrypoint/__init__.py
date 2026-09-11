@@ -39,14 +39,12 @@ from support_agent.contracts import (
     Completed,
     Direct,
     Escalate,
-    Escalated,
     EscalationStore,
     Failed,
     IdempotencyKey,
     Identity,
     LLMClient,
     LocalTool,
-    NeedsApproval,
     Refuse,
     Refused,
     RunId,
@@ -58,6 +56,7 @@ from support_agent.contracts import (
     new_conversation_id,
     new_run_id,
 )
+from support_agent.entrypoint.handoff import Handoff, HandoffDesk, NoDesk
 from support_agent.entrypoint.persist import TurnPersister
 from support_agent.escalation import rules as t2
 from support_agent.state import Conversation, TurnNote
@@ -177,7 +176,7 @@ class Agent:
             # though no handoff happened is the exact defect this closes.
             result: TurnResult
             if conversation.pending_escalation_id is not None:
-                held = await self._still_with_a_colleague(conversation)
+                held = await self.desk.hold(conversation)
                 if held is not None:
                     result, conversation = held
                     return result, await self._persist(run_id, conversation)
@@ -199,7 +198,9 @@ class Agent:
                 case Refuse():
                     result = Refused(reply=router.refusal_text(decision), reason=decision.reason)
                 case Escalate():
-                    result = await self._escalate(decision, conversation, identity, run_id)
+                    result = await self.desk.raise_requested(
+                        decision, conversation, identity, run_id
+                    )
                 case Direct():
                     result = await self._direct(decision, identity, run_id)
                 case Agentic():
@@ -225,53 +226,24 @@ class Agent:
             # exist until the route has run. That is also what closes R-011:
             # a trajectory that exhausted its budget can now fetch a person,
             # without the loop knowing this module exists.
-            escalated = await self._tier_two(conversation, identity, run_id, result)
+            escalated = await self.desk.raise_on_condition(conversation, identity, run_id, result)
             if escalated is not None:
                 result = escalated
 
             conversation = conversation.recording(result)
             return result, await self._persist(run_id, conversation)
 
-    async def _tier_two(
-        self,
-        conversation: Conversation,
-        identity: Identity,
-        run_id: RunId,
-        result: TurnResult,
-    ) -> TurnResult | None:
-        """Raise on a state-derived rule, or leave the turn alone.
-
-        Returns `None` far more often than not, and deliberately never overrides
-        a Tier 1 escalation: a turn that already fetched a person does not need
-        a second reason to. Nor does it override `NeedsApproval` — an outstanding
-        approval is a human already engaged, and replacing that with an
-        escalation would discard the decision they are in the middle of making.
-        """
-        if self.escalations is None or isinstance(result, Escalated | NeedsApproval):
-            return None
-
-        facts = t2.facts_of(conversation)
-        rule = t2.evaluate(facts, self.tier_2)
-        if rule is None:
-            return None
-
-        raised = await esc.raise_for(
-            self.escalations,
-            conversation_id=conversation.conversation_id,
-            run_id=run_id,
-            customer_id=identity.customer_id,
-            reason=rule.reason,
-            rule_id=rule.id,
-            rules_version=(self.tier_2 or t2.RuleSet()).version,
-            tier=2,
-            ttl_s=rule.ttl_s,
-            now=self._now(),
-        )
-        return Escalated(
-            reply=await self._handoff_text(raised.id),
-            reason=rule.reason,
-            ticket_id=raised.id,
-            rule_id=raised.rule_id,
+    @property
+    def desk(self) -> Handoff:
+        """Read at call time, so a store wired after construction is honoured."""
+        if self.escalations is None:
+            return NoDesk()
+        return HandoffDesk(
+            store=self.escalations,
+            now=self._now,
+            rules_version=self.rules.version,
+            capacity=self.capacity,
+            tier_2=self.tier_2,
         )
 
     async def _persist(self, run_id: RunId, conversation: Conversation) -> Conversation:
@@ -279,118 +251,6 @@ class Agent:
 
     def _now(self) -> int:
         return self.clock() if self.clock is not None else int(time.time())
-
-    async def _escalate(
-        self,
-        decision: Escalate,
-        conversation: Conversation,
-        identity: Identity,
-        run_id: RunId,
-    ) -> TurnResult:
-        """Write the record, then say something true about it.
-
-        With no store the reply is deliberately weaker — no reference number,
-        because there is no record to reference. An agent that invented a ticket
-        id would be doing precisely what the system prompt forbids.
-        """
-        if self.escalations is None:
-            return Escalated(
-                reply="Let me pass you to a colleague who can help with that.",
-                reason=decision.reason,
-                rule_id=decision.rule_id,
-            )
-
-        raised = await esc.raise_for(
-            self.escalations,
-            conversation_id=conversation.conversation_id,
-            run_id=run_id,
-            customer_id=identity.customer_id,
-            reason=decision.reason,
-            rule_id=decision.rule_id,
-            rules_version=self.rules.version,
-            tier=decision.tier,
-            now=self._now(),
-        )
-        return Escalated(
-            reply=await self._handoff_text(raised.id),
-            reason=decision.reason,
-            ticket_id=raised.id,
-            rule_id=raised.rule_id,
-        )
-
-    async def _handoff_text(self, ticket: str) -> str:
-        """Say only what the queue supports.
-
-        Three answers, and the agent is never the one choosing between them —
-        the desk's state is. Closed means nobody is there and the reply says so;
-        a measured desk gets a real number from depth over throughput; an
-        unmeasured one gets a reference and no promise about time.
-        """
-        capacity = self.capacity
-        if capacity is None:
-            return esc.RAISED_REPLY.format(ticket=ticket)
-        if not capacity.open:
-            return esc.CLOSED_REPLY.format(ticket=ticket)
-
-        depth = len(await self.escalations.pending()) if self.escalations else 0
-        waiting = capacity.estimate_s(depth)
-        if waiting is None:
-            return esc.RAISED_REPLY.format(ticket=ticket)
-        return esc.QUEUED_REPLY.format(ticket=ticket, wait=esc.humanise(waiting))
-
-    async def _still_with_a_colleague(
-        self, conversation: Conversation
-    ) -> tuple[TurnResult, Conversation] | None:
-        """Hold the conversation while a person owns it — or hand it back.
-
-        Returns `None` when there is nothing to hold, so the turn proceeds
-        normally. Three ways that happens, and each is a real case rather than a
-        defensive branch:
-
-        *No store.* The flag was set by an agent that had one and this one does
-        not. Clearing it beats holding a conversation against a record nobody
-        here can read.
-
-        *The record is gone or already closed.* A colleague finished, or the
-        store lost it. Either way the customer is served again.
-
-        *Nobody came.* The escalation lapsed. This is the case that makes step 1
-        shippable before the reviewer surface exists — without it, every
-        escalated conversation would be held open forever by a queue no human can
-        yet see.
-        """
-        assert conversation.pending_escalation_id is not None
-        if self.escalations is None:
-            return None
-
-        open_now = await self.escalations.get(conversation.pending_escalation_id)
-        if open_now is None or not open_now.open:
-            return None
-
-        moment = self._now()
-        if open_now.lapsed(moment):
-            lapsed = await esc.lapse(self.escalations, open_now, now=moment)
-            handed_back = Completed(reply=esc.LAPSED_REPLY.format(ticket=lapsed.id))
-            return handed_back, conversation.model_copy(
-                update={"pending_escalation_id": None}
-            ).recording(handed_back)
-
-        with tel.span(
-            "agent.escalation.wait",
-            **{
-                tel.ESCALATION_ID: open_now.id,
-                "agent.escalation.waited_s": moment - open_now.created_at,
-            },
-        ):
-            return (
-                Escalated(
-                    reply=esc.WAITING_REPLY.format(ticket=open_now.id),
-                    reason=open_now.reason,
-                    ticket_id=open_now.id,
-                    rule_id=open_now.rule_id,
-                ),
-                conversation,
-            )
 
     def _local_tools(self, identity: Identity, run_id: RunId) -> dict[str, LocalTool]:
         """Harness-answered tools. Empty when no approval store is wired, so an
