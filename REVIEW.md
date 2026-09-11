@@ -398,6 +398,59 @@ blocked on that single obligation.
 
 ---
 
+## R-018 · "The code does not follow SOLID — the handle function is very big"
+
+*Session of 2026-09-11.*
+
+**Exposed:** half right, and the wrong half was the instructive one. `handle` is
+23 lines. The size is in the **`Agent` class** — 481 lines (entrypoint:76–556)
+doing eleven things in one method chain: delivery guard, run identity, span
+attributes, the escalation hold, approval resumption, routing, per-route
+dispatch, the turn note, Tier-2 escalation, recording, and persistence. The
+modules each of those belongs to already exist; the entrypoint does their work
+instead of delegating to it.
+
+The protocols exist too (`contracts/protocols.py`, seven of them) and are
+**declared but not used as types** — collaborators are typed `object` with
+`type: ignore`, and there is no protocol for the delivery log at all. The
+composition root does not own composition: `scripts/run_server.py` makes the
+concrete choices and `serve.build` does its own wiring.
+
+And because a question about shape was asked, four defects fell out that 657
+passing tests had not seen: **F-018** (refund-status answered as order status),
+**F-019** (the cost ceiling unreachable from the entrypoint), **F-020** (three
+reply paths skip the guardrails), **F-021** (approval expiry on the wall clock).
+Every one lives in the god object — which is the practical argument for single
+responsibility: the defects hid where no one responsibility was anyone's.
+
+→ A nine-step decomposition, each step green, recorded in the TODO of the spec
+family. **The generator must be told this** — a spec set that does not say
+"every port is an interface, only the composition root constructs" will
+regenerate the same god object.
+
+---
+
+## R-019 · "AHC is not complete — escalation, context bloat, errors, structured output, deterministic-first"
+
+*Session of 2026-09-11.*
+
+**Exposed:** correct on all five, and in the direction that matters most for
+regeneration: in each area **this agent is ahead of the catalog.** The ownership
+lock and lapse on escalation, tool-call pair integrity under compaction, the
+circuit breaker, mandatory `outputSchema`, and the deterministic router all
+exist here and are required by no capability. Delete this code and regenerate
+from the catalogs, and every one of them is lost.
+
+About eighteen missing capabilities; none covered by an assurance obligation, so
+none is an intentional `see_aac` deferral. Design principles are a separate
+case: AHC's scope excludes them by design, so they route to the Baseline profile
+(ports as interfaces — the binding swap stands on it) and the blueprint.
+
+→ Catalog gap-filling, reverse-engineered from the modules that do the work,
+now that the runtime exists to lift them from.
+
+---
+
 ## The pattern
 
 Seventeen questions, seventeen findings. Three were defects that would reach a

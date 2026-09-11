@@ -714,3 +714,77 @@ distinction. Two worlds found in one run what one world had hidden for a day.
 
 That is the argument for building the runtime before writing the obligations, and
 it is now evidence rather than an assertion.
+
+---
+
+## F-018 · A refund-status question is answered with the order's status
+
+**Found** 2026-09-11, by the design review behind R-018. Verified in code.
+
+**Severity** Medium, and live. No test covers it.
+
+`router.DIRECT_HANDLERS` routes an unambiguous refund-status turn with an order
+id to the handler `"refund_status"`. `Agent._direct` never reads the handler
+except as a span label: it always calls `LOOKUP_TOOL = "get_order"` and renders
+`STATUS_REPLY` — *"Order AB-10003 is currently delivered."* The customer asked
+where their money is and was told where their parcel is.
+
+The router's registry names two handlers; the entrypoint implements one and
+silently serves it for both. A registry whose second entry is decorative is the
+open/closed defect in its most literal form.
+
+**Fix** A `DirectHandler` registry keyed by `decision.handler`, and a real
+`refund_status` handler — a separate, behaviour-changing commit with its own test.
+
+---
+
+## F-019 · The cost ceiling cannot be reached from the entrypoint
+
+**Found** 2026-09-11, R-018. Verified in code.
+
+**Severity** High. It is the budget the AOAS states as Q-COST.
+
+`loop.run` enforces `max_cost_usd` only `if meter is not None` (loop:170, 191).
+`Agent._turn` calls `loop.run` without a `meter` (entrypoint:202–212), and
+`build` has no parameter to supply one. So on the production path the loop
+counts steps and never counts money. The ceiling exists, is configured, is
+tested through direct calls to `loop.run` — and is unreachable from the one
+place the agent is actually entered.
+
+**Fix** `build` accepts and wires a `Meter`; a test drives a turn through `handle`
+and asserts `COST_CEILING_REACHED`.
+
+---
+
+## F-020 · Three reply paths never pass through the output guardrails
+
+**Found** 2026-09-11, R-018. Verified in code.
+
+**Severity** Medium.
+
+`policy.enforce` is called in exactly one place, inside the loop (loop:177).
+Replies produced by the deterministic route (`_direct`), by resuming an approval
+(`_resume`) and by the escalation desk (`_escalate`, `_still_with_a_colleague`)
+reach the customer without it. They are templated today, which is why nothing
+has gone wrong — but the four enforcement points are meant to hold on every
+route, and "this path's text is safe" is an assumption the next edit breaks.
+
+**Fix** Enforce at the single point every reply leaves through — the slimmed
+`_turn` — rather than per route.
+
+---
+
+## F-021 · Approval expiry reads the wall clock even when a clock is injected
+
+**Found** 2026-09-11, R-018. Verified in code.
+
+**Severity** Low, and a determinism leak (L9).
+
+`_local_tools` builds the refund tool without passing `now`
+(entrypoint:413–417), so `approvals.request` falls back to `time.time()` for the
+approval's expiry while every other time in the turn comes from `Agent.clock`.
+A replayed run therefore mints approvals with a different expiry than the run it
+replays. The same fallback pattern — `now or time.time()` — appears in
+`escalation`, `approvals`, `identity` and `reviewer`.
+
+**Fix** Pass the injected clock; make the fallback an error in sealed runs.
