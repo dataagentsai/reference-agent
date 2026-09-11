@@ -1,16 +1,26 @@
 # A clothing e-commerce world.
 #
-# The declared environment a support agent is exercised in. The eligibility
-# policy below is DATA — the agent does not know the return window, and neither
-# does the tool server until it is projected from this file.
+# The declared environment the support agent is exercised in: the rows that
+# exist at t₀, what the world is faithful about, and which of the agent's
+# external systems it stands in for. Nothing else.
 #
-# That is what makes "return on day 31" a case you write rather than a fixture
-# you edit, and what will let a second world state a 60-day window without a
-# line of code changing.
+# The return window used to be declared in this file. It is now declared once,
+# in the agent's spec, and a world that disagrees with the spec can no longer
+# be written — there is only one statement of the rule to disagree with.
 
+apiVersion: awd/v0
 name: clothing-ecom
-version: 1
+version: 2
 seed: 20260901
+
+# The domain is cited, not declared. Entities, operations and the eligibility
+# policy — the return window included — live once, in the agent's spec. The
+# loader composes them with what follows, and refuses a world file that tries
+# to declare them here.
+spec:
+  aoas: support-agent-clothing
+  version: 0.1.0
+  path: ../../clean-ai-engineering/drafts/examples/support-agent.aoas.yaml
 
 fidelity:
   faithful_about:
@@ -23,97 +33,42 @@ fidelity:
     - carrier names and real delivery timing
     - payment authorisation and settlement
     - anything about stock
+    - order totals and delivery addresses — the spec declares them; no row here holds them
   verified_against: null   # asserted, not yet tested. `shadow` mode is what fixes this.
-
-entities:
-  customer:
-    key: id
-    fields:
-      id: {type: id}
-      email: {type: email}
-
-  order:
-    key: id
-    fields:
-      id: {type: id}
-      customer_id: {type: id, ref: customer.id}   # the ontology, stated once
-      status:
-        type: enum
-        values: [pending, confirmed, picked, shipped, out_for_delivery,
-                 delivered, cancelled, returned, refunded]
-      days_since_delivery: {type: int}
-      final_sale: {type: bool}
-      note: {type: text}   # free text a customer or a warehouse operator wrote
-
-    # Which combinations of these fields can coexist. Not what the world
-    # PERMITS — what the world can BE. Without these the generator crossed
-    # status against days freely and 12 of 29 cases described an impossible
-    # order (F-011): type-valid, referentially valid, and fiction.
-    invariants:
-      - name: delivery age implies delivery happened
-        when: {field: days_since_delivery, at_least: 1}
-        then: {field: status, equals: [delivered, returned, refunded]}
-        because: an order that has not been delivered cannot be N days since delivery
-
-      - name: final sale orders are never returned
-        when: {field: final_sale, equals: [true]}
-        then: {field: status, not_equals: [returned]}
-        because: the final-sale exclusion is the reason a return cannot be opened
 
 systems:
   ecom:
-    binding: mcp
+    projects: order_system       # the spec's external contract this system stands in for
     resolution: mock
-    actions:
 
+    # How the stand-in presents itself: its tool descriptions and the refusal
+    # text it returns. The system's words, not the agent's — what the agent
+    # offers instead is the spec's `on_refusal`.
+    presents:
       get_order:
-        entity: order
-        side_effect: read
         description: Look up an order's current status.
-
       cancel_order:
-        entity: order
-        side_effect: irreversible
-        scope: orders:write
         description: Cancel an order. Only possible before it has been picked.
-        allowed_when:
-          - {field: status, equals: [pending, confirmed]}
-        sets: {status: cancelled}
         refusal: an order that is {status} can no longer be cancelled
-
       open_return_request:
-        entity: order
-        side_effect: reversible
-        scope: returns:write
         description: Open a return. Delivered orders only, inside the window, not final sale.
-        allowed_when:
-          - {field: status, equals: [delivered]}
-          - {field: days_since_delivery, at_most: 30}
-          - {field: final_sale, equals: [false]}
         refusal: a return is not possible for this order
-
       change_address:
-        entity: order
-        side_effect: reversible
-        scope: orders:write
         description: Change the delivery address. Only while the order is still pending.
-        allowed_when:
-          - {field: status, equals: [pending]}
         refusal: the carrier owns the address once an order is {status}
-
       issue_refund:
-        entity: order
-        side_effect: irreversible
-        scope: refunds:write
         description: Issue a refund. Requires the elevated scope a granted approval mints.
-        sets: {status: refunded}
-        # OWED, not merely permitted. Once a return has been received the money
-        # is the customer's, and an agent that opens a return and never refunds
-        # changes nothing wrongly, claims nothing untrue and exceeds no budget —
-        # so every other oracle passes it. This declaration is what lets the
-        # omission oracle see it at all.
-        required_when:
-          - {field: status, equals: [returned]}
+        refusal: this order has already been refunded
+
+    # Realisation, outside the format (the `x_` prefix). Moves to the binding
+    # spec with TODO 1.4; carried here until then so nothing changes behaviour.
+    x_binding:
+      transport: mcp
+      scopes:
+        cancel_order: orders:write
+        open_return_request: returns:write
+        change_address: orders:write
+        issue_refund: refunds:write
 
 records:
   customer:

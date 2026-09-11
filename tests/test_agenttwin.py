@@ -134,9 +134,33 @@ def test_an_incoherent_world_is_refused_at_load(
     tmp_path, name: str, entities: dict, records: dict, message: str
 ) -> None:
     """Caught at load, not discovered when a scenario asks a question whose
-    answer does not exist."""
+    answer does not exist.
+
+    The entities are the agent spec's and the rows are the world's, so each
+    case is written as the pair — a world can no longer declare entities.
+    """
+    (tmp_path / "bad.aoas.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "apiVersion": "aoas/v0",
+                "agent": {"id": "bad", "version": "0.0.1"},
+                "entities": entities,
+                "external": {"store": {"owns": list(entities), "operations": []}},
+            }
+        )
+    )
     path = tmp_path / "bad.yaml"
-    path.write_text(yaml.safe_dump({"name": "bad", "entities": entities, "records": records}))
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "apiVersion": "awd/v0",
+                "name": "bad",
+                "spec": {"aoas": "bad", "version": "0.0.1", "path": "bad.aoas.yaml"},
+                "systems": {"store": {"projects": "store"}},
+                "records": records,
+            }
+        )
+    )
     with pytest.raises(InvalidWorld, match=message):
         load(path)
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 from agenttwin import load
-from agenttwin.loader import InvalidWorld
+from agenttwin.loader import InvalidWorld, resolve_spec
 from agenttwin.perturbation import IncoherentPerturbation, StaleRead
 from agenttwin.projection import Live
 from agenttwin.world import Condition, Entity, Field_, Invariant
@@ -128,25 +128,26 @@ def test_a_seeded_row_that_cannot_exist_fails_at_load(tmp_path: Path) -> None:
     path = tmp_path / "broken.yaml"
     path.write_text(broken)
 
+    # The copy's relative spec path no longer reaches, so the spec is named.
     with pytest.raises(InvalidWorld, match="delivery age implies delivery happened"):
-        load(path)
+        load(path, spec=resolve_spec(WORLDS / "clothing.yaml"))
 
 
 def test_an_invariant_about_an_unknown_field_fails_at_load(tmp_path: Path) -> None:
-    source = (
-        (WORLDS / "clothing.yaml")
-        .read_text()
-        .replace(
-            "when: {field: days_since_delivery, at_least: 1}",
-            "when: {field: delivered_on, at_least: 1}",
-            1,
-        )
+    """The invariant is the agent spec's now, so the typo goes into the spec."""
+    spec = resolve_spec(WORLDS / "clothing.yaml")
+    original = spec.read_text()
+    source = original.replace(
+        "when: {field: days_since_delivery, at_least: 1}",
+        "when: {field: delivered_on, at_least: 1}",
+        1,
     )
-    path = tmp_path / "typo.yaml"
-    path.write_text(source)
+    assert source != original, "the invariant moved; update this test"
+    typo = tmp_path / "typo.aoas.yaml"
+    typo.write_text(source)
 
     with pytest.raises(InvalidWorld, match="delivered_on"):
-        load(path)
+        load(WORLDS / "clothing.yaml", spec=typo)
 
 
 def test_a_perturbation_cannot_leave_the_world_impossible() -> None:

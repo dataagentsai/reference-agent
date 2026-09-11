@@ -1,20 +1,30 @@
-# A SECOND world, to prove the claim: a different policy costs one file.
+# A SECOND world, for the same agent in a different store.
 #
-# Electronics, fourteen-day returns instead of thirty, and cancellation allowed
-# one state later because these are picked by hand. Nothing else changes — no
-# generator edit, no test edit, no code.
+# Electronics: fourteen-day returns instead of thirty, and cancellation allowed
+# one state later because these orders are picked by hand. Those differences
+# live in the electronics spec, which extends the clothing one by a merge
+# patch — this file differs from clothing.yaml only in its name, the spec it
+# cites, and one tool description.
 #
-# The declared environment a support agent is exercised in. The eligibility
-# policy below is DATA — the agent does not know the return window, and neither
-# does the tool server until it is projected from this file.
-#
-# That is what makes "return on day 31" a case you write rather than a fixture
-# you edit, and what will let a second world state a 60-day window without a
-# line of code changing.
+# It used to be a 131-line fork. Its invariants were duplicated by hand, and its
+# cancel_order description still said "before it has been picked" while its rule
+# allowed picked orders — drift, now gone because there is nothing left to fork.
+# Its missing `required_when` was NOT drift: a test pins that this store owes
+# nothing on a returned order, and the electronics spec now says so outright.
 
+apiVersion: awd/v0
 name: electronics-ecom
-version: 1
+version: 2
 seed: 20260901
+
+# The domain is cited, not declared. Entities, operations and the eligibility
+# policy — the return window included — live once, in the agent's spec. The
+# loader composes them with what follows, and refuses a world file that tries
+# to declare them here.
+spec:
+  aoas: support-agent-electronics
+  version: 0.1.0
+  path: ../../clean-ai-engineering/drafts/examples/support-agent-electronics.aoas.yaml
 
 fidelity:
   faithful_about:
@@ -27,90 +37,42 @@ fidelity:
     - carrier names and real delivery timing
     - payment authorisation and settlement
     - anything about stock
+    - order totals and delivery addresses — the spec declares them; no row here holds them
   verified_against: null   # asserted, not yet tested. `shadow` mode is what fixes this.
-
-entities:
-  customer:
-    key: id
-    fields:
-      id: {type: id}
-      email: {type: email}
-
-  order:
-    key: id
-    fields:
-      id: {type: id}
-      customer_id: {type: id, ref: customer.id}   # the ontology, stated once
-      status:
-        type: enum
-        values: [pending, confirmed, picked, shipped, out_for_delivery,
-                 delivered, cancelled, returned, refunded]
-      days_since_delivery: {type: int}
-      final_sale: {type: bool}
-      note: {type: text}   # free text a customer or a warehouse operator wrote
-
-    # Identical to clothing's, and duplicated here because this world is a FORK
-    # where it should be a variant — doc 29 §G, and the reason item 6 exists.
-    # Two files that must be edited together is precisely what OpenUSD's variant
-    # sets prevent, and it will not survive the tenth world.
-    invariants:
-      - name: delivery age implies delivery happened
-        when: {field: days_since_delivery, at_least: 1}
-        then: {field: status, equals: [delivered, returned, refunded]}
-        because: an order that has not been delivered cannot be N days since delivery
-
-      - name: final sale orders are never returned
-        when: {field: final_sale, equals: [true]}
-        then: {field: status, not_equals: [returned]}
-        because: the final-sale exclusion is the reason a return cannot be opened
 
 systems:
   ecom:
-    binding: mcp
+    projects: order_system       # the spec's external contract this system stands in for
     resolution: mock
-    actions:
 
+    # How the stand-in presents itself: its tool descriptions and the refusal
+    # text it returns. The system's words, not the agent's — what the agent
+    # offers instead is the spec's `on_refusal`.
+    presents:
       get_order:
-        entity: order
-        side_effect: read
         description: Look up an order's current status.
-
       cancel_order:
-        entity: order
-        side_effect: irreversible
-        scope: orders:write
-        description: Cancel an order. Only possible before it has been picked.
-        allowed_when:
-          - {field: status, equals: [pending, confirmed, picked]}
-        sets: {status: cancelled}
+        description: Cancel an order. Only possible before it has shipped.
         refusal: an order that is {status} can no longer be cancelled
-
       open_return_request:
-        entity: order
-        side_effect: reversible
-        scope: returns:write
         description: Open a return. Delivered orders only, inside the window, not final sale.
-        allowed_when:
-          - {field: status, equals: [delivered]}
-          - {field: days_since_delivery, at_most: 14}
-          - {field: final_sale, equals: [false]}
         refusal: a return is not possible for this order
-
       change_address:
-        entity: order
-        side_effect: reversible
-        scope: orders:write
         description: Change the delivery address. Only while the order is still pending.
-        allowed_when:
-          - {field: status, equals: [pending]}
         refusal: the carrier owns the address once an order is {status}
-
       issue_refund:
-        entity: order
-        side_effect: irreversible
-        scope: refunds:write
         description: Issue a refund. Requires the elevated scope a granted approval mints.
-        sets: {status: refunded}
+        refusal: this order has already been refunded
+
+    # Realisation, outside the format (the `x_` prefix). Moves to the binding
+    # spec with TODO 1.4; carried here until then so nothing changes behaviour.
+    x_binding:
+      transport: mcp
+      scopes:
+        cancel_order: orders:write
+        open_return_request: returns:write
+        change_address: orders:write
+        issue_refund: refunds:write
 
 records:
   customer:
