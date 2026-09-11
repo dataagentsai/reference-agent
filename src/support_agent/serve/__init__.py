@@ -48,6 +48,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
+from opentelemetry.trace import Span
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
@@ -176,6 +177,98 @@ this conversation an answer — and 202 is the same statement `NeedsApproval`
 makes. The status code is the difference between *we did it* and *we owe you*."""
 
 
+class _NotYours(Exception):  # noqa: N818 — control flow, not a failure
+    """The conversation id belongs to another customer."""
+
+
+async def chat(request: Request) -> Response:
+    """POST /chat — decode, find the conversation, run the turn, answer."""
+    state = request.app.state
+    with tel.span("http.chat") as span:
+        try:
+            inbound = await decode(request, secret=state.secret)
+        except BadRequest as exc:
+            span.set_attribute("http.status_code", exc.status)
+            if exc.internal:
+                span.set_attribute("http.refusal_detail", tel.redact(exc.internal))
+            return JSONResponse({"error": exc.detail}, status_code=exc.status)
+
+        span.set_attribute(tel.TENANT, inbound.identity.customer_id)
+        try:
+            conversation = await _conversation_for(state.store, inbound)
+        except _NotYours:
+            # Refused as *not found* rather than *forbidden*: confirming the id
+            # exists tells an attacker their guess was right.
+            return JSONResponse({"error": "no such conversation"}, status_code=404)
+        return await _run_turn(state.agent, inbound, conversation, span)
+
+
+async def _conversation_for(store: CheckpointStore, inbound: Inbound) -> Conversation | None:
+    """The conversation this request continues, if it names one it may continue.
+
+    F-006 in one function. Before the store could be read by conversation id
+    this was impossible, and the handler simply could not be written — which is
+    how an abstract finding became a blocker.
+    """
+    if inbound.conversation_id is None:
+        return None
+    previous = await store.latest(inbound.conversation_id)
+    if previous is None:
+        return None
+    conversation = Conversation.decode(previous)
+    if conversation.customer_id != inbound.identity.customer_id:
+        raise _NotYours
+    return conversation
+
+
+async def _run_turn(
+    agent: Agent, inbound: Inbound, conversation: Conversation | None, span: Span
+) -> Response:
+    """One turn, and the status code that says what it amounted to."""
+    try:
+        result, conversation = await agent.handle(
+            inbound.text,
+            identity=inbound.identity,
+            conversation=conversation,
+            delivery_id=inbound.delivery_id,
+        )
+    except trg.DuplicateDelivery:
+        # 200, not an error. The caller did the right thing by retrying; we are
+        # telling them it already happened. A 4xx here would make every
+        # well-behaved queue look like a client fault.
+        return JSONResponse(
+            {"status": "already handled", "delivery_id": inbound.delivery_id}, status_code=200
+        )
+    except trg.OverlappingRun:
+        return JSONResponse({"error": "this message is already being handled"}, status_code=409)
+
+    span.set_attribute("agent.result", type(result).__name__)
+    reply = getattr(result, "reply", "") or getattr(result, "customer_message", "")
+    return JSONResponse(
+        {
+            "conversation_id": conversation.conversation_id,
+            "reply": reply,
+            "outcome": type(result).__name__.lower(),
+        },
+        status_code=REPLY_STATUS.get(type(result), 200),
+    )
+
+
+async def health(_: Request) -> Response:
+    """Liveness only — deliberately not a dependency check.
+
+    A health endpoint that calls the model provider fails when the provider is
+    slow, and an orchestrator then restarts a process that was working
+    perfectly. Degradation is the agent's job to report, not the platform's to
+    react to.
+    """
+    return JSONResponse({"status": "ok"})
+
+
+async def page(_: Request) -> Response:
+    return HTMLResponse(CHAT_PAGE)
+
+
 def build(
     agent: Agent | AgentFactory,
     *,
@@ -183,110 +276,29 @@ def build(
     store: CheckpointStore | None = None,
     escalations: EscalationStore | None = None,
 ) -> Starlette:
-    """Wire an agent behind HTTP.
+    """Wire an agent behind HTTP. Wiring only — the handlers are module functions.
 
     Takes either a ready `Agent` or a **factory**: an async context manager that
     builds one. The factory form exists because the agent holds an open MCP
     connection, and a connection has to be opened and closed in the same task.
-    Opening it outside the app and closing it after means two tasks, which anyio
-    refuses — correctly, since a cancel scope crossing tasks is how a connection
-    gets left half-closed.
-
     So the factory is entered in the app's own lifespan: opened at startup,
-    closed at shutdown, both inside the loop that serves requests. That is the
-    right production shape independently of the test that forced it.
+    closed at shutdown, both inside the loop that serves requests.
+
+    One store per concern, wired once. Given a ready agent, the desk reads the
+    agent's own escalation store and `/chat` its own checkpoint store — passing a
+    different one would have the reviewer working a queue the agent never writes
+    to, which runs, passes every test that mocks one side, and loses every
+    escalation in production. So a mismatch fails at startup.
     """
-
-    async def chat(request: Request) -> Response:
-        agent = request.app.state.agent
-        store = request.app.state.store
-        with tel.span("http.chat") as span:
-            try:
-                inbound = await decode(request, secret=secret)
-            except BadRequest as exc:
-                span.set_attribute("http.status_code", exc.status)
-                if exc.internal:
-                    span.set_attribute("http.refusal_detail", tel.redact(exc.internal))
-                return JSONResponse({"error": exc.detail}, status_code=exc.status)
-
-            span.set_attribute(tel.TENANT, inbound.identity.customer_id)
-
-            # F-006 in one line. Before the store could be read by conversation
-            # id this was impossible, and the handler simply could not be
-            # written — which is how an abstract finding became a blocker.
-            conversation = None
-            if inbound.conversation_id is not None:
-                previous = await store.latest(inbound.conversation_id)
-                if previous is not None:
-                    conversation = Conversation.decode(previous)
-                    if conversation.customer_id != inbound.identity.customer_id:
-                        # Someone else's conversation id. Refused as *not found*
-                        # rather than *forbidden*: confirming it exists tells an
-                        # attacker their guess was right.
-                        return JSONResponse({"error": "no such conversation"}, status_code=404)
-
-            try:
-                result, conversation = await agent.handle(
-                    inbound.text,
-                    identity=inbound.identity,
-                    conversation=conversation,
-                    delivery_id=inbound.delivery_id,
-                )
-            except trg.DuplicateDelivery:
-                # 200, not an error. The caller did the right thing by retrying;
-                # we are telling them it already happened. A 4xx here would make
-                # every well-behaved queue look like a client fault.
-                return JSONResponse(
-                    {"status": "already handled", "delivery_id": inbound.delivery_id},
-                    status_code=200,
-                )
-            except trg.OverlappingRun:
-                return JSONResponse(
-                    {"error": "this message is already being handled"}, status_code=409
-                )
-
-            span.set_attribute("agent.result", type(result).__name__)
-            return JSONResponse(
-                {
-                    "conversation_id": conversation.conversation_id,
-                    "reply": getattr(result, "reply", "")
-                    or getattr(result, "customer_message", ""),
-                    "outcome": type(result).__name__.lower(),
-                },
-                status_code=REPLY_STATUS.get(type(result), 200),
-            )
-
-    async def health(_: Request) -> Response:
-        """Liveness only — deliberately not a dependency check.
-
-        A health endpoint that calls the model provider fails when the provider
-        is slow, and an orchestrator then restarts a process that was working
-        perfectly. Degradation is the agent's job to report, not the platform's
-        to react to.
-        """
-        return JSONResponse({"status": "ok"})
-
-    async def page(_: Request) -> Response:
-        return HTMLResponse(CHAT_PAGE)
-
+    store, escalations = _stores_of(agent, store, escalations)
     routes: list[BaseRoute] = [
         Route("/", page),
         Route("/healthz", health),
         Route("/chat", chat, methods=["POST"]),
     ]
-
-    # Mounted, not merged. FastAPI *is* Starlette, so this is the whole
-    # integration — and `/chat` keeps the hand-written decode whose 400s and
+    # Mounted, not merged: `/chat` keeps the hand-written decode whose 400s and
     # opaque 401 its tests pin, while the desk gets Pydantic bodies, scoped
-    # dependencies and a generated schema an ops tool can read. Neither surface
-    # pays for the other's decisions.
-    # One store per concern, wired once. Given a ready agent, the desk reads the
-    # agent's own escalation store and `/chat` its own checkpoint store — passing
-    # a different one would have the reviewer working a queue the agent never
-    # writes to, which runs, passes every test that mocks one side, and loses
-    # every escalation in production. So a mismatch fails at startup.
-    store, escalations = _stores_of(agent, store, escalations)
-
+    # dependencies and a generated schema an ops tool can read.
     if escalations is not None:
         from support_agent import reviewer
 
@@ -294,14 +306,13 @@ def build(
 
     if isinstance(agent, Agent):
         app = Starlette(routes=routes)
-        app.state.agent = agent
-        app.state.store = store
+        app.state.secret, app.state.agent, app.state.store = secret, agent, store
         return app
 
     @asynccontextmanager
     async def lifespan(app: Starlette) -> AsyncIterator[None]:
         async with agent() as built:
-            app.state.agent = built
+            app.state.secret, app.state.agent = secret, built
             app.state.store = store or built.store
             yield
 
@@ -332,4 +343,14 @@ def _same[T](given: T | None, the_agents: T | None, what: str) -> T | None:
     return the_agents if the_agents is not None else given
 
 
-__all__ = ["REPLY_STATUS", "AgentFactory", "BadRequest", "Inbound", "build", "decode"]
+__all__ = [
+    "REPLY_STATUS",
+    "AgentFactory",
+    "BadRequest",
+    "Inbound",
+    "build",
+    "chat",
+    "decode",
+    "health",
+    "page",
+]
