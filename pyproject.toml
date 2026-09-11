@@ -83,10 +83,10 @@ select = ["E", "F", "I", "UP", "B", "SIM", "TID", "C901", "PLR0912", "PLR0915"]
 # lowered as the decomposition (G0.4) takes the worst offenders apart. A ceiling
 # that failed on day one would block the refactor it exists to guide.
 [tool.ruff.lint.mccabe]
-max-complexity = 14      # serve.build — next in G0.4
+max-complexity = 8       # was 14 (serve.build) before G0.4
 
 [tool.ruff.lint.pylint]
-max-statements = 41      # serve.build — was 50 (loop.run) before G0.4
+max-statements = 24      # was 50 (loop.run) before G0.4
 max-branches = 7         # serve, router, policy — was 12 (loop.run)
 
 [tool.ruff.lint.per-file-ignores]
