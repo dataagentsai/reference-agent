@@ -26,7 +26,7 @@ statement as one *must* sentence. That list is the work G0.6 draws from.
 | AHC capabilities exercised | 0 / 60 | 29 / 60 |
 | Baseline items exercised | 0 / 12 | 4 / 12 |
 
-**AAC went down, and that is the point.** Twenty tags were removed as wrong on
+**AAC went down, and that is the point.** Twenty-three ids on twenty tests were removed as wrong on
 review — four credited an excluded release gate (AAC-0096) to replay tests; one
 test's assertions were tautological; several credited obligations to code the
 agent never runs. A tag that names the wrong statement reads as coverage and
