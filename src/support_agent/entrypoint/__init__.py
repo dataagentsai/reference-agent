@@ -23,7 +23,6 @@ import time
 from dataclasses import dataclass, field
 from typing import assert_never
 
-from support_agent import approvals as ap
 from support_agent import context as ctx
 from support_agent import escalation as esc
 from support_agent import loop as agent_loop
@@ -44,19 +43,18 @@ from support_agent.contracts import (
     IdempotencyKey,
     Identity,
     LLMClient,
-    LocalTool,
     Refuse,
     Refused,
     RunId,
     ToolClient,
     ToolUnavailable,
     TurnResult,
-    Unbindable,
     bind_arguments,
     new_conversation_id,
     new_run_id,
 )
 from support_agent.entrypoint.handoff import Handoff, HandoffDesk, NoDesk
+from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
 from support_agent.entrypoint.persist import TurnPersister
 from support_agent.escalation import rules as t2
 from support_agent.state import Conversation, TurnNote
@@ -186,7 +184,7 @@ class Agent:
                 conversation = conversation.model_copy(update={"pending_escalation_id": None})
 
             if conversation.pending_approval_id is not None:
-                resumed = await self._resume(conversation, identity, run_id)
+                resumed = await self.pending.resume(conversation, identity, run_id, self.tools)
                 if resumed is not None:
                     result, conversation = resumed
                     return result, await self._persist(run_id, conversation)
@@ -213,7 +211,7 @@ class Agent:
                         budgets=self.budgets,
                         run_id=run_id,
                         history=conversation.messages[:-1],
-                        local_tools=self._local_tools(identity, run_id),
+                        local_tools=self.pending.offer(identity, run_id),
                     )
                 case _:
                     assert_never(decision)
@@ -234,6 +232,11 @@ class Agent:
             return result, await self._persist(run_id, conversation)
 
     @property
+    def pending(self) -> PendingWork:
+        """Read at call time, like `desk`."""
+        return NoApprovals() if self.approvals is None else ApprovalFlow(self.approvals)
+
+    @property
     def desk(self) -> Handoff:
         """Read at call time, so a store wired after construction is honoured."""
         if self.escalations is None:
@@ -251,109 +254,6 @@ class Agent:
 
     def _now(self) -> int:
         return self.clock() if self.clock is not None else int(time.time())
-
-    def _local_tools(self, identity: Identity, run_id: RunId) -> dict[str, LocalTool]:
-        """Harness-answered tools. Empty when no approval store is wired, so an
-        agent without one simply cannot raise a refund — it does not fall back
-        to issuing one."""
-        if self.approvals is None:
-            return {}
-        tool = ap.refund_tool(
-            self.approvals,
-            identity=identity,
-            idempotency_key=IdempotencyKey(run_id=run_id, step=0, iteration=0),
-        )
-        return {tool.spec.name: tool}
-
-    async def _resume(
-        self, conversation: Conversation, identity: Identity, run_id: RunId
-    ) -> tuple[TurnResult, Conversation] | None:
-        """Pick up a decision made since the last turn.
-
-        Returns `None` when there is nothing to resume, so the turn proceeds
-        normally. A still-pending approval short-circuits: continuing would let
-        the customer's next message start work that the outstanding decision may
-        make pointless.
-        """
-        assert conversation.pending_approval_id is not None
-        if self.approvals is None:
-            return None
-
-        approval = await self.approvals.get(conversation.pending_approval_id)
-        if approval is None:
-            return None
-
-        with tel.span("agent.approval.resume", **{"agent.approval.id": approval.id}):
-            if not approval.decided:
-                return (
-                    Completed(reply="That is still with a colleague to authorise."),
-                    conversation,
-                )
-
-            cleared = conversation.model_copy(update={"pending_approval_id": None})
-
-            if not approval.granted:
-                return (
-                    Completed(reply="A colleague reviewed this and could not authorise it."),
-                    cleared.recording(Completed(reply="")),
-                )
-
-            try:
-                elevated = ap.granted_identity(approval, identity)
-            except ap.ApprovalError as exc:
-                return (
-                    Failed(
-                        customer_message=(
-                            "That authorisation is no longer valid — "
-                            "please ask again and I will raise it afresh."
-                        ),
-                        detail=str(exc),
-                    ),
-                    cleared,
-                )
-
-            # F-013. The stored arguments come from the harness-local request
-            # tool and the executing tool is projected from the world, so the two
-            # need not agree on names — and until now nobody asked them to. The
-            # registry is read with the **elevated** identity because that is the
-            # only surface `issue_refund` appears on: this cannot be done at
-            # request time, which is why it is done here.
-            registry = await self.tools.list_tools(elevated)
-            spec = registry.get(approval.action)
-            if spec is None:
-                return (
-                    Failed(
-                        customer_message="The refund could not be completed.",
-                        detail=f"{approval.action} is not on the elevated surface",
-                    ),
-                    cleared,
-                )
-            try:
-                arguments = bind_arguments(spec, dict(approval.args))
-            except Unbindable as exc:
-                return (
-                    Failed(
-                        customer_message="The refund could not be completed.",
-                        detail=str(exc),
-                    ),
-                    cleared,
-                )
-
-            result = await self.tools.call(
-                approval.action, arguments, elevated, ap.stored_key(approval)
-            )
-            if result.is_error:
-                return (
-                    Failed(
-                        customer_message="The refund could not be completed.",
-                        detail=result.text,
-                    ),
-                    cleared,
-                )
-            return (
-                Completed(reply="That has been authorised and the refund is on its way."),
-                cleared,
-            )
 
     async def _direct(self, decision: Direct, identity: Identity, run_id: RunId) -> TurnResult:
         """A deterministic handler. No model call, and the trace says so.
