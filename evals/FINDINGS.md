@@ -949,6 +949,18 @@ at the composition root. `retry_after_of` moved into the provider adapter and
 unbounded, so AOAS `Q-TOOL-RESULT` (8000 characters) holds only for results that
 happen to be plain text.
 
+**Fixed — 2026-09-12 (G0.5), from AOAS `Q-TOOL-RESULT` and AAC-0105.** One
+rendering, `ToolResult.for_context()`, is what the bound measures and what the
+context boundary sends — they cannot disagree again. Over the limit, the text
+block becomes the cut rendering and says so (`…[truncated from N characters]`),
+`truncated` marks it, and `structured` stays whole for the checks that read it:
+grounding compares a claim against the *result*, not against context.
+
+The old test passed throughout, because it asserted on `result.text` — the half
+the model is never sent when structured content is present. The table now drives
+the shapes: large structured with a short text block (the real one), large
+structured with its duplicate, large text-only, and small of each.
+
 ---
 
 ## F-024 · With no escalation store, the agent still promises a colleague

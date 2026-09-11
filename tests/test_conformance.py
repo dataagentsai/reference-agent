@@ -14,7 +14,7 @@ from support_agent import identity as ident
 from support_agent import router
 from support_agent import telemetry as tel
 from support_agent.conformance import Obligation, Report, Verdict, load, load_elsewhere
-from support_agent.contracts import Identity, SideEffectClass
+from support_agent.contracts import Identity, SideEffectClass, ToolResult, ToolSpec
 from support_agent.idempotency import InMemoryLedger
 from support_agent.tools import META_SIDE_EFFECT, connect
 
@@ -183,8 +183,8 @@ def server():
 
 @pytest.mark.discharges("AAC-0105", "AHC-0038")
 async def test_a_large_tool_result_is_bounded_before_it_enters_context(server) -> None:
-    """Implemented in `tools._bound` since the module was written, and never
-    tested until the report said so."""
+    """Over MCP, end to end: what the model is sent, not what the client holds."""
+    from support_agent import context as ctx
     from support_agent.contracts import IdempotencyKey, RunId
 
     who = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
@@ -194,7 +194,69 @@ async def test_a_large_tool_result_is_bounded_before_it_enters_context(server) -
         result = await tools.call("get_history", {"order_id": "AB-1"}, who, key)
 
     assert result.truncated
-    assert len(result.text) <= 1000
+    assert "x" * 1001 not in ctx.tool_message(result, tool_call_id="tc").content
+
+
+LIMIT = 1000
+BIG = "x" * 50_000
+
+# (name, what the server answered, whether it is cut)
+RESULTS = [
+    ("a large structured result with a short text block — F-023's shape",
+     ToolResult(name="t", structured={"blob": BIG}, text="see structured"), True),
+    ("a large structured result with its text duplicate",
+     ToolResult(name="t", structured={"blob": BIG}, text=BIG), True),
+    ("a large text-only result", ToolResult(name="t", text=BIG), True),
+    ("a small structured result passes whole",
+     ToolResult(name="t", structured={"id": "AB-1"}), False),
+    ("a small text result passes whole", ToolResult(name="t", text="ok"), False),
+]  # fmt: skip
+
+
+class Answers:
+    """A transport that answers every call with one result — the bound, alone."""
+
+    def __init__(self, result: ToolResult) -> None:
+        self.result = result
+
+    async def advertised(self) -> tuple[tuple[ToolSpec, ...], tuple[str, ...]]:
+        spec = ToolSpec(
+            name="t",
+            description="a tool",
+            input_schema={"type": "object"},
+            output_schema={"type": "object"},
+            side_effect=SideEffectClass.READ,
+        )
+        return (spec,), ()
+
+    async def invoke(self, name, arguments, *, caller, idempotency_key=None) -> ToolResult:
+        return self.result
+
+
+@pytest.mark.discharges("AAC-0105", "AHC-0038", "Q-TOOL-RESULT")
+@pytest.mark.parametrize(("name", "answered", "cut"), RESULTS, ids=[r[0] for r in RESULTS])
+async def test_what_enters_context_is_bounded_whatever_its_shape(
+    name: str, answered: ToolResult, cut: bool
+) -> None:
+    """Q-TOOL-RESULT is about what *enters context*. The first test asserted on
+    the text block, which the context never sends when structured content is
+    present — so it passed while 50,000 characters reached the model (F-023)."""
+    from support_agent import context as ctx
+    from support_agent.contracts import IdempotencyKey, RunId
+    from support_agent.tools import GatedTools
+
+    who = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
+    key = IdempotencyKey(run_id=RunId("run_b"), step=0, iteration=0)
+    tools = GatedTools(Answers(answered), ledger=InMemoryLedger(), max_result_chars=LIMIT)
+
+    result = await tools.call("t", {}, who, key)
+    sent = result.for_context()
+
+    assert len(sent) <= LIMIT
+    assert sent in ctx.tool_message(result, tool_call_id="tc").content
+    assert result.truncated is cut
+    assert ("[truncated from" in sent) is cut, "a cut result says so"
+    assert result.structured == answered.structured, "the checks still read it whole"
 
 
 DEGENERATE = [

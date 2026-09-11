@@ -21,7 +21,6 @@ working one layer down.
 
 from __future__ import annotations
 
-import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any, Protocol, cast
@@ -57,6 +56,9 @@ reply was lost (F-017). The same binding as `SESSION_META`."""
 
 META_SIDE_EFFECT = "side_effect"
 META_REQUIRED_SCOPE = "required_scope"
+
+TRUNCATION_MARK = " …[truncated from {total} characters]"
+"""Said to the model, so a cut result reads as cut rather than as complete."""
 
 
 class ToolRejected(Exception):
@@ -263,17 +265,21 @@ class GatedTools:
             return result
 
     def _bound(self, result: ToolResult, span: Span) -> ToolResult:
-        """AAC-0105 — tool results are bounded before they enter context.
+        """AAC-0105, AOAS Q-TOOL-RESULT — a result enters context bounded.
 
-        The structured payload is what assertions read, so it is measured by
-        serialised size rather than by the prose length of the text block.
+        Measured on `for_context()`, the rendering the context boundary sends.
+        The first version measured the structured payload and cut the text
+        block, while the context sent the structured payload — so a large
+        structured result, the common kind, went through whole (F-023).
         """
-        serialised = json.dumps(result.structured, default=str) if result.structured else ""
+        rendered = result.for_context()
         limit = self._max_result_chars
-        if len(serialised) <= limit and len(result.text) <= limit:
+        if len(rendered) <= limit:
             return result
         span.set_attribute("agent.tool.truncated", True)
-        return result.model_copy(update={"text": result.text[:limit], "truncated": True})
+        mark = TRUNCATION_MARK.format(total=len(rendered))
+        bounded = rendered[: max(0, limit - len(mark))] + mark
+        return result.model_copy(update={"text": bounded[:limit], "truncated": True})
 
 
 class MCPToolClient(GatedTools):

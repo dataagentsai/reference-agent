@@ -48,15 +48,9 @@ def fence(text: str, *, source: str) -> str:
 
 
 def tool_message(result: ToolResult, *, tool_call_id: str) -> Message:
-    """A tool result, as context. Fenced, labelled, and marked untrusted.
-
-    Note the payload is the *structured* content where present. The text block
-    exists only for backward compatibility — MCP asks a server returning
-    structured content to also serialise it into text — so the same data would
-    otherwise cross the fence twice in two encodings.
-    """
-    payload = result.structured if result.structured is not None else result.text
-    body = fence(str(payload), source=f"tool:{result.name}")
+    """A tool result, as context. Fenced, labelled, and marked untrusted —
+    and rendered by `ToolResult.for_context`, the rendering the bound measured."""
+    body = fence(result.for_context(), source=f"tool:{result.name}")
     if result.is_error:
         body = f"{body}\n(the tool reported an error on the {result.error_channel} channel)"
     return Message(

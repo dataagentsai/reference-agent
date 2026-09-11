@@ -63,7 +63,22 @@ class ToolResult(BaseModel):
 
     duration_ms: int = 0
     truncated: bool = False
-    """Set when the result was bounded before entering context — AAC-0105."""
+    """Set when the result was bounded before entering context — AAC-0105. The
+    bounded rendering is then `text`, and `structured` stays whole for the checks
+    that read it (grounding, assertions) but never enters context."""
+
+    def for_context(self) -> str:
+        """What of this result enters the model's context — the one rendering the
+        bound measures and the context boundary sends.
+
+        The structured content where present: the text block is its
+        backward-compatible duplicate, and sending both would put the same data
+        through the fence twice. F-023 was the bound measuring one of these while
+        the context sent the other.
+        """
+        if self.truncated or self.structured is None:
+            return self.text
+        return str(self.structured)
 
 
 class ToolRegistry(BaseModel):
