@@ -280,6 +280,13 @@ def build(
     # opaque 401 its tests pin, while the desk gets Pydantic bodies, scoped
     # dependencies and a generated schema an ops tool can read. Neither surface
     # pays for the other's decisions.
+    # One store per concern, wired once. Given a ready agent, the desk reads the
+    # agent's own escalation store and `/chat` its own checkpoint store — passing
+    # a different one would have the reviewer working a queue the agent never
+    # writes to, which runs, passes every test that mocks one side, and loses
+    # every escalation in production. So a mismatch fails at startup.
+    store, escalations = _stores_of(agent, store, escalations)
+
     if escalations is not None:
         from support_agent import reviewer
 
@@ -288,7 +295,7 @@ def build(
     if isinstance(agent, Agent):
         app = Starlette(routes=routes)
         app.state.agent = agent
-        app.state.store = store or agent.store
+        app.state.store = store
         return app
 
     @asynccontextmanager
@@ -299,6 +306,30 @@ def build(
             yield
 
     return Starlette(routes=routes, lifespan=lifespan)
+
+
+def _stores_of(
+    agent: Agent | AgentFactory,
+    store: CheckpointStore | None,
+    escalations: EscalationStore | None,
+) -> tuple[CheckpointStore | None, EscalationStore | None]:
+    """A ready agent's own stores; a factory's, as named by the caller."""
+    if not isinstance(agent, Agent):
+        return store, escalations
+    return (
+        _same(store, agent.store, "checkpoint"),
+        _same(escalations, agent.escalations, "escalation"),
+    )
+
+
+def _same[T](given: T | None, the_agents: T | None, what: str) -> T | None:
+    """The agent's own store, unless the caller named that same store."""
+    if given is not None and the_agents is not None and given is not the_agents:
+        raise ValueError(
+            f"serve was handed a {what} store that is not the agent's own — the two "
+            "surfaces would read and write different state"
+        )
+    return the_agents if the_agents is not None else given
 
 
 __all__ = ["REPLY_STATUS", "AgentFactory", "BadRequest", "Inbound", "build", "decode"]

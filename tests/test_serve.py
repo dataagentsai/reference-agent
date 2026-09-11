@@ -265,3 +265,29 @@ def test_the_page_is_served_and_cannot_mint_its_own_identity(client) -> None:
     assert SECRET not in page, "the signing secret reached the browser"
     for signing in ("HS256", "hmac", "createSign", "jsonwebtoken", "crypto.subtle.sign"):
         assert signing not in page, f"the page can sign tokens itself ({signing})"
+
+
+WIRING = [
+    # (name, which store to pass explicitly, must raise)
+    ("the agent's own escalation store is accepted", "same", False),
+    ("nothing passed: the desk reads the agent's store", "none", False),
+    ("a different escalation store is refused at startup", "other", True),
+]
+
+
+@pytest.mark.parametrize(("name", "passed", "raises"), WIRING, ids=[w[0] for w in WIRING])
+def test_the_desk_and_the_agent_share_one_escalation_store(
+    name: str, passed: str, raises: bool
+) -> None:
+    from support_agent import escalation as esc
+
+    own = esc.InMemoryEscalationStore()
+    agent = ep.build(
+        llm=ScriptedClient([]), tools=None, store=InMemoryCheckpointStore(), escalations=own
+    )
+    given = {"same": own, "none": None, "other": esc.InMemoryEscalationStore()}[passed]
+    if raises:
+        with pytest.raises(ValueError, match="not the agent's own"):
+            serve.build(agent, secret=SECRET, escalations=given)
+    else:
+        serve.build(agent, secret=SECRET, escalations=given)

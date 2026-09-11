@@ -274,6 +274,8 @@ def build(
     config: RunConfig | None = None,
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
     history_chars: int = 32_000,
+    rules: router.Rules | None = None,
+    tier_2: t2.RuleSet | None = None,
 ) -> Agent:
     """The composition root.
 
@@ -295,6 +297,8 @@ def build(
         config=config,
         system_prompt=system_prompt,
         budgets=config.budgets if config else Budgets(),
+        rules=rules or router.Rules(),
+        tier_2=tier_2,
     )
 
 
