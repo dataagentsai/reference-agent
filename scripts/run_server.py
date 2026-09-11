@@ -37,7 +37,7 @@ from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
-from support_agent.config import Settings
+from support_agent.config import Settings, resolve
 from support_agent.contracts import ModelResponse
 from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import GroqClient, ScriptedClient
@@ -96,6 +96,9 @@ async def main(real: bool, port: int) -> None:
             # somewhere rather than from the reply text.
             capacity=esc.Capacity(per_hour=12),
             deliveries=trg.InMemoryDeliveryLog(),
+            # The real model is priced, so its cost ceiling is live; the scripted
+            # one is free and has nothing to meter.
+            config=resolve(settings) if real and settings is not None else None,
         )
         app = serve.build(agent, secret=SECRET)  # the desk reads the agent's own store
 

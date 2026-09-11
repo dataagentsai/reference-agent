@@ -69,6 +69,7 @@ from support_agent.telemetry.names import (
     STEP,
     TENANT,
     TERMINATION,
+    TRACER_NAME,
     USER_ID,
 )
 from support_agent.telemetry.redaction import (
@@ -76,7 +77,7 @@ from support_agent.telemetry.redaction import (
     redact,
 )
 
-_TRACER_NAME = "support_agent"
+_TRACER_NAME = TRACER_NAME
 
 
 def set_current_attribute(name: str, value: Any) -> None:

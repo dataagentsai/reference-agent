@@ -20,7 +20,9 @@ and **only one of them reaches the model**:
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
 from typing import assert_never
 
 from support_agent import context as ctx
@@ -49,6 +51,7 @@ from support_agent.contracts import (
     new_conversation_id,
     new_run_id,
 )
+from support_agent.cost import Meter
 from support_agent.entrypoint import direct
 from support_agent.entrypoint.handoff import Handoff, HandoffDesk, NoDesk
 from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
@@ -105,6 +108,11 @@ class Agent:
     tier_2: t2.RuleSet | None = None
     """State-derived escalation rules. `None` uses the defaults; an agent with no
     escalation store never reaches them at all."""
+    metering: Callable[[], Meter] | None = None
+    """A fresh meter per task, so AOAS `Q-COST` — spend per task at most the
+    configured ceiling — can stop a run. `None` means no priced model is
+    configured, and the step budget is the only bound (F-019: it used to be
+    `None` on every path, so the ceiling was configured and never reachable)."""
 
     async def handle(
         self,
@@ -213,6 +221,7 @@ class Agent:
                     run_id=run_id,
                     history=conversation.messages[:-1],
                     local_tools=self.pending.offer(identity, run_id),
+                    meter=self.metering() if self.metering is not None else None,
                 )
                 return result
             case _:
@@ -276,6 +285,7 @@ def build(
     history_chars: int = 32_000,
     rules: router.Rules | None = None,
     tier_2: t2.RuleSet | None = None,
+    metering: Callable[[], Meter] | None = None,
 ) -> Agent:
     """The composition root.
 
@@ -284,6 +294,10 @@ def build(
     rule, since an import contract cannot see a module that fetches a
     collaborator instead of being handed one.
     """
+    if metering is None and config is not None:
+        metering = partial(Meter, config.model, ceiling_usd=config.budgets.max_cost_usd)
+    if metering is not None:
+        metering()  # an unpriced model fails here, at startup — never mid-conversation
     return Agent(
         llm=llm,
         tools=tools,
@@ -299,6 +313,7 @@ def build(
         budgets=config.budgets if config else Budgets(),
         rules=rules or router.Rules(),
         tier_2=tier_2,
+        metering=metering,
     )
 
 

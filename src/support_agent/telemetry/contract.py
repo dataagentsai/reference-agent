@@ -38,6 +38,7 @@ from support_agent.telemetry.names import (
     STEP,
     TENANT,
     TERMINATION,
+    TRACER_NAME,
     USER_ID,
 )
 
@@ -189,6 +190,11 @@ def validate(spans: Iterable[ReadableSpan]) -> list[str]:
     """
     out: list[str] = []
     for span in spans:
+        # The contract governs this agent's spans. A library that instruments
+        # itself (the MCP SDK emits `tools/list`) is not ours to hold to it.
+        scope = span.instrumentation_scope
+        if scope is not None and scope.name != TRACER_NAME:
+            continue
         spec = CONTRACT.get(span.name)
         if spec is None:
             out.append(f"{span.name}: not in the span contract")

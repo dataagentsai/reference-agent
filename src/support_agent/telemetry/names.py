@@ -142,3 +142,7 @@ TERMINATION = "agent.termination.reason"
 
 RESOLUTION = "agent.resolution"
 """mock | replay | real | shadow. A verdict is not interpretable without it."""
+
+TRACER_NAME = "support_agent"
+"""The instrumentation scope this agent's spans carry — and the only one the
+span contract holds to account."""

@@ -239,3 +239,75 @@ def test_the_default_price_map_is_dated_and_flagged() -> None:
         "openai/gpt-oss-20b",
         "qwen/qwen3.8-27b",
     }
+
+
+# --------------------------------------------------------------------------- #
+# F-019 — the ceiling, reached through the one place the agent is entered.
+# --------------------------------------------------------------------------- #
+
+CEILINGS = [
+    # (name, max_cost_usd, the termination the turn must end on)
+    ("a ceiling below one call's cost stops the task", 0.000001, "cost_ceiling_reached"),
+    ("a generous ceiling lets the task finish", 10.0, "goal_reached"),
+]
+
+
+@pytest.mark.discharges("Q-COST", "AHC-0030", "AAC-0008")
+@pytest.mark.parametrize(("name", "ceiling", "ends_on"), CEILINGS, ids=[c[0] for c in CEILINGS])
+async def test_the_cost_ceiling_is_reachable_from_the_entrypoint(
+    name: str, ceiling: float, ends_on: str
+) -> None:
+    from pathlib import Path
+
+    from agenttwin import Live, load, project
+
+    from support_agent import entrypoint as ep
+    from support_agent import identity as ident
+    from support_agent.config import Settings, resolve
+    from support_agent.contracts import Identity, ModelResponse, ToolCall
+    from support_agent.idempotency import InMemoryLedger
+    from support_agent.llm import ScriptedClient
+    from support_agent.state import InMemoryCheckpointStore
+    from support_agent.tools import connect
+
+    world = Live.start(load(Path(__file__).parent.parent / "worlds" / "clothing.yaml"))
+    spend = Usage(input_tokens=1_000, output_tokens=1_000)  # ~$0.0009 at the configured price
+    script = [
+        ModelResponse(
+            tool_calls=(ToolCall(id="c1", name="get_order", arguments={"id": "AB-10003"}),),
+            usage=spend,
+        ),
+        ModelResponse(
+            tool_calls=(ToolCall(id="c2", name="get_order", arguments={"id": "AB-10002"}),),
+            usage=spend,
+        ),
+        ModelResponse(text="Your order AB-10003 has been delivered.", usage=spend),
+    ]
+    config = resolve(
+        Settings(provider_api_key="k", resolution="mock", sealed=True, max_cost_usd=ceiling)
+    )
+    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+        agent = ep.build(
+            llm=ScriptedClient(script), tools=tools, store=InMemoryCheckpointStore(), config=config
+        )
+        result, _ = await agent.handle(
+            # No single intent, so the router hands it to the loop — the only route
+            # that spends. A status question would be answered without the model.
+            "I need some help with a couple of my recent purchases",
+            identity=Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES),
+        )
+
+    assert getattr(result, "termination", None) == ends_on, result
+
+
+def test_an_unpriced_model_fails_at_build_not_mid_conversation() -> None:
+    from support_agent import entrypoint as ep
+    from support_agent.state import InMemoryCheckpointStore
+
+    with pytest.raises(UnknownPrice):
+        ep.build(
+            llm=None,  # never reached: the failure is at composition
+            tools=None,
+            store=InMemoryCheckpointStore(),
+            metering=lambda: Meter("a-model-nobody-priced", ceiling_usd=1.0),
+        )

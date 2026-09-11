@@ -784,6 +784,20 @@ place the agent is actually entered.
 **Fix** `build` accepts and wires a `Meter`; a test drives a turn through `handle`
 and asserts `COST_CEILING_REACHED`.
 
+**Fixed — 2026-09-12 (G0.5), from AOAS `Q-COST`.** `build` derives a per-task
+meter factory from the config — model and ceiling — and the Agent hands a fresh
+meter to every loop run. One meter is built at composition, so an unpriced model
+fails at startup, never mid-conversation. The demo server passes its config when
+it runs the real model. `test_the_cost_ceiling_is_reachable_from_the_entrypoint`
+drives turns through `handle`: a ceiling below one call's cost ends on
+`cost_ceiling_reached`, a generous one on `goal_reached`; with the wiring removed
+the first case fails.
+
+Found on the way: the suite-wide span check also judged spans the MCP SDK emits
+about itself (`tools/list`), which surfaced once a test configured telemetry
+around a tool call. The contract now checks only this agent's instrumentation
+scope — a library's spans are not ours to hold to it.
+
 ---
 
 ## F-020 · Three reply paths never pass through the output guardrails
