@@ -105,6 +105,16 @@ class ModelUnavailable(Exception):
     """
 
 
+class ModelThrottled(ModelUnavailable):
+    """The provider is rate-limiting us — a condition distinct from failure
+    (AHC-0021). It says when to come back, it is not evidence the provider is
+    down, and so it never counts against a circuit breaker."""
+
+    def __init__(self, message: str, *, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 class ModelMalformed(Exception):
     """The provider answered and the answer could not be read.
 

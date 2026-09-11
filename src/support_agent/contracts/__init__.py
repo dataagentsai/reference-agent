@@ -29,6 +29,7 @@ from support_agent.contracts.model import (
     ModelMalformed,
     ModelRequest,
     ModelResponse,
+    ModelThrottled,
     ModelUnavailable,
     ToolCall,
     Usage,
@@ -70,6 +71,7 @@ from support_agent.contracts.tools import (
 )
 
 __all__ = [
+    "ModelThrottled",
     "ApprovalRequested",
     "Unbindable",
     "bind_arguments",

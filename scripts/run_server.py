@@ -41,6 +41,7 @@ from support_agent.config import Settings, resolve
 from support_agent.contracts import ModelResponse
 from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import GroqClient, ScriptedClient
+from support_agent.resilience import ResilientLLM
 from support_agent.state import FileCheckpointStore
 from support_agent.tools import connect
 
@@ -74,11 +75,16 @@ async def main(real: bool, port: int) -> None:
     settings = Settings() if real else None
 
     async with connect(project(world), ledger=InMemoryLedger()) as tools:
+        # The real provider sits behind retries, a shared throttle and a breaker
+        # (F-022: those existed, passed their tests, and nothing called them).
+        # The scripted model cannot fail, so it has nothing to be resilient about.
         llm = (
-            GroqClient(
-                api_key=settings.provider_api_key,
-                base_url=settings.provider_base_url,
-                model=settings.model,
+            ResilientLLM(
+                GroqClient(
+                    api_key=settings.provider_api_key,
+                    base_url=settings.provider_base_url,
+                    model=settings.model,
+                )
             )
             if real and settings is not None
             else demo_replies()

@@ -853,6 +853,18 @@ counts none of their ids as met.
 **Fix** Wire them at the L2 choke point, in G0.4's decomposition, each with a
 test that drives a turn through `handle`.
 
+**Fixed — 2026-09-12 (G0.5), from AHC-0021, AHC-0005 and AHC-0024.**
+`resilience.ResilientLLM` wraps any model client and gives each provider
+condition its own answer: a rate limit (`ModelThrottled`, new) waits the
+provider's own `retry-after` through a shared throttle and never counts against
+the breaker; a failure is retried with capped, jittered backoff, each retry a
+declared `agent.llm.retry` span; an open breaker fails fast without calling;
+malformed output is never retried. `GroqClient` no longer retries inside the SDK
+(`max_retries = 0`) — a hidden retry is uncounted — and the demo server wraps it
+at the composition root. `retry_after_of` moved into the provider adapter and
+`Throttle` into `resilience`, where the import contract lets them be used. The
+13 `unwired` tests are wired: the map now counts what they verify.
+
 ---
 
 ## F-023 · The tool-result bound does not reach structured results

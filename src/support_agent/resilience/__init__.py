@@ -38,8 +38,16 @@ import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import partial
 
 from support_agent import telemetry as tel
+from support_agent.contracts import (
+    LLMClient,
+    ModelRequest,
+    ModelResponse,
+    ModelThrottled,
+    ModelUnavailable,
+)
 
 
 class Retryable(Exception):
@@ -160,6 +168,129 @@ class CircuitBreaker:
         return result
 
 
+class Throttle:
+    """Shared backpressure. One rate-limited call slows everyone behind it.
+
+    Without something shared, every caller discovers the limit independently and
+    they all discover it at the same moment — which is the behaviour that turns a
+    rate limit into an outage.
+    """
+
+    def __init__(self) -> None:
+        self._until = 0.0
+        self.waits = 0
+
+    def note_retry_after(self, seconds: float, *, now: float | None = None) -> None:
+        """Record the provider's own instruction. We do not invent a backoff when
+        we have been told one."""
+        moment = now if now is not None else time.monotonic()
+        self._until = max(self._until, moment + max(0.0, seconds))
+
+    def delay(self, *, now: float | None = None) -> float:
+        moment = now if now is not None else time.monotonic()
+        return max(0.0, self._until - moment)
+
+    @property
+    def throttled(self) -> bool:
+        return self.delay() > 0
+
+    async def wait(self, sleep: Callable[[float], Awaitable[None]] | None = None) -> None:
+        pause = self.delay()
+        if pause <= 0:
+            return
+        self.waits += 1
+        with tel.span("agent.flow.throttled", **{"agent.flow.delay_s": pause}):
+            await (sleep or asyncio.sleep)(pause)
+
+
+class _Retry(Exception):  # noqa: N818 — control flow, carries the provider's failure
+    def __init__(self, cause: ModelUnavailable) -> None:
+        super().__init__(str(cause))
+        self.cause = cause
+
+
+class ResilientLLM:
+    """L2 · L10. Any model client, behind a declared degradation path.
+
+    Three controls, each answering a different condition — and the reason they
+    are one decorator is that they must agree about which condition this is:
+
+    - **A rate limit** (`ModelThrottled`) waits exactly the provider's
+      `retry-after`, shared across every caller, and is **not** a breaker
+      failure — being told to slow down is not evidence the provider is down
+      (AHC-0021).
+    - **A failure** (`ModelUnavailable`) is retried with capped, jittered backoff,
+      a bounded number of times, each retry a span (AHC-0024), and counts
+      towards the breaker.
+    - **An open breaker** fails fast without calling the provider at all, until a
+      single probe is allowed after the cooldown (AHC-0005).
+
+    Malformed output is none of these and is never retried: the same prompt to
+    the same model produced something unreadable, and a retry mostly buys a
+    second bill. When the attempts run out, the last provider failure is raised
+    typed, and the loop turns it into the customer's `Failed`.
+    """
+
+    def __init__(
+        self,
+        inner: LLMClient,
+        *,
+        attempts: int = 3,
+        backoff: Backoff | None = None,
+        breaker: CircuitBreaker | None = None,
+        throttle: Throttle | None = None,
+        sleep: Callable[[float], Awaitable[None]] | None = None,
+    ) -> None:
+        self.inner = inner
+        self.attempts = attempts
+        self.backoff = backoff or Backoff()
+        self.breaker = breaker or CircuitBreaker()
+        self.throttle = throttle or Throttle()
+        self._sleep = sleep or asyncio.sleep
+        self._tries = 0
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        if not self.breaker.closed:
+            with tel.span("agent.breaker", **{"agent.breaker.state": self.breaker.state.value}):
+                raise ModelUnavailable("the model provider is not answering; not calling it yet")
+        self._tries = 0
+        try:
+            return await with_retry(
+                partial(self._attempt, request),
+                attempts=self.attempts,
+                backoff=self.backoff,
+                retry_on=(_Retry,),
+                sleep=self._sleep,
+            )
+        except _Retry as exhausted:
+            raise exhausted.cause from None
+
+    async def _attempt(self, request: ModelRequest) -> ModelResponse:
+        self._tries += 1
+        await self.throttle.wait(self._sleep)
+        try:
+            response = await self.inner.complete(request)
+        except ModelThrottled as exc:
+            if exc.retry_after is not None:
+                self.throttle.note_retry_after(exc.retry_after)
+            self._visible_retry("throttled")
+            raise _Retry(exc) from exc
+        except ModelUnavailable as exc:
+            self.breaker.record_failure()
+            self._visible_retry("unavailable")
+            raise _Retry(exc) from exc
+        self.breaker.record_success()
+        return response
+
+    def _visible_retry(self, reason: str) -> None:
+        if self._tries < self.attempts:
+            with tel.span(
+                "agent.llm.retry",
+                **{"agent.retry.attempt": self._tries, "agent.retry.reason": reason},
+            ):
+                pass
+
+
 # --------------------------------------------------------------------------- #
 # Compensation. AHC-0058 — declared, never inferred.
 # --------------------------------------------------------------------------- #
@@ -219,6 +350,8 @@ def is_compensable(action: str) -> bool:
 
 
 __all__ = [
+    "ResilientLLM",
+    "Throttle",
     "COMPENSATIONS",
     "Backoff",
     "BreakerState",

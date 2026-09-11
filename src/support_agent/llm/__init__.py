@@ -28,6 +28,7 @@ from support_agent.contracts import (
     ModelMalformed,
     ModelRequest,
     ModelResponse,
+    ModelThrottled,
     ModelUnavailable,
     ToolCall,
     Usage,
@@ -58,12 +59,34 @@ def _to_wire(messages: Iterable[Message]) -> list[dict[str, object]]:
     return wire
 
 
+def retry_after_of(error: object) -> float | None:
+    """Read `retry-after` from a provider error, if it said one.
+
+    Returns `None` rather than a guess. A caller that invents a backoff when the
+    provider offered a real one is choosing to be wrong on purpose.
+    """
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", None)
+    if headers is None:
+        return None
+    raw = headers.get("retry-after") or headers.get("Retry-After")
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 class GroqClient:
     """`real` resolution. Groq over its OpenAI-compatible endpoint.
 
-    The SDK's own retry handles transient failures; exhaustion becomes
-    `ModelUnavailable`, which callers translate into a declared degradation path
-    (AAC-0009). A provider error never reaches a customer as a stack trace.
+    Makes **no retries of its own** (`max_retries = 0`): a retry inside the SDK is
+    invisible, unattributed and uncounted, which is everything AHC-0024 forbids.
+    Retrying, backing off and breaking the circuit are `resilience.ResilientLLM`'s,
+    composed around this client at the composition root. A rate limit raises
+    `ModelThrottled` with the provider's own `retry-after`; anything else,
+    `ModelUnavailable`. A provider error never reaches a customer as a stack trace.
     """
 
     def __init__(
@@ -73,7 +96,7 @@ class GroqClient:
         base_url: str,
         model: str,
         temperature: float = 0.0,
-        max_retries: int = 2,
+        max_retries: int = 0,
         timeout_s: float = 60.0,
     ) -> None:
         self._model = model
@@ -107,7 +130,9 @@ class GroqClient:
                     max_tokens=request.max_tokens,
                     temperature=request.temperature or self._temperature,
                 )
-            except (RateLimitError, APIConnectionError, APIError) as exc:
+            except RateLimitError as exc:
+                raise ModelThrottled(str(exc), retry_after=retry_after_of(exc)) from exc
+            except (APIConnectionError, APIError) as exc:
                 raise ModelUnavailable(str(exc)) from exc
 
             response = _from_wire(raw)
@@ -221,4 +246,4 @@ class UnavailableClient:
         raise ModelUnavailable("provider is unavailable (injected)")
 
 
-__all__ = ["GroqClient", "ScriptedClient", "UnavailableClient"]
+__all__ = ["retry_after_of", "GroqClient", "ScriptedClient", "UnavailableClient"]

@@ -30,7 +30,6 @@ limit independently.
 from __future__ import annotations
 
 import asyncio
-import time
 from collections.abc import Awaitable, Callable, Sequence
 
 from support_agent import telemetry as tel
@@ -82,64 +81,8 @@ async def gather_bounded[T](
         return list(results)
 
 
-class Throttle:
-    """Shared backpressure. One rate-limited call slows everyone behind it.
-
-    Without something shared, every caller discovers the limit independently and
-    they all discover it at the same moment — which is the behaviour that turns a
-    rate limit into an outage.
-    """
-
-    def __init__(self) -> None:
-        self._until = 0.0
-        self.waits = 0
-
-    def note_retry_after(self, seconds: float, *, now: float | None = None) -> None:
-        """Record the provider's own instruction. We do not invent a backoff when
-        we have been told one."""
-        moment = now if now is not None else time.monotonic()
-        self._until = max(self._until, moment + max(0.0, seconds))
-
-    def delay(self, *, now: float | None = None) -> float:
-        moment = now if now is not None else time.monotonic()
-        return max(0.0, self._until - moment)
-
-    @property
-    def throttled(self) -> bool:
-        return self.delay() > 0
-
-    async def wait(self) -> None:
-        pause = self.delay()
-        if pause <= 0:
-            return
-        self.waits += 1
-        with tel.span("agent.flow.throttled", **{"agent.flow.delay_s": pause}):
-            await asyncio.sleep(pause)
-
-
-def retry_after_of(error: object) -> float | None:
-    """Read `retry-after` from a provider error, if it said one.
-
-    Returns `None` rather than a guess. A caller that invents a backoff when the
-    provider offered a real one is choosing to be wrong on purpose.
-    """
-    response = getattr(error, "response", None)
-    headers = getattr(response, "headers", None)
-    if headers is None:
-        return None
-    raw = headers.get("retry-after") or headers.get("Retry-After")
-    if raw is None:
-        return None
-    try:
-        return float(raw)
-    except (TypeError, ValueError):
-        return None
-
-
 __all__ = [
     "DEFAULT_FAN_OUT",
     "Limiter",
-    "Throttle",
     "gather_bounded",
-    "retry_after_of",
 ]

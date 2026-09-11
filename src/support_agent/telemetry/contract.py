@@ -178,6 +178,7 @@ CONTRACT: dict[str, SpanSpec] = {
     ),
     "agent.flow.throttled": SpanSpec(required=frozenset({"agent.flow.delay_s"})),
     "agent.breaker": SpanSpec(required=frozenset({"agent.breaker.state"})),
+    "agent.llm.retry": SpanSpec(required=frozenset({"agent.retry.attempt", "agent.retry.reason"})),
 }
 
 
