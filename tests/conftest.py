@@ -4,27 +4,68 @@ A test declares what it discharges with a marker; the run collects outcomes and
 prints a report at the end naming what was covered, what failed, and what was
 never exercised.
 
-    @pytest.mark.discharges("AAC-0055")
+    @pytest.mark.discharges("AAC-0055", "AHC-0041", "Q-STEPS")
     async def test_the_step_budget_terminates(): ...
     @pytest.mark.scored          # model-driven: pass-rate, not pass/fail
+    @pytest.mark.tooling         # tests an instrument, not the agent
+
+`discharges` takes an id from any spec in the family — see `evals/statements.py`
+for the shapes. An id that names nothing fails collection. `pytest
+--assurance-map` also writes the generated map to `evals/`.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from evals import assurance_map as amap
+from evals import statements
 from support_agent.conformance import Report
 
 _report: Report | None = None
+_vocab: statements.Vocabulary | None = None
+_outcomes: list[amap.Outcome] = []
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--assurance-map",
+        action="store_true",
+        help="write the generated Assurance Map to evals/",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    global _report
-    config.addinivalue_line("markers", "discharges(*ids): AAC obligation ids this test exercises")
+    global _report, _vocab
+    config.addinivalue_line(
+        "markers",
+        "discharges(*ids): statement ids this test verifies — AAC-, AHC-, B#, or the AOAS's own",
+    )
     config.addinivalue_line(
         "markers", "scored: a model-driven case — reported as a pass rate, never as pass/fail"
     )
+    config.addinivalue_line(
+        "markers",
+        "tooling: tests an instrument, not the agent — kept out of the untagged remainder",
+    )
     _report = Report()
+    _vocab = statements.load()
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Fail before running anything if a test claims a statement that does not exist."""
+    if _vocab is None:
+        return
+    bad = {}
+    for item in items:
+        marker = item.get_closest_marker("discharges")
+        if marker is not None and (unknown := _vocab.unknown(marker.args)):
+            bad[item.nodeid.split("[", 1)[0]] = unknown
+    if bad:
+        detail = "\n".join(f"  {test}: {', '.join(ids)}" for test, ids in sorted(bad.items()))
+        raise pytest.UsageError(f"discharges names statements that do not exist:\n{detail}")
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -34,11 +75,19 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
     if result.when != "call" or _report is None:
         return
     marker = item.get_closest_marker("discharges")
-    if marker is None:
-        return
+    ids = tuple(marker.args) if marker is not None else ()
+    _outcomes.append(
+        amap.Outcome(
+            nodeid=item.nodeid,
+            ids=ids,
+            passed=result.passed,
+            tooling=item.get_closest_marker("tooling") is not None,
+        )
+    )
     scored = item.get_closest_marker("scored") is not None
-    for obligation_id in marker.args:
-        _report.record(obligation_id, item.nodeid, passed=result.passed, scored=scored)
+    for obligation_id in ids:
+        if statements.family(obligation_id) == "AAC":
+            _report.record(obligation_id, item.nodeid, passed=result.passed, scored=scored)
 
 
 @pytest.fixture(autouse=True)
@@ -63,3 +112,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config: pytest.Config)
     if _report is None or config.getoption("quiet", 0) > 1:
         return
     terminalreporter.write(_report.render())
+    if _vocab is not None and _outcomes:
+        built = amap.build(_outcomes, _vocab)
+        terminalreporter.write_line(amap.summary(built))
+        if config.getoption("assurance_map"):
+            amap.write(built, Path(__file__).resolve().parents[1] / "evals")
+            terminalreporter.write_line("assurance map written to evals/ASSURANCE-MAP.md")
