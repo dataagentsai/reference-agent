@@ -84,6 +84,14 @@ FIRES = [
 
 
 @pytest.mark.parametrize(("name", "facts", "rule_id"), FIRES, ids=[c[0] for c in FIRES])
+@pytest.mark.discharges(
+    "esc:loop-exhausted",
+    "esc:tool-unavailable",
+    "esc:repeated-intent",
+    "esc:second-refusal",
+    "esc:turns-exceeded",
+    "AAC-0043",
+)
 def test_what_earns_a_person(name: str, facts: t2.Facts, rule_id: str) -> None:
     matched = t2.evaluate(facts)
     assert matched is not None, name
@@ -101,12 +109,21 @@ QUIET = [
 
 
 @pytest.mark.parametrize(("name", "facts"), QUIET, ids=[c[0] for c in QUIET])
+@pytest.mark.discharges(
+    "esc:loop-exhausted",
+    "esc:tool-unavailable",
+    "esc:repeated-intent",
+    "esc:second-refusal",
+    "esc:turns-exceeded",
+    "AAC-0043",
+)
 def test_what_does_not(name: str, facts: t2.Facts) -> None:
     """The over-escalation half. A refusal is the agent working correctly, and
     one tool failure is a retry rather than an outage."""
     assert t2.evaluate(facts) is None, name
 
 
+@pytest.mark.discharges("esc:loop-exhausted", "esc:turns-exceeded")
 def test_the_most_diagnostic_rule_wins() -> None:
     """First match wins, so order in the rule set is versioned configuration.
 
@@ -119,6 +136,7 @@ def test_the_most_diagnostic_rule_wins() -> None:
     assert matched is not None and matched.id == "loop-exhausted"
 
 
+@pytest.mark.discharges("esc:loop-exhausted", "esc:turns-exceeded")
 def test_urgency_is_per_rule_not_per_escalation() -> None:
     """A stalled trajectory should not wait as long as a chatty conversation."""
     by_id = {r.id: r for r in t2.DEFAULT_RULES}
@@ -172,6 +190,7 @@ def agent_with(tools, *, escalations, llm=None) -> ep.Agent:
     )
 
 
+@pytest.mark.discharges("esc:second-refusal", "op:escalate", "AAC-0043")
 async def test_a_repeatedly_refused_customer_reaches_a_person(server) -> None:
     """Nobody asked for one. The agent refused twice, which is the agent working
     correctly *and* a sign that a person should decide."""
@@ -291,6 +310,7 @@ def test_the_remembered_history_is_bounded() -> None:
     assert conversation.turn_count == RECENT_TURNS + 30, "the real count survives the cap"
 
 
+@pytest.mark.discharges("esc:loop-exhausted", "AAC-0043")
 def test_the_termination_reason_reaches_the_facts() -> None:
     """R-011's fix, at the seam where it happens: the loop records why it stopped
     and a rule reads it, with neither knowing about the other."""

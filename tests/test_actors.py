@@ -79,6 +79,7 @@ WEAKEST_CASES = [
 @pytest.mark.parametrize(
     ("name", "classes", "expected"), WEAKEST_CASES, ids=[c[0] for c in WEAKEST_CASES]
 )
+@pytest.mark.tooling
 def test_a_run_is_as_reproducible_as_its_weakest_actor(
     name: str, classes: tuple, expected: Determinism
 ) -> None:
@@ -86,6 +87,7 @@ def test_a_run_is_as_reproducible_as_its_weakest_actor(
     assert weakest(*classes) is expected
 
 
+@pytest.mark.tooling
 def test_a_model_driven_actor_refuses_to_be_built_casually() -> None:
     """It trades replay for realism. The seam is declared so the cost is
     visible; building it by accident is how a regression suite stops being one."""
@@ -98,6 +100,7 @@ def test_a_model_driven_actor_refuses_to_be_built_casually() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.tooling
 async def test_the_actor_branches_on_what_the_agent_actually_said() -> None:
     """The whole reason for the class. The path taken depends on the agent's
     behaviour rather than on a plan made before the run."""
@@ -132,6 +135,7 @@ async def test_the_actor_branches_on_what_the_agent_actually_said() -> None:
     assert other.path == ["opening", "pushed back"]
 
 
+@pytest.mark.tooling
 def test_a_scripted_actor_cannot_tell_a_good_agent_from_a_deaf_one() -> None:
     """Stated as a test because it is the limitation that motivates the class
     above: the same transcript comes back either way."""
@@ -141,6 +145,7 @@ def test_a_scripted_actor_cannot_tell_a_good_agent_from_a_deaf_one() -> None:
     assert good.next("A helpful, correct reply.") == deaf.next("Banana.")
 
 
+@pytest.mark.tooling
 def test_an_actor_stops_rather_than_running_forever() -> None:
     """An actor that never stops is a scenario that never ends, and a suite that
     hangs is a suite nobody runs."""
@@ -187,7 +192,7 @@ async def test_a_scenario_asserts_on_the_world_and_records_its_class() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0047", "AAC-0056")
+@pytest.mark.discharges("AAC-0056", "P-CANCEL", "op:cancel_order", "AAC-0110")
 async def test_a_persistent_customer_cannot_get_the_same_effect_three_times() -> None:
     """Idempotency keys are `run + step + iteration`, and **every conversational
     turn is a new run**. A customer who asks three times is three runs and three

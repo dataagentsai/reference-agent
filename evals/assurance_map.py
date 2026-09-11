@@ -16,6 +16,11 @@ untagged suite look tagged.
 the golden-set generator, the conformance report itself. Those are listed, and
 kept out of the untagged remainder, because they are not features a regenerated
 agent would need.
+
+`@pytest.mark.unwired` marks a test of a component the agent **does not call** —
+it exists, it passes, and the running system never reaches it. Its ids are
+listed in their own section and **not** counted as exercised: a statement
+verified only on dead code is a statement the agent does not meet.
 """
 
 from __future__ import annotations
@@ -34,6 +39,7 @@ class Outcome:
     ids: tuple[str, ...]
     passed: bool
     tooling: bool
+    unwired: bool = False
 
     @property
     def function(self) -> str:
@@ -43,20 +49,28 @@ class Outcome:
 def build(outcomes: list[Outcome], vocab: Vocabulary) -> dict:
     functions: dict[str, dict] = {}
     for o in outcomes:
-        f = functions.setdefault(o.function, {"ids": set(), "passed": True, "tooling": False})
+        f = functions.setdefault(
+            o.function, {"ids": set(), "passed": True, "tooling": False, "unwired": False}
+        )
         f["ids"] |= set(o.ids)
         f["passed"] &= o.passed
         f["tooling"] |= o.tooling
+        f["unwired"] |= o.unwired
 
     by_statement: dict[str, dict[str, list[str]]] = defaultdict(
         lambda: {"passed": [], "failed": []}
     )
     for name, f in functions.items():
+        if f["unwired"]:
+            continue
         for sid in f["ids"]:
             by_statement[sid]["passed" if f["passed"] else "failed"].append(name)
 
-    untagged = sorted(n for n, f in functions.items() if not f["ids"] and not f["tooling"])
+    untagged = sorted(
+        n for n, f in functions.items() if not f["ids"] and not f["tooling"] and not f["unwired"]
+    )
     tooling = sorted(n for n, f in functions.items() if f["tooling"])
+    unwired = {n: sorted(f["ids"]) for n, f in sorted(functions.items()) if f["unwired"]}
 
     families = {}
     for fam in FAMILIES:
@@ -75,8 +89,9 @@ def build(outcomes: list[Outcome], vocab: Vocabulary) -> dict:
     return {
         "generated_from": "the test suite's discharges markers — do not edit",
         "functions": len(functions),
-        "tagged": sum(1 for f in functions.values() if f["ids"]),
+        "tagged": sum(1 for f in functions.values() if f["ids"] and not f["unwired"]),
         "tooling": tooling,
+        "unwired": unwired,
         "untagged": untagged,
         "families": families,
         "unchecked_families": vocab.unchecked,
@@ -87,7 +102,8 @@ def build(outcomes: list[Outcome], vocab: Vocabulary) -> dict:
 def summary(m: dict) -> str:
     parts = [
         f"assurance map: {m['tagged']}/{m['functions']} test functions tagged, "
-        f"{len(m['untagged'])} untagged, {len(m['tooling'])} tooling"
+        f"{len(m['untagged'])} untagged, {len(m['tooling'])} tooling, "
+        f"{len(m['unwired'])} unwired"
     ]
     for fam, f in m["families"].items():
         parts.append(f"{fam} {f['exercised']}/{f['owed']}")
@@ -129,6 +145,18 @@ def render(m: dict) -> str:
         by_file[path].append(fn)
     for path, fns in sorted(by_file.items()):
         lines.append(f"- `{path}` — {len(fns)}: " + ", ".join(f"`{f}`" for f in fns))
+
+    if m["unwired"]:
+        lines += [
+            "",
+            "## Tested, but not wired into the agent",
+            "",
+            "The component exists and passes; nothing in the running system calls it. These",
+            "ids are **not** counted above — the agent does not meet them yet.",
+            "",
+        ]
+        for name, ids in m["unwired"].items():
+            lines.append(f"- `{name}` — {', '.join(f'`{i}`' for i in ids)}")
 
     lines += ["", "## Statements no test names", ""]
     for fam, f in m["families"].items():

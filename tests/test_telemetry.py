@@ -68,6 +68,7 @@ def test_payload_capture_is_off_by_default(exporter) -> None:
     assert "prompt" not in attrs
 
 
+@pytest.mark.discharges("AAC-0095", "AAC-0006", "AHC-0019")
 def test_payload_capture_redacts_when_enabled() -> None:
     ex = tel.configure(capture_payloads=True)
     with tel.span("gen_ai.chat") as s:
@@ -83,7 +84,7 @@ def test_payload_capture_redacts_when_enabled() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0011")
+@pytest.mark.tooling
 def test_span_carries_the_attributes_a_verdict_needs(exporter) -> None:
     with tel.span(
         "gen_ai.chat",
@@ -103,7 +104,7 @@ def test_span_carries_the_attributes_a_verdict_needs(exporter) -> None:
     assert attrs[tel.CONFIG_FINGERPRINT] == "deadbeefdeadbeef"
 
 
-@pytest.mark.discharges("AAC-0060")
+@pytest.mark.tooling
 def test_trajectory_is_reconstructable_from_the_trace(exporter) -> None:
     """AAC-0060 — the full trajectory is reconstructable. Ordering and step
     count are assertable without reading a word of the transcript."""
@@ -123,6 +124,7 @@ def test_trajectory_is_reconstructable_from_the_trace(exporter) -> None:
     assert all(tel.attributes_of(s)[tel.GEN_AI_TOOL_NAME] == "get_order" for s in tools)
 
 
+@pytest.mark.discharges("B8", "B11")
 def test_errors_are_recorded_and_still_raised(exporter) -> None:
     """Observability never changes control flow."""
     with pytest.raises(ValueError, match="boom"), tel.span("agent.step"):

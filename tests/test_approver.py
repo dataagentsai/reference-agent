@@ -110,6 +110,7 @@ def _flatten(error: BaseException) -> str:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0057", "P-REFUND", "op:issue_refund")
 async def test_a_granted_refund_executes_against_a_projected_world() -> None:
     """**F-013, fixed.** It used to crash here.
 
@@ -133,6 +134,7 @@ async def test_a_granted_refund_executes_against_a_projected_world() -> None:
     assert world.get("order", ORDER)["status"] == "refunded"
 
 
+@pytest.mark.discharges("AHC-0037")
 async def test_a_refund_the_world_cannot_take_fails_with_something_readable() -> None:
     """The other half of the fix, and the reason it raises rather than guesses.
 
@@ -151,6 +153,7 @@ async def test_a_refund_the_world_cannot_take_fails_with_something_readable() ->
         _bind(Spec(), {"reference": "AB-1", "amount": "24000"})
 
 
+@pytest.mark.discharges("AHC-0057")
 async def test_a_reviewer_who_denies_produces_no_refund() -> None:
     """The customer must be told something true — and the world must not move."""
     approver = Approver.denies(store(), ap.decide)
@@ -160,6 +163,7 @@ async def test_a_reviewer_who_denies_produces_no_refund() -> None:
     assert world.effects == [], "a denial that still refunded would be the worst outcome"
 
 
+@pytest.mark.discharges("AHC-0057", "ext:approval_queue")
 async def test_a_reviewer_who_walks_away_leaves_it_pending_forever() -> None:
     """The common case in any real operations queue, and the one never tested.
 
@@ -175,6 +179,7 @@ async def test_a_reviewer_who_walks_away_leaves_it_pending_forever() -> None:
     assert await approver.store.pending(), "still queued, and nobody is alerted"
 
 
+@pytest.mark.discharges("AHC-0057", "AAC-0078")
 async def test_a_reviewer_who_answers_after_the_window_is_refused() -> None:
     """The third outcome, distinct from yes and no.
 
@@ -192,6 +197,7 @@ async def test_a_reviewer_who_answers_after_the_window_is_refused() -> None:
     assert world.effects == []
 
 
+@pytest.mark.discharges("AHC-0057", "AAC-0056")
 async def test_a_reviewer_cannot_approve_their_own_customer_s_request() -> None:
     """The confused deputy of the human path, driven by an actor rather than a
     direct call — a reviewer whose account *is* the customer's."""
@@ -209,6 +215,7 @@ async def test_a_reviewer_cannot_approve_their_own_customer_s_request() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0057", "ext:approval_queue")
 async def test_a_slow_reviewer_is_still_waiting_when_the_customer_follows_up() -> None:
     """An hour per turn, a reviewer who takes three. The customer asks twice and
     both times there is genuinely nothing to tell them."""
@@ -219,6 +226,7 @@ async def test_a_slow_reviewer_is_still_waiting_when_the_customer_follows_up() -
     assert world.effects == []
 
 
+@pytest.mark.tooling
 def test_the_reviewer_is_a_declared_actor() -> None:
     """It has a determinism class like any other actor, because a run is only as
     reproducible as its weakest participant."""
@@ -226,6 +234,7 @@ def test_the_reviewer_is_a_declared_actor() -> None:
     assert approver.determinism.value == "scripted"
 
 
+@pytest.mark.tooling
 async def test_reviewing_an_empty_queue_is_silent() -> None:
     approver = Approver.grants(store(), ap.decide)
     assert await approver.review(at=1) == ()

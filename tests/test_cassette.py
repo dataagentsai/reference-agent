@@ -128,6 +128,7 @@ async def test_recording_does_not_change_behaviour() -> None:
     assert len(recorder.cassette) == 2
 
 
+@pytest.mark.discharges("AHC-0022")
 def test_a_recorder_satisfies_the_client_protocol() -> None:
     assert isinstance(Recorder(ScriptedClient([])), LLMClient)
     assert isinstance(Player(Cassette()), LLMClient)
@@ -138,6 +139,7 @@ def test_a_recorder_satisfies_the_client_protocol() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("B5")
 async def test_a_player_cannot_reach_a_provider_even_on_a_miss() -> None:
     """No fallback client exists on `Player`, so "this suite makes no calls" is a
     property of the type rather than a promise in a docstring."""
@@ -147,7 +149,6 @@ async def test_a_player_cannot_reach_a_provider_even_on_a_miss() -> None:
     assert not hasattr(player, "_inner")
 
 
-@pytest.mark.discharges("AAC-0016")
 async def test_a_changed_request_is_a_mismatch_not_a_silent_pass() -> None:
     """The drift a regression case exists to catch."""
     recorder = Recorder(ScriptedClient([says("recorded")]))
@@ -200,6 +201,7 @@ def test_a_cassette_miss_is_not_a_provider_outage() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.tooling
 async def test_a_cassette_round_trips_through_a_file(tmp_path) -> None:
     recorder = Recorder(
         ScriptedClient(
@@ -226,6 +228,7 @@ async def test_a_cassette_round_trips_through_a_file(tmp_path) -> None:
     assert loaded.exchanges[1].response.usage.input_tokens == 7
 
 
+@pytest.mark.tooling
 def test_an_unknown_format_is_refused_rather_than_reinterpreted(tmp_path) -> None:
     path = tmp_path / "old.json"
     path.write_text('{"format": 99, "exchanges": []}')
@@ -233,6 +236,7 @@ def test_an_unknown_format_is_refused_rather_than_reinterpreted(tmp_path) -> Non
         Cassette.load(path)
 
 
+@pytest.mark.tooling
 def test_the_format_version_is_pinned() -> None:
     """1 → 2 when a cassette gained the configuration it was recorded under
     (AAC-0096). Bumped deliberately: a version-1 file has no context, so loading
@@ -246,7 +250,7 @@ def test_the_format_version_is_pinned() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0059", "AAC-0010")
+@pytest.mark.discharges("AAC-0059", "AHC-0022")
 async def test_a_whole_run_replays_from_disk_with_no_network(server, tmp_path) -> None:
     scripted = ScriptedClient(
         [
@@ -290,7 +294,7 @@ async def test_a_whole_run_replays_from_disk_with_no_network(server, tmp_path) -
     assert player.exhausted
 
 
-@pytest.mark.discharges("AAC-0100")
+@pytest.mark.discharges("AAC-0100", "AHC-0027")
 async def test_replay_is_visible_on_the_trace(server, exporter, tmp_path) -> None:
     """A verdict is not interpretable without knowing which world produced it."""
     recorder = Recorder(ScriptedClient([says("hi")]))

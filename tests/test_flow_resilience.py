@@ -75,6 +75,8 @@ def test_a_zero_limit_is_refused() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0021")
+@pytest.mark.unwired
 def test_the_provider_instruction_is_used_rather_than_a_guess() -> None:
     throttle = flw.Throttle()
     throttle.note_retry_after(2.5, now=100.0)
@@ -82,6 +84,8 @@ def test_the_provider_instruction_is_used_rather_than_a_guess() -> None:
     assert throttle.delay(now=103.0) == 0
 
 
+@pytest.mark.discharges("AHC-0021")
+@pytest.mark.unwired
 def test_the_longest_instruction_wins() -> None:
     """One caller learning of a five-second limit must not be overwritten by
     another that only heard one second."""
@@ -99,6 +103,8 @@ RETRY_AFTER_CASES = [
 ]
 
 
+@pytest.mark.discharges("AHC-0021")
+@pytest.mark.unwired
 @pytest.mark.parametrize(
     ("name", "headers", "expected"), RETRY_AFTER_CASES, ids=[c[0] for c in RETRY_AFTER_CASES]
 )
@@ -117,6 +123,8 @@ def test_reading_retry_after(name: str, headers: dict, expected: float | None) -
     assert flw.retry_after_of(Error(headers)) == expected
 
 
+@pytest.mark.discharges("AHC-0021")
+@pytest.mark.unwired
 def test_an_error_with_no_response_yields_nothing() -> None:
     assert flw.retry_after_of(RuntimeError("plain")) is None
 
@@ -126,7 +134,8 @@ def test_an_error_with_no_response_yields_nothing() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0009")
+@pytest.mark.discharges("AAC-0009", "AHC-0024")
+@pytest.mark.unwired
 async def test_a_transient_failure_succeeds_on_a_later_attempt() -> None:
     calls: list[int] = []
 
@@ -140,6 +149,8 @@ async def test_a_transient_failure_succeeds_on_a_later_attempt() -> None:
     assert len(calls) == 3
 
 
+@pytest.mark.discharges("AHC-0005")
+@pytest.mark.unwired
 async def test_a_non_retryable_error_is_not_retried() -> None:
     calls: list[int] = []
 
@@ -152,6 +163,8 @@ async def test_a_non_retryable_error_is_not_retried() -> None:
     assert len(calls) == 1
 
 
+@pytest.mark.discharges("AHC-0005", "B11")
+@pytest.mark.unwired
 async def test_giving_up_re_raises_the_last_error() -> None:
     """A helper that swallows the final error leaves the caller unable to tell
     "it worked" from "we stopped asking"."""
@@ -167,11 +180,15 @@ async def _no_sleep(_: float) -> None:
     return None
 
 
+@pytest.mark.discharges("AHC-0024", "AHC-0021")
+@pytest.mark.unwired
 def test_backoff_grows_and_is_capped() -> None:
     policy = res.Backoff(base_s=1.0, factor=2.0, max_s=4.0, jitter=0.0)
     assert [policy.delay(i, rand=lambda: 0.5) for i in range(5)] == [1.0, 2.0, 4.0, 4.0, 4.0]
 
 
+@pytest.mark.discharges("AHC-0021")
+@pytest.mark.unwired
 def test_jitter_spreads_the_herd() -> None:
     """Without it, every client that failed at the same moment retries at the
     same moment and knocks over the dependency that was recovering."""
@@ -184,6 +201,8 @@ def test_jitter_spreads_the_herd() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0005")
+@pytest.mark.unwired
 def test_the_breaker_opens_after_the_threshold() -> None:
     breaker = res.CircuitBreaker(threshold=3, now=lambda: 0.0)
     for _ in range(2):
@@ -193,6 +212,8 @@ def test_the_breaker_opens_after_the_threshold() -> None:
     assert not breaker.closed
 
 
+@pytest.mark.discharges("AHC-0005")
+@pytest.mark.unwired
 def test_one_probe_is_let_through_after_the_cooldown() -> None:
     """Several would re-open the breaker on a dependency that is only half
     recovered."""
@@ -204,6 +225,8 @@ def test_one_probe_is_let_through_after_the_cooldown() -> None:
     assert breaker.state is res.BreakerState.HALF_OPEN
 
 
+@pytest.mark.discharges("AHC-0005")
+@pytest.mark.unwired
 async def test_an_open_breaker_fails_fast_instead_of_calling() -> None:
     called: list[int] = []
 
@@ -218,6 +241,8 @@ async def test_an_open_breaker_fails_fast_instead_of_calling() -> None:
     assert called == []
 
 
+@pytest.mark.discharges("AHC-0005")
+@pytest.mark.unwired
 async def test_a_success_closes_the_breaker_again() -> None:
     breaker = res.CircuitBreaker(threshold=2, now=lambda: 0.0)
     breaker.record_failure()
@@ -242,6 +267,7 @@ COMPENSABLE = [
 
 
 @pytest.mark.parametrize(("name", "action", "undo"), COMPENSABLE, ids=[c[0] for c in COMPENSABLE])
+@pytest.mark.discharges("AHC-0058")
 def test_declared_compensations(name: str, action: str, undo: str) -> None:
     assert res.compensation_for(action).undo_action == undo
 
@@ -253,6 +279,7 @@ def test_an_undeclared_action_raises_rather_than_returning_none() -> None:
         res.compensation_for("dispatch_replacement")
 
 
+@pytest.mark.discharges("AHC-0058")
 def test_compensation_is_not_the_same_thing_as_idempotency() -> None:
     """A perfectly deduplicated refund that should never have been issued is
     still a refund that has to be reversed."""
@@ -322,7 +349,6 @@ async def test_parallel_reads_interleave(server) -> None:
     assert events[:3] == [("start", "A-1"), ("start", "A-2"), ("start", "A-3")]
 
 
-@pytest.mark.discharges("AAC-0046")
 async def test_writes_run_one_at_a_time_in_the_order_asked(server) -> None:
     """A write that fails halfway through a parallel batch costs a
     reconciliation in an order that depended on scheduling."""

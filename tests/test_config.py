@@ -26,7 +26,7 @@ MODEL_CASES = [
 
 
 @pytest.mark.parametrize(("name", "model", "allowed"), MODEL_CASES, ids=[c[0] for c in MODEL_CASES])
-@pytest.mark.discharges("AAC-0094")
+@pytest.mark.discharges("AAC-0094", "Q-MODEL")
 def test_model_allowlist(name: str, model: str, allowed: bool) -> None:
     if allowed:
         assert resolve(settings(model=model)).model == model
@@ -83,7 +83,7 @@ FINGERPRINT_CASES = [
     FINGERPRINT_CASES,
     ids=[c[0] for c in FINGERPRINT_CASES],
 )
-@pytest.mark.discharges("AAC-0012", "AAC-0107")
+@pytest.mark.discharges("AAC-0012", "AAC-0107", "AHC-0003")
 def test_fingerprint_tracks_behaviour_not_secrets(
     name: str, override: dict[str, object], should_change: bool
 ) -> None:
@@ -92,7 +92,7 @@ def test_fingerprint_tracks_behaviour_not_secrets(
     assert (baseline != changed) is should_change
 
 
-@pytest.mark.discharges("AAC-0012")
+@pytest.mark.discharges("AAC-0012", "AHC-0003")
 def test_fingerprint_is_stable_across_identical_resolutions() -> None:
     assert resolve(settings()).fingerprint == resolve(settings()).fingerprint
 

@@ -72,7 +72,7 @@ def says(text: str, *, model: str = "") -> ModelResponse:
         ),
     ],
 )
-@pytest.mark.discharges("AAC-0096")
+@pytest.mark.discharges("AHC-0023")
 def test_a_recording_refuses_a_foreign_configuration(
     why: str, recorded: Context, replaying: Context
 ) -> None:
@@ -82,7 +82,7 @@ def test_a_recording_refuses_a_foreign_configuration(
         Player(cassette, expect=replaying)
 
 
-@pytest.mark.discharges("AAC-0096")
+@pytest.mark.discharges("AHC-0023")
 def test_a_recording_refuses_a_replay_that_declares_nothing() -> None:
     """Fails closed in the other direction too.
 
@@ -95,6 +95,7 @@ def test_a_recording_refuses_a_replay_that_declares_nothing() -> None:
         Player(cassette)
 
 
+@pytest.mark.discharges("AHC-0022", "AHC-0023")
 def test_the_matching_configuration_replays() -> None:
     cassette = Cassette([Exchange("fp", says("recorded"))], context=STRONG)
     assert isinstance(Player(cassette, expect=STRONG), LLMClient)
@@ -109,7 +110,7 @@ def test_the_refusal_is_still_a_cassette_miss() -> None:
     assert issubclass(TrustBoundaryCrossed, CassetteMiss)
 
 
-@pytest.mark.discharges("AAC-0096")
+@pytest.mark.discharges("AHC-0023")
 async def test_a_recorder_refuses_a_context_the_provider_contradicts() -> None:
     """A declared context the provider disagrees with is worse than none.
 
@@ -122,7 +123,7 @@ async def test_a_recorder_refuses_a_context_the_provider_contradicts() -> None:
         await recorder.complete(_request())
 
 
-@pytest.mark.discharges("AAC-0096")
+@pytest.mark.discharges("AHC-0023")
 def test_the_committed_recording_declares_what_made_it() -> None:
     """The real cassette from the first live call, migrated to format 2.
 
@@ -175,7 +176,7 @@ def test_no_client_can_emit_before_the_reply_is_complete(client: type) -> None:
     )
 
 
-@pytest.mark.discharges("AAC-0092")
+@pytest.mark.discharges("AAC-0092", "AAC-0110", "AHC-0094")
 async def test_policy_screens_the_whole_reply_and_can_still_block_it() -> None:
     """The invariant underneath the obligation, not just the absence of streaming.
 

@@ -125,6 +125,7 @@ def test_the_meter_resolves_its_price_at_construction() -> None:
         Meter("nonexistent", ceiling_usd=1.0)
 
 
+@pytest.mark.discharges("AHC-0030")
 def test_exceeded_and_remaining() -> None:
     meter = Meter("m", ceiling_usd="1.00", prices=FLAT)
     meter.record(Usage(input_tokens=600_000))
@@ -160,7 +161,7 @@ def test_cost_per_successful_task(name: str, successes: int, expected: Decimal |
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0093")
+@pytest.mark.discharges("AAC-0093", "AHC-0030", "AHC-0041")
 async def test_the_ceiling_stops_the_run(server) -> None:
     meter = Meter(MODEL, ceiling_usd="0.60")
     async with connect(server, ledger=InMemoryLedger()) as tools:
@@ -177,6 +178,7 @@ async def test_the_ceiling_stops_the_run(server) -> None:
     assert trace.steps < 10
 
 
+@pytest.mark.discharges("AHC-0030")
 async def test_a_run_inside_its_budget_is_untouched(server) -> None:
     meter = Meter(MODEL, ceiling_usd="100.00")
     async with connect(server, ledger=InMemoryLedger()) as tools:
@@ -192,6 +194,7 @@ async def test_a_run_inside_its_budget_is_untouched(server) -> None:
     assert trace.spend_usd > 0
 
 
+@pytest.mark.discharges("AHC-0030")
 async def test_a_single_call_may_overshoot_the_ceiling(server) -> None:
     """Stated rather than hidden. The ceiling is checked between calls because
     you cannot un-spend one; `max_output_tokens` is the per-call backstop."""
@@ -209,7 +212,7 @@ async def test_a_single_call_may_overshoot_the_ceiling(server) -> None:
     assert trace.termination is TerminationReason.COST_CEILING_REACHED
 
 
-@pytest.mark.discharges("AAC-0104")
+@pytest.mark.discharges("AAC-0104", "AHC-0007")
 async def test_spend_and_tenant_are_on_the_trace(server, exporter) -> None:
     """AAC-0104 — spend attributable to tenant, feature and route."""
     meter = Meter(MODEL, ceiling_usd="100.00")

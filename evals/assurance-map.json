@@ -1,13 +1,8 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 399,
-  "tagged": 91,
+  "functions": 400,
+  "tagged": 195,
   "tooling": [
-    "tests/test_assurance_map.py::test_an_id_is_placed_by_its_shape",
-    "tests/test_assurance_map.py::test_an_unknown_statement_is_refused",
-    "tests/test_assurance_map.py::test_the_unit_is_the_function_and_the_remainders_are_both_directions"
-  ],
-  "untagged": [
     "tests/test_actors.py::test_a_model_driven_actor_refuses_to_be_built_casually",
     "tests/test_actors.py::test_a_run_is_as_reproducible_as_its_weakest_actor",
     "tests/test_actors.py::test_a_scripted_actor_cannot_tell_a_good_agent_from_a_deaf_one",
@@ -17,59 +12,23 @@
     "tests/test_agenttwin.py::test_a_second_world_generates_its_own_cases_with_no_code_change",
     "tests/test_agenttwin.py::test_a_world_declares_what_it_is_not_faithful_about",
     "tests/test_agenttwin.py::test_an_incoherent_world_is_refused_at_load",
-    "tests/test_agenttwin.py::test_an_unknown_record_is_not_a_refusal",
     "tests/test_agenttwin.py::test_an_untouched_world_diffs_to_nothing",
     "tests/test_agenttwin.py::test_projected_tools_satisfy_the_agent_s_own_registry_rules",
     "tests/test_agenttwin.py::test_the_declared_world_loads_and_states_its_ontology",
     "tests/test_agenttwin.py::test_the_diff_names_exactly_what_moved",
-    "tests/test_agenttwin.py::test_the_projected_surface_is_still_scope_gated",
     "tests/test_agenttwin.py::test_the_run_record_states_its_determinism_class",
     "tests/test_agenttwin.py::test_the_second_world_also_widened_cancellation",
     "tests/test_agenttwin.py::test_the_second_world_projects_and_enforces_its_own_policy",
-    "tests/test_approvals.py::test_a_decision_is_terminal",
-    "tests/test_approvals.py::test_a_live_grant_mints_the_scope",
-    "tests/test_approvals.py::test_a_pending_approval_short_circuits_the_next_turn",
-    "tests/test_approvals.py::test_a_refused_approval_is_reported_and_nothing_is_refunded",
-    "tests/test_approvals.py::test_a_refused_approval_never_reaches_the_tool",
-    "tests/test_approvals.py::test_an_agent_without_an_approval_store_cannot_refund_at_all",
-    "tests/test_approvals.py::test_an_approval_cannot_elevate_a_different_customer",
-    "tests/test_approvals.py::test_an_expired_request_cannot_be_decided",
-    "tests/test_approvals.py::test_deciding_an_unknown_approval_is_an_error",
-    "tests/test_approvals.py::test_only_refunds_are_gated",
-    "tests/test_approvals.py::test_the_decision_is_on_the_trace",
-    "tests/test_approvals.py::test_the_original_key_survives_the_wait",
-    "tests/test_approvals.py::test_the_queue_shows_only_undecided_items",
-    "tests/test_approvals.py::test_which_refunds_need_a_human",
-    "tests/test_approver.py::test_a_granted_refund_executes_against_a_projected_world",
-    "tests/test_approver.py::test_a_refund_the_world_cannot_take_fails_with_something_readable",
-    "tests/test_approver.py::test_a_reviewer_cannot_approve_their_own_customer_s_request",
-    "tests/test_approver.py::test_a_reviewer_who_answers_after_the_window_is_refused",
-    "tests/test_approver.py::test_a_reviewer_who_denies_produces_no_refund",
-    "tests/test_approver.py::test_a_reviewer_who_walks_away_leaves_it_pending_forever",
-    "tests/test_approver.py::test_a_slow_reviewer_is_still_waiting_when_the_customer_follows_up",
     "tests/test_approver.py::test_reviewing_an_empty_queue_is_silent",
     "tests/test_approver.py::test_the_reviewer_is_a_declared_actor",
+    "tests/test_assurance_map.py::test_a_statement_verified_only_on_dead_code_is_not_met",
+    "tests/test_assurance_map.py::test_an_id_is_placed_by_its_shape",
+    "tests/test_assurance_map.py::test_an_unknown_statement_is_refused",
+    "tests/test_assurance_map.py::test_the_unit_is_the_function_and_the_remainders_are_both_directions",
     "tests/test_break_it.py::test_a_scenario_whose_fault_never_fired_is_reported",
-    "tests/test_break_it.py::test_a_slow_call_still_completes",
-    "tests/test_break_it.py::test_the_fence_survives_arbitrary_tool_output",
-    "tests/test_break_it.py::test_the_policy_covers_every_irreversible_action_not_just_refunds",
-    "tests/test_break_it.py::test_the_router_never_takes_a_direct_action_on_arbitrary_text",
-    "tests/test_break_it.py::test_trimming_keeps_the_ends",
-    "tests/test_cassette.py::test_a_cassette_miss_is_not_a_provider_outage",
     "tests/test_cassette.py::test_a_cassette_round_trips_through_a_file",
-    "tests/test_cassette.py::test_a_player_cannot_reach_a_provider_even_on_a_miss",
-    "tests/test_cassette.py::test_a_recorder_satisfies_the_client_protocol",
-    "tests/test_cassette.py::test_a_run_longer_than_its_recording_is_a_miss",
-    "tests/test_cassette.py::test_adding_a_tool_does_invalidate_a_cassette",
     "tests/test_cassette.py::test_an_unknown_format_is_refused_rather_than_reinterpreted",
-    "tests/test_cassette.py::test_by_request_matching_tolerates_reordering",
-    "tests/test_cassette.py::test_fingerprint_identity",
-    "tests/test_cassette.py::test_ordered_matching_does_not_tolerate_reordering",
-    "tests/test_cassette.py::test_recording_does_not_change_behaviour",
-    "tests/test_cassette.py::test_rewording_a_tool_description_does_not_invalidate_a_cassette",
     "tests/test_cassette.py::test_the_format_version_is_pinned",
-    "tests/test_config.py::test_sealed_mode_fails_closed",
-    "tests/test_config.py::test_swapping_the_tool_endpoint_is_the_only_change_agenttwin_makes",
     "tests/test_conformance.py::test_an_id_that_exists_nowhere_is_a_defect_in_the_test",
     "tests/test_conformance.py::test_an_obligation_from_another_archetype_is_a_tagging_gap_not_a_mistake",
     "tests/test_conformance.py::test_an_uncovered_release_gate_is_called_out_separately",
@@ -80,93 +39,6 @@
     "tests/test_conformance.py::test_the_manifest_carries_ids_but_not_normative_text",
     "tests/test_conformance.py::test_the_manifest_holds_every_a6_obligation",
     "tests/test_conformance.py::test_the_rendered_report_names_what_it_did_not_cover",
-    "tests/test_context_budget.py::test_a_call_with_room_reports_no_trimming",
-    "tests/test_context_budget.py::test_a_long_conversation_stops_growing",
-    "tests/test_context_budget.py::test_a_tool_call_is_never_separated_from_its_answer",
-    "tests/test_context_budget.py::test_an_already_broken_history_is_refused_rather_than_stored",
-    "tests/test_context_budget.py::test_assemble_still_returns_only_the_transcript",
-    "tests/test_context_budget.py::test_bounding_does_not_touch_what_rules_read",
-    "tests/test_context_budget.py::test_how_much_survives",
-    "tests/test_context_budget.py::test_the_assembly_reports_what_it_cost",
-    "tests/test_context_budget.py::test_the_caller_holds_what_the_store_holds",
-    "tests/test_context_budget.py::test_the_ends_are_what_survive",
-    "tests/test_context_budget.py::test_the_step_span_carries_how_full_the_call_was",
-    "tests/test_context_budget.py::test_the_turn_span_carries_what_was_actually_stored",
-    "tests/test_contracts.py::test_failure_separates_customer_message_from_operator_detail",
-    "tests/test_contracts.py::test_idempotency_key_is_stable_across_construction",
-    "tests/test_contracts.py::test_identity_token_is_not_in_its_repr",
-    "tests/test_contracts.py::test_needs_approval_does_not_block_and_says_why",
-    "tests/test_contracts.py::test_only_the_agentic_route_reaches_the_model",
-    "tests/test_contracts.py::test_registry_isolates_the_irreversible_surface",
-    "tests/test_contracts.py::test_route_round_trips_through_its_discriminator",
-    "tests/test_contracts.py::test_side_effect_class_decides_idempotency",
-    "tests/test_cost.py::test_a_run_inside_its_budget_is_untouched",
-    "tests/test_cost.py::test_a_single_call_may_overshoot_the_ceiling",
-    "tests/test_cost.py::test_an_unknown_model_raises_rather_than_pricing_at_zero",
-    "tests/test_cost.py::test_cached_input_falls_back_to_the_input_rate",
-    "tests/test_cost.py::test_cached_input_is_billed_at_its_own_rate_where_one_exists",
-    "tests/test_cost.py::test_cost_of_a_call",
-    "tests/test_cost.py::test_every_approved_model_has_a_price",
-    "tests/test_cost.py::test_exceeded_and_remaining",
-    "tests/test_cost.py::test_money_is_decimal_not_float",
-    "tests/test_cost.py::test_the_default_price_map_is_dated_and_flagged",
-    "tests/test_cost.py::test_the_meter_resolves_its_price_at_construction",
-    "tests/test_desk.py::test_a_desk_cannot_close_its_own_customers_escalation",
-    "tests/test_desk.py::test_a_frustrated_customer_is_never_escalated_today",
-    "tests/test_desk.py::test_a_handled_escalation_returns_the_customer_to_the_agent",
-    "tests/test_desk.py::test_nobody_comes_and_the_queue_says_so",
-    "tests/test_desk.py::test_the_clock_drives_expiry_rather_than_a_rewritten_row",
-    "tests/test_desk.py::test_the_over_escalation_label_reaches_the_row",
-    "tests/test_desk.py::test_what_each_desk_leaves_behind",
-    "tests/test_entrypoint_state.py::test_a_direct_route_answers_without_the_model",
-    "tests/test_entrypoint_state.py::test_a_file_checkpoint_survives_a_new_store_instance",
-    "tests/test_entrypoint_state.py::test_a_truncated_checkpoint_is_refused_rather_than_resumed",
-    "tests/test_entrypoint_state.py::test_a_turn_is_checkpointed",
-    "tests/test_entrypoint_state.py::test_an_ambiguous_turn_reaches_the_loop",
-    "tests/test_entrypoint_state.py::test_each_store_declares_its_durability",
-    "tests/test_entrypoint_state.py::test_history_carries_into_the_next_turn",
-    "tests/test_entrypoint_state.py::test_refusal_and_escalation_never_call_the_model",
-    "tests/test_entrypoint_state.py::test_resuming_an_unknown_run_is_none_not_an_error",
-    "tests/test_entrypoint_state.py::test_the_turn_is_recorded_on_the_conversation",
-    "tests/test_escalation.py::test_a_conversation_carries_the_flag_across_encoding",
-    "tests/test_escalation.py::test_a_request_for_a_person_escalates",
-    "tests/test_escalation.py::test_a_resolved_escalation_hands_the_conversation_back",
-    "tests/test_escalation.py::test_an_escalation_writes_a_record_and_names_it",
-    "tests/test_escalation.py::test_escalation_still_never_reaches_the_model",
-    "tests/test_escalation.py::test_naming_a_person_is_not_asking_for_one",
-    "tests/test_escalation.py::test_nobody_came_so_the_conversation_is_handed_back",
-    "tests/test_escalation.py::test_sweeping_twice_lapses_nothing_the_second_time",
-    "tests/test_escalation.py::test_the_agent_does_not_answer_over_a_live_handoff",
-    "tests/test_escalation.py::test_the_escalated_result_still_round_trips_the_union",
-    "tests/test_escalation.py::test_the_estimate_comes_from_depth_and_throughput",
-    "tests/test_escalation.py::test_the_expected_spans_are_emitted",
-    "tests/test_escalation.py::test_the_policy_rule_still_fires_without_anyone_asking",
-    "tests/test_escalation.py::test_the_raise_span_carries_the_rule_it_fired",
-    "tests/test_escalation.py::test_the_reply_says_only_what_the_queue_supports",
-    "tests/test_escalation.py::test_the_router_carries_the_rule_id_into_the_decision",
-    "tests/test_escalation.py::test_the_sweeper_lapses_what_nobody_came_for",
-    "tests/test_escalation.py::test_without_a_store_it_promises_no_reference",
-    "tests/test_flow_resilience.py::test_a_non_retryable_error_is_not_retried",
-    "tests/test_flow_resilience.py::test_a_success_closes_the_breaker_again",
-    "tests/test_flow_resilience.py::test_a_zero_limit_is_refused",
-    "tests/test_flow_resilience.py::test_an_empty_batch_is_not_an_error",
-    "tests/test_flow_resilience.py::test_an_error_with_no_response_yields_nothing",
-    "tests/test_flow_resilience.py::test_an_open_breaker_fails_fast_instead_of_calling",
-    "tests/test_flow_resilience.py::test_an_undeclared_action_raises_rather_than_returning_none",
-    "tests/test_flow_resilience.py::test_backoff_grows_and_is_capped",
-    "tests/test_flow_resilience.py::test_compensation_is_not_the_same_thing_as_idempotency",
-    "tests/test_flow_resilience.py::test_concurrency_is_actually_bounded",
-    "tests/test_flow_resilience.py::test_declared_compensations",
-    "tests/test_flow_resilience.py::test_giving_up_re_raises_the_last_error",
-    "tests/test_flow_resilience.py::test_jitter_spreads_the_herd",
-    "tests/test_flow_resilience.py::test_one_probe_is_let_through_after_the_cooldown",
-    "tests/test_flow_resilience.py::test_parallel_reads_interleave",
-    "tests/test_flow_resilience.py::test_reading_retry_after",
-    "tests/test_flow_resilience.py::test_results_come_back_in_the_order_they_were_asked_for",
-    "tests/test_flow_resilience.py::test_results_stay_matched_to_their_calls",
-    "tests/test_flow_resilience.py::test_the_breaker_opens_after_the_threshold",
-    "tests/test_flow_resilience.py::test_the_longest_instruction_wins",
-    "tests/test_flow_resilience.py::test_the_provider_instruction_is_used_rather_than_a_guess",
     "tests/test_invariants.py::test_a_coherent_perturbation_still_applies",
     "tests/test_invariants.py::test_a_perturbation_cannot_leave_the_world_impossible",
     "tests/test_invariants.py::test_a_seeded_row_that_cannot_exist_fails_at_load",
@@ -177,16 +49,6 @@
     "tests/test_invariants.py::test_final_sale_invariant",
     "tests/test_invariants.py::test_no_generated_case_describes_an_impossible_world",
     "tests/test_invariants.py::test_the_constraints_actually_prune_something",
-    "tests/test_llm_identity_idempotency.py::test_a_legitimate_second_execution_does_run",
-    "tests/test_llm_identity_idempotency.py::test_a_short_secret_is_a_configuration_fault_not_a_warning",
-    "tests/test_llm_identity_idempotency.py::test_adapters_satisfy_the_protocol_structurally",
-    "tests/test_llm_identity_idempotency.py::test_bad_tokens_produce_no_identity_at_all",
-    "tests/test_llm_identity_idempotency.py::test_exhausting_the_script_is_an_error_not_an_empty_reply",
-    "tests/test_llm_identity_idempotency.py::test_expired_token_is_refused",
-    "tests/test_llm_identity_idempotency.py::test_in_memory_ledger_declares_it_is_not_durable",
-    "tests/test_llm_identity_idempotency.py::test_reads_bypass_the_ledger",
-    "tests/test_llm_identity_idempotency.py::test_round_trip_yields_the_customer_and_scopes",
-    "tests/test_llm_identity_idempotency.py::test_the_first_outcome_for_a_key_is_the_outcome",
     "tests/test_omission.py::test_a_second_world_can_owe_something_different",
     "tests/test_omission.py::test_a_verdict_names_what_was_missed",
     "tests/test_omission.py::test_a_world_that_owes_nothing_reports_nothing",
@@ -197,164 +59,202 @@
     "tests/test_omission.py::test_the_other_three_oracles_pass_an_agent_that_did_nothing",
     "tests/test_omission.py::test_the_predicate_reads_as_prose_in_a_scenario",
     "tests/test_omission.py::test_which_states_create_a_debt",
-    "tests/test_policy.py::test_a_discount_the_customer_never_asked_for_is_still_refused",
-    "tests/test_policy.py::test_a_failed_refund_does_not_license_the_claim",
-    "tests/test_policy.py::test_a_grounded_reply_passes",
-    "tests/test_policy.py::test_a_refused_tool_result_does_not_license_the_claim",
-    "tests/test_policy.py::test_a_successful_tool_result_does_license_it",
-    "tests/test_policy.py::test_a_truthful_reply_passes_through_untouched",
-    "tests/test_policy.py::test_an_affirmative_claim_is_still_caught",
-    "tests/test_policy.py::test_an_empty_rule_set_allows",
-    "tests/test_policy.py::test_an_honest_refusal_is_not_mistaken_for_a_claim",
-    "tests/test_policy.py::test_first_block_wins_and_later_rules_do_not_run",
-    "tests/test_policy.py::test_separators_do_not_make_a_real_amount_look_invented",
-    "tests/test_policy.py::test_the_blocking_rule_is_named_on_the_trace",
-    "tests/test_policy.py::test_the_failure_is_visible_on_the_trace",
-    "tests/test_policy.py::test_the_same_claim_is_allowed_when_the_refund_really_happened",
-    "tests/test_policy.py::test_what_entity_grounding_cannot_catch",
-    "tests/test_postgres.py::test_a_checkpoint_is_never_briefly_absent",
-    "tests/test_postgres.py::test_a_checkpoint_survives_a_new_store_and_a_new_pool",
-    "tests/test_postgres.py::test_an_escalation_outlives_the_process_that_raised_it",
-    "tests/test_postgres.py::test_every_postgres_store_declares_itself_durable",
-    "tests/test_postgres.py::test_only_the_closing_fields_are_updatable",
-    "tests/test_postgres.py::test_open_for_finds_the_conversations_live_escalation",
-    "tests/test_postgres.py::test_resuming_an_unknown_run_is_none",
-    "tests/test_postgres.py::test_the_action_and_key_cannot_change_after_the_request",
-    "tests/test_postgres.py::test_the_database_refuses_an_outcome_the_model_does_not_know",
-    "tests/test_postgres.py::test_the_first_outcome_for_a_key_is_the_outcome",
-    "tests/test_postgres.py::test_the_ledger_round_trips",
-    "tests/test_postgres.py::test_the_outcome_survives_and_is_sliceable_by_rule",
-    "tests/test_postgres.py::test_the_pending_queue_is_what_a_reviewer_sees",
-    "tests/test_postgres.py::test_the_queue_a_reviewer_reads_is_ordered_and_open_only",
-    "tests/test_postgres.py::test_the_sweeper_lapses_across_a_restart",
-    "tests/test_release_gates.py::test_the_matching_configuration_replays",
-    "tests/test_release_gates.py::test_the_refusal_is_still_a_cassette_miss",
-    "tests/test_reviewer.py::test_a_close_without_an_outcome_is_refused",
-    "tests/test_reviewer.py::test_a_reader_cannot_close_anything",
-    "tests/test_reviewer.py::test_a_resolved_escalation_leaves_the_queue",
-    "tests/test_reviewer.py::test_an_invented_outcome_never_reaches_the_row",
-    "tests/test_reviewer.py::test_an_unknown_escalation_is_404_not_500",
-    "tests/test_reviewer.py::test_closing_twice_is_refused_rather_than_overwritten",
-    "tests/test_reviewer.py::test_every_outcome_reaches_the_row",
-    "tests/test_reviewer.py::test_the_401_body_says_nothing_useful_to_a_prober",
-    "tests/test_reviewer.py::test_the_desk_holds_no_scope_over_orders",
-    "tests/test_reviewer.py::test_the_over_escalation_label_is_sliceable_by_rule",
-    "tests/test_reviewer.py::test_the_queue_shows_what_a_reviewer_needs",
-    "tests/test_reviewer.py::test_the_two_surfaces_share_a_process_and_not_a_contract",
-    "tests/test_reviewer.py::test_who_may_read_the_queue",
-    "tests/test_router_loop.py::test_a_direct_route_carries_everything_the_handler_needs",
-    "tests/test_router_loop.py::test_a_plain_answer_terminates_immediately",
-    "tests/test_router_loop.py::test_a_tool_call_then_an_answer",
-    "tests/test_router_loop.py::test_escalation_is_checked_before_intent",
-    "tests/test_router_loop.py::test_refusal_is_checked_before_intent",
-    "tests/test_router_loop.py::test_routing",
-    "tests/test_router_loop.py::test_usage_accumulates_across_steps",
-    "tests/test_router_loop.py::test_writes_are_never_direct",
-    "tests/test_serve.py::test_a_conversation_continues_across_requests",
-    "tests/test_serve.py::test_a_forged_token_is_refused_without_saying_why",
-    "tests/test_serve.py::test_a_malformed_request_is_refused",
-    "tests/test_serve.py::test_a_refusal_is_a_two_hundred",
-    "tests/test_serve.py::test_a_turn_needs_a_token",
-    "tests/test_serve.py::test_an_expired_token_is_refused",
-    "tests/test_serve.py::test_an_oversized_message_is_refused_before_it_is_parsed",
-    "tests/test_serve.py::test_an_unknown_conversation_id_starts_a_new_one",
-    "tests/test_serve.py::test_another_customer_cannot_open_your_conversation",
-    "tests/test_serve.py::test_health_does_not_touch_the_model",
-    "tests/test_serve.py::test_identity_comes_from_the_token_not_the_body",
-    "tests/test_serve.py::test_the_page_is_served_and_cannot_mint_its_own_identity",
-    "tests/test_serve.py::test_without_an_idempotency_key_the_turn_runs_unguarded",
-    "tests/test_telemetry.py::test_errors_are_recorded_and_still_raised",
-    "tests/test_telemetry.py::test_payload_capture_redacts_when_enabled",
-    "tests/test_telemetry.py::test_redaction_bounds_length",
-    "tests/test_telemetry.py::test_redaction_leaves_ordinary_text_alone",
-    "tests/test_tier2.py::test_a_repeatedly_refused_customer_reaches_a_person",
-    "tests/test_tier2.py::test_a_rule_fires_once_per_conversation",
-    "tests/test_tier2.py::test_a_second_rule_may_still_fire",
-    "tests/test_tier2.py::test_a_tier_one_escalation_is_not_overridden",
-    "tests/test_tier2.py::test_a_turn_is_recorded_as_facts_not_prose",
-    "tests/test_tier2.py::test_the_conversation_cap_stops_everything",
-    "tests/test_tier2.py::test_the_most_diagnostic_rule_wins",
-    "tests/test_tier2.py::test_the_remembered_history_is_bounded",
-    "tests/test_tier2.py::test_the_same_rule_does_not_raise_again_after_it_lapses",
-    "tests/test_tier2.py::test_the_termination_reason_reaches_the_facts",
-    "tests/test_tier2.py::test_urgency_is_per_rule_not_per_escalation",
-    "tests/test_tier2.py::test_what_does_not",
-    "tests/test_tier2.py::test_what_earns_a_person",
-    "tests/test_tier2.py::test_without_a_store_tier_two_never_fires",
-    "tests/test_tools_context.py::test_a_later_iteration_is_a_genuine_second_execution",
-    "tests/test_tools_context.py::test_a_missing_template_variable_is_an_error",
-    "tests/test_tools_context.py::test_a_read_succeeds_and_returns_structured_content",
-    "tests/test_tools_context.py::test_a_retry_under_the_same_key_does_not_refund_twice",
-    "tests/test_tools_context.py::test_a_tool_without_a_declared_side_effect_is_refused",
-    "tests/test_tools_context.py::test_assemble_accepts_prebuilt_messages",
-    "tests/test_tools_context.py::test_the_system_prompt_is_first_and_unchanged",
-    "tests/test_tools_context.py::test_there_are_no_exemptions_from_fencing",
-    "tests/test_tools_context.py::test_trimming_keeps_the_ends_and_takes_from_the_middle",
-    "tests/test_tools_context.py::test_user_turns_are_untrusted_but_not_fenced",
-    "tests/test_trigger.py::test_a_failed_delivery_still_settles",
-    "tests/test_trigger.py::test_a_settled_delivery_is_refused",
+    "tests/test_telemetry.py::test_span_carries_the_attributes_a_verdict_needs",
+    "tests/test_telemetry.py::test_trajectory_is_reconstructable_from_the_trace",
     "tests/test_trigger.py::test_a_trigger_that_never_fires_is_an_omission",
-    "tests/test_trigger.py::test_an_in_flight_delivery_is_refused_differently",
-    "tests/test_trigger.py::test_an_unidentified_delivery_runs_unguarded",
-    "tests/test_trigger.py::test_different_deliveries_do_not_collide",
-    "tests/test_trigger.py::test_the_in_memory_log_says_it_is_not_durable",
-    "tests/test_trigger.py::test_two_concurrent_deliveries_do_not_both_run",
-    "tests/test_trigger.py::test_without_a_delivery_id_the_second_run_acts_again",
     "tests/test_truth.py::test_a_contradiction_says_what_was_wrong",
     "tests/test_truth.py::test_a_true_answer_still_passes",
     "tests/test_truth.py::test_contradictions_against_the_world",
     "tests/test_truth.py::test_the_new_oracle_catches_the_same_lie",
     "tests/test_truth.py::test_the_old_predicates_pass_a_lying_agent",
     "tests/test_truth.py::test_the_oracle_reads_the_world_not_the_declaration",
-    "tests/test_truth.py::test_what_counts_as_a_claim",
-    "tests/test_typed_boundary.py::test_a_malformed_response_becomes_a_typed_failure",
-    "tests/test_typed_boundary.py::test_a_malformed_response_is_not_retried",
-    "tests/test_typed_boundary.py::test_a_plain_text_reply_needs_no_tool_calls",
-    "tests/test_typed_boundary.py::test_a_well_formed_response_parses",
-    "tests/test_typed_boundary.py::test_malformed_is_not_unavailable",
+    "tests/test_truth.py::test_what_counts_as_a_claim"
+  ],
+  "unwired": {
+    "tests/test_flow_resilience.py::test_a_non_retryable_error_is_not_retried": [
+      "AHC-0005"
+    ],
+    "tests/test_flow_resilience.py::test_a_success_closes_the_breaker_again": [
+      "AHC-0005"
+    ],
+    "tests/test_flow_resilience.py::test_a_transient_failure_succeeds_on_a_later_attempt": [
+      "AAC-0009",
+      "AHC-0024"
+    ],
+    "tests/test_flow_resilience.py::test_an_error_with_no_response_yields_nothing": [
+      "AHC-0021"
+    ],
+    "tests/test_flow_resilience.py::test_an_open_breaker_fails_fast_instead_of_calling": [
+      "AHC-0005"
+    ],
+    "tests/test_flow_resilience.py::test_backoff_grows_and_is_capped": [
+      "AHC-0021",
+      "AHC-0024"
+    ],
+    "tests/test_flow_resilience.py::test_giving_up_re_raises_the_last_error": [
+      "AHC-0005",
+      "B11"
+    ],
+    "tests/test_flow_resilience.py::test_jitter_spreads_the_herd": [
+      "AHC-0021"
+    ],
+    "tests/test_flow_resilience.py::test_one_probe_is_let_through_after_the_cooldown": [
+      "AHC-0005"
+    ],
+    "tests/test_flow_resilience.py::test_reading_retry_after": [
+      "AHC-0021"
+    ],
+    "tests/test_flow_resilience.py::test_the_breaker_opens_after_the_threshold": [
+      "AHC-0005"
+    ],
+    "tests/test_flow_resilience.py::test_the_longest_instruction_wins": [
+      "AHC-0021"
+    ],
+    "tests/test_flow_resilience.py::test_the_provider_instruction_is_used_rather_than_a_guess": [
+      "AHC-0021"
+    ]
+  },
+  "untagged": [
+    "tests/test_approvals.py::test_a_decision_is_terminal",
+    "tests/test_approvals.py::test_deciding_an_unknown_approval_is_an_error",
+    "tests/test_approvals.py::test_only_refunds_are_gated",
+    "tests/test_approvals.py::test_the_decision_is_on_the_trace",
+    "tests/test_approvals.py::test_the_queue_shows_only_undecided_items",
+    "tests/test_break_it.py::test_a_slow_call_still_completes",
+    "tests/test_break_it.py::test_trimming_never_orphans_a_tool_call",
+    "tests/test_cassette.py::test_a_cassette_miss_is_not_a_provider_outage",
+    "tests/test_cassette.py::test_a_changed_request_is_a_mismatch_not_a_silent_pass",
+    "tests/test_cassette.py::test_a_run_longer_than_its_recording_is_a_miss",
+    "tests/test_cassette.py::test_adding_a_tool_does_invalidate_a_cassette",
+    "tests/test_cassette.py::test_by_request_matching_tolerates_reordering",
+    "tests/test_cassette.py::test_fingerprint_identity",
+    "tests/test_cassette.py::test_ordered_matching_does_not_tolerate_reordering",
+    "tests/test_cassette.py::test_recording_does_not_change_behaviour",
+    "tests/test_cassette.py::test_rewording_a_tool_description_does_not_invalidate_a_cassette",
+    "tests/test_config.py::test_sealed_mode_fails_closed",
+    "tests/test_config.py::test_swapping_the_tool_endpoint_is_the_only_change_agenttwin_makes",
+    "tests/test_context_budget.py::test_a_tool_call_is_never_separated_from_its_answer",
+    "tests/test_context_budget.py::test_an_already_broken_history_is_refused_rather_than_stored",
+    "tests/test_context_budget.py::test_assemble_still_returns_only_the_transcript",
+    "tests/test_context_budget.py::test_bounding_does_not_touch_what_rules_read",
+    "tests/test_context_budget.py::test_the_caller_holds_what_the_store_holds",
+    "tests/test_context_budget.py::test_the_turn_span_carries_what_was_actually_stored",
+    "tests/test_contracts.py::test_failure_separates_customer_message_from_operator_detail",
+    "tests/test_contracts.py::test_identity_token_is_not_in_its_repr",
+    "tests/test_contracts.py::test_needs_approval_does_not_block_and_says_why",
+    "tests/test_contracts.py::test_only_the_agentic_route_reaches_the_model",
+    "tests/test_contracts.py::test_route_round_trips_through_its_discriminator",
+    "tests/test_cost.py::test_an_unknown_model_raises_rather_than_pricing_at_zero",
+    "tests/test_cost.py::test_cached_input_falls_back_to_the_input_rate",
+    "tests/test_cost.py::test_cached_input_is_billed_at_its_own_rate_where_one_exists",
+    "tests/test_cost.py::test_cost_of_a_call",
+    "tests/test_cost.py::test_every_approved_model_has_a_price",
+    "tests/test_cost.py::test_money_is_decimal_not_float",
+    "tests/test_cost.py::test_the_default_price_map_is_dated_and_flagged",
+    "tests/test_cost.py::test_the_meter_resolves_its_price_at_construction",
+    "tests/test_desk.py::test_a_desk_cannot_close_its_own_customers_escalation",
+    "tests/test_desk.py::test_a_frustrated_customer_is_never_escalated_today",
+    "tests/test_desk.py::test_nobody_comes_and_the_queue_says_so",
+    "tests/test_desk.py::test_the_over_escalation_label_reaches_the_row",
+    "tests/test_entrypoint_state.py::test_a_direct_route_answers_without_the_model",
+    "tests/test_entrypoint_state.py::test_a_truncated_checkpoint_is_refused_rather_than_resumed",
+    "tests/test_entrypoint_state.py::test_an_ambiguous_turn_reaches_the_loop",
+    "tests/test_entrypoint_state.py::test_each_store_declares_its_durability",
+    "tests/test_entrypoint_state.py::test_history_carries_into_the_next_turn",
+    "tests/test_entrypoint_state.py::test_resuming_an_unknown_run_is_none_not_an_error",
+    "tests/test_entrypoint_state.py::test_the_turn_is_recorded_on_the_conversation",
+    "tests/test_escalation.py::test_a_conversation_carries_the_flag_across_encoding",
+    "tests/test_escalation.py::test_sweeping_twice_lapses_nothing_the_second_time",
+    "tests/test_escalation.py::test_the_estimate_comes_from_depth_and_throughput",
+    "tests/test_escalation.py::test_the_reply_says_only_what_the_queue_supports",
+    "tests/test_escalation.py::test_the_router_carries_the_rule_id_into_the_decision",
+    "tests/test_escalation.py::test_without_a_store_it_promises_no_reference",
+    "tests/test_flow_resilience.py::test_a_zero_limit_is_refused",
+    "tests/test_flow_resilience.py::test_an_empty_batch_is_not_an_error",
+    "tests/test_flow_resilience.py::test_an_undeclared_action_raises_rather_than_returning_none",
+    "tests/test_flow_resilience.py::test_concurrency_is_actually_bounded",
+    "tests/test_flow_resilience.py::test_parallel_reads_interleave",
+    "tests/test_flow_resilience.py::test_results_come_back_in_the_order_they_were_asked_for",
+    "tests/test_flow_resilience.py::test_results_stay_matched_to_their_calls",
+    "tests/test_flow_resilience.py::test_writes_run_one_at_a_time_in_the_order_asked",
+    "tests/test_llm_identity_idempotency.py::test_a_legitimate_second_execution_does_run",
+    "tests/test_llm_identity_idempotency.py::test_a_short_secret_is_a_configuration_fault_not_a_warning",
+    "tests/test_llm_identity_idempotency.py::test_bad_tokens_produce_no_identity_at_all",
+    "tests/test_llm_identity_idempotency.py::test_confused_deputy_needs_a_different_token_not_a_different_claim",
+    "tests/test_llm_identity_idempotency.py::test_exhausting_the_script_is_an_error_not_an_empty_reply",
+    "tests/test_llm_identity_idempotency.py::test_expired_token_is_refused",
+    "tests/test_llm_identity_idempotency.py::test_in_memory_ledger_declares_it_is_not_durable",
+    "tests/test_llm_identity_idempotency.py::test_round_trip_yields_the_customer_and_scopes",
+    "tests/test_llm_identity_idempotency.py::test_the_first_outcome_for_a_key_is_the_outcome",
+    "tests/test_policy.py::test_an_empty_rule_set_allows",
+    "tests/test_policy.py::test_first_block_wins_and_later_rules_do_not_run",
+    "tests/test_policy.py::test_what_entity_grounding_cannot_catch",
+    "tests/test_postgres.py::test_every_postgres_store_declares_itself_durable",
+    "tests/test_postgres.py::test_only_the_closing_fields_are_updatable",
+    "tests/test_postgres.py::test_open_for_finds_the_conversations_live_escalation",
+    "tests/test_postgres.py::test_resuming_an_unknown_run_is_none",
+    "tests/test_postgres.py::test_the_database_refuses_an_outcome_the_model_does_not_know",
+    "tests/test_postgres.py::test_the_first_outcome_for_a_key_is_the_outcome",
+    "tests/test_postgres.py::test_the_ledger_round_trips",
+    "tests/test_postgres.py::test_the_outcome_survives_and_is_sliceable_by_rule",
+    "tests/test_postgres.py::test_the_pending_queue_is_what_a_reviewer_sees",
+    "tests/test_postgres.py::test_the_queue_a_reviewer_reads_is_ordered_and_open_only",
+    "tests/test_release_gates.py::test_the_refusal_is_still_a_cassette_miss",
+    "tests/test_reviewer.py::test_a_reader_cannot_close_anything",
+    "tests/test_reviewer.py::test_a_resolved_escalation_leaves_the_queue",
+    "tests/test_reviewer.py::test_an_unknown_escalation_is_404_not_500",
+    "tests/test_reviewer.py::test_closing_twice_is_refused_rather_than_overwritten",
+    "tests/test_reviewer.py::test_every_outcome_reaches_the_row",
+    "tests/test_reviewer.py::test_the_401_body_says_nothing_useful_to_a_prober",
+    "tests/test_reviewer.py::test_the_desk_holds_no_scope_over_orders",
+    "tests/test_reviewer.py::test_the_over_escalation_label_is_sliceable_by_rule",
+    "tests/test_reviewer.py::test_the_two_surfaces_share_a_process_and_not_a_contract",
+    "tests/test_reviewer.py::test_who_may_read_the_queue",
+    "tests/test_router_loop.py::test_a_direct_route_carries_everything_the_handler_needs",
+    "tests/test_router_loop.py::test_a_plain_answer_terminates_immediately",
+    "tests/test_router_loop.py::test_a_tool_call_then_an_answer",
+    "tests/test_router_loop.py::test_writes_are_never_direct",
+    "tests/test_serve.py::test_a_forged_token_is_refused_without_saying_why",
+    "tests/test_serve.py::test_a_turn_needs_a_token",
+    "tests/test_serve.py::test_an_expired_token_is_refused",
+    "tests/test_serve.py::test_health_does_not_touch_the_model",
+    "tests/test_serve.py::test_identity_comes_from_the_token_not_the_body",
+    "tests/test_serve.py::test_the_page_is_served_and_cannot_mint_its_own_identity",
+    "tests/test_serve.py::test_without_an_idempotency_key_the_turn_runs_unguarded",
+    "tests/test_telemetry.py::test_redaction_bounds_length",
+    "tests/test_telemetry.py::test_redaction_leaves_ordinary_text_alone",
+    "tests/test_tier2.py::test_a_rule_fires_once_per_conversation",
+    "tests/test_tier2.py::test_a_second_rule_may_still_fire",
+    "tests/test_tier2.py::test_a_tier_one_escalation_is_not_overridden",
+    "tests/test_tier2.py::test_a_turn_is_recorded_as_facts_not_prose",
+    "tests/test_tier2.py::test_the_conversation_cap_stops_everything",
+    "tests/test_tier2.py::test_the_remembered_history_is_bounded",
+    "tests/test_tier2.py::test_the_same_rule_does_not_raise_again_after_it_lapses",
+    "tests/test_tier2.py::test_without_a_store_tier_two_never_fires",
+    "tests/test_tools_context.py::test_a_later_iteration_is_a_genuine_second_execution",
+    "tests/test_tools_context.py::test_a_missing_template_variable_is_an_error",
+    "tests/test_tools_context.py::test_a_read_succeeds_and_returns_structured_content",
+    "tests/test_tools_context.py::test_assemble_accepts_prebuilt_messages",
+    "tests/test_tools_context.py::test_the_system_prompt_is_first_and_unchanged",
+    "tests/test_tools_context.py::test_user_turns_are_untrusted_but_not_fenced",
+    "tests/test_trigger.py::test_an_unidentified_delivery_runs_unguarded",
+    "tests/test_trigger.py::test_the_in_memory_log_says_it_is_not_durable",
+    "tests/test_trigger.py::test_without_a_delivery_id_the_second_run_acts_again",
     "tests/test_typed_boundary.py::test_the_failure_carries_the_raw_text_for_the_operator"
   ],
   "families": {
     "AOAS": {
       "owed": 33,
-      "exercised": 0,
+      "exercised": 24,
       "failing": [],
       "not_exercised": [
-        {
-          "id": "P-CANCEL",
-          "title": "cancellation while pending or confirmed; once picked, refuse and offer return-on-delivery"
-        },
-        {
-          "id": "P-RETURN",
-          "title": "within 30 days of delivery; final-sale items never"
-        },
-        {
-          "id": "P-ADDRESS",
-          "title": "while pending only"
-        },
-        {
-          "id": "P-REFUND",
-          "title": "to the original payment method; a refund above \u20b910,000 needs a person"
-        },
         {
           "id": "P-OWNERSHIP",
           "title": "a customer may see and act on only the orders they placed"
         },
         {
-          "id": "R-DISCOUNT",
-          "title": "refuses negotiating price, or offering any discount, voucher or coupon not in a published promotion"
-        },
-        {
-          "id": "R-OTHER-CUSTOMER",
-          "title": "refuses anything about an order the signed-in customer did not place"
-        },
-        {
           "id": "R-ACCOUNT",
           "title": "refuses account deletion, and changes to a payment method"
-        },
-        {
-          "id": "R-DELIVERY-DATE",
-          "title": "refuses a delivery date the carrier record does not state"
         },
         {
           "id": "R-STYLE",
@@ -381,84 +281,28 @@
           "title": "a tool result enters context at most 8000 characters long"
         },
         {
-          "id": "Q-MODEL",
-          "title": "only a model from the approved list is called"
-        },
-        {
           "id": "op:get_order",
           "title": "read operation on order"
-        },
-        {
-          "id": "op:cancel_order",
-          "title": "irreversible operation on order"
-        },
-        {
-          "id": "op:open_return_request",
-          "title": "reversible operation on order"
-        },
-        {
-          "id": "op:change_address",
-          "title": "reversible operation on order"
-        },
-        {
-          "id": "op:request_refund",
-          "title": "reversible operation on order"
-        },
-        {
-          "id": "op:issue_refund",
-          "title": "irreversible operation on order"
-        },
-        {
-          "id": "op:escalate",
-          "title": "reversible operation on escalation"
-        },
-        {
-          "id": "esc:asked-for-human",
-          "title": "escalate when the customer asks to speak to a person"
-        },
-        {
-          "id": "esc:lost-in-transit",
-          "title": "escalate when the item is reported lost in transit"
-        },
-        {
-          "id": "esc:loop-exhausted",
-          "title": "escalate when termination"
-        },
-        {
-          "id": "esc:tool-unavailable",
-          "title": "escalate when consecutive_failed"
-        },
-        {
-          "id": "esc:repeated-intent",
-          "title": "escalate when repeated_intent"
-        },
-        {
-          "id": "esc:second-refusal",
-          "title": "escalate when refusals"
-        },
-        {
-          "id": "esc:turns-exceeded",
-          "title": "escalate when turn_count"
-        },
-        {
-          "id": "ext:order_system",
-          "title": "external contract with order_system"
-        },
-        {
-          "id": "ext:approval_queue",
-          "title": "external contract with approval_queue"
-        },
-        {
-          "id": "ext:escalation_desk",
-          "title": "external contract with escalation_desk"
         }
       ]
     },
     "AAC": {
       "owed": 49,
-      "exercised": 44,
+      "exercised": 41,
       "failing": [],
       "not_exercised": [
+        {
+          "id": "AAC-0010",
+          "title": "Variance across repeated runs is bounded"
+        },
+        {
+          "id": "AAC-0016",
+          "title": "Scheduled re-run against unchanged inputs"
+        },
+        {
+          "id": "AAC-0051",
+          "title": "Tool selection accuracy, including no-tool"
+        },
         {
           "id": "AAC-0044",
           "title": "Each node is tested in isolation"
@@ -483,56 +327,24 @@
     },
     "AHC": {
       "owed": 60,
-      "exercised": 0,
+      "exercised": 29,
       "failing": [],
       "not_exercised": [
         {
-          "id": "AHC-0001",
-          "title": "Every model response crosses a typed boundary"
-        },
-        {
           "id": "AHC-0002",
           "title": "Context assembly is one inspectable function"
-        },
-        {
-          "id": "AHC-0003",
-          "title": "The running configuration is resolved once and recorded"
         },
         {
           "id": "AHC-0004",
           "title": "One choke point for every model call"
         },
         {
-          "id": "AHC-0005",
-          "title": "A declared degradation path for provider failure"
-        },
-        {
           "id": "AHC-0006",
           "title": "One span per call, with context that survives the hops"
         },
         {
-          "id": "AHC-0007",
-          "title": "Spend is accounted to a unit of work, not a call"
-        },
-        {
-          "id": "AHC-0008",
-          "title": "One enforcement position, defaulting closed"
-        },
-        {
-          "id": "AHC-0009",
-          "title": "The reachable model set is data, not code"
-        },
-        {
           "id": "AHC-0010",
           "title": "A task entrypoint an evaluation can drive"
-        },
-        {
-          "id": "AHC-0011",
-          "title": "Untrusted content is fenced and labelled at assembly"
-        },
-        {
-          "id": "AHC-0012",
-          "title": "The token budget is applied by the assembler, and its application is recorded"
         },
         {
           "id": "AHC-0013",
@@ -547,36 +359,12 @@
           "title": "Streaming has a completion and abort contract"
         },
         {
-          "id": "AHC-0016",
-          "title": "Input is validated before any model call is made"
-        },
-        {
-          "id": "AHC-0017",
-          "title": "The caller receives a discriminated outcome, never a bare value"
-        },
-        {
-          "id": "AHC-0018",
-          "title": "Policy decisions are recorded as events, not side effects"
-        },
-        {
-          "id": "AHC-0019",
-          "title": "Redaction happens before a payload leaves the process"
-        },
-        {
           "id": "AHC-0020",
           "title": "Concurrency is bounded by the harness, not by the runtime"
         },
         {
           "id": "AHC-0021",
           "title": "Throttling is handled as a distinct condition from failure"
-        },
-        {
-          "id": "AHC-0022",
-          "title": "Provider interaction is substitutable without changing the system"
-        },
-        {
-          "id": "AHC-0023",
-          "title": "Recorded fixtures carry a capture date and a re-cut path"
         },
         {
           "id": "AHC-0024",
@@ -591,20 +379,12 @@
           "title": "One identifier spans the whole unit of work"
         },
         {
-          "id": "AHC-0027",
-          "title": "The record states which route served the call, and why"
-        },
-        {
           "id": "AHC-0028",
           "title": "Graders are injectable and versioned apart from the system"
         },
         {
           "id": "AHC-0029",
           "title": "A production record can become a dataset row without re-keying"
-        },
-        {
-          "id": "AHC-0030",
-          "title": "A ceiling exists that can stop work already in flight"
         },
         {
           "id": "AHC-0031",
@@ -619,10 +399,6 @@
           "title": "What serves traffic is the artifact that was assessed"
         },
         {
-          "id": "AHC-0034",
-          "title": "The end user's identity reaches every downstream decision"
-        },
-        {
           "id": "AHC-0035",
           "title": "Secrets never enter assembled context"
         },
@@ -631,48 +407,8 @@
           "title": "Every tool has a declared argument contract"
         },
         {
-          "id": "AHC-0037",
-          "title": "Arguments are validated at dispatch, before the tool runs"
-        },
-        {
-          "id": "AHC-0038",
-          "title": "Tool results are bounded before they enter context"
-        },
-        {
-          "id": "AHC-0039",
-          "title": "Tools are classified by reversibility, and the class gates dispatch"
-        },
-        {
           "id": "AHC-0040",
           "title": "Tool authority is enforced where the tool executes"
-        },
-        {
-          "id": "AHC-0041",
-          "title": "Budget enforcement outside the model's control"
-        },
-        {
-          "id": "AHC-0042",
-          "title": "The loop has a no-progress condition, not only a step ceiling"
-        },
-        {
-          "id": "AHC-0043",
-          "title": "A tool failure is a loop state, not an exception"
-        },
-        {
-          "id": "AHC-0044",
-          "title": "The trajectory is checkpointed, not held only in memory"
-        },
-        {
-          "id": "AHC-0045",
-          "title": "Tool output is re-fenced on the way back into context"
-        },
-        {
-          "id": "AHC-0057",
-          "title": "Irreversible actions require an approval the run cannot grant"
-        },
-        {
-          "id": "AHC-0058",
-          "title": "Each action class declares its compensating path"
         },
         {
           "id": "AHC-0071",
@@ -685,10 +421,6 @@
         {
           "id": "AHC-0073",
           "title": "Step results are persisted so the graph can resume"
-        },
-        {
-          "id": "AHC-0074",
-          "title": "Every step declares whether repeating it is safe"
         },
         {
           "id": "AHC-0075",
@@ -705,10 +437,6 @@
         {
           "id": "AHC-0093",
           "title": "Policies compose in a declared order"
-        },
-        {
-          "id": "AHC-0094",
-          "title": "Output-side enforcement is its own point, with its own semantics"
         },
         {
           "id": "AHC-0095",
@@ -730,7 +458,7 @@
     },
     "Baseline": {
       "owed": 12,
-      "exercised": 0,
+      "exercised": 4,
       "failing": [],
       "not_exercised": [
         {
@@ -750,10 +478,6 @@
           "title": "An automated test suite runs on every change"
         },
         {
-          "id": "B5",
-          "title": "Tests are runnable by one command, offline"
-        },
-        {
           "id": "B6",
           "title": "A release process exists, with rollback"
         },
@@ -762,20 +486,8 @@
           "title": "Build artifacts are identified by version"
         },
         {
-          "id": "B8",
-          "title": "Structured logging and tracing are in place"
-        },
-        {
           "id": "B9",
           "title": "Secrets are outside source and rotatable"
-        },
-        {
-          "id": "B10",
-          "title": "Input validation exists at every external boundary"
-        },
-        {
-          "id": "B11",
-          "title": "Errors are typed and propagated, not swallowed"
         },
         {
           "id": "B12",
@@ -790,7 +502,6 @@
       "passed": [
         "tests/test_agenttwin.py::test_the_projection_agrees_with_the_hand_written_world",
         "tests/test_agenttwin.py::test_the_same_scenario_on_a_cancellable_order_does_change_the_world",
-        "tests/test_golden.py::test_the_golden_set",
         "tests/test_golden.py::test_the_golden_set_is_frozen_and_covers_its_boundaries",
         "tests/test_golden.py::test_a_refusal_changes_nothing_in_the_world"
       ],
@@ -799,6 +510,7 @@
     "AAC-0002": {
       "passed": [
         "tests/test_contracts.py::test_turn_result_round_trips",
+        "tests/test_escalation.py::test_the_escalated_result_still_round_trips_the_union",
         "tests/test_golden.py::test_every_route_returns_a_conforming_result",
         "tests/test_typed_boundary.py::test_the_loop_degrades_instead_of_crashing"
       ],
@@ -810,7 +522,6 @@
         "tests/test_agenttwin.py::test_the_gate_cancelling_a_shipped_order_changes_nothing",
         "tests/test_break_it.py::test_a_false_cancellation_claim_does_not_reach_the_customer",
         "tests/test_break_it.py::test_a_stale_read_cannot_become_a_false_confirmation",
-        "tests/test_golden.py::test_the_golden_set",
         "tests/test_policy.py::test_a_refund_may_only_be_claimed_if_one_happened",
         "tests/test_policy.py::test_a_false_claim_never_reaches_the_customer"
       ],
@@ -836,7 +547,8 @@
       "passed": [
         "tests/test_entrypoint_state.py::test_operator_detail_never_reaches_the_conversation",
         "tests/test_policy.py::test_output_rules",
-        "tests/test_telemetry.py::test_redaction_replaces_sensitive_spans"
+        "tests/test_telemetry.py::test_redaction_replaces_sensitive_spans",
+        "tests/test_telemetry.py::test_payload_capture_redacts_when_enabled"
       ],
       "failed": []
     },
@@ -848,18 +560,11 @@
     },
     "AAC-0009": {
       "passed": [
-        "tests/test_break_it.py::test_a_protocol_channel_fault_is_survivable",
         "tests/test_entrypoint_state.py::test_provider_failure_returns_a_typed_result",
-        "tests/test_flow_resilience.py::test_a_transient_failure_succeeds_on_a_later_attempt",
         "tests/test_golden.py::test_the_contract_holds_on_the_failure_route_too",
         "tests/test_llm_identity_idempotency.py::test_provider_failure_is_typed_not_a_stack_trace",
-        "tests/test_router_loop.py::test_provider_failure_is_a_declared_path_not_a_stack_trace"
-      ],
-      "failed": []
-    },
-    "AAC-0010": {
-      "passed": [
-        "tests/test_cassette.py::test_a_whole_run_replays_from_disk_with_no_network"
+        "tests/test_router_loop.py::test_provider_failure_is_a_declared_path_not_a_stack_trace",
+        "tests/test_typed_boundary.py::test_the_loop_degrades_instead_of_crashing"
       ],
       "failed": []
     },
@@ -868,7 +573,6 @@
         "tests/test_entrypoint_state.py::test_the_turn_span_carries_the_config_fingerprint",
         "tests/test_llm_identity_idempotency.py::test_model_call_emits_a_span_with_usage",
         "tests/test_router_loop.py::test_the_trajectory_is_reconstructable_from_the_trace",
-        "tests/test_telemetry.py::test_span_carries_the_attributes_a_verdict_needs",
         "tests/test_tools_context.py::test_the_tool_call_is_on_the_trace"
       ],
       "failed": []
@@ -889,14 +593,11 @@
     "AAC-0015": {
       "passed": [
         "tests/test_break_it.py::test_no_arbitrary_order_id_can_crash_or_change_the_world",
+        "tests/test_break_it.py::test_the_router_never_takes_a_direct_action_on_arbitrary_text",
         "tests/test_conformance.py::test_the_router_has_defined_behaviour_on_degenerate_input",
+        "tests/test_serve.py::test_a_malformed_request_is_refused",
+        "tests/test_serve.py::test_an_oversized_message_is_refused_before_it_is_parsed",
         "tests/test_typed_boundary.py::test_the_loop_degrades_instead_of_crashing"
-      ],
-      "failed": []
-    },
-    "AAC-0016": {
-      "passed": [
-        "tests/test_cassette.py::test_a_changed_request_is_a_mismatch_not_a_silent_pass"
       ],
       "failed": []
     },
@@ -906,29 +607,39 @@
       ],
       "failed": []
     },
+    "AAC-0040": {
+      "passed": [
+        "tests/test_serve.py::test_another_customer_cannot_open_your_conversation"
+      ],
+      "failed": []
+    },
+    "AAC-0043": {
+      "passed": [
+        "tests/test_escalation.py::test_a_request_for_a_person_escalates",
+        "tests/test_escalation.py::test_naming_a_person_is_not_asking_for_one",
+        "tests/test_escalation.py::test_the_policy_rule_still_fires_without_anyone_asking",
+        "tests/test_tier2.py::test_what_earns_a_person",
+        "tests/test_tier2.py::test_what_does_not",
+        "tests/test_tier2.py::test_a_repeatedly_refused_customer_reaches_a_person",
+        "tests/test_tier2.py::test_the_termination_reason_reaches_the_facts"
+      ],
+      "failed": []
+    },
     "AAC-0046": {
       "passed": [
-        "tests/test_flow_resilience.py::test_writes_run_one_at_a_time_in_the_order_asked",
         "tests/test_llm_identity_idempotency.py::test_failures_are_not_recorded_so_a_retry_can_reach_the_tool"
       ],
       "failed": []
     },
     "AAC-0047": {
       "passed": [
-        "tests/test_actors.py::test_a_persistent_customer_cannot_get_the_same_effect_three_times",
         "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
         "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
         "tests/test_contracts.py::test_idempotency_key_identity",
         "tests/test_llm_identity_idempotency.py::test_retry_under_the_same_key_does_not_execute_twice",
         "tests/test_postgres.py::test_two_writers_racing_leave_one_row",
-        "tests/test_postgres.py::test_an_approval_survives_a_process_restart"
-      ],
-      "failed": []
-    },
-    "AAC-0051": {
-      "passed": [
-        "tests/test_router_loop.py::test_an_unknown_tool_is_reported_back_not_raised",
-        "tests/test_tools_context.py::test_calling_a_tool_outside_the_surface_is_recoverable"
+        "tests/test_postgres.py::test_an_approval_survives_a_process_restart",
+        "tests/test_tools_context.py::test_a_retry_under_the_same_key_does_not_refund_twice"
       ],
       "failed": []
     },
@@ -971,32 +682,33 @@
         "tests/test_approvals.py::test_a_large_refund_cannot_be_issued_before_it_is_granted",
         "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
         "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
+        "tests/test_approvals.py::test_an_agent_without_an_approval_store_cannot_refund_at_all",
+        "tests/test_approver.py::test_a_reviewer_cannot_approve_their_own_customer_s_request",
         "tests/test_postgres.py::test_an_approval_survives_a_process_restart",
-        "tests/test_postgres.py::test_a_decision_is_terminal_across_processes"
+        "tests/test_postgres.py::test_a_decision_is_terminal_across_processes",
+        "tests/test_postgres.py::test_the_action_and_key_cannot_change_after_the_request"
       ],
       "failed": []
     },
     "AAC-0057": {
       "passed": [
         "tests/test_approvals.py::test_the_elevated_scope_is_refused_without_a_live_grant",
-        "tests/test_break_it.py::test_a_planted_instruction_cannot_reach_an_unscoped_tool",
-        "tests/test_llm_identity_idempotency.py::test_customer_scopes_exclude_refunds",
-        "tests/test_llm_identity_idempotency.py::test_confused_deputy_needs_a_different_token_not_a_different_claim",
-        "tests/test_tools_context.py::test_the_surface_is_scoped_to_the_identity"
+        "tests/test_llm_identity_idempotency.py::test_customer_scopes_exclude_refunds"
       ],
       "failed": []
     },
     "AAC-0058": {
       "passed": [
+        "tests/test_break_it.py::test_the_fence_survives_arbitrary_tool_output",
         "tests/test_break_it.py::test_an_instruction_planted_in_an_order_note_arrives_fenced",
         "tests/test_tools_context.py::test_tool_output_is_fenced_and_labelled",
-        "tests/test_tools_context.py::test_a_closing_delimiter_in_the_payload_cannot_end_the_fence_early"
+        "tests/test_tools_context.py::test_a_closing_delimiter_in_the_payload_cannot_end_the_fence_early",
+        "tests/test_tools_context.py::test_there_are_no_exemptions_from_fencing"
       ],
       "failed": []
     },
     "AAC-0059": {
       "passed": [
-        "tests/test_agenttwin.py::test_the_projection_agrees_with_the_hand_written_world",
         "tests/test_cassette.py::test_a_whole_run_replays_from_disk_with_no_network",
         "tests/test_llm_identity_idempotency.py::test_scripted_client_is_deterministic_and_free"
       ],
@@ -1004,15 +716,37 @@
     },
     "AAC-0060": {
       "passed": [
-        "tests/test_router_loop.py::test_the_trajectory_is_reconstructable_from_the_trace",
-        "tests/test_telemetry.py::test_trajectory_is_reconstructable_from_the_trace"
+        "tests/test_router_loop.py::test_the_trajectory_is_reconstructable_from_the_trace"
       ],
       "failed": []
     },
     "AAC-0076": {
       "passed": [
         "tests/test_serve.py::test_a_repeated_delivery_is_answered_not_repeated",
-        "tests/test_trigger.py::test_a_redelivered_message_does_not_cancel_twice"
+        "tests/test_trigger.py::test_a_settled_delivery_is_refused",
+        "tests/test_trigger.py::test_an_in_flight_delivery_is_refused_differently",
+        "tests/test_trigger.py::test_a_failed_delivery_still_settles",
+        "tests/test_trigger.py::test_a_redelivered_message_does_not_cancel_twice",
+        "tests/test_trigger.py::test_two_concurrent_deliveries_do_not_both_run"
+      ],
+      "failed": []
+    },
+    "AAC-0078": {
+      "passed": [
+        "tests/test_approvals.py::test_an_expired_request_cannot_be_decided",
+        "tests/test_approvals.py::test_the_elevated_scope_is_refused_without_a_live_grant",
+        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
+        "tests/test_approver.py::test_a_reviewer_who_answers_after_the_window_is_refused"
+      ],
+      "failed": []
+    },
+    "AAC-0088": {
+      "passed": [
+        "tests/test_policy.py::test_a_truthful_reply_passes_through_untouched",
+        "tests/test_policy.py::test_an_honest_refusal_is_not_mistaken_for_a_claim",
+        "tests/test_policy.py::test_an_affirmative_claim_is_still_caught",
+        "tests/test_policy.py::test_a_grounded_reply_passes",
+        "tests/test_policy.py::test_separators_do_not_make_a_real_amount_look_invented"
       ],
       "failed": []
     },
@@ -1045,16 +779,8 @@
     "AAC-0095": {
       "passed": [
         "tests/test_telemetry.py::test_redaction_replaces_sensitive_spans",
-        "tests/test_telemetry.py::test_payload_capture_is_off_by_default"
-      ],
-      "failed": []
-    },
-    "AAC-0096": {
-      "passed": [
-        "tests/test_release_gates.py::test_a_recording_refuses_a_foreign_configuration",
-        "tests/test_release_gates.py::test_a_recording_refuses_a_replay_that_declares_nothing",
-        "tests/test_release_gates.py::test_a_recorder_refuses_a_context_the_provider_contradicts",
-        "tests/test_release_gates.py::test_the_committed_recording_declares_what_made_it"
+        "tests/test_telemetry.py::test_payload_capture_is_off_by_default",
+        "tests/test_telemetry.py::test_payload_capture_redacts_when_enabled"
       ],
       "failed": []
     },
@@ -1107,15 +833,13 @@
     },
     "AAC-0105": {
       "passed": [
-        "tests/test_break_it.py::test_trimming_never_orphans_a_tool_call",
         "tests/test_conformance.py::test_a_large_tool_result_is_bounded_before_it_enters_context"
       ],
       "failed": []
     },
     "AAC-0106": {
       "passed": [
-        "tests/test_break_it.py::test_a_planted_instruction_cannot_reach_an_unscoped_tool",
-        "tests/test_llm_identity_idempotency.py::test_confused_deputy_needs_a_different_token_not_a_different_claim"
+        "tests/test_break_it.py::test_a_planted_instruction_cannot_reach_an_unscoped_tool"
       ],
       "failed": []
     },
@@ -1135,7 +859,569 @@
     },
     "AAC-0110": {
       "passed": [
-        "tests/test_policy.py::test_an_invented_entity_is_blocked"
+        "tests/test_actors.py::test_a_persistent_customer_cannot_get_the_same_effect_three_times",
+        "tests/test_break_it.py::test_a_false_cancellation_claim_does_not_reach_the_customer",
+        "tests/test_break_it.py::test_a_stale_read_cannot_become_a_false_confirmation",
+        "tests/test_break_it.py::test_the_policy_covers_every_irreversible_action_not_just_refunds",
+        "tests/test_escalation.py::test_an_escalation_writes_a_record_and_names_it",
+        "tests/test_policy.py::test_a_refund_may_only_be_claimed_if_one_happened",
+        "tests/test_policy.py::test_the_same_claim_is_allowed_when_the_refund_really_happened",
+        "tests/test_policy.py::test_a_failed_refund_does_not_license_the_claim",
+        "tests/test_policy.py::test_a_false_claim_never_reaches_the_customer",
+        "tests/test_policy.py::test_an_affirmative_claim_is_still_caught",
+        "tests/test_policy.py::test_a_refused_tool_result_does_not_license_the_claim",
+        "tests/test_policy.py::test_a_successful_tool_result_does_license_it",
+        "tests/test_release_gates.py::test_policy_screens_the_whole_reply_and_can_still_block_it"
+      ],
+      "failed": []
+    },
+    "AHC-0001": {
+      "passed": [
+        "tests/test_typed_boundary.py::test_a_well_formed_response_parses",
+        "tests/test_typed_boundary.py::test_a_plain_text_reply_needs_no_tool_calls",
+        "tests/test_typed_boundary.py::test_a_malformed_response_becomes_a_typed_failure",
+        "tests/test_typed_boundary.py::test_the_loop_degrades_instead_of_crashing",
+        "tests/test_typed_boundary.py::test_the_failures_are_counted_not_merely_survived",
+        "tests/test_typed_boundary.py::test_a_malformed_response_is_not_retried"
+      ],
+      "failed": []
+    },
+    "AHC-0003": {
+      "passed": [
+        "tests/test_config.py::test_fingerprint_tracks_behaviour_not_secrets",
+        "tests/test_config.py::test_fingerprint_is_stable_across_identical_resolutions",
+        "tests/test_entrypoint_state.py::test_the_turn_span_carries_the_config_fingerprint",
+        "tests/test_golden.py::test_every_approved_model_is_configurable_priced_and_reachable"
+      ],
+      "failed": []
+    },
+    "AHC-0005": {
+      "passed": [
+        "tests/test_entrypoint_state.py::test_provider_failure_returns_a_typed_result",
+        "tests/test_router_loop.py::test_provider_failure_is_a_declared_path_not_a_stack_trace",
+        "tests/test_typed_boundary.py::test_a_malformed_response_becomes_a_typed_failure",
+        "tests/test_typed_boundary.py::test_malformed_is_not_unavailable",
+        "tests/test_typed_boundary.py::test_the_loop_degrades_instead_of_crashing",
+        "tests/test_typed_boundary.py::test_a_malformed_response_is_not_retried"
+      ],
+      "failed": []
+    },
+    "AHC-0007": {
+      "passed": [
+        "tests/test_cost.py::test_spend_and_tenant_are_on_the_trace",
+        "tests/test_router_loop.py::test_usage_accumulates_across_steps"
+      ],
+      "failed": []
+    },
+    "AHC-0008": {
+      "passed": [
+        "tests/test_policy.py::test_a_rule_that_raises_blocks_the_traffic"
+      ],
+      "failed": []
+    },
+    "AHC-0009": {
+      "passed": [
+        "tests/test_golden.py::test_every_approved_model_is_configurable_priced_and_reachable"
+      ],
+      "failed": []
+    },
+    "AHC-0011": {
+      "passed": [
+        "tests/test_break_it.py::test_the_fence_survives_arbitrary_tool_output",
+        "tests/test_break_it.py::test_an_instruction_planted_in_an_order_note_arrives_fenced",
+        "tests/test_tools_context.py::test_tool_output_is_fenced_and_labelled",
+        "tests/test_tools_context.py::test_a_closing_delimiter_in_the_payload_cannot_end_the_fence_early",
+        "tests/test_tools_context.py::test_there_are_no_exemptions_from_fencing"
+      ],
+      "failed": []
+    },
+    "AHC-0012": {
+      "passed": [
+        "tests/test_break_it.py::test_trimming_keeps_the_ends",
+        "tests/test_context_budget.py::test_the_assembly_reports_what_it_cost",
+        "tests/test_context_budget.py::test_a_call_with_room_reports_no_trimming",
+        "tests/test_context_budget.py::test_the_step_span_carries_how_full_the_call_was",
+        "tests/test_golden.py::test_context_grows_with_history_and_is_bounded",
+        "tests/test_tools_context.py::test_trimming_keeps_the_ends_and_takes_from_the_middle"
+      ],
+      "failed": []
+    },
+    "AHC-0016": {
+      "passed": [
+        "tests/test_serve.py::test_a_malformed_request_is_refused",
+        "tests/test_serve.py::test_an_oversized_message_is_refused_before_it_is_parsed"
+      ],
+      "failed": []
+    },
+    "AHC-0017": {
+      "passed": [
+        "tests/test_contracts.py::test_turn_result_round_trips",
+        "tests/test_entrypoint_state.py::test_provider_failure_returns_a_typed_result",
+        "tests/test_escalation.py::test_the_escalated_result_still_round_trips_the_union",
+        "tests/test_golden.py::test_every_route_returns_a_conforming_result",
+        "tests/test_golden.py::test_the_contract_holds_on_the_failure_route_too",
+        "tests/test_router_loop.py::test_provider_failure_is_a_declared_path_not_a_stack_trace",
+        "tests/test_serve.py::test_a_refusal_is_a_two_hundred",
+        "tests/test_typed_boundary.py::test_the_loop_degrades_instead_of_crashing"
+      ],
+      "failed": []
+    },
+    "AHC-0018": {
+      "passed": [
+        "tests/test_policy.py::test_the_failure_is_visible_on_the_trace",
+        "tests/test_policy.py::test_the_blocking_rule_is_named_on_the_trace"
+      ],
+      "failed": []
+    },
+    "AHC-0019": {
+      "passed": [
+        "tests/test_telemetry.py::test_payload_capture_redacts_when_enabled"
+      ],
+      "failed": []
+    },
+    "AHC-0022": {
+      "passed": [
+        "tests/test_cassette.py::test_a_recorder_satisfies_the_client_protocol",
+        "tests/test_cassette.py::test_a_whole_run_replays_from_disk_with_no_network",
+        "tests/test_llm_identity_idempotency.py::test_adapters_satisfy_the_protocol_structurally",
+        "tests/test_llm_identity_idempotency.py::test_scripted_client_is_deterministic_and_free",
+        "tests/test_release_gates.py::test_the_matching_configuration_replays"
+      ],
+      "failed": []
+    },
+    "AHC-0023": {
+      "passed": [
+        "tests/test_release_gates.py::test_a_recording_refuses_a_foreign_configuration",
+        "tests/test_release_gates.py::test_a_recording_refuses_a_replay_that_declares_nothing",
+        "tests/test_release_gates.py::test_the_matching_configuration_replays",
+        "tests/test_release_gates.py::test_a_recorder_refuses_a_context_the_provider_contradicts",
+        "tests/test_release_gates.py::test_the_committed_recording_declares_what_made_it"
+      ],
+      "failed": []
+    },
+    "AHC-0027": {
+      "passed": [
+        "tests/test_cassette.py::test_replay_is_visible_on_the_trace",
+        "tests/test_router_loop.py::test_the_route_and_its_reason_are_on_the_trace"
+      ],
+      "failed": []
+    },
+    "AHC-0030": {
+      "passed": [
+        "tests/test_cost.py::test_exceeded_and_remaining",
+        "tests/test_cost.py::test_the_ceiling_stops_the_run",
+        "tests/test_cost.py::test_a_run_inside_its_budget_is_untouched",
+        "tests/test_cost.py::test_a_single_call_may_overshoot_the_ceiling"
+      ],
+      "failed": []
+    },
+    "AHC-0034": {
+      "passed": [
+        "tests/test_agenttwin.py::test_the_projected_surface_is_still_scope_gated",
+        "tests/test_break_it.py::test_a_planted_instruction_cannot_reach_an_unscoped_tool",
+        "tests/test_tools_context.py::test_the_surface_is_scoped_to_the_identity",
+        "tests/test_tools_context.py::test_calling_a_tool_outside_the_surface_is_recoverable"
+      ],
+      "failed": []
+    },
+    "AHC-0037": {
+      "passed": [
+        "tests/test_approver.py::test_a_refund_the_world_cannot_take_fails_with_something_readable",
+        "tests/test_router_loop.py::test_an_unknown_tool_is_reported_back_not_raised",
+        "tests/test_router_loop.py::test_invalid_arguments_are_reported_back_not_raised",
+        "tests/test_tools_context.py::test_invalid_arguments_are_rejected_before_dispatch"
+      ],
+      "failed": []
+    },
+    "AHC-0038": {
+      "passed": [
+        "tests/test_conformance.py::test_a_large_tool_result_is_bounded_before_it_enters_context"
+      ],
+      "failed": []
+    },
+    "AHC-0039": {
+      "passed": [
+        "tests/test_contracts.py::test_registry_isolates_the_irreversible_surface",
+        "tests/test_tools_context.py::test_a_tool_without_a_declared_side_effect_is_refused"
+      ],
+      "failed": []
+    },
+    "AHC-0041": {
+      "passed": [
+        "tests/test_cost.py::test_the_ceiling_stops_the_run",
+        "tests/test_router_loop.py::test_the_step_budget_terminates_and_says_why"
+      ],
+      "failed": []
+    },
+    "AHC-0042": {
+      "passed": [
+        "tests/test_router_loop.py::test_oscillation_is_caught_inside_the_budget",
+        "tests/test_router_loop.py::test_argument_order_does_not_hide_an_oscillation"
+      ],
+      "failed": []
+    },
+    "AHC-0043": {
+      "passed": [
+        "tests/test_break_it.py::test_no_arbitrary_order_id_can_crash_or_change_the_world",
+        "tests/test_break_it.py::test_an_execution_channel_fault_is_survivable",
+        "tests/test_break_it.py::test_a_protocol_channel_fault_is_survivable",
+        "tests/test_tools_context.py::test_an_execution_error_is_a_result_not_an_exception"
+      ],
+      "failed": []
+    },
+    "AHC-0044": {
+      "passed": [
+        "tests/test_entrypoint_state.py::test_a_turn_is_checkpointed",
+        "tests/test_entrypoint_state.py::test_a_file_checkpoint_survives_a_new_store_instance",
+        "tests/test_postgres.py::test_a_checkpoint_survives_a_new_store_and_a_new_pool",
+        "tests/test_postgres.py::test_a_checkpoint_is_never_briefly_absent"
+      ],
+      "failed": []
+    },
+    "AHC-0045": {
+      "passed": [
+        "tests/test_break_it.py::test_the_fence_survives_arbitrary_tool_output",
+        "tests/test_break_it.py::test_an_instruction_planted_in_an_order_note_arrives_fenced",
+        "tests/test_tools_context.py::test_tool_output_is_fenced_and_labelled",
+        "tests/test_tools_context.py::test_a_closing_delimiter_in_the_payload_cannot_end_the_fence_early",
+        "tests/test_tools_context.py::test_there_are_no_exemptions_from_fencing"
+      ],
+      "failed": []
+    },
+    "AHC-0053": {
+      "passed": [
+        "tests/test_serve.py::test_a_repeated_delivery_is_answered_not_repeated",
+        "tests/test_trigger.py::test_a_settled_delivery_is_refused",
+        "tests/test_trigger.py::test_an_in_flight_delivery_is_refused_differently",
+        "tests/test_trigger.py::test_a_failed_delivery_still_settles",
+        "tests/test_trigger.py::test_different_deliveries_do_not_collide",
+        "tests/test_trigger.py::test_a_redelivered_message_does_not_cancel_twice",
+        "tests/test_trigger.py::test_two_concurrent_deliveries_do_not_both_run"
+      ],
+      "failed": []
+    },
+    "AHC-0057": {
+      "passed": [
+        "tests/test_approvals.py::test_nobody_approves_their_own_request",
+        "tests/test_approvals.py::test_an_expired_request_cannot_be_decided",
+        "tests/test_approvals.py::test_the_elevated_scope_is_refused_without_a_live_grant",
+        "tests/test_approvals.py::test_a_live_grant_mints_the_scope",
+        "tests/test_approvals.py::test_an_approval_cannot_elevate_a_different_customer",
+        "tests/test_approvals.py::test_a_large_refund_cannot_be_issued_before_it_is_granted",
+        "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
+        "tests/test_approvals.py::test_a_refused_approval_never_reaches_the_tool",
+        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
+        "tests/test_approvals.py::test_a_pending_approval_short_circuits_the_next_turn",
+        "tests/test_approvals.py::test_a_refused_approval_is_reported_and_nothing_is_refunded",
+        "tests/test_approvals.py::test_an_agent_without_an_approval_store_cannot_refund_at_all",
+        "tests/test_approver.py::test_a_granted_refund_executes_against_a_projected_world",
+        "tests/test_approver.py::test_a_reviewer_who_denies_produces_no_refund",
+        "tests/test_approver.py::test_a_reviewer_who_walks_away_leaves_it_pending_forever",
+        "tests/test_approver.py::test_a_reviewer_who_answers_after_the_window_is_refused",
+        "tests/test_approver.py::test_a_reviewer_cannot_approve_their_own_customer_s_request",
+        "tests/test_approver.py::test_a_slow_reviewer_is_still_waiting_when_the_customer_follows_up",
+        "tests/test_llm_identity_idempotency.py::test_customer_scopes_exclude_refunds",
+        "tests/test_postgres.py::test_an_approval_survives_a_process_restart",
+        "tests/test_postgres.py::test_the_action_and_key_cannot_change_after_the_request"
+      ],
+      "failed": []
+    },
+    "AHC-0058": {
+      "passed": [
+        "tests/test_flow_resilience.py::test_declared_compensations",
+        "tests/test_flow_resilience.py::test_compensation_is_not_the_same_thing_as_idempotency"
+      ],
+      "failed": []
+    },
+    "AHC-0066": {
+      "passed": [
+        "tests/test_serve.py::test_a_conversation_continues_across_requests",
+        "tests/test_serve.py::test_an_unknown_conversation_id_starts_a_new_one"
+      ],
+      "failed": []
+    },
+    "AHC-0067": {
+      "passed": [
+        "tests/test_context_budget.py::test_how_much_survives",
+        "tests/test_context_budget.py::test_the_ends_are_what_survive",
+        "tests/test_context_budget.py::test_a_long_conversation_stops_growing"
+      ],
+      "failed": []
+    },
+    "AHC-0070": {
+      "passed": [
+        "tests/test_escalation.py::test_an_escalation_writes_a_record_and_names_it",
+        "tests/test_escalation.py::test_escalation_still_never_reaches_the_model"
+      ],
+      "failed": []
+    },
+    "AHC-0074": {
+      "passed": [
+        "tests/test_approvals.py::test_the_original_key_survives_the_wait",
+        "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
+        "tests/test_contracts.py::test_idempotency_key_identity",
+        "tests/test_contracts.py::test_idempotency_key_is_stable_across_construction",
+        "tests/test_contracts.py::test_side_effect_class_decides_idempotency",
+        "tests/test_llm_identity_idempotency.py::test_reads_bypass_the_ledger"
+      ],
+      "failed": []
+    },
+    "AHC-0094": {
+      "passed": [
+        "tests/test_policy.py::test_a_false_claim_never_reaches_the_customer",
+        "tests/test_release_gates.py::test_policy_screens_the_whole_reply_and_can_still_block_it"
+      ],
+      "failed": []
+    },
+    "B10": {
+      "passed": [
+        "tests/test_reviewer.py::test_a_close_without_an_outcome_is_refused",
+        "tests/test_reviewer.py::test_an_invented_outcome_never_reaches_the_row",
+        "tests/test_serve.py::test_a_malformed_request_is_refused",
+        "tests/test_serve.py::test_an_oversized_message_is_refused_before_it_is_parsed"
+      ],
+      "failed": []
+    },
+    "B11": {
+      "passed": [
+        "tests/test_entrypoint_state.py::test_provider_failure_returns_a_typed_result",
+        "tests/test_telemetry.py::test_errors_are_recorded_and_still_raised",
+        "tests/test_typed_boundary.py::test_a_malformed_response_becomes_a_typed_failure",
+        "tests/test_typed_boundary.py::test_malformed_is_not_unavailable"
+      ],
+      "failed": []
+    },
+    "B5": {
+      "passed": [
+        "tests/test_cassette.py::test_a_player_cannot_reach_a_provider_even_on_a_miss"
+      ],
+      "failed": []
+    },
+    "B8": {
+      "passed": [
+        "tests/test_entrypoint_state.py::test_the_turn_span_carries_the_config_fingerprint",
+        "tests/test_entrypoint_state.py::test_a_direct_route_is_visible_on_the_trace",
+        "tests/test_escalation.py::test_the_expected_spans_are_emitted",
+        "tests/test_escalation.py::test_the_raise_span_carries_the_rule_it_fired",
+        "tests/test_llm_identity_idempotency.py::test_model_call_emits_a_span_with_usage",
+        "tests/test_router_loop.py::test_the_trajectory_is_reconstructable_from_the_trace",
+        "tests/test_telemetry.py::test_errors_are_recorded_and_still_raised",
+        "tests/test_tools_context.py::test_the_tool_call_is_on_the_trace"
+      ],
+      "failed": []
+    },
+    "P-ADDRESS": {
+      "passed": [
+        "tests/test_agenttwin.py::test_the_projection_agrees_with_the_hand_written_world",
+        "tests/test_golden.py::test_the_golden_set"
+      ],
+      "failed": []
+    },
+    "P-CANCEL": {
+      "passed": [
+        "tests/test_actors.py::test_a_persistent_customer_cannot_get_the_same_effect_three_times",
+        "tests/test_agenttwin.py::test_the_projection_agrees_with_the_hand_written_world",
+        "tests/test_agenttwin.py::test_the_gate_cancelling_a_shipped_order_changes_nothing",
+        "tests/test_agenttwin.py::test_the_same_scenario_on_a_cancellable_order_does_change_the_world",
+        "tests/test_break_it.py::test_the_world_re_checks_under_a_stale_read",
+        "tests/test_break_it.py::test_a_planted_instruction_cannot_bypass_the_eligibility_rule",
+        "tests/test_break_it.py::test_a_false_cancellation_claim_does_not_reach_the_customer",
+        "tests/test_golden.py::test_the_golden_set",
+        "tests/test_golden.py::test_a_refusal_changes_nothing_in_the_world"
+      ],
+      "failed": []
+    },
+    "P-REFUND": {
+      "passed": [
+        "tests/test_approvals.py::test_which_refunds_need_a_human",
+        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
+        "tests/test_approver.py::test_a_granted_refund_executes_against_a_projected_world"
+      ],
+      "failed": []
+    },
+    "P-RETURN": {
+      "passed": [
+        "tests/test_agenttwin.py::test_the_projection_agrees_with_the_hand_written_world",
+        "tests/test_golden.py::test_the_golden_set"
+      ],
+      "failed": []
+    },
+    "Q-MODEL": {
+      "passed": [
+        "tests/test_config.py::test_model_allowlist"
+      ],
+      "failed": []
+    },
+    "R-DELIVERY-DATE": {
+      "passed": [
+        "tests/test_policy.py::test_output_rules"
+      ],
+      "failed": []
+    },
+    "R-DISCOUNT": {
+      "passed": [
+        "tests/test_entrypoint_state.py::test_refusal_and_escalation_never_call_the_model",
+        "tests/test_golden.py::test_every_route_returns_a_conforming_result",
+        "tests/test_policy.py::test_output_rules",
+        "tests/test_policy.py::test_a_discount_the_customer_never_asked_for_is_still_refused",
+        "tests/test_router_loop.py::test_routing",
+        "tests/test_router_loop.py::test_refusal_is_checked_before_intent",
+        "tests/test_router_loop.py::test_the_route_and_its_reason_are_on_the_trace",
+        "tests/test_serve.py::test_a_refusal_is_a_two_hundred"
+      ],
+      "failed": []
+    },
+    "R-OTHER-CUSTOMER": {
+      "passed": [
+        "tests/test_router_loop.py::test_routing"
+      ],
+      "failed": []
+    },
+    "esc:asked-for-human": {
+      "passed": [
+        "tests/test_entrypoint_state.py::test_refusal_and_escalation_never_call_the_model",
+        "tests/test_escalation.py::test_a_request_for_a_person_escalates",
+        "tests/test_escalation.py::test_naming_a_person_is_not_asking_for_one",
+        "tests/test_escalation.py::test_escalation_still_never_reaches_the_model",
+        "tests/test_golden.py::test_every_route_returns_a_conforming_result",
+        "tests/test_router_loop.py::test_routing",
+        "tests/test_router_loop.py::test_escalation_is_checked_before_intent"
+      ],
+      "failed": []
+    },
+    "esc:loop-exhausted": {
+      "passed": [
+        "tests/test_tier2.py::test_what_earns_a_person",
+        "tests/test_tier2.py::test_what_does_not",
+        "tests/test_tier2.py::test_the_most_diagnostic_rule_wins",
+        "tests/test_tier2.py::test_urgency_is_per_rule_not_per_escalation",
+        "tests/test_tier2.py::test_the_termination_reason_reaches_the_facts"
+      ],
+      "failed": []
+    },
+    "esc:lost-in-transit": {
+      "passed": [
+        "tests/test_escalation.py::test_the_policy_rule_still_fires_without_anyone_asking",
+        "tests/test_router_loop.py::test_routing"
+      ],
+      "failed": []
+    },
+    "esc:repeated-intent": {
+      "passed": [
+        "tests/test_tier2.py::test_what_earns_a_person",
+        "tests/test_tier2.py::test_what_does_not"
+      ],
+      "failed": []
+    },
+    "esc:second-refusal": {
+      "passed": [
+        "tests/test_tier2.py::test_what_earns_a_person",
+        "tests/test_tier2.py::test_what_does_not",
+        "tests/test_tier2.py::test_a_repeatedly_refused_customer_reaches_a_person"
+      ],
+      "failed": []
+    },
+    "esc:tool-unavailable": {
+      "passed": [
+        "tests/test_tier2.py::test_what_earns_a_person",
+        "tests/test_tier2.py::test_what_does_not"
+      ],
+      "failed": []
+    },
+    "esc:turns-exceeded": {
+      "passed": [
+        "tests/test_tier2.py::test_what_earns_a_person",
+        "tests/test_tier2.py::test_what_does_not",
+        "tests/test_tier2.py::test_the_most_diagnostic_rule_wins",
+        "tests/test_tier2.py::test_urgency_is_per_rule_not_per_escalation"
+      ],
+      "failed": []
+    },
+    "ext:approval_queue": {
+      "passed": [
+        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
+        "tests/test_approvals.py::test_a_pending_approval_short_circuits_the_next_turn",
+        "tests/test_approver.py::test_a_reviewer_who_walks_away_leaves_it_pending_forever",
+        "tests/test_approver.py::test_a_slow_reviewer_is_still_waiting_when_the_customer_follows_up",
+        "tests/test_postgres.py::test_an_approval_survives_a_process_restart"
+      ],
+      "failed": []
+    },
+    "ext:escalation_desk": {
+      "passed": [
+        "tests/test_desk.py::test_what_each_desk_leaves_behind",
+        "tests/test_desk.py::test_a_handled_escalation_returns_the_customer_to_the_agent",
+        "tests/test_desk.py::test_the_clock_drives_expiry_rather_than_a_rewritten_row",
+        "tests/test_escalation.py::test_an_escalation_writes_a_record_and_names_it",
+        "tests/test_escalation.py::test_nobody_came_so_the_conversation_is_handed_back",
+        "tests/test_escalation.py::test_the_sweeper_lapses_what_nobody_came_for",
+        "tests/test_reviewer.py::test_the_queue_shows_what_a_reviewer_needs"
+      ],
+      "failed": []
+    },
+    "ext:order_system": {
+      "passed": [
+        "tests/test_agenttwin.py::test_an_unknown_record_is_not_a_refusal",
+        "tests/test_break_it.py::test_the_world_re_checks_under_a_stale_read",
+        "tests/test_break_it.py::test_a_stale_read_cannot_become_a_false_confirmation",
+        "tests/test_golden.py::test_the_golden_set",
+        "tests/test_policy.py::test_a_refused_tool_result_does_not_license_the_claim"
+      ],
+      "failed": []
+    },
+    "op:cancel_order": {
+      "passed": [
+        "tests/test_actors.py::test_a_persistent_customer_cannot_get_the_same_effect_three_times",
+        "tests/test_agenttwin.py::test_the_projection_agrees_with_the_hand_written_world",
+        "tests/test_agenttwin.py::test_the_gate_cancelling_a_shipped_order_changes_nothing",
+        "tests/test_agenttwin.py::test_the_same_scenario_on_a_cancellable_order_does_change_the_world",
+        "tests/test_break_it.py::test_the_world_re_checks_under_a_stale_read",
+        "tests/test_break_it.py::test_a_planted_instruction_cannot_bypass_the_eligibility_rule",
+        "tests/test_golden.py::test_the_golden_set",
+        "tests/test_golden.py::test_a_refusal_changes_nothing_in_the_world"
+      ],
+      "failed": []
+    },
+    "op:change_address": {
+      "passed": [
+        "tests/test_agenttwin.py::test_the_projection_agrees_with_the_hand_written_world",
+        "tests/test_golden.py::test_the_golden_set"
+      ],
+      "failed": []
+    },
+    "op:escalate": {
+      "passed": [
+        "tests/test_desk.py::test_what_each_desk_leaves_behind",
+        "tests/test_desk.py::test_a_handled_escalation_returns_the_customer_to_the_agent",
+        "tests/test_desk.py::test_the_clock_drives_expiry_rather_than_a_rewritten_row",
+        "tests/test_escalation.py::test_an_escalation_writes_a_record_and_names_it",
+        "tests/test_escalation.py::test_the_agent_does_not_answer_over_a_live_handoff",
+        "tests/test_escalation.py::test_a_resolved_escalation_hands_the_conversation_back",
+        "tests/test_escalation.py::test_nobody_came_so_the_conversation_is_handed_back",
+        "tests/test_escalation.py::test_the_sweeper_lapses_what_nobody_came_for",
+        "tests/test_postgres.py::test_an_escalation_outlives_the_process_that_raised_it",
+        "tests/test_postgres.py::test_the_sweeper_lapses_across_a_restart",
+        "tests/test_tier2.py::test_a_repeatedly_refused_customer_reaches_a_person"
+      ],
+      "failed": []
+    },
+    "op:issue_refund": {
+      "passed": [
+        "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
+        "tests/test_approver.py::test_a_granted_refund_executes_against_a_projected_world"
+      ],
+      "failed": []
+    },
+    "op:open_return_request": {
+      "passed": [
+        "tests/test_agenttwin.py::test_the_projection_agrees_with_the_hand_written_world",
+        "tests/test_golden.py::test_the_golden_set"
+      ],
+      "failed": []
+    },
+    "op:request_refund": {
+      "passed": [
+        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns"
       ],
       "failed": []
     }

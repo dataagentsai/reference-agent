@@ -52,13 +52,14 @@ IDEMPOTENCY_CASES = [
     IDEMPOTENCY_CASES,
     ids=[c[0] for c in IDEMPOTENCY_CASES],
 )
-@pytest.mark.discharges("AAC-0047")
+@pytest.mark.discharges("AAC-0047", "AHC-0074")
 def test_idempotency_key_identity(
     name: str, left: IdempotencyKey, right: IdempotencyKey, *, same: bool
 ) -> None:
     assert (left.value == right.value) is same
 
 
+@pytest.mark.discharges("AHC-0074")
 def test_idempotency_key_is_stable_across_construction() -> None:
     assert key(3, 2).value == "run_abc:3:2"
 
@@ -77,6 +78,7 @@ SIDE_EFFECT_CASES = [
 
 
 @pytest.mark.parametrize(("cls", "needs_key"), SIDE_EFFECT_CASES, ids=lambda v: str(v))
+@pytest.mark.discharges("AHC-0074")
 def test_side_effect_class_decides_idempotency(cls: SideEffectClass, needs_key: bool) -> None:
     assert cls.requires_idempotency_key is needs_key
 
@@ -141,7 +143,7 @@ TURN_CASES = [
 
 
 @pytest.mark.parametrize(("kind", "result"), TURN_CASES, ids=[c[0] for c in TURN_CASES])
-@pytest.mark.discharges("AAC-0002")
+@pytest.mark.discharges("AAC-0002", "AHC-0017")
 def test_turn_result_round_trips(kind: str, result: TurnResult) -> None:
     restored = TURN_ADAPTER.validate_python(TURN_ADAPTER.dump_python(result))
     assert restored == result
@@ -187,6 +189,7 @@ def _spec(name: str, cls: SideEffectClass) -> ToolSpec:
     )
 
 
+@pytest.mark.discharges("AHC-0039")
 def test_registry_isolates_the_irreversible_surface() -> None:
     registry = ToolRegistry(
         tools=(

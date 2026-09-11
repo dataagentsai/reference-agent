@@ -124,6 +124,7 @@ async def test_a_reader_cannot_close_anything(client, store) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("ext:escalation_desk")
 async def test_the_queue_shows_what_a_reviewer_needs(client, store) -> None:
     row = await queued(store)
     body = client.get("/ops/escalations", headers=reader()).json()
@@ -214,6 +215,7 @@ async def test_closing_twice_is_refused_rather_than_overwritten(client, store) -
     assert closed is not None and closed.outcome.value == "resolved"
 
 
+@pytest.mark.discharges("B10")
 async def test_a_close_without_an_outcome_is_refused(client, store) -> None:
     """No default, deliberately. A reviewer who closes without saying whether the
     agent could have handled it has given us nothing, and a default would make
@@ -223,6 +225,7 @@ async def test_a_close_without_an_outcome_is_refused(client, store) -> None:
     assert res.status_code == 422
 
 
+@pytest.mark.discharges("B10")
 async def test_an_invented_outcome_never_reaches_the_row(client, store) -> None:
     row = await queued(store)
     res = client.post(

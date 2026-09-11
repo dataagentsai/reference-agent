@@ -76,12 +76,14 @@ def live_with(status: str, days: int = 0, final_sale: bool = False) -> Live:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.tooling
 def test_the_declared_world_loads_and_states_its_ontology() -> None:
     world = load(WORLD)
     assert world.ontology() == {"order.customer_id": "customer.id"}
     assert len(world.records["order"]) == 6
 
 
+@pytest.mark.tooling
 def test_a_world_declares_what_it_is_not_faithful_about() -> None:
     """The more useful half. A world listing only its strengths invites
     assertions it cannot support."""
@@ -130,6 +132,7 @@ BAD_WORLDS = [
 @pytest.mark.parametrize(
     ("name", "entities", "records", "message"), BAD_WORLDS, ids=[c[0] for c in BAD_WORLDS]
 )
+@pytest.mark.tooling
 def test_an_incoherent_world_is_refused_at_load(
     tmp_path, name: str, entities: dict, records: dict, message: str
 ) -> None:
@@ -170,6 +173,7 @@ def test_an_incoherent_world_is_refused_at_load(
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.tooling
 async def test_projected_tools_satisfy_the_agent_s_own_registry_rules() -> None:
     """The projection is built to satisfy the rule, not to be exempt from it: a
     tool without `outputSchema` or a declared side effect is rejected by the
@@ -184,6 +188,7 @@ async def test_projected_tools_satisfy_the_agent_s_own_registry_rules() -> None:
     assert {t.name for t in registry.irreversible} >= {"cancel_order", "issue_refund"}
 
 
+@pytest.mark.discharges("AHC-0034")
 async def test_the_projected_surface_is_still_scope_gated() -> None:
     live = Live.start(load(WORLD))
     plain = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
@@ -192,6 +197,7 @@ async def test_the_projected_surface_is_still_scope_gated() -> None:
         assert (await tools.list_tools(privileged())).get("issue_refund") is not None
 
 
+@pytest.mark.discharges("ext:order_system")
 async def test_an_unknown_record_is_not_a_refusal() -> None:
     """ "No such order" and "that order cannot be cancelled" are different
     answers, and collapsing them teaches the model that absence and prohibition
@@ -209,7 +215,15 @@ async def test_an_unknown_record_is_not_a_refusal() -> None:
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c["id"] for c in CASES])
-@pytest.mark.discharges("AAC-0001", "AAC-0059")
+@pytest.mark.discharges(
+    "AAC-0001",
+    "P-CANCEL",
+    "P-RETURN",
+    "P-ADDRESS",
+    "op:cancel_order",
+    "op:open_return_request",
+    "op:change_address",
+)
 async def test_the_projection_agrees_with_the_hand_written_world(case: dict) -> None:
     row = case["row"]
     live = live_with(row["status"], row["days_since_delivery"], row["final_sale"])
@@ -235,6 +249,7 @@ async def test_the_projection_agrees_with_the_hand_written_world(case: dict) -> 
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.tooling
 def test_the_diff_names_exactly_what_moved() -> None:
     before = {"order": {"A": {"status": "pending", "final_sale": False}}}
     after = {"order": {"A": {"status": "cancelled", "final_sale": False}}}
@@ -243,12 +258,14 @@ def test_the_diff_names_exactly_what_moved() -> None:
     assert str(changes[0]) == "order/A.status: 'pending' -> 'cancelled'"
 
 
+@pytest.mark.tooling
 def test_a_row_that_appeared_is_a_change() -> None:
     """The most important kind there is — a refund row nobody expected."""
     changes = diff({"refund": {}}, {"refund": {"rf_1": {"amount": "12400"}}})
     assert changes and changes[0].before is None
 
 
+@pytest.mark.tooling
 def test_an_untouched_world_diffs_to_nothing() -> None:
     live = Live.start(load(WORLD))
     assert diff(live.snapshot(), live.snapshot()) == ()
@@ -259,7 +276,7 @@ def test_an_untouched_world_diffs_to_nothing() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0056", "AAC-0053", "AAC-0003")
+@pytest.mark.discharges("AAC-0056", "AAC-0053", "AAC-0003", "P-CANCEL", "op:cancel_order")
 async def test_the_gate_cancelling_a_shipped_order_changes_nothing() -> None:
     """Cancel an order that has already shipped.
 
@@ -312,7 +329,7 @@ async def test_the_gate_cancelling_a_shipped_order_changes_nothing() -> None:
     assert "cancel" in record.reply.lower()
 
 
-@pytest.mark.discharges("AAC-0001")
+@pytest.mark.discharges("AAC-0001", "P-CANCEL", "op:cancel_order")
 async def test_the_same_scenario_on_a_cancellable_order_does_change_the_world() -> None:
     """The control. A gate that passes because nothing ever happens is not a
     gate, so the mirror case must show the diff moving."""
@@ -338,6 +355,7 @@ async def test_the_same_scenario_on_a_cancellable_order_does_change_the_world() 
     assert live.count("cancel_order") == 1
 
 
+@pytest.mark.tooling
 def test_the_run_record_states_its_determinism_class() -> None:
     """A world containing a model-driven actor is not reproducible, and the
     record says so rather than letting a reader assume it is."""
@@ -353,6 +371,7 @@ def test_the_run_record_states_its_determinism_class() -> None:
 SECOND_WORLD = Path(__file__).parent.parent / "worlds" / "electronics.yaml"
 
 
+@pytest.mark.tooling
 def test_a_second_world_generates_its_own_cases_with_no_code_change() -> None:
     """The generator reads the world's conditions, so a different policy moves
     the boundaries by itself.
@@ -375,6 +394,7 @@ def test_a_second_world_generates_its_own_cases_with_no_code_change() -> None:
     assert {c["expected_allowed"] for c in electronics} == {True, False}
 
 
+@pytest.mark.tooling
 async def test_the_second_world_projects_and_enforces_its_own_policy() -> None:
     """Not just different cases — a different running server, from the same
     projection code, enforcing a rule nobody wrote in Python."""
@@ -395,6 +415,7 @@ async def test_the_second_world_projects_and_enforces_its_own_policy() -> None:
     assert result.structured["allowed"] is False
 
 
+@pytest.mark.tooling
 async def test_the_second_world_also_widened_cancellation() -> None:
     """Electronics are picked by hand, so cancellation survives one state
     longer. In the clothing world this same call is refused."""

@@ -71,7 +71,7 @@ CLAIM_CASES = [
 
 
 @pytest.mark.parametrize(("name", "text", "blocked"), CLAIM_CASES, ids=[c[0] for c in CLAIM_CASES])
-@pytest.mark.discharges("AAC-0003")
+@pytest.mark.discharges("AAC-0003", "AAC-0110")
 def test_a_refund_may_only_be_claimed_if_one_happened(name: str, text: str, blocked: bool) -> None:
     """The gate stops an unauthorised refund; this stops the agent saying it did
     one anyway. Both cost the same at the support desk, and only one shows up in
@@ -79,12 +79,14 @@ def test_a_refund_may_only_be_claimed_if_one_happened(name: str, text: str, bloc
     assert pol.enforce(reply(text)).blocked is blocked
 
 
+@pytest.mark.discharges("AAC-0110")
 def test_the_same_claim_is_allowed_when_the_refund_really_happened() -> None:
     text = "I have refunded your order."
     assert pol.enforce(reply(text)).blocked
     assert not pol.enforce(reply(text, refunded())).blocked
 
 
+@pytest.mark.discharges("AAC-0110")
 def test_a_failed_refund_does_not_license_the_claim() -> None:
     failed = ToolResult(name="issue_refund", is_error=True, error_channel="execution")
     assert pol.enforce(reply("I have refunded your order.", failed)).blocked
@@ -109,12 +111,13 @@ OUTPUT_CASES = [
     OUTPUT_CASES,
     ids=[c[0] for c in OUTPUT_CASES],
 )
-@pytest.mark.discharges("AAC-0006", "AAC-0005")
+@pytest.mark.discharges("AAC-0006", "AAC-0005", "R-DELIVERY-DATE", "R-DISCOUNT")
 def test_output_rules(name: str, text: str, evidence: tuple[str, ...], blocked: bool) -> None:
     results = tuple(ToolResult(name="get_order", structured={"eta": e}) for e in evidence)
     assert pol.enforce(reply(text, *results)).blocked is blocked
 
 
+@pytest.mark.discharges("R-DISCOUNT")
 def test_a_discount_the_customer_never_asked_for_is_still_refused() -> None:
     """The half of the refusal list the router cannot reach: the customer did not
     ask, the model volunteered."""
@@ -127,7 +130,7 @@ def test_a_discount_the_customer_never_asked_for_is_still_refused() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0091")
+@pytest.mark.discharges("AAC-0091", "AHC-0008")
 def test_a_rule_that_raises_blocks_the_traffic() -> None:
     """A guardrail that errors open is believed and absent at the same time, and
     nobody goes looking for a control they think they have."""
@@ -140,6 +143,7 @@ def test_a_rule_that_raises_blocks_the_traffic() -> None:
     assert "blocked" in verdict.reason
 
 
+@pytest.mark.discharges("AHC-0018")
 def test_the_failure_is_visible_on_the_trace(exporter) -> None:
     def explodes(ctx: pol.Context) -> pol.Verdict:
         raise RuntimeError("boom")
@@ -199,7 +203,7 @@ def server():
     return srv
 
 
-@pytest.mark.discharges("AAC-0003", "AAC-0005")
+@pytest.mark.discharges("AAC-0003", "AAC-0005", "AAC-0110", "AHC-0094")
 async def test_a_false_claim_never_reaches_the_customer(server) -> None:
     """End to end: the model lies, the customer does not hear it."""
     async with connect(server, ledger=InMemoryLedger()) as tools:
@@ -216,6 +220,7 @@ async def test_a_false_claim_never_reaches_the_customer(server) -> None:
     assert server.state["refunds"] == 0
 
 
+@pytest.mark.discharges("AAC-0088")
 async def test_a_truthful_reply_passes_through_untouched(server) -> None:
     async with connect(server, ledger=InMemoryLedger()) as tools:
         result, trace = await agent_loop.run(
@@ -238,6 +243,7 @@ async def test_a_truthful_reply_passes_through_untouched(server) -> None:
     assert trace.termination is TerminationReason.GOAL_REACHED
 
 
+@pytest.mark.discharges("AHC-0018")
 async def test_the_blocking_rule_is_named_on_the_trace(server, exporter) -> None:
     async with connect(server, ledger=InMemoryLedger()) as tools:
         await agent_loop.run(
@@ -270,6 +276,7 @@ HONEST_REFUSALS = [
 
 
 @pytest.mark.parametrize(("name", "text"), HONEST_REFUSALS, ids=[c[0] for c in HONEST_REFUSALS])
+@pytest.mark.discharges("AAC-0088")
 def test_an_honest_refusal_is_not_mistaken_for_a_claim(name: str, text: str) -> None:
     assert not pol.enforce(reply(text)).blocked, f"blocked a correct refusal: {text!r}"
 
@@ -285,16 +292,19 @@ AFFIRMATIVE_CLAIMS = [
 @pytest.mark.parametrize(
     ("name", "text"), AFFIRMATIVE_CLAIMS, ids=[c[0] for c in AFFIRMATIVE_CLAIMS]
 )
+@pytest.mark.discharges("AAC-0110", "AAC-0088")
 def test_an_affirmative_claim_is_still_caught(name: str, text: str) -> None:
     assert pol.enforce(reply(text)).blocked
 
 
+@pytest.mark.discharges("AAC-0110", "ext:order_system")
 def test_a_refused_tool_result_does_not_license_the_claim() -> None:
     """`allowed: false` is not success. The tool ran and declined."""
     refused = ToolResult(name="cancel_order", structured={"allowed": False, "reason": "shipped"})
     assert pol.enforce(reply("I have cancelled that order.", refused)).blocked
 
 
+@pytest.mark.discharges("AAC-0110")
 def test_a_successful_tool_result_does_license_it() -> None:
     ok = ToolResult(name="cancel_order", structured={"allowed": True, "reason": "allowed"})
     assert not pol.enforce(reply("I have cancelled that order.", ok)).blocked
@@ -320,7 +330,7 @@ UNGROUNDED = [
 
 
 @pytest.mark.parametrize(("name", "text", "evidence"), UNGROUNDED, ids=[c[0] for c in UNGROUNDED])
-@pytest.mark.discharges("AAC-0029", "AAC-0110")
+@pytest.mark.discharges("AAC-0029")
 def test_an_invented_entity_is_blocked(name: str, text: str, evidence: ToolResult) -> None:
     assert pol.enforce(reply(text, evidence)).rule == "no_ungrounded_entity"
 
@@ -335,6 +345,7 @@ GROUNDED = [
 
 
 @pytest.mark.parametrize(("name", "text", "evidence"), GROUNDED, ids=[c[0] for c in GROUNDED])
+@pytest.mark.discharges("AAC-0088")
 def test_a_grounded_reply_passes(name: str, text: str, evidence: ToolResult | None) -> None:
     """The half that matters more. F-004's lesson: a control that fires on
     correct behaviour is switched off, and then protects nothing."""
@@ -342,6 +353,7 @@ def test_a_grounded_reply_passes(name: str, text: str, evidence: ToolResult | No
     assert not pol.enforce(reply(text, *results)).blocked, f"blocked a truthful reply: {text!r}"
 
 
+@pytest.mark.discharges("AAC-0088")
 def test_separators_do_not_make_a_real_amount_look_invented() -> None:
     """`12,400` and `12400` are the same number, and a control that says
     otherwise fires on correct replies."""

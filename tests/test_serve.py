@@ -150,11 +150,13 @@ def test_identity_comes_from_the_token_not_the_body(client) -> None:
         ("conversation id is not a string", {"text": "hi", "conversation_id": 7}, 400),
     ],
 )
+@pytest.mark.discharges("AHC-0016", "B10", "AAC-0015")
 def test_a_malformed_request_is_refused(client, why: str, body, status: int) -> None:
     res = client.post("/chat", json=body, headers={"authorization": f"Bearer {token()}"})
     assert res.status_code == status, why
 
 
+@pytest.mark.discharges("AHC-0016", "B10", "AAC-0015")
 def test_an_oversized_message_is_refused_before_it_is_parsed(client) -> None:
     """A support message is a sentence. Anything larger is a mistake or an
     attack, and both are cheaper to refuse than to parse."""
@@ -167,6 +169,7 @@ def test_an_oversized_message_is_refused_before_it_is_parsed(client) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0066")
 def test_a_conversation_continues_across_requests(client) -> None:
     """Impossible before F-006 was fixed. Checkpoints were filed under run id, a
     fresh one is minted every turn, and no caller has ever held one — so there
@@ -182,6 +185,7 @@ def test_a_conversation_continues_across_requests(client) -> None:
     assert b"hello" in raw, "the earlier turn survived"
 
 
+@pytest.mark.discharges("AAC-0040")
 def test_another_customer_cannot_open_your_conversation(client) -> None:
     """Refused as *not found* rather than *forbidden* — confirming it exists
     tells an attacker their guess was right."""
@@ -192,6 +196,7 @@ def test_another_customer_cannot_open_your_conversation(client) -> None:
     assert "forbidden" not in res.text.lower()
 
 
+@pytest.mark.discharges("AHC-0066")
 def test_an_unknown_conversation_id_starts_a_new_one(client) -> None:
     res = post(client, "hello", tok=token(), cid="cnv_nothing_here")
     assert res.status_code == 200
@@ -203,7 +208,7 @@ def test_an_unknown_conversation_id_starts_a_new_one(client) -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0076")
+@pytest.mark.discharges("AAC-0076", "AHC-0053")
 def test_a_repeated_delivery_is_answered_not_repeated(client) -> None:
     """200, not an error. The caller did the right thing by retrying, and a 4xx
     here would make every well-behaved queue look like a client fault."""
@@ -229,6 +234,7 @@ def test_without_an_idempotency_key_the_turn_runs_unguarded(client) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("R-DISCOUNT", "AHC-0017")
 def test_a_refusal_is_a_two_hundred(client) -> None:
     """The agent worked correctly and the answer is no. A 4xx would make every
     dashboard count correct behaviour as an error rate."""

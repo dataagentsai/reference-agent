@@ -48,11 +48,12 @@ def request(text: str = "hello") -> ModelRequest:
     ],
     ids=["scripted", "unavailable"],
 )
+@pytest.mark.discharges("AHC-0022")
 def test_adapters_satisfy_the_protocol_structurally(name: str, client: object) -> None:
     assert isinstance(client, LLMClient)
 
 
-@pytest.mark.discharges("AAC-0059")
+@pytest.mark.discharges("AAC-0059", "AHC-0022")
 async def test_scripted_client_is_deterministic_and_free() -> None:
     tel.configure()
     scripted = ScriptedClient([ModelResponse(text="one"), ModelResponse(text="two")])
@@ -77,7 +78,7 @@ async def test_provider_failure_is_typed_not_a_stack_trace() -> None:
         await UnavailableClient().complete(request())
 
 
-@pytest.mark.discharges("AAC-0011")
+@pytest.mark.discharges("AAC-0011", "B8")
 async def test_model_call_emits_a_span_with_usage() -> None:
     exporter = tel.configure()
     scripted = ScriptedClient(
@@ -127,7 +128,7 @@ def test_a_short_secret_is_a_configuration_fault_not_a_warning() -> None:
         ident.mint("C-1", secret="too-short")
 
 
-@pytest.mark.discharges("AAC-0057")
+@pytest.mark.discharges("AAC-0057", "AHC-0057")
 def test_customer_scopes_exclude_refunds() -> None:
     """A refund is irreversible and needs a human above the threshold, so the
     agent acting as the customer must not hold the scope that would skip it."""
@@ -137,7 +138,6 @@ def test_customer_scopes_exclude_refunds() -> None:
         ident.require(who, ident.SCOPE_REFUNDS_WRITE)
 
 
-@pytest.mark.discharges("AAC-0057", "AAC-0106")
 def test_confused_deputy_needs_a_different_token_not_a_different_claim() -> None:
     """T-AD-01. Whatever the model believes about who it is talking to, the
     identity it can act as is the one the token carries."""
@@ -186,6 +186,7 @@ async def test_a_legitimate_second_execution_does_run() -> None:
     assert len(calls) == 2
 
 
+@pytest.mark.discharges("AHC-0074")
 async def test_reads_bypass_the_ledger() -> None:
     ledger, calls = InMemoryLedger(), []
 

@@ -97,6 +97,7 @@ FREE_ROUTES = [
 
 
 @pytest.mark.parametrize(("name", "text", "expected"), FREE_ROUTES, ids=[c[0] for c in FREE_ROUTES])
+@pytest.mark.discharges("R-DISCOUNT", "esc:asked-for-human")
 async def test_refusal_and_escalation_never_call_the_model(
     server, name: str, text: str, expected: type
 ) -> None:
@@ -131,7 +132,7 @@ async def test_an_ambiguous_turn_reaches_the_loop(server) -> None:
     assert len(llm.calls) == 2
 
 
-@pytest.mark.discharges("AAC-0009")
+@pytest.mark.discharges("AAC-0009", "AHC-0005", "AHC-0017", "B11")
 async def test_provider_failure_returns_a_typed_result(server) -> None:
     async with open_tools(server) as tools:
         result, _ = await agent_with(tools, llm=UnavailableClient()).handle(
@@ -184,6 +185,7 @@ async def test_history_carries_into_the_next_turn(server) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0044")
 async def test_a_turn_is_checkpointed(server) -> None:
     store = InMemoryCheckpointStore()
     run_id = RunId("run_fixed")
@@ -212,6 +214,7 @@ def test_each_store_declares_its_durability(name: str, cls: type, durable: bool)
     assert cls.durable is durable
 
 
+@pytest.mark.discharges("AHC-0044")
 async def test_a_file_checkpoint_survives_a_new_store_instance(tmp_path) -> None:
     """The closest thing to a restart a test can stage."""
     run_id = RunId("run_restart")
@@ -246,7 +249,7 @@ async def test_resuming_an_unknown_run_is_none_not_an_error(tmp_path) -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0011", "AAC-0107")
+@pytest.mark.discharges("AAC-0011", "AAC-0107", "AHC-0003", "B8")
 async def test_the_turn_span_carries_the_config_fingerprint(server, exporter) -> None:
     config = resolve(Settings(provider_api_key="k", resolution="mock", sealed=True))
     async with open_tools(server) as tools:
@@ -257,7 +260,7 @@ async def test_the_turn_span_carries_the_config_fingerprint(server, exporter) ->
     assert attrs[tel.RESOLUTION] == "mock"
 
 
-@pytest.mark.discharges("AAC-0100")
+@pytest.mark.discharges("AAC-0100", "B8")
 async def test_a_direct_route_is_visible_on_the_trace(server, exporter) -> None:
     """A verdict that says "no model call" should be checkable without trusting
     the reply text."""

@@ -66,6 +66,7 @@ THRESHOLD_CASES = [
 @pytest.mark.parametrize(
     ("name", "args", "needs"), THRESHOLD_CASES, ids=[c[0] for c in THRESHOLD_CASES]
 )
+@pytest.mark.discharges("P-REFUND")
 def test_which_refunds_need_a_human(name: str, args: dict, needs: bool) -> None:
     """An unreadable amount needs approval. A gate that cannot read the number
     must not conclude the number is small."""
@@ -82,7 +83,7 @@ def test_only_refunds_are_gated() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0056", "AAC-0005")
+@pytest.mark.discharges("AAC-0056", "AAC-0005", "AHC-0057")
 async def test_nobody_approves_their_own_request() -> None:
     """The confused deputy of the human path, and the control against "your
     colleague already approved this" — the claim would have to be true in the
@@ -102,6 +103,7 @@ async def test_a_decision_is_terminal() -> None:
         await ap.decide(store, approval.id, granted=False, by="ops-7", now=T0 + HOUR)
 
 
+@pytest.mark.discharges("AHC-0057", "AAC-0078")
 async def test_an_expired_request_cannot_be_decided() -> None:
     store = ap.InMemoryApprovalStore()
     approval = await pending_refund(store)
@@ -140,7 +142,7 @@ ELEVATION_CASES = [
     ELEVATION_CASES,
     ids=[c[0] for c in ELEVATION_CASES],
 )
-@pytest.mark.discharges("AAC-0057", "AAC-0056")
+@pytest.mark.discharges("AAC-0057", "AAC-0056", "AHC-0057", "AAC-0078")
 async def test_the_elevated_scope_is_refused_without_a_live_grant(
     name: str, decided: bool, granted: bool, when: int
 ) -> None:
@@ -152,6 +154,7 @@ async def test_the_elevated_scope_is_refused_without_a_live_grant(
         ap.granted_identity(approval, customer(), now=when)
 
 
+@pytest.mark.discharges("AHC-0057")
 async def test_a_live_grant_mints_the_scope() -> None:
     store = ap.InMemoryApprovalStore()
     approval = await ap.decide(
@@ -162,6 +165,7 @@ async def test_a_live_grant_mints_the_scope() -> None:
     assert not customer().may(ident.SCOPE_REFUNDS_WRITE)
 
 
+@pytest.mark.discharges("AHC-0057")
 async def test_an_approval_cannot_elevate_a_different_customer() -> None:
     store = ap.InMemoryApprovalStore()
     approval = await ap.decide(
@@ -172,6 +176,7 @@ async def test_an_approval_cannot_elevate_a_different_customer() -> None:
         ap.granted_identity(approval, someone_else, now=T0 + HOUR)
 
 
+@pytest.mark.discharges("AHC-0074")
 async def test_the_original_key_survives_the_wait() -> None:
     """L14 meets L10. Executing under a fresh key would defeat the ledger."""
     store = ap.InMemoryApprovalStore()
@@ -207,7 +212,7 @@ def server():
     return srv
 
 
-@pytest.mark.discharges("AAC-0056")
+@pytest.mark.discharges("AAC-0056", "AHC-0057")
 async def test_a_large_refund_cannot_be_issued_before_it_is_granted(server) -> None:
     """The customer's own surface does not contain the tool at all."""
     async with connect(server, ledger=InMemoryLedger()) as tools:
@@ -216,7 +221,7 @@ async def test_a_large_refund_cannot_be_issued_before_it_is_granted(server) -> N
     assert server.state["refunds"] == 0
 
 
-@pytest.mark.discharges("AAC-0047", "AAC-0056")
+@pytest.mark.discharges("AAC-0047", "AAC-0056", "AHC-0057", "AHC-0074", "op:issue_refund")
 async def test_the_whole_path_produces_exactly_one_refund(server) -> None:
     """Requested, waited, granted an hour later by someone else, resumed — and
     resumed *twice*, because a duplicate click and a retried process are the same
@@ -242,6 +247,7 @@ async def test_the_whole_path_produces_exactly_one_refund(server) -> None:
     assert server.state["refunds"] == 1
 
 
+@pytest.mark.discharges("AHC-0057")
 async def test_a_refused_approval_never_reaches_the_tool(server) -> None:
     store = ap.InMemoryApprovalStore()
     refused = await ap.decide(
@@ -286,7 +292,15 @@ def wants_refund(amount: str):
     )
 
 
-@pytest.mark.discharges("AAC-0056", "AAC-0047")
+@pytest.mark.discharges(
+    "AAC-0056",
+    "AAC-0047",
+    "AHC-0057",
+    "AAC-0078",
+    "P-REFUND",
+    "op:request_refund",
+    "ext:approval_queue",
+)
 async def test_a_large_refund_waits_and_then_completes_across_turns(server) -> None:
     """The whole gate, through the drivable surface.
 
@@ -328,6 +342,7 @@ async def test_a_large_refund_waits_and_then_completes_across_turns(server) -> N
     assert conversation.pending_approval_id is None
 
 
+@pytest.mark.discharges("AHC-0057", "ext:approval_queue")
 async def test_a_pending_approval_short_circuits_the_next_turn(server) -> None:
     from support_agent.contracts import Completed, NeedsApproval
     from support_agent.state import InMemoryCheckpointStore
@@ -348,6 +363,7 @@ async def test_a_pending_approval_short_circuits_the_next_turn(server) -> None:
     assert server.state["refunds"] == 0
 
 
+@pytest.mark.discharges("AHC-0057")
 async def test_a_refused_approval_is_reported_and_nothing_is_refunded(server) -> None:
     from support_agent.contracts import Completed
     from support_agent.state import InMemoryCheckpointStore
@@ -371,6 +387,7 @@ async def test_a_refused_approval_is_reported_and_nothing_is_refunded(server) ->
     assert conversation.pending_approval_id is None
 
 
+@pytest.mark.discharges("AHC-0057", "AAC-0056")
 async def test_an_agent_without_an_approval_store_cannot_refund_at_all(server) -> None:
     """It does not fall back to issuing one — the tool is simply not advertised."""
     from support_agent import entrypoint as ep

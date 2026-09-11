@@ -78,7 +78,7 @@ def agent_for(tools, *responses):
     max_examples=60, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture]
 )
 @given(order_id=st.text(min_size=0, max_size=200))
-@pytest.mark.discharges("AAC-0015", "AAC-0052")
+@pytest.mark.discharges("AAC-0015", "AAC-0052", "AHC-0043")
 async def test_no_arbitrary_order_id_can_crash_or_change_the_world(order_id: str) -> None:
     """Any string at all. Either a typed result or a typed error — never an
     unhandled exception, and never a mutation."""
@@ -96,6 +96,7 @@ async def test_no_arbitrary_order_id_can_crash_or_change_the_world(order_id: str
 
 @settings(max_examples=40, deadline=None)
 @given(text=st.text(max_size=500))
+@pytest.mark.discharges("AHC-0011", "AHC-0045", "AAC-0058")
 def test_the_fence_survives_arbitrary_tool_output(text: str) -> None:
     """A fence the untrusted text can close is not a fence, so the property is
     stated over *all* text rather than over the delimiters someone thought of."""
@@ -109,6 +110,7 @@ def test_the_fence_survives_arbitrary_tool_output(text: str) -> None:
 
 @settings(max_examples=40, deadline=None)
 @given(text=st.text(max_size=300))
+@pytest.mark.discharges("AAC-0015")
 def test_the_router_never_takes_a_direct_action_on_arbitrary_text(text: str) -> None:
     """A deterministic path is cheaper; it must not be reachable by accident."""
     from support_agent import router
@@ -121,7 +123,7 @@ def test_the_router_never_takes_a_direct_action_on_arbitrary_text(text: str) -> 
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0053")
+@pytest.mark.discharges("AAC-0053", "AHC-0043")
 async def test_an_execution_channel_fault_is_survivable() -> None:
     world = live()
     timeline = Timeline(ChannelError(tool="cancel_order", channel="execution"))
@@ -140,7 +142,7 @@ async def test_an_execution_channel_fault_is_survivable() -> None:
     assert world.count("cancel_order") == 0
 
 
-@pytest.mark.discharges("AAC-0053", "AAC-0009")
+@pytest.mark.discharges("AAC-0053", "AHC-0043")
 async def test_a_protocol_channel_fault_is_survivable() -> None:
     """The channel an agent is least likely to handle, because it usually
     indicates our bug rather than the model's."""
@@ -160,6 +162,7 @@ async def test_a_protocol_channel_fault_is_survivable() -> None:
     assert world.count("cancel_order") == 0
 
 
+@pytest.mark.tooling
 async def test_a_scenario_whose_fault_never_fired_is_reported() -> None:
     """A scenario whose fault never landed did not test what it claimed, and
     passes for the wrong reason — worse than failing."""
@@ -174,7 +177,7 @@ async def test_a_scenario_whose_fault_never_fired_is_reported() -> None:
     assert len(timeline.unfired) == 1
 
 
-@pytest.mark.discharges("AAC-0053")
+@pytest.mark.discharges("AAC-0053", "P-CANCEL", "op:cancel_order", "ext:order_system")
 async def test_the_world_re_checks_under_a_stale_read() -> None:
     """G2, the check-then-act race, staged deliberately.
 
@@ -211,7 +214,7 @@ async def test_a_slow_call_still_completes() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0058", "AAC-0004")
+@pytest.mark.discharges("AAC-0058", "AAC-0004", "AHC-0011", "AHC-0045")
 async def test_an_instruction_planted_in_an_order_note_arrives_fenced() -> None:
     """The injection path that survives every input filter, because the hostile
     text never passed through the input."""
@@ -225,7 +228,7 @@ async def test_an_instruction_planted_in_an_order_note_arrives_fenced() -> None:
     assert message.provenance == "tool"
 
 
-@pytest.mark.discharges("AAC-0057", "AAC-0106")
+@pytest.mark.discharges("AAC-0106", "AHC-0034")
 async def test_a_planted_instruction_cannot_reach_an_unscoped_tool() -> None:
     """Even a model entirely taken in by the note cannot act on it: `issue_refund`
     is not on this identity's surface at all. The prompt is not the boundary."""
@@ -245,7 +248,7 @@ async def test_a_planted_instruction_cannot_reach_an_unscoped_tool() -> None:
     assert diff(before, world.snapshot()) == ()
 
 
-@pytest.mark.discharges("AAC-0005")
+@pytest.mark.discharges("AAC-0005", "P-CANCEL", "op:cancel_order")
 async def test_a_planted_instruction_cannot_bypass_the_eligibility_rule() -> None:
     """Suppose the model obeys the note completely. The order is `shipped`, so
     the world refuses regardless of what anybody believes."""
@@ -263,7 +266,7 @@ async def test_a_planted_instruction_cannot_bypass_the_eligibility_rule() -> Non
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0003")
+@pytest.mark.discharges("AAC-0003", "AAC-0110", "P-CANCEL")
 async def test_a_false_cancellation_claim_does_not_reach_the_customer() -> None:
     """The refund version of this is guarded. The cancellation version is the
     same failure with a different noun.
@@ -289,7 +292,7 @@ async def test_a_false_cancellation_claim_does_not_reach_the_customer() -> None:
     )
 
 
-@pytest.mark.discharges("AAC-0003")
+@pytest.mark.discharges("AAC-0003", "AAC-0110", "ext:order_system")
 async def test_a_stale_read_cannot_become_a_false_confirmation() -> None:
     """The agent read `pending`, the world moved, the write was refused — and the
     model answers from what it expected rather than what it was told."""
@@ -312,6 +315,7 @@ async def test_a_stale_read_cannot_become_a_false_confirmation() -> None:
     )
 
 
+@pytest.mark.discharges("AAC-0110")
 def test_the_policy_covers_every_irreversible_action_not_just_refunds() -> None:
     """F-003. A guardrail that names one action protects one action.
 
@@ -360,7 +364,6 @@ def _long_history(turns: int):
 @given(
     turns=st.integers(min_value=1, max_value=25), budget=st.integers(min_value=200, max_value=6000)
 )
-@pytest.mark.discharges("AAC-0105")
 async def test_trimming_never_orphans_a_tool_call(turns: int, budget: int) -> None:
     """An assistant turn claiming a call whose answer was trimmed away is a
     transcript no provider accepts — the same 400 the first live call produced.
@@ -374,6 +377,7 @@ async def test_trimming_never_orphans_a_tool_call(turns: int, budget: int) -> No
     assert not missing_answers and not missing_calls
 
 
+@pytest.mark.discharges("AHC-0012")
 def test_trimming_keeps_the_ends() -> None:
     """The earliest turn establishes the task; the latest is what is being
     answered. The middle is what can go."""

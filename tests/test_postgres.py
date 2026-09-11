@@ -70,6 +70,7 @@ def conversation(text: str = "hello") -> Conversation:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0044")
 async def test_a_checkpoint_survives_a_new_store_and_a_new_pool(pool) -> None:
     from support_agent.state.postgres import PostgresCheckpointStore
 
@@ -87,6 +88,7 @@ async def test_a_checkpoint_survives_a_new_store_and_a_new_pool(pool) -> None:
     assert Conversation.decode(raw).messages[0].content == "hello"
 
 
+@pytest.mark.discharges("AHC-0044")
 async def test_a_checkpoint_is_never_briefly_absent(pool) -> None:
     """Upsert rather than delete-then-insert: absent is indistinguishable from
     "this run never happened" to anything that resumes."""
@@ -166,7 +168,7 @@ async def test_the_first_outcome_for_a_key_is_the_outcome(pool) -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0056", "AAC-0047")
+@pytest.mark.discharges("AAC-0056", "AAC-0047", "AHC-0057", "ext:approval_queue")
 async def test_an_approval_survives_a_process_restart(pool) -> None:
     """The whole reason P6 exists.
 
@@ -262,6 +264,7 @@ async def test_the_pending_queue_is_what_a_reviewer_sees(pool) -> None:
     assert remaining[0].id != first.id
 
 
+@pytest.mark.discharges("AAC-0056", "AHC-0057")
 async def test_the_action_and_key_cannot_change_after_the_request(pool) -> None:
     """An approval granted for one thing must not be executable as another."""
     from support_agent.state.postgres import PostgresApprovalStore
@@ -336,6 +339,7 @@ async def raised(store, *, rule_id: str = "asked-for-human", ttl_s: int = HOUR, 
     )
 
 
+@pytest.mark.discharges("op:escalate")
 async def test_an_escalation_outlives_the_process_that_raised_it(pool) -> None:
     """The whole point of the record, and the reason `InMemoryEscalationStore`
     says `durable = False` out loud.
@@ -453,6 +457,7 @@ async def test_the_database_refuses_an_outcome_the_model_does_not_know(pool) -> 
             )
 
 
+@pytest.mark.discharges("op:escalate")
 async def test_the_sweeper_lapses_across_a_restart(pool) -> None:
     """Expiry is a property of the row, not of the process that wrote it — which
     is exactly the case the in-memory store cannot answer."""

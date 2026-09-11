@@ -36,6 +36,7 @@ def obligation(oid: str = "AAC-0055", *, gate: bool = False) -> Obligation:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.tooling
 def test_the_manifest_carries_ids_but_not_normative_text() -> None:
     """Principle 1. The obligation's `statement` stays in the catalog; copying
     it here would fork the normative text into a second place that drifts."""
@@ -49,6 +50,7 @@ def test_the_manifest_carries_ids_but_not_normative_text() -> None:
         assert set(entry) == {"id", "title", "dimension", "level", "gate", "stages", "mechanisms"}
 
 
+@pytest.mark.tooling
 def test_the_manifest_holds_every_a6_obligation() -> None:
     """43 → 49 when the manifest was synced from the catalog for the first time.
 
@@ -64,6 +66,7 @@ def test_the_manifest_holds_every_a6_obligation() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.tooling
 def test_an_untouched_obligation_is_not_exercised_not_passing() -> None:
     """A report listing only passes and failures implies the remainder is fine."""
     report = Report([obligation()])
@@ -71,6 +74,7 @@ def test_an_untouched_obligation_is_not_exercised_not_passing() -> None:
     assert report.exercised == 0
 
 
+@pytest.mark.tooling
 def test_one_failure_outweighs_any_number_of_passes() -> None:
     report = Report([obligation()])
     report.record("AAC-0055", "t::a", passed=True)
@@ -79,6 +83,7 @@ def test_one_failure_outweighs_any_number_of_passes() -> None:
     assert report.coverage["AAC-0055"].verdict is Verdict.FAILED
 
 
+@pytest.mark.tooling
 def test_scored_and_binary_are_never_summed_together() -> None:
     """A fix moving a model-driven case from 60% to 80% is real progress and
     invisible to pass/fail. Mixing the columns is how a team chases flakes."""
@@ -89,6 +94,7 @@ def test_scored_and_binary_are_never_summed_together() -> None:
     assert len(report.by_verdict(Verdict.PASSED)) == 1
 
 
+@pytest.mark.tooling
 def test_an_uncovered_release_gate_is_called_out_separately() -> None:
     """An uncovered gate is a claim the release process makes and the suite
     cannot support."""
@@ -96,6 +102,7 @@ def test_an_uncovered_release_gate_is_called_out_separately() -> None:
     assert [c.obligation.id for c in report.gates_uncovered] == ["AAC-0001"]
 
 
+@pytest.mark.tooling
 def test_an_obligation_from_another_archetype_is_a_tagging_gap_not_a_mistake() -> None:
     """The mechanism, on a fixture rather than a live id.
 
@@ -110,6 +117,7 @@ def test_an_obligation_from_another_archetype_is_a_tagging_gap_not_a_mistake() -
     assert report.unknown_ids == set()
 
 
+@pytest.mark.tooling
 def test_g1_was_accepted_by_the_catalog() -> None:
     """**G1, closed — and we did not know.**
 
@@ -130,12 +138,14 @@ def test_g1_was_accepted_by_the_catalog() -> None:
     assert not {"AAC-0029", "AAC-0046", "AAC-0047"} & set(load_elsewhere())
 
 
+@pytest.mark.tooling
 def test_an_id_that_exists_nowhere_is_a_defect_in_the_test() -> None:
     report = Report([obligation()])
     report.record("AAC-9999", "t::typo", passed=True)
     assert report.unknown_ids == {"AAC-9999"}
 
 
+@pytest.mark.tooling
 def test_the_rendered_report_names_what_it_did_not_cover() -> None:
     report = Report([obligation("AAC-0001", gate=True), obligation("AAC-0055")])
     report.record("AAC-0055", "t::a", passed=True)
@@ -171,7 +181,7 @@ def server():
     return srv
 
 
-@pytest.mark.discharges("AAC-0105")
+@pytest.mark.discharges("AAC-0105", "AHC-0038")
 async def test_a_large_tool_result_is_bounded_before_it_enters_context(server) -> None:
     """Implemented in `tools._bound` since the module was written, and never
     tested until the report said so."""

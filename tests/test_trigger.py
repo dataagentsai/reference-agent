@@ -59,6 +59,7 @@ def cancels(times: int = 4) -> ScriptedClient:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0053", "AAC-0076")
 async def test_a_settled_delivery_is_refused() -> None:
     log = trg.InMemoryDeliveryLog()
     async with trg.once(log, "msg-1"):
@@ -69,6 +70,7 @@ async def test_a_settled_delivery_is_refused() -> None:
             pass
 
 
+@pytest.mark.discharges("AHC-0053", "AAC-0076")
 async def test_an_in_flight_delivery_is_refused_differently() -> None:
     """Told apart from a duplicate because the operator response differs: a
     redelivery is routine, two concurrent turns for one conversation is a race."""
@@ -79,6 +81,7 @@ async def test_an_in_flight_delivery_is_refused_differently() -> None:
                 pass
 
 
+@pytest.mark.discharges("AHC-0053", "AAC-0076")
 async def test_a_failed_delivery_still_settles() -> None:
     """A delivery that was tried and failed has still been delivered. Re-running
     it on redelivery would repeat whatever effects it managed before failing."""
@@ -93,6 +96,7 @@ async def test_a_failed_delivery_still_settles() -> None:
             pass
 
 
+@pytest.mark.discharges("AHC-0053")
 async def test_different_deliveries_do_not_collide() -> None:
     log = trg.InMemoryDeliveryLog()
     for n in range(3):
@@ -125,7 +129,7 @@ async def _turn(agent, world, text: str, delivery_id: str | None):
     return await agent.handle(text, identity=who(), delivery_id=delivery_id)
 
 
-@pytest.mark.discharges("AAC-0076")
+@pytest.mark.discharges("AAC-0076", "AHC-0053")
 async def test_a_redelivered_message_does_not_cancel_twice() -> None:
     """The whole point, and the reason the ledger could not do it.
 
@@ -179,6 +183,7 @@ async def test_without_a_delivery_id_the_second_run_acts_again() -> None:
     )
 
 
+@pytest.mark.discharges("AHC-0053", "AAC-0076")
 async def test_two_concurrent_deliveries_do_not_both_run() -> None:
     """A queue with at-least-once semantics — which is every queue worth using —
     can deliver the same message to two workers at the same moment."""
@@ -205,6 +210,7 @@ async def test_two_concurrent_deliveries_do_not_both_run() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.tooling
 def test_a_trigger_that_never_fires_is_an_omission() -> None:
     """The half this module cannot answer, pinned where it *is* answered.
 

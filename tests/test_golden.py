@@ -65,7 +65,15 @@ def key(n: int = 0) -> IdempotencyKey:
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c["id"] for c in CASES])
-@pytest.mark.discharges("AAC-0001", "AAC-0003")
+@pytest.mark.discharges(
+    "P-CANCEL",
+    "P-RETURN",
+    "P-ADDRESS",
+    "op:cancel_order",
+    "op:open_return_request",
+    "op:change_address",
+    "ext:order_system",
+)
 async def test_the_golden_set(case: dict) -> None:
     row = case["row"]
     world = evalworld.World()
@@ -109,7 +117,7 @@ def test_the_golden_set_is_frozen_and_covers_its_boundaries() -> None:
     assert on_limit["expected_allowed"] is True
 
 
-@pytest.mark.discharges("AAC-0001")
+@pytest.mark.discharges("AAC-0001", "P-CANCEL", "op:cancel_order")
 async def test_a_refusal_changes_nothing_in_the_world() -> None:
     """Correct refusal is success — and success means the world is untouched.
 
@@ -132,7 +140,7 @@ async def test_a_refusal_changes_nothing_in_the_world() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0099", "AAC-0002")
+@pytest.mark.discharges("AAC-0099", "AAC-0002", "AHC-0017", "R-DISCOUNT", "esc:asked-for-human")
 async def test_every_route_returns_a_conforming_result() -> None:
     """Four routes, four shapes, one contract. A route that returned a bare
     string would be invisible to every caller until one of them parsed it."""
@@ -162,7 +170,7 @@ async def test_every_route_returns_a_conforming_result() -> None:
             assert adapter.validate_python(adapter.dump_python(result)) == result
 
 
-@pytest.mark.discharges("AAC-0099", "AAC-0009")
+@pytest.mark.discharges("AAC-0099", "AAC-0009", "AHC-0017")
 async def test_the_contract_holds_on_the_failure_route_too() -> None:
     """The route most likely to return something unshaped is the one nobody
     plans for."""
@@ -186,7 +194,7 @@ async def test_the_contract_holds_on_the_failure_route_too() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0098", "AAC-0094")
+@pytest.mark.discharges("AAC-0098", "AAC-0094", "AHC-0003", "AHC-0009")
 def test_every_approved_model_is_configurable_priced_and_reachable() -> None:
     """The allowlist is the set of models a run could actually use, so a model
     that resolves but has no price would run and be unbudgetable. Three lists —
@@ -261,7 +269,7 @@ def test_nothing_regressed_against_the_committed_baseline() -> None:
     )
 
 
-@pytest.mark.discharges("AAC-0103")
+@pytest.mark.discharges("AAC-0103", "AHC-0012")
 def test_context_grows_with_history_and_is_bounded() -> None:
     """Growth is expected; unbounded growth is the defect."""
     system = "s"

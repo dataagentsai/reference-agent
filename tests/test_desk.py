@@ -112,6 +112,7 @@ DESKS = [
 @pytest.mark.parametrize(
     ("name", "factory", "step_s", "outcome", "state"), DESKS, ids=[c[0] for c in DESKS]
 )
+@pytest.mark.discharges("ext:escalation_desk", "op:escalate")
 async def test_what_each_desk_leaves_behind(
     name: str, factory, step_s: int, outcome: str, state: EscalationState
 ) -> None:
@@ -128,6 +129,7 @@ async def test_what_each_desk_leaves_behind(
     assert raised.state is state
 
 
+@pytest.mark.discharges("ext:escalation_desk", "op:escalate")
 async def test_a_handled_escalation_returns_the_customer_to_the_agent() -> None:
     """The round trip. The agent stops serving, the desk closes it, and the
     customer is served again — without anybody telling the agent directly."""
@@ -235,6 +237,7 @@ async def test_a_frustrated_customer_is_never_escalated_today() -> None:
     assert desk.handled == [], "no escalation was ever raised, so the desk saw nothing"
 
 
+@pytest.mark.discharges("op:escalate", "ext:escalation_desk")
 async def test_the_clock_drives_expiry_rather_than_a_rewritten_row() -> None:
     """`contracts.Clock`, finally implemented by something.
 

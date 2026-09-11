@@ -98,6 +98,7 @@ ASKS_FOR_A_HUMAN = [
 
 
 @pytest.mark.parametrize(("name", "text"), ASKS_FOR_A_HUMAN, ids=[c[0] for c in ASKS_FOR_A_HUMAN])
+@pytest.mark.discharges("esc:asked-for-human", "AAC-0043")
 def test_a_request_for_a_person_escalates(name: str, text: str) -> None:
     decision = router.route(text)
     assert decision.kind == "escalate", text
@@ -119,6 +120,7 @@ MENTIONS_A_PERSON_WITHOUT_ASKING = [
     MENTIONS_A_PERSON_WITHOUT_ASKING,
     ids=[c[0] for c in MENTIONS_A_PERSON_WITHOUT_ASKING],
 )
+@pytest.mark.discharges("esc:asked-for-human", "AAC-0043")
 def test_naming_a_person_is_not_asking_for_one(name: str, text: str) -> None:
     """Over-escalation, and the reason it is hard to see: the route was recorded
     as correct, because the rule really did fire. Every line here escalated
@@ -126,6 +128,7 @@ def test_naming_a_person_is_not_asking_for_one(name: str, text: str) -> None:
     assert router.route(text).kind != "escalate", text
 
 
+@pytest.mark.discharges("esc:lost-in-transit", "AAC-0043")
 def test_the_policy_rule_still_fires_without_anyone_asking() -> None:
     """The second rule is a different kind of thing — nobody requested a human,
     the case class simply is not the agent's to resolve."""
@@ -139,6 +142,7 @@ def test_the_policy_rule_still_fires_without_anyone_asking() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("op:escalate", "ext:escalation_desk", "AHC-0070", "AAC-0110")
 async def test_an_escalation_writes_a_record_and_names_it(server) -> None:
     store = esc.InMemoryEscalationStore()
     async with connect(server, ledger=InMemoryLedger()) as tools:
@@ -173,6 +177,7 @@ async def test_without_a_store_it_promises_no_reference(server) -> None:
     assert conversation.pending_escalation_id is None, "nothing to point the flag at"
 
 
+@pytest.mark.discharges("AHC-0070", "esc:asked-for-human")
 async def test_escalation_still_never_reaches_the_model(server) -> None:
     llm = ScriptedClient([])
     async with connect(server, ledger=InMemoryLedger()) as tools:
@@ -195,6 +200,7 @@ FOLLOW_UPS = [
 
 
 @pytest.mark.parametrize(("name", "text"), FOLLOW_UPS, ids=[c[0] for c in FOLLOW_UPS])
+@pytest.mark.discharges("op:escalate")
 async def test_the_agent_does_not_answer_over_a_live_handoff(server, name: str, text: str) -> None:
     """It used to. The customer was told a colleague would take over and the
     next message was served by the agent as though nothing had happened."""
@@ -214,6 +220,7 @@ async def test_the_agent_does_not_answer_over_a_live_handoff(server, name: str, 
     assert llm.calls == []
 
 
+@pytest.mark.discharges("op:escalate")
 async def test_a_resolved_escalation_hands_the_conversation_back(server) -> None:
     store = esc.InMemoryEscalationStore()
     async with connect(server, ledger=InMemoryLedger()) as tools:
@@ -234,6 +241,7 @@ async def test_a_resolved_escalation_hands_the_conversation_back(server) -> None
     assert conversation.pending_escalation_id is None
 
 
+@pytest.mark.discharges("op:escalate", "ext:escalation_desk")
 async def test_nobody_came_so_the_conversation_is_handed_back(server) -> None:
     """The case that makes step 1 shippable before a reviewer surface exists.
 
@@ -270,6 +278,7 @@ async def test_nobody_came_so_the_conversation_is_handed_back(server) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AAC-0002", "AHC-0017")
 async def test_the_escalated_result_still_round_trips_the_union(server) -> None:
     adapter: TypeAdapter[TurnResult] = TypeAdapter(TurnResult)
     async with connect(server, ledger=InMemoryLedger()) as tools:
@@ -287,6 +296,7 @@ TIER_ONE_SPANS = [
 
 
 @pytest.mark.parametrize(("name", "span"), TIER_ONE_SPANS, ids=[c[0] for c in TIER_ONE_SPANS])
+@pytest.mark.discharges("B8")
 async def test_the_expected_spans_are_emitted(server, exporter, name: str, span: str) -> None:
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = agent_with(tools, escalations=esc.InMemoryEscalationStore())
@@ -295,6 +305,7 @@ async def test_the_expected_spans_are_emitted(server, exporter, name: str, span:
     assert span in {s.name for s in exporter.get_finished_spans()}
 
 
+@pytest.mark.discharges("B8")
 async def test_the_raise_span_carries_the_rule_it_fired(server, exporter) -> None:
     """Required, not optional. A span that says only "escalated" cannot be
     attributed to a rule, and attributing them is the whole mechanism for
@@ -379,6 +390,7 @@ def test_the_estimate_comes_from_depth_and_throughput(
     assert (esc.humanise(seconds) if seconds is not None else None) == expected
 
 
+@pytest.mark.discharges("op:escalate", "ext:escalation_desk")
 async def test_the_sweeper_lapses_what_nobody_came_for(server) -> None:
     """The queue's phantom work.
 

@@ -53,6 +53,7 @@ FINAL_SALE = Invariant(
         ("silent when the field is absent", {"status": "pending"}, False),
     ],
 )
+@pytest.mark.tooling
 def test_delivery_invariant(why: str, row: dict, violated: bool) -> None:
     assert DELIVERY.violated_by(row) is violated, why
 
@@ -66,11 +67,13 @@ def test_delivery_invariant(why: str, row: dict, violated: bool) -> None:
         ("silent when the field is absent", {"status": "returned"}, False),
     ],
 )
+@pytest.mark.tooling
 def test_final_sale_invariant(why: str, row: dict, violated: bool) -> None:
     assert FINAL_SALE.violated_by(row) is violated, why
 
 
 @pytest.mark.parametrize("world_file", ["clothing.yaml", "electronics.yaml"])
+@pytest.mark.tooling
 def test_no_generated_case_describes_an_impossible_world(world_file: str) -> None:
     """F-011, pinned. This is the assertion the finding is about."""
     world = load(WORLDS / world_file)
@@ -82,6 +85,7 @@ def test_no_generated_case_describes_an_impossible_world(world_file: str) -> Non
 
 
 @pytest.mark.parametrize("world_file", ["clothing.yaml", "electronics.yaml"])
+@pytest.mark.tooling
 def test_the_constraints_actually_prune_something(world_file: str) -> None:
     """A constraint that prunes nothing is a constraint nobody needed.
 
@@ -97,6 +101,7 @@ def test_the_constraints_actually_prune_something(world_file: str) -> None:
 
 
 @pytest.mark.parametrize("world_file", ["clothing.yaml", "electronics.yaml"])
+@pytest.mark.tooling
 def test_constraining_does_not_cost_the_boundaries(world_file: str) -> None:
     """The one way this fix could do real damage.
 
@@ -115,6 +120,7 @@ def test_constraining_does_not_cost_the_boundaries(world_file: str) -> None:
     assert {window, window + 1} <= days, f"lost the boundary at {window}/{window + 1}"
 
 
+@pytest.mark.tooling
 def test_a_seeded_row_that_cannot_exist_fails_at_load(tmp_path: Path) -> None:
     """The loader's job: fail loudly rather than produce verdicts about a world
     nobody meant to write. Unlike a bad enum, nothing downstream notices this."""
@@ -133,6 +139,7 @@ def test_a_seeded_row_that_cannot_exist_fails_at_load(tmp_path: Path) -> None:
         load(path, spec=resolve_spec(WORLDS / "clothing.yaml"))
 
 
+@pytest.mark.tooling
 def test_an_invariant_about_an_unknown_field_fails_at_load(tmp_path: Path) -> None:
     """The invariant is the agent spec's now, so the typo goes into the spec."""
     spec = resolve_spec(WORLDS / "clothing.yaml")
@@ -150,6 +157,7 @@ def test_an_invariant_about_an_unknown_field_fails_at_load(tmp_path: Path) -> No
         load(WORLDS / "clothing.yaml", spec=typo)
 
 
+@pytest.mark.tooling
 def test_a_perturbation_cannot_leave_the_world_impossible() -> None:
     """The third consumer, and the one that reads as a pass when it is wrong.
 
@@ -169,6 +177,7 @@ def test_a_perturbation_cannot_leave_the_world_impossible() -> None:
     assert live.get("order", "AB-10003")["status"] == "delivered", "the world moved anyway"
 
 
+@pytest.mark.tooling
 def test_a_coherent_perturbation_still_applies() -> None:
     """The check must not block the perturbations the suite depends on."""
     world = load(WORLDS / "clothing.yaml")
@@ -181,6 +190,7 @@ def test_a_coherent_perturbation_still_applies() -> None:
     assert live.get("order", "AB-10002")["status"] == "picked"
 
 
+@pytest.mark.tooling
 def test_an_entity_with_no_invariants_forbids_nothing() -> None:
     """The default has to stay silent — most entities declare none."""
     entity = Entity(fields={"status": Field_(type="text")})

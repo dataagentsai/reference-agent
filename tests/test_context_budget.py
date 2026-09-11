@@ -73,6 +73,7 @@ SIZES = [
 
 
 @pytest.mark.parametrize(("name", "turns", "cap", "expected"), SIZES, ids=[c[0] for c in SIZES])
+@pytest.mark.discharges("AHC-0067")
 def test_how_much_survives(name: str, turns: int, cap: int, expected) -> None:
     history = tuple(said("x" * 100) for _ in range(turns))
     kept = ctx.bounded(history, max_chars=cap)
@@ -82,6 +83,7 @@ def test_how_much_survives(name: str, turns: int, cap: int, expected) -> None:
     assert sum(len(m.content) for m in kept) <= cap or len(kept) == 2
 
 
+@pytest.mark.discharges("AHC-0067")
 def test_the_ends_are_what_survive() -> None:
     """The earliest turns establish the task; the latest are what is being
     answered. The middle is what nobody is using."""
@@ -143,6 +145,7 @@ def test_an_already_broken_history_is_refused_rather_than_stored() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0067")
 async def test_a_long_conversation_stops_growing(server) -> None:
     store = InMemoryCheckpointStore()
     async with connect(server, ledger=InMemoryLedger()) as tools:
@@ -219,6 +222,7 @@ async def test_bounding_does_not_touch_what_rules_read(server) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0012")
 def test_the_assembly_reports_what_it_cost() -> None:
     """Nothing here could previously answer *how full is a typical call* or *how
     often do we trim*, so every context decision after it would have been argued
@@ -232,6 +236,7 @@ def test_the_assembly_reports_what_it_cost() -> None:
     assert len(built.messages) == built.exchanges + 1, "plus the system prompt"
 
 
+@pytest.mark.discharges("AHC-0012")
 def test_a_call_with_room_reports_no_trimming() -> None:
     """The number that decides whether the rest of the context work is justified
     or premature. Zero here means headroom nobody is using."""
@@ -249,6 +254,7 @@ def test_assemble_still_returns_only_the_transcript() -> None:
     )
 
 
+@pytest.mark.discharges("AHC-0012")
 async def test_the_step_span_carries_how_full_the_call_was(server, exporter) -> None:
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = ep.build(

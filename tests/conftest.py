@@ -50,6 +50,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "tooling: tests an instrument, not the agent — kept out of the untagged remainder",
     )
+    config.addinivalue_line(
+        "markers",
+        "unwired: tests a component the agent never calls — its ids are not counted",
+    )
     _report = Report()
     _vocab = statements.load()
 
@@ -82,6 +86,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
             ids=ids,
             passed=result.passed,
             tooling=item.get_closest_marker("tooling") is not None,
+            unwired=item.get_closest_marker("unwired") is not None,
         )
     )
     scored = item.get_closest_marker("scored") is not None

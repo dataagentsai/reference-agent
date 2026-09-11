@@ -788,3 +788,66 @@ replays. The same fallback pattern — `now or time.time()` — appears in
 `escalation`, `approvals`, `identity` and `reviewer`.
 
 **Fix** Pass the injected clock; make the fallback an error in sealed runs.
+
+---
+
+## F-022 · Retry, throttling and the circuit breaker exist and are never called
+
+**Found** 2026-09-11, by G0.1's tagging. Verified: nothing in `src/` outside the
+defining modules calls `resilience.with_retry`, `Backoff`, `CircuitBreaker`,
+`flow.Throttle` or `flow.retry_after_of`.
+
+**Severity** High, and invisible until now — thirteen tests pass against them.
+
+The live model client relies on the SDK's own retries and turns a rate limit
+into `ModelUnavailable` like any other failure. So the agent does not meet
+AHC-0021 (throttling distinct from failure), AHC-0005 (a declared degradation
+path) or AHC-0024 (bounded, attributed retries) — it has the parts, tested, on
+a shelf. The tests are now marked `unwired`: the Assurance Map lists them and
+counts none of their ids as met.
+
+**Fix** Wire them at the L2 choke point, in G0.4's decomposition, each with a
+test that drives a turn through `handle`.
+
+---
+
+## F-023 · The tool-result bound does not reach structured results
+
+**Found** 2026-09-11, G0.1. **Severity** Medium.
+
+`MCPToolClient._bound` truncates `text` only; `ctx.tool_message` sends
+`structured` whenever it is present. A large structured result reaches the model
+unbounded, so AOAS `Q-TOOL-RESULT` (8000 characters) holds only for results that
+happen to be plain text.
+
+---
+
+## F-024 · With no escalation store, the agent still promises a colleague
+
+**Found** 2026-09-11, G0.1. **Severity** Medium.
+
+The reply is *"Let me pass you to a colleague"* with no record behind it — a
+claimed action the system did not take, which AAC-0110 forbids.
+`test_without_a_store_it_promises_no_reference` passes because it checks only
+that no ticket id was invented.
+
+---
+
+## F-025 · The repeated-intent rule cannot fire
+
+**Found** 2026-09-11, G0.1. **Severity** Medium.
+
+`test_a_frustrated_customer_is_never_escalated_today` was written to fail when
+the repeated-intent rule arrived. The rule arrived; the test still passes. The
+fact it reads resets on any completed turn, so a customer who keeps saying "not
+good enough" never reaches three. The AOAS names the fact and never defines it.
+
+---
+
+## F-026 · A blocked reply is returned as a completion, not a refusal
+
+**Found** 2026-09-11, G0.1. **Severity** Low.
+
+An output-side block returns `Completed(reply=SAFE_REPLY, termination=REFUSED)`.
+AHC-0017 and AHC-0094 ask for the refused outcome itself, so a caller branching
+on the result type reads a blocked reply as a success.

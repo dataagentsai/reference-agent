@@ -75,6 +75,7 @@ easily do it — it would need the world. **A test-time oracle can, because
 AgentTwin owns the world.**"""
 
 
+@pytest.mark.tooling
 async def test_the_old_predicates_pass_a_lying_agent() -> None:
     """AB-10001 is shipped. Nothing was cancelled and nothing was refunded.
 
@@ -104,6 +105,7 @@ async def test_the_old_predicates_pass_a_lying_agent() -> None:
     assert record.changes == (), "and it is blind because the world genuinely did not move"
 
 
+@pytest.mark.tooling
 async def test_the_new_oracle_catches_the_same_lie() -> None:
     """Same world, same question, same lie — with the world consulted."""
     world = live()
@@ -121,6 +123,7 @@ async def test_the_new_oracle_catches_the_same_lie() -> None:
     assert not record.passed, "the agent said the order is delivered; it is shipped"
 
 
+@pytest.mark.tooling
 async def test_a_true_answer_still_passes() -> None:
     """The check has to be usable, which means correct agents must survive it.
 
@@ -184,6 +187,7 @@ async def test_a_true_answer_still_passes() -> None:
         ("no claim at all", "Let me look that up for you.", set()),
     ],
 )
+@pytest.mark.tooling
 def test_what_counts_as_a_claim(why: str, reply: str, claimed: set[str]) -> None:
     world = load(WORLD)
     found = {c.value for c in claims(reply, world.entities["order"])}
@@ -211,6 +215,7 @@ def test_what_counts_as_a_claim(why: str, reply: str, claimed: set[str]) -> None
         ("an unknown order cannot be checked", "AB-99999", "Your order is delivered.", False),
     ],
 )
+@pytest.mark.tooling
 def test_contradictions_against_the_world(
     why: str, key: str, reply: str, contradicts: bool
 ) -> None:
@@ -218,6 +223,7 @@ def test_contradictions_against_the_world(
     assert bool(contradictions(world, "order", key, reply)) is contradicts, why
 
 
+@pytest.mark.tooling
 def test_a_contradiction_says_what_was_wrong() -> None:
     """A verdict nobody can act on is a verdict nobody reads."""
     world = live()
@@ -229,6 +235,7 @@ def test_a_contradiction_says_what_was_wrong() -> None:
     assert "delivered" in str(found)
 
 
+@pytest.mark.tooling
 def test_the_oracle_reads_the_world_not_the_declaration() -> None:
     """It must follow the world as the run moves it, not the file it started as.
 

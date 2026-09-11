@@ -91,6 +91,7 @@ def wire(arguments: str | None, *, content: str = "", tool: str = "cancel_order"
         ("unicode is not mangled", '{"note":"café ☕"}', {"note": "café ☕"}),
     ],
 )
+@pytest.mark.discharges("AHC-0001")
 def test_a_well_formed_response_parses(why: str, arguments: str, expected: dict) -> None:
     parsed = _from_wire(wire(arguments))
     assert parsed.tool_calls[0].arguments == expected, why
@@ -98,6 +99,7 @@ def test_a_well_formed_response_parses(why: str, arguments: str, expected: dict)
     assert parsed.usage.input_tokens == 10
 
 
+@pytest.mark.discharges("AHC-0001")
 def test_a_plain_text_reply_needs_no_tool_calls() -> None:
     parsed = _from_wire(wire(None, content="Your order has shipped."))
     assert parsed.text == "Your order has shipped."
@@ -132,12 +134,14 @@ def test_a_plain_text_reply_needs_no_tool_calls() -> None:
         ("no choices attribute at all", N(usage=N(), model="m")),
     ],
 )
+@pytest.mark.discharges("AHC-0001", "AHC-0005", "B11")
 def test_a_malformed_response_becomes_a_typed_failure(why: str, raw: object) -> None:
     with pytest.raises(ModelMalformed) as raised:
         _from_wire(raw)
     assert raised.value.reason, f"{why}: a failure nobody can read is not much better"
 
 
+@pytest.mark.discharges("AHC-0005", "B11")
 def test_malformed_is_not_unavailable() -> None:
     """Deliberately separate types, because the right response differs.
 
@@ -183,7 +187,7 @@ class MalformedClient:
         raise ModelMalformed(self.reason, raw='{"order_id":')
 
 
-@pytest.mark.discharges("AAC-0002", "AAC-0015")
+@pytest.mark.discharges("AAC-0002", "AAC-0015", "AAC-0009", "AHC-0001", "AHC-0005", "AHC-0017")
 async def test_the_loop_degrades_instead_of_crashing(server) -> None:
     """Before the fix this test raised `JSONDecodeError` out of `agent_loop.run`.
 
@@ -211,7 +215,7 @@ async def test_the_loop_degrades_instead_of_crashing(server) -> None:
     assert "unreadable" in result.detail, "the operator gets the detail"
 
 
-@pytest.mark.discharges("AAC-0099")
+@pytest.mark.discharges("AAC-0099", "AHC-0001")
 async def test_the_failures_are_counted_not_merely_survived(server) -> None:
     """AHC-0001's `parse_failure` decision: *fail into a declared shape and count
     the failures.* Surviving quietly is how a model swap silently degrades — the
@@ -231,6 +235,7 @@ async def test_the_failures_are_counted_not_merely_survived(server) -> None:
     assert trace.malformed == 1
 
 
+@pytest.mark.discharges("AHC-0001", "AHC-0005")
 async def test_a_malformed_response_is_not_retried(server) -> None:
     """The other half of that decision, asserted so it cannot drift.
 

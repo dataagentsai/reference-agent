@@ -62,3 +62,13 @@ def test_the_unit_is_the_function_and_the_remainders_are_both_directions() -> No
     assert m["untagged"] == ["t.py::test_b"], "tooling stays out of the remainder"
     assert "P-CANCEL" in m["families"]["AOAS"]["failing"], "one failing case fails the function"
     assert any(s["id"] == "P-RETURN" for s in m["families"]["AOAS"]["not_exercised"])
+
+
+def test_a_statement_verified_only_on_dead_code_is_not_met() -> None:
+    outcomes = [
+        amap.Outcome("t.py::test_breaker", ("AHC-0005",), passed=True, tooling=False, unwired=True),
+    ]
+    m = amap.build(outcomes, VOCAB)
+    assert m["tagged"] == 0 and m["untagged"] == []
+    assert m["unwired"] == {"t.py::test_breaker": ["AHC-0005"]}
+    assert "AHC-0005" not in m["by_statement"], "an unwired test exercises nothing"

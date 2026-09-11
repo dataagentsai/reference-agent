@@ -42,6 +42,7 @@ def world_owing_a_refund() -> Live:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.tooling
 def test_the_other_three_oracles_pass_an_agent_that_did_nothing() -> None:
     """The refund was owed. The agent did not issue it, said something true, and
     changed nothing.
@@ -74,6 +75,7 @@ def test_the_other_three_oracles_pass_an_agent_that_did_nothing() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.tooling
 def test_an_obligation_is_derived_from_the_world_not_the_scenario() -> None:
     live = world_owing_a_refund()
     (obligation,) = owed(live.world, live.snapshot())
@@ -83,6 +85,7 @@ def test_an_obligation_is_derived_from_the_world_not_the_scenario() -> None:
     assert "returned" in obligation.because, "name the state that created the debt"
 
 
+@pytest.mark.tooling
 def test_a_world_that_owes_nothing_reports_nothing() -> None:
     """The seeded orders are shipped, pending and delivered — none returned."""
     live = Live.start(load(WORLDS / "clothing.yaml"))
@@ -99,6 +102,7 @@ def test_a_world_that_owes_nothing_reports_nothing() -> None:
         ("called off", "cancelled", False),
     ],
 )
+@pytest.mark.tooling
 def test_which_states_create_a_debt(why: str, status: str, is_owed: bool) -> None:
     live = Live.start(load(WORLDS / "clothing.yaml"))
     live.rows["order"]["AB-10099"] = {
@@ -116,6 +120,7 @@ def test_which_states_create_a_debt(why: str, status: str, is_owed: bool) -> Non
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.tooling
 def test_doing_the_owed_thing_clears_it() -> None:
     live = world_owing_a_refund()
     world_0 = live.snapshot()
@@ -125,6 +130,7 @@ def test_doing_the_owed_thing_clears_it() -> None:
     assert not omitted(live, world_0), "discharged after"
 
 
+@pytest.mark.tooling
 def test_obligations_are_read_from_the_opening_state_not_the_final_one() -> None:
     """The subtlety the module exists to get right.
 
@@ -148,6 +154,7 @@ def test_obligations_are_read_from_the_opening_state_not_the_final_one() -> None
     assert not omitted(live, world_0)
 
 
+@pytest.mark.tooling
 def test_doing_it_for_a_different_order_does_not_count() -> None:
     """An obligation is per row. Refunding somebody else is not discharging this."""
     live = world_owing_a_refund()
@@ -157,6 +164,7 @@ def test_doing_it_for_a_different_order_does_not_count() -> None:
     assert omitted(live, world_0)
 
 
+@pytest.mark.tooling
 def test_the_predicate_reads_as_prose_in_a_scenario() -> None:
     live = world_owing_a_refund()
     world_0 = live.snapshot()
@@ -167,6 +175,7 @@ def test_the_predicate_reads_as_prose_in_a_scenario() -> None:
     assert check(live, None)
 
 
+@pytest.mark.tooling
 def test_a_verdict_names_what_was_missed() -> None:
     """A failure saying only 'an obligation was omitted' sends someone to read
     the world file to find out which."""
@@ -178,6 +187,7 @@ def test_a_verdict_names_what_was_missed() -> None:
     assert "returned" in str(missed)
 
 
+@pytest.mark.tooling
 def test_a_second_world_can_owe_something_different() -> None:
     """The reason the obligation is declared rather than hand-written.
 
