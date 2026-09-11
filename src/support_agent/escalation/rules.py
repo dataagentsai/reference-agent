@@ -72,7 +72,8 @@ class Facts:
     consecutive_failed: int = 0
     refusals: int = 0
     repeated_intent: int = 0
-    """How many turns in a row have carried the same unresolved intent."""
+    """Turns carrying the latest turn's intent, counting back from it until the
+    intent changes — AOAS `facts.repeated_intent`."""
     escalations: int = 0
     already_fired: frozenset[str] = frozenset()
 
@@ -217,11 +218,13 @@ def facts_of(conversation: Conversation) -> Facts:
             break
         failed += 1
 
+    # However each turn was answered. A customer asking a third time has not
+    # been resolved, whatever the turns that answered them recorded — counting
+    # only unanswered turns put the threshold out of reach, so the rule never
+    # fired (F-025). AOAS `facts.repeated_intent` now says which it is.
     repeated = 0
     for note in reversed(recent):
-        if note.result == "completed" or note.intent is None:
-            break
-        if note.intent != recent[-1].intent:
+        if note.intent is None or note.intent != recent[-1].intent:
             break
         repeated += 1
 

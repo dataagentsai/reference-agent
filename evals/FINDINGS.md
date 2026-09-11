@@ -996,6 +996,30 @@ the repeated-intent rule arrived. The rule arrived; the test still passes. The
 fact it reads resets on any completed turn, so a customer who keeps saying "not
 good enough" never reaches three. The AOAS names the fact and never defines it.
 
+**Fixed — 2026-09-12 (G0.5), from AOAS `facts.repeated_intent`, which now says
+what computes it.** Two things kept the rule out of reach, and the spec gap is
+why neither was obvious:
+
+- The count reset on any completed turn. A customer who asks again has not been
+  resolved, whatever the turn that answered them recorded, so it now counts back
+  from the latest turn until the intent changes — however each was answered.
+- Only a `Direct` route recorded an intent, and asking without quoting an order
+  id goes to the loop. The router still classified those turns; a single
+  candidate intent is a classification, not a guess, and is now recorded. Two
+  candidates or none stays `None`.
+
+Every fact in the AOAS now declares `derived` — what computes it — and the
+validator's new `undefined-fact` rule (23 now) fails a fact that is only typed.
+That is the general form of this defect: a fact nobody defined is a number every
+implementation invents differently, and the rule over it fires somewhere and
+never here.
+
+**What it does not close.** A customer who repeats *dissatisfaction* — "that is
+not good enough" — carries no intent to repeat, so the rule cannot see them.
+`test_a_frustrated_customer_is_never_escalated_today` still passes and now says
+so. The AOAS's deferred trigger *three failed resolution attempts* is what would
+cover it, and "failed" there is undefined; recorded rather than guessed at.
+
 ---
 
 ## F-026 · A blocked reply is returned as a completion, not a refusal

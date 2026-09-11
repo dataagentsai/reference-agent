@@ -25,6 +25,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from support_agent.contracts import (
+    Agentic,
     ConversationId,
     Direct,
     Escalated,
@@ -66,16 +67,30 @@ class TurnNote(BaseModel):
     def of(cls, decision: Route, result: TurnResult) -> TurnNote:
         """Reduce a turn to what a rule can ask about.
 
-        The intent is only known on a `Direct` route; `Agentic` carries candidates
-        rather than a decision, and recording a guess as a fact is how a rule ends up
-        counting something nobody classified.
+        The intent is what the router **classified**, never a guess: a `Direct`
+        route's intent, or an `Agentic` route's single candidate — one match that
+        went to the loop for another reason, most often a request with no order
+        id in it. Two candidates or none is an unclassified turn and stays
+        `None`, because a rule counting those would be counting nothing anybody
+        decided. Until F-025 only `Direct` counted, and a customer who asked the
+        same thing three times without ever quoting an order id never reached the
+        `repeated-intent` threshold.
         """
         return cls(
             route=decision.kind,
             result=result.kind,
-            intent=decision.intent.value if isinstance(decision, Direct) else None,
+            intent=_classified(decision),
             termination=getattr(result, "termination", None),
         )
+
+
+def _classified(decision: Route) -> str | None:
+    """The intent the router settled on, or `None` when it settled on none."""
+    if isinstance(decision, Direct):
+        return decision.intent.value
+    if isinstance(decision, Agentic) and len(decision.candidate_intents) == 1:
+        return decision.candidate_intents[0].value
+    return None
 
 
 class Conversation(BaseModel):

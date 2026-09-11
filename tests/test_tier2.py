@@ -330,3 +330,30 @@ def test_the_termination_reason_reaches_the_facts() -> None:
     assert facts.termination == "step_budget_exhausted"
     matched = t2.evaluate(facts)
     assert matched is not None and matched.id == "loop-exhausted"
+
+
+@pytest.mark.discharges("esc:repeated-intent", "op:escalate", "AAC-0043")
+async def test_a_customer_asking_the_same_thing_three_times_reaches_a_person(server) -> None:
+    """F-025: the rule existed and could not fire.
+
+    Nobody quotes an order id, so every turn goes to the loop — and the router
+    still classified each one as the same intent. The fact counted only turns
+    that ended unresolved, and a turn the agent answered reset it, so the third
+    ask never reached the threshold it was written for.
+    """
+    store = esc.InMemoryEscalationStore()
+    async with connect(server, ledger=InMemoryLedger()) as tools:
+        agent = agent_with(tools, escalations=store)
+        conversation = None
+        results = []
+        for _ in range(3):
+            result, conversation = await agent.handle(
+                "I want to cancel my order", identity=customer(), conversation=conversation
+            )
+            results.append(result)
+
+    first, second, third = results
+    assert first.kind == "completed" and second.kind == "completed", "asking twice is just asking"
+    assert isinstance(third, Escalated), third
+    assert third.rule_id == "repeated-intent"
+    assert conversation.escalated_rules == ("repeated-intent",)

@@ -198,14 +198,20 @@ async def test_nobody_comes_and_the_queue_says_so() -> None:
 
 
 async def test_a_frustrated_customer_is_never_escalated_today() -> None:
-    """Tier 2, absent — and this is what its absence looks like from outside.
+    """The gap `repeated-intent` does **not** close — narrower now, and named.
 
-    A customer who asks the same thing four times and is never satisfied has, by
-    any operational standard, earned a person. Nothing in the agent notices:
-    every rule reads the turn's text, and this customer never asks for a human.
+    A customer who says "that is not good enough" four times has, by any
+    operational standard, earned a person. Nothing notices: dissatisfaction is
+    not an intent, so the router classifies none, and a fact about *the same
+    intent repeated* cannot count turns that carry no intent at all.
 
-    The assertion is deliberately of the gap. When `repeated-intent` ships, this
-    test should fail, and the failure is the feature.
+    This test was written expecting `repeated-intent` to make it fail. It ships
+    (F-025) and this still passes, which is the honest answer: a customer asking
+    the same thing three times now reaches a person
+    (`test_a_customer_asking_the_same_thing_three_times_reaches_a_person`), and a
+    customer who is merely unhappy does not. What would cover it is the AOAS's
+    deferred trigger *three failed resolution attempts*, and "failed" there needs
+    a definition nobody has written — recorded as a gap rather than guessed at.
     """
     desk = Desk.answers(store(), esc.resolve)
     world = Live.start(load(WORLD))
