@@ -623,6 +623,36 @@ boundary already has both the caller and the row, so ownership is a comparison
 rather than an architecture. The temptation to reach for an authorization service
 should be resisted until the rules are more complicated than *"it is yours"*.
 
+### Fixed — 2026-09-12 (G0.5), from the statement it enforces
+
+Spec first: the rule was already written as AOAS `P-OWNERSHIP` —
+`{field: order.customer_id, equals_session: customer_id}` on every order
+operation — and the world had been reporting it as *unenforced: a world has no
+session*. The fix gives the world a session:
+
+- **The transport carries the caller.** `MCPTransport` sends the verified
+  caller's session in the call's `_meta` under `aoas/session`. Metadata, not an
+  argument: the model writes the arguments, and whose session it is must never be
+  something the model can say.
+- **The system that owns the row decides** (AHC-0040 — *tool authority is
+  enforced where the tool executes*). AgentTwin turns every `equals_session`
+  condition into a check on each call, reads included, and fails closed with no
+  session.
+- **Not yours reads exactly as not there.** The refusal used to return the whole
+  row; a stranger now gets the identical answer to a request for an order that
+  does not exist.
+
+`tests/test_ownership.py` has the two customers the suite never had: every
+order operation, owner and stranger, plus a stranger asking the deterministic
+route after someone else's order — which answered anyone's question about
+anyone's order, because it never reaches the model. Proven: with the check
+switched off, all five stranger cases fail.
+
+**Still open from T-002**, and not this defect: an identity provider instead of
+a shared secret, a service identity for the agent, delegation. The session the
+world trusts is asserted by the agent's transport; a real order system would
+verify a token.
+
 ---
 
 ## F-017 · The idempotency key never leaves the process

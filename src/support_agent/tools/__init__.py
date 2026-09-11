@@ -24,10 +24,11 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import jsonschema
 from mcp.client import Client
+from mcp_types import RequestParamsMeta
 from opentelemetry.trace import Span
 
 from support_agent import telemetry as tel
@@ -42,6 +43,12 @@ from support_agent.contracts import (
     ToolUnavailable,
     UnknownTool,
 )
+
+SESSION_META = "aoas/session"
+"""Where the caller's verified session travels in a call's `_meta`, so the
+system that owns a row can decide whose it is (F-016). The key is a binding the
+tool server and this transport share — declared on both sides, because the agent
+may not import its simulator — and belongs in the binding spec."""
 
 META_SIDE_EFFECT = "side_effect"
 META_REQUIRED_SCOPE = "required_scope"
@@ -98,7 +105,9 @@ class Transport(Protocol):
         """Every tool the server offers that can be exposed, and why the rest cannot."""
         ...
 
-    async def invoke(self, name: str, arguments: dict[str, object]) -> ToolResult: ...
+    async def invoke(
+        self, name: str, arguments: dict[str, object], *, caller: Identity
+    ) -> ToolResult: ...
 
 
 class MCPTransport:
@@ -127,8 +136,14 @@ class MCPTransport:
                 rejected.append(str(exc))
         return tuple(specs), tuple(rejected)
 
-    async def invoke(self, name: str, arguments: dict[str, object]) -> ToolResult:
-        """Both MCP failure channels, kept apart.
+    async def invoke(
+        self, name: str, arguments: dict[str, object], *, caller: Identity
+    ) -> ToolResult:
+        """Both MCP failure channels, kept apart — and the caller carried with the call.
+
+        The session travels as request metadata, not as an argument: the model
+        writes the arguments, and whose session this is must never be something
+        the model can say.
 
         A protocol error (unknown tool, malformed request) raises and surfaces
         here; an execution error comes back as an ordinary result with
@@ -136,7 +151,10 @@ class MCPTransport:
         healthy until production.
         """
         try:
-            raw = await self._client.call_tool(name, arguments)
+            # MCP's `_meta` is an open object; the SDK's TypedDict names only the
+            # progress token. The cast states that gap rather than hiding it.
+            meta = cast(RequestParamsMeta, {SESSION_META: {"customer_id": caller.customer_id}})
+            raw = await self._client.call_tool(name, arguments, meta=meta)
         except Exception as exc:
             return ToolResult(name=name, text=str(exc), is_error=True, error_channel="protocol")
 
@@ -210,14 +228,17 @@ class GatedTools:
             jsonschema.validate(arguments, spec.input_schema)
 
             if spec.side_effect is SideEffectClass.READ:
-                return self._bound(await self._transport.invoke(name, arguments), span)
+                result = await self._transport.invoke(name, arguments, caller=identity)
+                return self._bound(result, span)
 
             previous = await self._ledger.seen(idempotency_key)
             if previous is not None:
                 span.set_attribute("agent.tool.replayed", True)
                 return previous
 
-            result = self._bound(await self._transport.invoke(name, arguments), span)
+            result = self._bound(
+                await self._transport.invoke(name, arguments, caller=identity), span
+            )
             if not result.is_error:
                 await self._ledger.record(idempotency_key, result)
             return result
@@ -265,6 +286,7 @@ async def connect(
 __all__ = [
     "META_REQUIRED_SCOPE",
     "META_SIDE_EFFECT",
+    "SESSION_META",
     "GatedTools",
     "MCPToolClient",
     "MCPTransport",
