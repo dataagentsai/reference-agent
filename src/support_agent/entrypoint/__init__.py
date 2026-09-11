@@ -58,6 +58,7 @@ from support_agent.contracts import (
     new_conversation_id,
     new_run_id,
 )
+from support_agent.entrypoint.persist import TurnPersister
 from support_agent.escalation import rules as t2
 from support_agent.state import Conversation, TurnNote
 
@@ -274,25 +275,7 @@ class Agent:
         )
 
     async def _persist(self, run_id: RunId, conversation: Conversation) -> Conversation:
-        """Bound the history, write it, and hand back what was actually stored.
-
-        Every checkpoint goes through here, which is the point: three call sites
-        wrote the conversation and none of them capped it, so the one durable
-        structure in the system grew without limit on every turn.
-
-        The bounded copy is **returned**, not just written. A caller holding a
-        larger history than the store does would be looking at state that no
-        longer exists anywhere — and this class already promises the opposite:
-        the conversation comes back so a caller always holds what produced the
-        result it is looking at.
-        """
-        bounded = conversation.model_copy(
-            update={"messages": ctx.bounded(conversation.messages, max_chars=self.history_chars)}
-        )
-        raw = bounded.encode()
-        tel.set_current_attribute(tel.CONTEXT_STORED, len(raw))
-        await self.store.checkpoint(run_id, raw, conversation_id=bounded.conversation_id)
-        return bounded
+        return await TurnPersister(self.store, self.history_chars).persist(run_id, conversation)
 
     def _now(self) -> int:
         return self.clock() if self.clock is not None else int(time.time())
