@@ -972,6 +972,19 @@ claimed action the system did not take, which AAC-0110 forbids.
 `test_without_a_store_it_promises_no_reference` passes because it checks only
 that no ticket id was invented.
 
+**Fixed — 2026-09-12 (G0.5), from AAC-0110 and AOAS `escalate.on_refusal`,
+which the spec now declares.** With no desk the request is **refused**:
+`Refused(esc.NO_DESK_REPLY)` — *"I cannot pass this to a colleague from here.
+Tell me what you need and I will do what I can."* Weaker wording was never the
+answer; the sentence claimed a handover, and the result type said a person had
+the conversation when nobody did.
+
+The type now rules it out. `Escalated.ticket_id` is **required**: this result
+means a person has it, and there is no such thing without a record. Two tests
+that built an agent with no desk and expected an escalation now wire one — which
+is what they were really testing — and `Conversation.recording` no longer needs
+its "only if there is a ticket" branch.
+
 ---
 
 ## F-025 · The repeated-intent rule cannot fire

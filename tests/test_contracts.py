@@ -137,7 +137,12 @@ TURN_CASES = [
         ),
     ),
     ("refused", Refused(reply="I cannot do that.", reason="out of scope")),
-    ("escalated", Escalated(reply="Passing you to a colleague.", reason="asked for a human")),
+    (
+        "escalated",
+        Escalated(
+            reply="Passing you to a colleague.", reason="asked for a human", ticket_id="esc_1"
+        ),
+    ),
     ("failed", Failed(customer_message="Something went wrong.", detail="tool server 503")),
 ]
 

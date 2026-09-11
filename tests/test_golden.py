@@ -13,6 +13,7 @@ import pytest
 from evals import world as evalworld
 
 from support_agent import context as ctx
+from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.config import Settings, resolve
@@ -162,7 +163,14 @@ async def test_every_route_returns_a_conforming_result() -> None:
 
     async with connect(evalworld.build(world), ledger=InMemoryLedger()) as tools:
         for route, (text, llm, expected) in exchanges.items():
-            agent = ep.build(llm=llm, tools=tools, store=InMemoryCheckpointStore())
+            # A desk is wired: without one the agent refuses the handover
+            # rather than claiming it, which is a different route (F-024).
+            agent = ep.build(
+                llm=llm,
+                tools=tools,
+                store=InMemoryCheckpointStore(),
+                escalations=esc.InMemoryEscalationStore(),
+            )
             result, _ = await agent.handle(text, identity=privileged())
             assert isinstance(result, expected), f"{route} returned {type(result).__name__}"
             # Round-trips through the declared union, so the contract is checked

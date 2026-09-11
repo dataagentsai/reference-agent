@@ -24,6 +24,7 @@ from support_agent.contracts import (
     EscalationStore,
     Identity,
     NeedsApproval,
+    Refused,
     RunId,
     TurnResult,
 )
@@ -45,11 +46,14 @@ class Handoff(Protocol):
 
 @dataclass(frozen=True)
 class NoDesk:
-    """No store wired: nothing is ever held, and nothing is recorded.
+    """No store wired: nothing is held, nothing is recorded — and nothing is
+    promised. The capability is absent, so the request is **refused**, which is
+    what the customer is told (F-024).
 
-    The reply is deliberately weaker — no reference number, because there is no
-    record to reference. An agent that invented a ticket id would be doing
-    precisely what the system prompt forbids.
+    It said *"let me pass you to a colleague"* and returned `Escalated` with no
+    ticket. Weaker wording was not enough: the sentence claims a handover that
+    no record backs, which is the failure AAC-0110 names, and the result type
+    said a person had it when nobody did.
     """
 
     async def hold(self, conversation: Conversation) -> tuple[TurnResult, Conversation] | None:
@@ -58,11 +62,7 @@ class NoDesk:
     async def raise_requested(
         self, decision: Escalate, conversation: Conversation, identity: Identity, run_id: RunId
     ) -> TurnResult:
-        return Escalated(
-            reply="Let me pass you to a colleague who can help with that.",
-            reason=decision.reason,
-            rule_id=decision.rule_id,
-        )
+        return Refused(reply=esc.NO_DESK_REPLY, reason=decision.reason)
 
     async def raise_on_condition(
         self, conversation: Conversation, identity: Identity, run_id: RunId, result: TurnResult

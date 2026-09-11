@@ -12,6 +12,7 @@ from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel
 
 from support_agent import entrypoint as ep
+from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.config import Settings, resolve
@@ -77,12 +78,13 @@ def calls(name: str, **arguments: object) -> ModelResponse:
     )
 
 
-def agent_with(tools, llm=None, store=None, config=None) -> ep.Agent:
+def agent_with(tools, llm=None, store=None, config=None, escalations=None) -> ep.Agent:
     return ep.build(
         llm=llm or ScriptedClient([says("ok")]),
         tools=tools,
         store=store or InMemoryCheckpointStore(),
         config=config,
+        escalations=escalations,
     )
 
 
@@ -104,7 +106,8 @@ async def test_refusal_and_escalation_never_call_the_model(
     """A scripted client with nothing in it: reaching the model would raise."""
     llm = ScriptedClient([])
     async with open_tools(server) as tools:
-        result, _ = await agent_with(tools, llm=llm).handle(text, identity=customer())
+        agent = agent_with(tools, llm=llm, escalations=esc.InMemoryEscalationStore())
+        result, _ = await agent.handle(text, identity=customer())
     assert isinstance(result, expected)
     assert llm.calls == []
 

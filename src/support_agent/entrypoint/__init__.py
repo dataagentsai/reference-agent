@@ -80,10 +80,10 @@ class Agent:
     store: CheckpointStore
     approvals: ApprovalStore | None = None
     escalations: EscalationStore | None = None
-    """Absent means the agent cannot escalate durably, and it says so rather than
-    pretending: with no store, `Escalated.ticket_id` stays `None` and the reply
-    promises no reference. Same honesty as `_local_tools` refusing to offer a
-    refund tool when no approval store is wired."""
+    """Absent means the agent cannot escalate at all, and it says so rather than
+    pretending: with no store the request is refused and nothing is claimed.
+    Same honesty as the approval flow refusing to offer a refund tool when no
+    approval store is wired."""
     deliveries: trg.DeliveryLog | None = None
     clock: Clock | None = None
     """Epoch seconds, injected. Defaults to the wall clock.

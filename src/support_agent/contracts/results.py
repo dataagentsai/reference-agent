@@ -113,15 +113,18 @@ class Refused(_Frozen):
 
 class Escalated(_Frozen):
     """Handed to a person, and — unlike every earlier version of this — written
-    down first. `ticket_id` is the record's id, and it is `None` only when no
-    escalation store is wired, which is the same honesty `_local_tools` applies
-    to refunds: without the substrate the capability is absent, not faked.
+    down first.
+
+    `ticket_id` is **required**: this result says a person has the conversation,
+    and there is no such thing without a record to point at. With no desk wired
+    the agent refuses instead (`Refused`), so the type itself now rules out the
+    claim F-024 was making.
     """
 
     kind: Literal["escalated"] = "escalated"
     reply: str
     reason: str
-    ticket_id: str | None = None
+    ticket_id: str
     rule_id: str = ""
     termination: TerminationReason = TerminationReason.AWAITING_HUMAN
     """Present for the same reason every other variant has one: AAC-0055 wants a

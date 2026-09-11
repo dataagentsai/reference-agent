@@ -40,6 +40,7 @@ from support_agent.escalation.store import (
 from support_agent.escalation.wording import (
     CLOSED_REPLY,
     LAPSED_REPLY,
+    NO_DESK_REPLY,
     QUEUED_REPLY,
     RAISED_REPLY,
     WAITING_REPLY,
@@ -62,6 +63,7 @@ __all__ = [
     "Capacity",
     "EscalationError",
     "LAPSED_REPLY",
+    "NO_DESK_REPLY",
     "RAISED_REPLY",
     "WAITING_REPLY",
     "InMemoryEscalationStore",

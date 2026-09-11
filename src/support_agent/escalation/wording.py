@@ -34,6 +34,14 @@ CLOSED_REPLY = (
 is."""
 
 
+NO_DESK_REPLY = (
+    "I cannot pass this to a colleague from here. Tell me what you need and I will do what I can."
+)
+"""AOAS `escalate.on_refusal`. No desk is reachable, so there is nothing to hand
+the conversation to — and "let me pass you to a colleague" would be a claimed
+action with no record behind it (F-024). The offer is to stay with the request."""
+
+
 LAPSED_REPLY = (
     "Nobody has picked up {ticket} yet, so I am back with you in the meantime. "
     "Tell me what you need and I will do what I can."
@@ -56,6 +64,7 @@ def humanise(seconds: int) -> str:
 
 __all__ = [
     "CLOSED_REPLY",
+    "NO_DESK_REPLY",
     "LAPSED_REPLY",
     "QUEUED_REPLY",
     "RAISED_REPLY",

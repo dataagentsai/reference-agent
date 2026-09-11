@@ -31,6 +31,7 @@ from support_agent.contracts import (
     Escalated,
     EscalationState,
     Identity,
+    Refused,
     SideEffectClass,
     TerminationReason,
     TurnResult,
@@ -164,16 +165,22 @@ async def test_an_escalation_writes_a_record_and_names_it(server) -> None:
     assert (await store.pending()) == (raised,)
 
 
-async def test_without_a_store_it_promises_no_reference(server) -> None:
-    """The honest degradation. An agent with nowhere to write cannot invent a
-    ticket id — that is exactly what the system prompt forbids."""
+async def test_without_a_store_the_handover_is_refused_not_claimed(server) -> None:
+    """F-024, and AOAS `escalate.on_refusal`. An agent with nowhere to write
+    cannot hand the conversation to anybody — so it says so and stays with the
+    request. It used to say "let me pass you to a colleague" and return
+    `Escalated` with no ticket: a claimed action with no record, which AAC-0110
+    forbids. `Escalated` now requires a ticket, so this cannot be written again.
+    """
     async with connect(server, ledger=InMemoryLedger()) as tools:
         result, conversation = await agent_with(tools).handle(
             "put me through to a human", identity=customer()
         )
 
-    assert isinstance(result, Escalated)
-    assert result.ticket_id is None
+    assert isinstance(result, Refused), result
+    assert "colleague" not in result.reply or "cannot" in result.reply
+    assert "pass you to a colleague" not in result.reply, "claimed a handover that did not happen"
+    assert result.reply == esc.NO_DESK_REPLY
     assert conversation.pending_escalation_id is None, "nothing to point the flag at"
 
 

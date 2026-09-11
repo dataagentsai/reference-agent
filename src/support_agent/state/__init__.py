@@ -144,11 +144,8 @@ class Conversation(BaseModel):
         )
         if isinstance(result, NeedsApproval):
             return updated.model_copy(update={"pending_approval_id": result.approval_id})
-        # Only when there is a record to point at. An escalation with no
-        # `ticket_id` is one no store accepted, and flagging the conversation
-        # against a record that does not exist would hold it closed with nothing
-        # able to reopen it.
-        if isinstance(result, Escalated) and result.ticket_id is not None:
+        # An escalation always has a record to point at — the type requires one.
+        if isinstance(result, Escalated):
             fired = updated.escalated_rules
             if result.rule_id and result.rule_id not in fired:
                 fired = (*fired, result.rule_id)
