@@ -456,6 +456,34 @@ against an ungrounded string. The fix is a world change — `order.amount` as a
 declared field — after which `no_ungrounded_entity` already grounds amounts
 against structured tool results, and the gate becomes real. Open.
 
+**Fixed — 2026-09-12 (G0.5), from AOAS `issue_refund.amount_from: order.total`
+and `authority.agent_when`.** Every order in both worlds has a `total`.
+`request_refund` takes no amount: it reads the order from the order system *as
+the customer* — so ownership still holds — and the gate judges the order, not the
+conversation. A stated amount is ignored, in both directions; the test table
+covers an understated large refund and an overstated small one.
+
+The accident is gone with it. Within the limit the refund now **happens**, and
+that exposed a hole the no-op had hidden: the spec's only `agent_when` condition
+was the threshold, so a shipped order nobody had returned was refundable on
+request — and the planted note on AB-66666 asks for exactly that. The spec now
+requires both conditions: the order is `returned` (the refund is owed) and its
+total is within ₹10,000. A person may still refund in any state; the agent may
+not decide that alone. `test_a_planted_instruction_to_refund_reaches_a_person_not_the_money`
+holds the line against the real projected world.
+
+Every refund leaves an approval row naming who authorised it — a reviewer, or
+`policy:automatic-limit` — and both paths execute through one function,
+`approvals.carry_out`, so `granted_identity` is still the only place the refund
+scope is minted. What comes back on the automatic path is the order system's own
+`issue_refund` answer, so "your refund has been issued" is grounded in the result
+that says so, and the reply guardrail lets it through. AgentTwin's `issue_refund`
+special case (extraction E3) is removed: a projected tool takes only its key.
+
+Also found on the way: `scripts/trace_conversation.py` and `scripts/code_path.py`
+had been broken since G0.4 — both reach into the agent by name — and nothing ran
+them. `tests/test_scripts.py` runs both now.
+
 ---
 
 ## F-015 · Malformed model output escaped the typed boundary

@@ -49,7 +49,11 @@ from support_agent import router
 from support_agent import telemetry as tel
 from support_agent import tools as toolmod
 from support_agent import trigger as trg
+from support_agent.approvals import refund as refund_mod
+from support_agent.approvals import workflow as approval_workflow
 from support_agent.contracts import Identity, ModelResponse, ToolCall
+from support_agent.entrypoint import direct
+from support_agent.entrypoint import pending as pending_mod
 from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
 from support_agent.state import InMemoryCheckpointStore
@@ -107,7 +111,11 @@ TURNS = [
     ("can I return my order AB-10003", "m2", "the full loop: ask, act, ask again, screen"),
     ("please cancel my order AB-10002", "m3", "same shape, but the effect cannot be undone"),
     ("please cancel my order AB-10002", "m3", "SAME delivery id — refused at the door"),
-    ("I want my money back for AB-10003, it was 24000", "m5", "over the limit — a person decides"),
+    (
+        "I want my money back for AB-10003, it was 24000",
+        "m5",
+        "not returned yet, so a person decides — for the order's total, not the 24000 said",
+    ),
     ("any update?", "m6", "resume: still waiting, and the router never runs"),
     ("any update?", "m7", "resume: the decision arrived, so the effect happens"),
 ]
@@ -126,7 +134,7 @@ async def main() -> None:
             ModelResponse(text="I have opened a return for AB-10003."),
             calls("cancel_order", id="AB-10002"),
             ModelResponse(text="That order has been cancelled."),
-            calls("request_refund", order_id="AB-10003", amount="24000"),
+            calls("request_refund", order_id="AB-10003"),
         ]
     )
 
@@ -139,20 +147,28 @@ async def main() -> None:
         watch(trg, "once", "trigger.once", "have we seen this message?")
         watch(deliveries, "claim", "deliveries.claim")
         watch(agent, "_turn", "entrypoint._turn", "mint a run id")
-        watch(agent, "_resume", "entrypoint._resume", "is an approval outstanding?")
+        # Watched where each name is looked up at call time — a module that
+        # imported a function by name holds its own reference to it.
+        watch(pending_mod.ApprovalFlow, "resume", "pending.resume", "is an approval outstanding?")
         watch(router, "route", "router.route", "can we answer without the AI?")
-        watch(agent, "_direct", "entrypoint._direct", "deterministic answer")
+        watch(direct, "answer", "direct.answer", "deterministic answer")
         watch(agent_loop, "run", "loop.run", "THE AI LOOP")
         watch(ctx, "assemble", "context.assemble", "build what the model sees")
         watch(llm, "complete", "llm.complete", "ask the model")
         watch(tools, "list_tools", "tools.list_tools", "filtered by this identity")
         watch(tools, "call", "tools.call", "run one tool")
         watch(ledger, "seen", "ledger.seen", "have we done this exact action?")
-        watch(tools, "_invoke", "tools._invoke", "over MCP")
+        watch(tools._transport, "invoke", "transport.invoke", "over MCP")
         watch(ledger, "record", "ledger.record", "write the action down")
         watch(pol, "enforce", "policy.enforce", "screen the reply before it is sent")
-        watch(ap, "request", "approvals.request", "raise it for a person")
-        watch(ap, "granted_identity", "approvals.granted_identity", "borrow refunds:write")
+        watch(refund_mod, "request", "approvals.request", "raise it for a person")
+        watch(ap, "carry_out", "approvals.carry_out", "execute the granted refund")
+        watch(
+            approval_workflow,
+            "granted_identity",
+            "approvals.granted_identity",
+            "borrow refunds:write",
+        )
         watch(store, "checkpoint", "store.checkpoint", "save the conversation")
 
         conversation = None
@@ -161,7 +177,9 @@ async def main() -> None:
             if n == 7:
                 ON[0] = False
                 waiting = (await approvals.pending())[0]
-                decided = await ap.decide(approvals, waiting.id, granted=True, by="ops-7", now=int(time.time()))
+                decided = await ap.decide(
+                    approvals, waiting.id, granted=True, by="ops-7", now=int(time.time())
+                )
                 ON[0] = True
                 print(f"\n{'─' * 76}")
                 print(f"  OUT OF BAND — a colleague opens the queue and grants {decided.id}")

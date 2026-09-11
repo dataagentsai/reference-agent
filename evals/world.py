@@ -187,7 +187,7 @@ def build(world: World) -> MCPServer:
             META_REQUIRED_SCOPE: ident.SCOPE_REFUNDS_WRITE,
         }
     )
-    def issue_refund(order_id: str, amount: str) -> Outcome:
+    def issue_refund(order_id: str) -> Outcome:
         """Issue a refund. Requires the elevated scope a granted approval mints."""
         world.effects.append(("issue_refund", order_id))
         return Outcome(allowed=True, reason="refunded", order_id=order_id, status="refunded")

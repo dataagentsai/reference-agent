@@ -42,6 +42,8 @@ from support_agent.approvals.policy import (
     requires_approval,
 )
 from support_agent.approvals.refund import (
+    ORDER_LOOKUP,
+    POLICY_APPROVER,
     REFUND_WAIT_REPLY,
     REQUEST_REFUND,
     REQUEST_REFUND_SPEC,
@@ -53,6 +55,7 @@ from support_agent.approvals.store import (
 )
 from support_agent.approvals.workflow import (
     ApprovalError,
+    carry_out,
     decide,
     granted_identity,
     is_executable,
@@ -61,6 +64,8 @@ from support_agent.approvals.workflow import (
 )
 
 __all__ = [
+    "ORDER_LOOKUP",
+    "POLICY_APPROVER",
     "REFUND_ACTION",
     "REFUND_WAIT_REPLY",
     "REQUEST_REFUND",
@@ -71,6 +76,7 @@ __all__ = [
     "InMemoryApprovalStore",
     "Policy",
     "decide",
+    "carry_out",
     "granted_identity",
     "is_executable",
     "request",

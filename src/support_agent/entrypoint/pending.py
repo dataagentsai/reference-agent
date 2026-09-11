@@ -28,8 +28,6 @@ from support_agent.contracts import (
     RunId,
     ToolClient,
     TurnResult,
-    Unbindable,
-    bind_arguments,
 )
 from support_agent.state import Conversation
 
@@ -37,7 +35,9 @@ REFUND_FAILED = "The refund could not be completed."
 
 
 class PendingWork(Protocol):
-    def offer(self, identity: Identity, run_id: RunId) -> dict[str, LocalTool]: ...
+    def offer(
+        self, identity: Identity, run_id: RunId, tools: ToolClient
+    ) -> dict[str, LocalTool]: ...
 
     async def resume(
         self, conversation: Conversation, identity: Identity, run_id: RunId, tools: ToolClient
@@ -49,7 +49,7 @@ class NoApprovals:
     """No store wired: the agent cannot raise a refund at all — it does not fall
     back to issuing one — and there is never anything to resume."""
 
-    def offer(self, identity: Identity, run_id: RunId) -> dict[str, LocalTool]:
+    def offer(self, identity: Identity, run_id: RunId, tools: ToolClient) -> dict[str, LocalTool]:
         return {}
 
     async def resume(
@@ -66,11 +66,12 @@ class ApprovalFlow:
     checked against the wall clock while everything else reads an injected one
     gets a different expiry on every replay of the same run (F-021)."""
 
-    def offer(self, identity: Identity, run_id: RunId) -> dict[str, LocalTool]:
+    def offer(self, identity: Identity, run_id: RunId, tools: ToolClient) -> dict[str, LocalTool]:
         tool = ap.refund_tool(
             self.store,
             identity=identity,
             idempotency_key=IdempotencyKey(run_id=run_id, step=0, iteration=0),
+            tools=tools,
             now=self.now(),
         )
         return {tool.spec.name: tool}
@@ -99,7 +100,7 @@ class ApprovalFlow:
                 return refused, cleared.recording(Completed(reply=""))
 
             try:
-                elevated = ap.granted_identity(approval, identity, now=self.now())
+                result = await ap.carry_out(approval, identity, tools, now=self.now())
             except ap.ApprovalError as exc:
                 expired = Failed(
                     customer_message=(
@@ -109,22 +110,6 @@ class ApprovalFlow:
                     detail=str(exc),
                 )
                 return expired, cleared
-
-            # F-013. The stored arguments come from the harness-local request tool
-            # and the executing tool is projected from the world, so the two need
-            # not agree on names. The registry is read with the **elevated**
-            # identity because that is the only surface the action appears on.
-            registry = await tools.list_tools(elevated)
-            spec = registry.get(approval.action)
-            if spec is None:
-                missing = f"{approval.action} is not on the elevated surface"
-                return Failed(customer_message=REFUND_FAILED, detail=missing), cleared
-            try:
-                arguments = bind_arguments(spec, dict(approval.args))
-            except Unbindable as exc:
-                return Failed(customer_message=REFUND_FAILED, detail=str(exc)), cleared
-
-            result = await tools.call(approval.action, arguments, elevated, ap.stored_key(approval))
             if result.is_error:
                 return Failed(customer_message=REFUND_FAILED, detail=result.text), cleared
             done = Completed(reply="That has been authorised and the refund is on its way.")

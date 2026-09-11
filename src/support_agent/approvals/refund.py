@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
+from support_agent import telemetry as tel
 from support_agent.approvals.policy import REFUND_ACTION, Policy, requires_approval
-from support_agent.approvals.workflow import request
+from support_agent.approvals.workflow import carry_out, decide, request
 from support_agent.contracts import (
     Approval,
     ApprovalRequested,
@@ -12,8 +15,12 @@ from support_agent.contracts import (
     Identity,
     LocalTool,
     SideEffectClass,
+    ToolClient,
     ToolResult,
     ToolSpec,
+    ToolUnavailable,
+    Unbindable,
+    bind_arguments,
 )
 
 REFUND_WAIT_REPLY = "I have sent this to a colleague to authorise. Nothing has been refunded yet."
@@ -29,21 +36,27 @@ class RefundRequested(ApprovalRequested):
 
 REQUEST_REFUND = "request_refund"
 
+ORDER_LOOKUP = "get_order"
+"""Where the amount comes from: the order system's own record of the order."""
+
+POLICY_APPROVER = "policy:automatic-limit"
+"""Who granted a refund within the limit. Every refund has an approval row that
+names who authorised it — a reviewer, or this — so the audit question "who let
+this money move?" has one answer for both paths."""
+
 
 REQUEST_REFUND_SPEC = ToolSpec(
     name=REQUEST_REFUND,
     description=(
-        "Request a refund for an order. Refunds above the approval threshold are "
-        "sent to a colleague to authorise; you will not be told the outcome in "
-        "this conversation. Never tell the customer a refund has been issued."
+        "Request a refund of an order, for its full total. Small refunds are issued "
+        "at once; larger ones are sent to a colleague to authorise, and you will "
+        "not be told the outcome in this conversation. Tell the customer a refund "
+        "was issued only if this tool says so."
     ),
     input_schema={
         "type": "object",
-        "properties": {
-            "order_id": {"type": "string"},
-            "amount": {"type": "string", "description": "Amount in INR"},
-        },
-        "required": ["order_id", "amount"],
+        "properties": {"order_id": {"type": "string"}},
+        "required": ["order_id"],
         "additionalProperties": False,
     },
     output_schema={
@@ -53,9 +66,11 @@ REQUEST_REFUND_SPEC = ToolSpec(
     },
     side_effect=SideEffectClass.REVERSIBLE,
 )
-"""Harness-local. The description says outright that the model must not claim a
-refund happened — the gate is the control, but a model narrating a granted
-refund to the customer has already done the damage the gate exists to prevent."""
+"""Harness-local. **No amount input** (F-014): the amount is the order's total, read
+from the order system, so a customer who states a smaller number cannot talk a
+large refund under the threshold. The description says the model may claim a
+refund only on this tool's word — the gate is the control, but a model narrating
+a refund that did not happen has already done the damage the gate prevents."""
 
 
 def refund_tool(
@@ -63,40 +78,78 @@ def refund_tool(
     *,
     identity: Identity,
     idempotency_key: IdempotencyKey,
+    tools: ToolClient,
     policy: Policy | None = None,
     now: int,
 ) -> LocalTool:
-    """Bind the request tool to one run's identity and key.
+    """Bind the request tool to one run's identity, key and tool client.
 
     The key is bound *here*, at request time, so whatever the model passes as
     arguments cannot influence which key the eventual execution runs under.
+
+    Within the limit the refund is issued now — AOAS `issue_refund.authority`
+    gives the agent that authority — and what comes back is the order system's
+    own answer, so a claim that it happened is grounded in the result that says
+    so. Above it, or when the total cannot be read, a person decides.
     """
     policy = policy or Policy()
 
     async def handle(arguments: dict[str, object]) -> ToolResult:
-        reason = requires_approval(REFUND_ACTION, arguments, policy)
-        if reason is None:
-            return ToolResult(
-                name=REQUEST_REFUND,
-                structured={"status": "below_threshold"},
-                text="within the automatic limit",
-            )
+        order_id = arguments.get("order_id")
+        order = await _order(tools, order_id, identity, idempotency_key)
+        if not isinstance(order, dict):
+            return order
+        total = order.get("total")
+        reason = requires_approval(order, policy)
         approval = await request(
             store,
             action=REFUND_ACTION,
-            args=arguments,
-            reason=reason,
+            args={"order_id": order_id, "amount": None if total is None else str(total)},
+            reason=reason or "within the automatic limit",
             identity=identity,
             idempotency_key=idempotency_key,
             policy=policy,
             now=now,
         )
-        raise RefundRequested(approval)
+        if reason is not None:
+            raise RefundRequested(approval)
+        with tel.span("agent.approval.automatic", **{"agent.approval.id": approval.id}):
+            granted = await decide(store, approval.id, granted=True, by=POLICY_APPROVER, now=now)
+            return await carry_out(granted, identity, tools, policy=policy, now=now)
 
     return LocalTool(spec=REQUEST_REFUND_SPEC, handler=handle)
 
 
+async def _order(
+    tools: ToolClient, order_id: object, identity: Identity, key: IdempotencyKey
+) -> dict[str, object] | ToolResult:
+    """The order as the order system holds it, read **as the customer** — so an
+    order that is not theirs is not found (P-OWNERSHIP) — or the reason it could
+    not be read, as a result the model can act on."""
+
+    def unread(text: str, channel: Literal["execution", "protocol"]) -> ToolResult:
+        return ToolResult(name=REQUEST_REFUND, text=text, is_error=True, error_channel=channel)
+
+    if not isinstance(order_id, str) or not order_id:
+        return unread("an order id is required", "execution")
+    # A local tool's exceptions are not the loop's to catch — it dispatches
+    # these directly — so a read that cannot happen comes back as a result.
+    try:
+        spec = (await tools.list_tools(identity)).get(ORDER_LOOKUP)
+        if spec is None:
+            return unread(f"{ORDER_LOOKUP} is not on this identity's surface", "protocol")
+        arguments = bind_arguments(spec, {"order_id": order_id})
+        result = await tools.call(ORDER_LOOKUP, arguments, identity, key)
+    except (ToolUnavailable, Unbindable) as exc:
+        return unread(str(exc), "protocol")
+    if result.is_error or not isinstance(result.structured, dict):
+        return unread(result.text or "that order could not be found", "execution")
+    return result.structured
+
+
 __all__ = [
+    "ORDER_LOOKUP",
+    "POLICY_APPROVER",
     "REFUND_WAIT_REPLY",
     "REQUEST_REFUND",
     "REQUEST_REFUND_SPEC",

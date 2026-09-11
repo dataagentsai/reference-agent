@@ -11,6 +11,10 @@ from support_agent.contracts import (
     ApprovalStore,
     IdempotencyKey,
     Identity,
+    ToolClient,
+    ToolResult,
+    Unbindable,
+    bind_arguments,
 )
 
 
@@ -129,4 +133,48 @@ def stored_key(approval: Approval) -> IdempotencyKey:
     return IdempotencyKey(run_id=RunId(run_id), step=int(step), iteration=int(iteration))
 
 
-__all__ = ["ApprovalError", "decide", "granted_identity", "is_executable", "request", "stored_key"]
+async def carry_out(
+    approval: Approval,
+    base: Identity,
+    tools: ToolClient,
+    *,
+    policy: Policy | None = None,
+    now: int,
+) -> ToolResult:
+    """Execute a granted approval's action — the only path that uses the elevated
+    scope, whoever granted it: a reviewer on a later turn, or the policy at once.
+
+    Raises `ApprovalError` when the grant is not executable; every other failure
+    is the result, so the caller decides what the customer is told.
+
+    F-013. The stored arguments come from the harness-local request tool and the
+    executing tool is projected from the world, so the two need not agree on
+    names. The registry is read with the **elevated** identity because that is
+    the only surface the action appears on.
+    """
+    elevated = granted_identity(approval, base, policy=policy, now=now)
+    registry = await tools.list_tools(elevated)
+    spec = registry.get(approval.action)
+    if spec is None:
+        missing = f"{approval.action} is not on the elevated surface"
+        return ToolResult(
+            name=approval.action, text=missing, is_error=True, error_channel="protocol"
+        )
+    try:
+        arguments = bind_arguments(spec, dict(approval.args))
+    except Unbindable as exc:
+        return ToolResult(
+            name=approval.action, text=str(exc), is_error=True, error_channel="protocol"
+        )
+    return await tools.call(approval.action, arguments, elevated, stored_key(approval))
+
+
+__all__ = [
+    "ApprovalError",
+    "carry_out",
+    "decide",
+    "granted_identity",
+    "is_executable",
+    "request",
+    "stored_key",
+]

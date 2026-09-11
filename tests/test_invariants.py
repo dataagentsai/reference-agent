@@ -126,8 +126,8 @@ def test_a_seeded_row_that_cannot_exist_fails_at_load(tmp_path: Path) -> None:
     nobody meant to write. Unlike a bad enum, nothing downstream notices this."""
     source = (WORLDS / "clothing.yaml").read_text()
     broken = source.replace(
-        "{id: AB-10002, customer_id: C-1042, status: pending, days_since_delivery: 0",
-        "{id: AB-10002, customer_id: C-1042, status: pending, days_since_delivery: 9",
+        "{id: AB-10002, customer_id: C-1042, total: 2499, status: pending, days_since_delivery: 0",
+        "{id: AB-10002, customer_id: C-1042, total: 2499, status: pending, days_since_delivery: 9",
     )
     assert broken != source, "the fixture row moved; update this test"
 

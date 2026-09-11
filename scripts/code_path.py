@@ -15,7 +15,12 @@ import ast
 import pathlib
 import sys
 
-ROOT = pathlib.Path("/Users/ishaan/reference-agent")
+import agenttwin
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+TWIN = pathlib.Path(agenttwin.__file__).resolve().parent.parent
+"""AgentTwin is its own repository now; its paths resolve against wherever the
+installed package lives, not against this one."""
 
 PATH = [
     (
@@ -30,8 +35,10 @@ PATH = [
         "PHASE 2 — TURN + RESUME",
         [
             ("src/support_agent/entrypoint/__init__.py", "Agent._turn"),
-            ("src/support_agent/entrypoint/__init__.py", "Agent._resume"),
-            ("src/support_agent/entrypoint/__init__.py", "_bind"),
+            ("src/support_agent/entrypoint/__init__.py", "Agent._gates"),
+            ("src/support_agent/entrypoint/pending.py", "ApprovalFlow.resume"),
+            ("src/support_agent/approvals/workflow.py", "carry_out"),
+            ("src/support_agent/entrypoint/__init__.py", "Agent._dispatch"),
         ],
     ),
     (
@@ -57,7 +64,10 @@ PATH = [
     ),
     (
         "PHASE 4b — THE TOOL BOUNDARY",
-        [("src/support_agent/tools/__init__.py", "MCPToolClient.call")],
+        [
+            ("src/support_agent/tools/__init__.py", "GatedTools.call"),
+            ("src/support_agent/tools/__init__.py", "MCPTransport.invoke"),
+        ],
     ),
     (
         "PHASE 4c — INSIDE THE PROJECTED WORLD",
@@ -113,7 +123,10 @@ missing = []
 for phase, items in PATH:
     out += ["", "#" * 78, f"#  {phase}", "#" * 78, ""]
     for rel, sym in items:
-        f = ROOT / rel
+        f = (TWIN if rel.startswith("agenttwin/") else ROOT) / rel
+        if not f.exists():
+            missing.append(f"{rel} (no such file)")
+            continue
         tree = ast.parse(f.read_text())
         node = find(tree, sym)
         if node is None:

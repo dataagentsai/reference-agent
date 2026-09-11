@@ -110,7 +110,9 @@ async def main(real: bool, port: int) -> None:
 
         token = ident.mint("C-1042", secret=SECRET, ttl_s=8 * 3600, now=int(time.time()))
         print("\n  Support agent running against the simulated clothing shop")
-        print(f"  model: {'REAL — ' + settings.model if settings is not None else 'scripted (free, offline)'}")
+        print(
+            f"  model: {'REAL — ' + settings.model if settings is not None else 'scripted (free, offline)'}"
+        )
         print("\n  Open this — the token is in the link:\n")
         print(f"    http://127.0.0.1:{port}/?token={token}\n")
         print("  Orders: AB-10001 shipped · AB-10002 pending · AB-10003 delivered 5d")

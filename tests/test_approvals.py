@@ -53,29 +53,31 @@ async def pending_refund(store, amount: str = "12400") -> ap.Approval:
 # What needs a human.
 # --------------------------------------------------------------------------- #
 
+# (name, the order as the order system holds it, needs a person)
 THRESHOLD_CASES = [
-    ("under the threshold", {"amount": "500"}, False),
-    ("exactly at it", {"amount": "10000"}, False),
-    ("over it", {"amount": "10000.01"}, True),
-    ("well over", {"amount": "99999"}, True),
-    ("amount missing", {}, True),
-    ("amount unreadable", {"amount": "about ten thousand"}, True),
+    ("returned, under the threshold", {"status": "returned", "total": 500}, False),
+    ("returned, exactly at it", {"status": "returned", "total": 10000}, False),
+    ("returned, over it", {"status": "returned", "total": "10000.01"}, True),
+    ("returned, well over", {"status": "returned", "total": 99999}, True),
+    ("returned, total missing", {"status": "returned"}, True),
+    ("returned, total unreadable", {"status": "returned", "total": "about ten thousand"}, True),
+    ("returned, total not a number", {"status": "returned", "total": "NaN"}, True),
+    ("delivered and small — not owed", {"status": "delivered", "total": 500}, True),
+    ("shipped and small — not owed", {"status": "shipped", "total": 500}, True),
 ]
 
 
 @pytest.mark.parametrize(
-    ("name", "args", "needs"), THRESHOLD_CASES, ids=[c[0] for c in THRESHOLD_CASES]
+    ("name", "order", "needs"), THRESHOLD_CASES, ids=[c[0] for c in THRESHOLD_CASES]
 )
-@pytest.mark.discharges("P-REFUND")
-def test_which_refunds_need_a_human(name: str, args: dict, needs: bool) -> None:
-    """An unreadable amount needs approval. A gate that cannot read the number
-    must not conclude the number is small."""
-    reason = ap.requires_approval(ap.REFUND_ACTION, args, ap.Policy())
+@pytest.mark.discharges("P-REFUND", "op:issue_refund")
+def test_which_refunds_need_a_human(name: str, order: dict, needs: bool) -> None:
+    """Every `agent_when` condition must hold for the agent to refund alone: the
+    refund is owed, and the order's total is within the limit. An unreadable
+    total needs approval — a gate that cannot read the number must not conclude
+    the number is small."""
+    reason = ap.requires_approval(order, ap.Policy())
     assert (reason is not None) is needs
-
-
-def test_only_refunds_are_gated() -> None:
-    assert ap.requires_approval("get_order", {"order_id": "AB-1"}, ap.Policy()) is None
 
 
 # --------------------------------------------------------------------------- #
@@ -193,10 +195,29 @@ class RefundOut(BaseModel):
     refund_id: str
 
 
+class OrderOut(BaseModel):
+    order_id: str
+    status: str
+    total: int | None = None
+
+
+ORDERS = {
+    "AB-1": OrderOut(order_id="AB-1", status="returned", total=12400),  # owed, large
+    "AB-2": OrderOut(order_id="AB-2", status="returned", total=2400),  # owed, small
+    "AB-3": OrderOut(order_id="AB-3", status="delivered", total=2400),  # small, not owed
+    "AB-4": OrderOut(order_id="AB-4", status="returned"),  # owed, total unknown
+}
+
+
 @pytest.fixture
 def server():
     srv = MCPServer("ecom")
-    srv.state = {"refunds": 0}  # type: ignore[attr-defined]
+    srv.state = {"refunds": 0, "refunded": []}  # type: ignore[attr-defined]
+
+    @srv.tool(meta={META_SIDE_EFFECT: SideEffectClass.READ.value})
+    def get_order(order_id: str) -> OrderOut:
+        """Look up an order."""
+        return ORDERS[order_id]
 
     @srv.tool(
         meta={
@@ -204,9 +225,10 @@ def server():
             META_REQUIRED_SCOPE: ident.SCOPE_REFUNDS_WRITE,
         }
     )
-    def issue_refund(order_id: str, amount: str) -> RefundOut:
-        """Refund an order. Irreversible."""
+    def issue_refund(order_id: str) -> RefundOut:
+        """Refund an order, for its total. Irreversible."""
         srv.state["refunds"] += 1  # type: ignore[attr-defined]
+        srv.state["refunded"].append(order_id)  # type: ignore[attr-defined]
         return RefundOut(refund_id=f"rf_{srv.state['refunds']}")  # type: ignore[attr-defined]
 
     return srv
@@ -237,12 +259,7 @@ async def test_the_whole_path_produces_exactly_one_refund(server) -> None:
 
     async with connect(server, ledger=ledger) as tools:
         for _ in range(2):
-            await tools.call(
-                "issue_refund",
-                {"order_id": "AB-1", "amount": "12400"},
-                elevated,
-                ap.stored_key(granted),
-            )
+            await tools.call("issue_refund", {"order_id": "AB-1"}, elevated, ap.stored_key(granted))
 
     assert server.state["refunds"] == 1
 
@@ -278,16 +295,14 @@ def refund_agent(tools, store, approvals, llm):
     return ep.build(llm=llm, tools=tools, store=store, approvals=approvals, clock=lambda: T0)
 
 
-def wants_refund(amount: str):
+def wants_refund(order_id: str = "AB-1", **stated: object):
+    """The model asks for a refund — and may state an amount, which the tool
+    must ignore: the amount is the order's."""
     from support_agent.contracts import ModelResponse, ToolCall
 
     return ModelResponse(
         tool_calls=(
-            ToolCall(
-                id="tc",
-                name=ap.REQUEST_REFUND,
-                arguments={"order_id": "AB-1", "amount": amount},
-            ),
+            ToolCall(id="tc", name=ap.REQUEST_REFUND, arguments={"order_id": order_id, **stated}),
         )
     )
 
@@ -319,7 +334,7 @@ async def test_a_large_refund_waits_and_then_completes_across_turns(server) -> N
             tools,
             InMemoryCheckpointStore(),
             approvals,
-            ScriptedClient([wants_refund("12400")]),
+            ScriptedClient([wants_refund()]),
         )
 
         first, conversation = await agent.handle(
@@ -350,7 +365,7 @@ async def test_a_pending_approval_short_circuits_the_next_turn(server) -> None:
     approvals = ap.InMemoryApprovalStore()
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = refund_agent(
-            tools, InMemoryCheckpointStore(), approvals, ScriptedClient([wants_refund("12400")])
+            tools, InMemoryCheckpointStore(), approvals, ScriptedClient([wants_refund()])
         )
         first, conversation = await agent.handle("refund AB-1 please", identity=customer())
         assert isinstance(first, NeedsApproval)
@@ -371,7 +386,7 @@ async def test_a_refused_approval_is_reported_and_nothing_is_refunded(server) ->
     approvals = ap.InMemoryApprovalStore()
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = refund_agent(
-            tools, InMemoryCheckpointStore(), approvals, ScriptedClient([wants_refund("12400")])
+            tools, InMemoryCheckpointStore(), approvals, ScriptedClient([wants_refund()])
         )
         first, conversation = await agent.handle("refund AB-1", identity=customer())
         await ap.decide(approvals, first.approval_id, granted=False, by="ops-7", now=T0 + 1)
@@ -395,7 +410,7 @@ async def test_an_agent_without_an_approval_store_cannot_refund_at_all(server) -
 
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = ep.build(
-            llm=ScriptedClient([wants_refund("12400"), _says()]),
+            llm=ScriptedClient([wants_refund(), _says()]),
             tools=tools,
             store=InMemoryCheckpointStore(),
         )
@@ -431,7 +446,7 @@ async def test_an_approval_lives_on_the_agents_clock(
     approvals = ap.InMemoryApprovalStore()
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = ep.build(
-            llm=ScriptedClient([wants_refund("12400")]),
+            llm=ScriptedClient([wants_refund()]),
             tools=tools,
             store=InMemoryCheckpointStore(),
             approvals=approvals,
@@ -447,3 +462,79 @@ async def test_an_approval_lives_on_the_agents_clock(
         second, _ = await agent.handle("any news?", identity=customer(), conversation=conversation)
 
     assert type(second).__name__ == outcome, second
+
+
+# --------------------------------------------------------------------------- #
+# F-014 — the amount is the order's, never the conversation's.
+# --------------------------------------------------------------------------- #
+
+
+class RecordingApprovals(ap.InMemoryApprovalStore):
+    """Every approval row as last written, decided or not."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: dict[str, ap.Approval] = {}
+
+    async def put(self, approval: ap.Approval) -> None:
+        self.rows[approval.id] = approval
+        await super().put(approval)
+
+
+ISSUED = "Your refund has been issued to your original payment method."
+
+# (name, order, what the model states, result type, refunded, stored amount, granted by)
+GROUNDING = [
+    ("an understated amount on a large order still needs a person",
+     "AB-1", {"amount": "500"}, "NeedsApproval", [], "12400", None),
+    ("a small owed refund is issued at once",
+     "AB-2", {}, "Completed", ["AB-2"], "2400", ap.POLICY_APPROVER),
+    ("an overstated amount on a small order is refunded for its total",
+     "AB-2", {"amount": "99999"}, "Completed", ["AB-2"], "2400", ap.POLICY_APPROVER),
+    ("a small refund that is not owed goes to a person",
+     "AB-3", {}, "NeedsApproval", [], "2400", None),
+    ("a total nobody can read goes to a person",
+     "AB-4", {}, "NeedsApproval", [], None, None),
+]  # fmt: skip
+
+
+@pytest.mark.discharges("P-REFUND", "op:request_refund", "op:issue_refund", "AHC-0057")
+@pytest.mark.parametrize(
+    ("name", "order", "stated", "outcome", "refunded", "amount", "granted_by"),
+    GROUNDING,
+    ids=[g[0] for g in GROUNDING],
+)
+async def test_a_refund_is_for_the_orders_total_and_the_gate_reads_it(
+    server,
+    name: str,
+    order: str,
+    stated: dict,
+    outcome: str,
+    refunded: list,
+    amount: str | None,
+    granted_by: str | None,
+) -> None:
+    """F-014: the threshold compared a number the model passed, so a customer who
+    understated a large refund talked it under the gate. Now the tool takes no
+    amount; it reads the order's total from the order system, and every refund —
+    automatic or not — leaves an approval row naming who authorised it."""
+    from support_agent.contracts import ModelResponse
+    from support_agent.state import InMemoryCheckpointStore
+
+    approvals = RecordingApprovals()
+    async with connect(server, ledger=InMemoryLedger()) as tools:
+        agent = refund_agent(
+            tools,
+            InMemoryCheckpointStore(),
+            approvals,
+            ScriptedClient([wants_refund(order, **stated), ModelResponse(text=ISSUED)]),
+        )
+        result, _ = await agent.handle(f"please refund {order}", identity=customer())
+
+    assert type(result).__name__ == outcome, result
+    assert server.state["refunded"] == refunded
+    (row,) = approvals.rows.values()
+    assert row.args["amount"] == amount, "the stored amount is the order's total"
+    assert row.decided_by == granted_by
+    if refunded:
+        assert result.reply == ISSUED, "a refund that happened may be said to have happened"
