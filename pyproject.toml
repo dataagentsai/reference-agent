@@ -32,6 +32,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    # Extracted to its own repository on 11 Sep 2026. It stays a *dev* dependency
+    # and never a runtime one: the import contract below forbids the agent from
+    # importing it at all, and a system that can see its own simulator is a
+    # system whose results mean nothing.
+    "agenttwin",
     "import-linter>=2.0",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
@@ -39,6 +44,11 @@ dev = [
     "allpairspy>=2.5",
     "hypothesis>=6.100",
 ]
+
+[tool.uv.sources]
+# A local path while both repositories move together. Switch to a git reference
+# once AgentTwin tags a release and CI needs to resolve it without this checkout.
+agenttwin = { path = "../agenttwin", editable = true }
 
 [build-system]
 requires = ["hatchling"]
@@ -64,7 +74,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "TID"]
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Path", "fastapi.Query"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "."]
+pythonpath = ["src"]
 asyncio_mode = "auto"
 
 # ---------------------------------------------------------------------------
