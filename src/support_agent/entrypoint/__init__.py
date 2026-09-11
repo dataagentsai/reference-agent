@@ -42,6 +42,7 @@ from support_agent.contracts import (
     LLMClient,
     Refuse,
     Refused,
+    Route,
     RunId,
     ToolClient,
     TurnResult,
@@ -136,89 +137,104 @@ class Agent:
         conversation: Conversation | None,
         run_id: RunId | None,
     ) -> tuple[TurnResult, Conversation]:
+        """The turn, as a sequence: gates, route, dispatch, Tier 2, record, persist."""
         run_id = run_id or new_run_id()
         conversation = conversation or Conversation(
-            conversation_id=new_conversation_id(),
-            customer_id=identity.customer_id,
+            conversation_id=new_conversation_id(), customer_id=identity.customer_id
         )
+        with tel.span("agent.turn", **self._turn_attributes(run_id, conversation, identity)):
+            held, conversation = await self._gates(conversation, identity, run_id)
+            if held is not None:
+                return held, await self._persist(run_id, conversation)
 
+            decision = router.route(text, rules=self.rules)
+            conversation = conversation.with_messages(ctx.user_message(text))
+            result = await self._dispatch(decision, conversation, identity, run_id)
+            conversation = conversation.with_turn(TurnNote.of(decision, result))
+
+            # Tier 2, after the work rather than before it. Every rule here asks
+            # how the turn *went* — did the loop give up, did the tools answer, is
+            # this the third time they have asked — and none of those facts exist
+            # until the route has run. That is also what closes R-011: a trajectory
+            # that exhausted its budget can fetch a person without the loop
+            # knowing this module exists.
+            escalated = await self.desk.raise_on_condition(conversation, identity, run_id, result)
+            if escalated is not None:
+                result = escalated
+
+            return result, await self._persist(run_id, conversation.recording(result))
+
+    async def _gates(
+        self, conversation: Conversation, identity: Identity, run_id: RunId
+    ) -> tuple[TurnResult | None, Conversation]:
+        """Work already in someone else's hands comes before anything the customer says.
+
+        A result means the turn ends here; `None` means proceed, with the
+        conversation as the gates left it.
+
+        The escalation is checked first. A person owns this conversation, and
+        nothing the customer says should start work the colleague may be about to
+        make pointless. When nothing holds it any more — resolved, missing, or no
+        store to read — the stale flag is cleared here rather than left to
+        re-answer the same question on every future turn.
+        """
+        if conversation.pending_escalation_id is not None:
+            held = await self.desk.hold(conversation)
+            if held is not None:
+                return held
+            conversation = conversation.model_copy(update={"pending_escalation_id": None})
+
+        if conversation.pending_approval_id is not None:
+            resumed = await self.pending.resume(conversation, identity, run_id, self.tools)
+            if resumed is not None:
+                return resumed
+
+        return None, conversation
+
+    async def _dispatch(
+        self, decision: Route, conversation: Conversation, identity: Identity, run_id: RunId
+    ) -> TurnResult:
+        """Four routes, and only one of them reaches the model."""
+        match decision:
+            case Refuse():
+                return Refused(reply=router.refusal_text(decision), reason=decision.reason)
+            case Escalate():
+                return await self.desk.raise_requested(decision, conversation, identity, run_id)
+            case Direct():
+                return await direct.answer(decision, identity, run_id, self.tools)
+            case Agentic():
+                result, _ = await agent_loop.run(
+                    decision.goal,
+                    identity=identity,
+                    llm=self.llm,
+                    tools=self.tools,
+                    system_prompt=self.system_prompt,
+                    budgets=self.budgets,
+                    run_id=run_id,
+                    history=conversation.messages[:-1],
+                    local_tools=self.pending.offer(identity, run_id),
+                )
+                return result
+            case _:
+                assert_never(decision)
+
+    def _turn_attributes(
+        self, run_id: RunId, conversation: Conversation, identity: Identity
+    ) -> dict[str, str]:
+        """Standard names, so a backend groups turns into a conversation and
+        attributes them to a customer with no mapping. Emitted here rather than at
+        the edge because a turn reaches this point whether it arrived over HTTP or
+        from a test, and a join key only some callers produce is one nothing
+        downstream can rely on."""
         attributes = {
             tel.RUN_ID: run_id,
-            # Standard names, so a backend groups turns into a conversation and
-            # attributes them to a customer with no mapping. Emitted here rather
-            # than at the edge because a turn reaches this point whether it
-            # arrived over HTTP or from a test, and a join key that only some
-            # callers produce is one nothing downstream can rely on.
             tel.SESSION_ID: conversation.conversation_id,
             tel.USER_ID: identity.customer_id,
         }
         if self.config is not None:
             attributes[tel.CONFIG_FINGERPRINT] = self.config.fingerprint
             attributes[tel.RESOLUTION] = self.config.resolution
-
-        with tel.span("agent.turn", **attributes):
-            # Checked before the approval resume, and before routing. A person
-            # owns this conversation: nothing the customer says should start work
-            # the colleague may be about to make pointless, and answering as
-            # though no handoff happened is the exact defect this closes.
-            result: TurnResult
-            if conversation.pending_escalation_id is not None:
-                held = await self.desk.hold(conversation)
-                if held is not None:
-                    result, conversation = held
-                    return result, await self._persist(run_id, conversation)
-                # Nothing holds it any more — resolved, missing, or no store to
-                # read. The flag is stale and is cleared here rather than left to
-                # re-answer the same question on every future turn.
-                conversation = conversation.model_copy(update={"pending_escalation_id": None})
-
-            if conversation.pending_approval_id is not None:
-                resumed = await self.pending.resume(conversation, identity, run_id, self.tools)
-                if resumed is not None:
-                    result, conversation = resumed
-                    return result, await self._persist(run_id, conversation)
-
-            decision = router.route(text, rules=self.rules)
-            conversation = conversation.with_messages(ctx.user_message(text))
-
-            match decision:
-                case Refuse():
-                    result = Refused(reply=router.refusal_text(decision), reason=decision.reason)
-                case Escalate():
-                    result = await self.desk.raise_requested(
-                        decision, conversation, identity, run_id
-                    )
-                case Direct():
-                    result = await direct.answer(decision, identity, run_id, self.tools)
-                case Agentic():
-                    result, _ = await agent_loop.run(
-                        decision.goal,
-                        identity=identity,
-                        llm=self.llm,
-                        tools=self.tools,
-                        system_prompt=self.system_prompt,
-                        budgets=self.budgets,
-                        run_id=run_id,
-                        history=conversation.messages[:-1],
-                        local_tools=self.pending.offer(identity, run_id),
-                    )
-                case _:
-                    assert_never(decision)
-
-            conversation = conversation.with_turn(TurnNote.of(decision, result))
-
-            # Tier 2, after the work rather than before it. Every rule here asks
-            # how the turn *went* — did the loop give up, did the tools answer,
-            # is this the third time they have asked — and none of those facts
-            # exist until the route has run. That is also what closes R-011:
-            # a trajectory that exhausted its budget can now fetch a person,
-            # without the loop knowing this module exists.
-            escalated = await self.desk.raise_on_condition(conversation, identity, run_id, result)
-            if escalated is not None:
-                result = escalated
-
-            conversation = conversation.recording(result)
-            return result, await self._persist(run_id, conversation)
+        return attributes
 
     @property
     def pending(self) -> PendingWork:
