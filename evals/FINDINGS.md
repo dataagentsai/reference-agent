@@ -1029,3 +1029,11 @@ cover it, and "failed" there is undefined; recorded rather than guessed at.
 An output-side block returns `Completed(reply=SAFE_REPLY, termination=REFUSED)`.
 AHC-0017 and AHC-0094 ask for the refused outcome itself, so a caller branching
 on the result type reads a blocked reply as a success.
+
+**Fixed — 2026-09-12 (G0.5), from AHC-0017 and AHC-0094.** A blocked completion
+comes back as `Refused`, carrying the rule that refused it as its reason — a
+completion holds nothing but its words, and the words were refused, so nothing
+is lost in the change. The results that record something the turn *did* keep
+their type: replacing an `Escalated` would drop the handoff the blocked reply
+was about, and an approval would stop being pending. Both halves are in the
+table.

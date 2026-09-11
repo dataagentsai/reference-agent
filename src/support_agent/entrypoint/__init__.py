@@ -49,7 +49,6 @@ from support_agent.contracts import (
     Refused,
     Route,
     RunId,
-    TerminationReason,
     ToolClient,
     TurnResult,
     new_conversation_id,
@@ -292,7 +291,11 @@ def _screened(result: TurnResult, identity: Identity) -> TurnResult:
     if isinstance(result, Failed):
         return result.model_copy(update={"customer_message": pol.SAFE_REPLY})
     if isinstance(result, Completed):
-        return Completed(reply=pol.SAFE_REPLY, termination=TerminationReason.REFUSED)
+        # A completion carries nothing but its words, and the words were
+        # refused — so the result is a refusal. It used to stay `Completed`
+        # with a `REFUSED` termination, which a caller branching on the type
+        # read as a success (F-026, AHC-0017).
+        return Refused(reply=pol.SAFE_REPLY, reason=verdict.rule)
     return result.model_copy(update={"reply": pol.SAFE_REPLY})
 
 
