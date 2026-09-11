@@ -50,6 +50,11 @@ system that owns a row can decide whose it is (F-016). The key is a binding the
 tool server and this transport share — declared on both sides, because the agent
 may not import its simulator — and belongs in the binding spec."""
 
+IDEMPOTENCY_META = "aoas/idempotency-key"
+"""Where a write's idempotency key travels, so the system the effect lands on can
+recognise a retry — the harness's ledger cannot, when the effect landed and the
+reply was lost (F-017). The same binding as `SESSION_META`."""
+
 META_SIDE_EFFECT = "side_effect"
 META_REQUIRED_SCOPE = "required_scope"
 
@@ -106,7 +111,12 @@ class Transport(Protocol):
         ...
 
     async def invoke(
-        self, name: str, arguments: dict[str, object], *, caller: Identity
+        self,
+        name: str,
+        arguments: dict[str, object],
+        *,
+        caller: Identity,
+        idempotency_key: IdempotencyKey | None = None,
     ) -> ToolResult: ...
 
 
@@ -137,7 +147,12 @@ class MCPTransport:
         return tuple(specs), tuple(rejected)
 
     async def invoke(
-        self, name: str, arguments: dict[str, object], *, caller: Identity
+        self,
+        name: str,
+        arguments: dict[str, object],
+        *,
+        caller: Identity,
+        idempotency_key: IdempotencyKey | None = None,
     ) -> ToolResult:
         """Both MCP failure channels, kept apart — and the caller carried with the call.
 
@@ -153,7 +168,10 @@ class MCPTransport:
         try:
             # MCP's `_meta` is an open object; the SDK's TypedDict names only the
             # progress token. The cast states that gap rather than hiding it.
-            meta = cast(RequestParamsMeta, {SESSION_META: {"customer_id": caller.customer_id}})
+            fields: dict[str, object] = {SESSION_META: {"customer_id": caller.customer_id}}
+            if idempotency_key is not None:
+                fields[IDEMPOTENCY_META] = idempotency_key.value
+            meta = cast(RequestParamsMeta, fields)
             raw = await self._client.call_tool(name, arguments, meta=meta)
         except Exception as exc:
             return ToolResult(name=name, text=str(exc), is_error=True, error_channel="protocol")
@@ -236,9 +254,10 @@ class GatedTools:
                 span.set_attribute("agent.tool.replayed", True)
                 return previous
 
-            result = self._bound(
-                await self._transport.invoke(name, arguments, caller=identity), span
+            answer = await self._transport.invoke(
+                name, arguments, caller=identity, idempotency_key=idempotency_key
             )
+            result = self._bound(answer, span)
             if not result.is_error:
                 await self._ledger.record(idempotency_key, result)
             return result
@@ -285,6 +304,7 @@ async def connect(
 
 __all__ = [
     "META_REQUIRED_SCOPE",
+    "IDEMPOTENCY_META",
     "META_SIDE_EFFECT",
     "SESSION_META",
     "GatedTools",

@@ -745,6 +745,16 @@ distinction. Two worlds found in one run what one world had hidden for a day.
 That is the argument for building the runtime before writing the obligations, and
 it is now evidence rather than an assertion.
 
+
+**Fixed — 2026-09-12 (G0.5), from the AOAS order-system contract** — *accepts a
+caller-supplied key on every irreversible operation and treats a repeated key as
+the same request.* The key now travels with every write in `_meta` under
+`aoas/idempotency-key`, the channel the caller's session already uses, and the
+order system (AgentTwin's stand-in) answers a repeated key with its first answer
+without applying the effect again. The harness ledger stays as the first line;
+the far end is the line that survives a lost reply. Proven below the ledger, at
+the transport: the same key twice lands once; switch off recognition and it
+lands twice.
 ---
 
 ## F-018 · A refund-status question is answered with the order's status
