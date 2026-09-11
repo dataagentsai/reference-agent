@@ -40,10 +40,10 @@ class DirectHandler(Protocol):
     ) -> TurnResult: ...
 
 
-async def order_status(
+async def _order(
     decision: Direct, identity: Identity, run_id: RunId, tools: ToolClient
-) -> TurnResult:
-    """The order's current status, from the order system, rendered by template.
+) -> dict[str, object] | Failed:
+    """The order the router found, from the order system — or a typed failure.
 
     The tool's argument name is read from its declared schema rather than
     assumed: a hard-coded `order_id` once bound this route to one tool signature,
@@ -67,27 +67,63 @@ async def order_status(
         return Failed(
             customer_message="I could not look that up.", detail=f"{type(exc).__name__}: {exc}"
         )
-
     if result.is_error or not isinstance(result.structured, dict):
         return Failed(
             customer_message="I could not find that order.",
             detail=result.text or "no structured content",
         )
+    return result.structured
+
+
+def _order_id(order: dict[str, object]) -> object:
+    return order.get("order_id") or order.get("id", "")
+
+
+async def order_status(
+    decision: Direct, identity: Identity, run_id: RunId, tools: ToolClient
+) -> TurnResult:
+    """The order's current status, from the order system, rendered by template."""
+    order = await _order(decision, identity, run_id, tools)
+    if isinstance(order, Failed):
+        return order
     return Completed(
         reply=ctx.render(
-            STATUS_REPLY,
-            order_id=result.structured.get("order_id") or result.structured.get("id", ""),
-            status=result.structured.get("status", "unknown"),
+            STATUS_REPLY, order_id=_order_id(order), status=order.get("status", "unknown")
         )
     )
 
 
+REFUND_REPLIES: Mapping[str, str] = {
+    "refunded": (
+        "A refund has been issued for order {{ order_id }}, to the original payment method."
+    ),
+    "returned": (
+        "Your return for order {{ order_id }} has arrived, and the refund is being processed."
+    ),
+}
+NO_REFUND_REPLY = "There is no refund on order {{ order_id }}."
+
+
+async def refund_status(
+    decision: Direct, identity: Identity, run_id: RunId, tools: ToolClient
+) -> TurnResult:
+    """AOAS `P-REFUND-STATUS`: the refund state, read from the order's status.
+
+    The order system holds no refund record of its own, so the status is the
+    whole of what can be said — and the replies say no more than it supports:
+    never a date, never an amount. Before this handler existed, a refund-status
+    question was answered with the order's status (F-018).
+    """
+    order = await _order(decision, identity, run_id, tools)
+    if isinstance(order, Failed):
+        return order
+    template = REFUND_REPLIES.get(str(order.get("status")), NO_REFUND_REPLY)
+    return Completed(reply=ctx.render(template, order_id=_order_id(order)))
+
+
 HANDLERS: Mapping[str, DirectHandler] = {
     "order_status": order_status,
-    # F-018, made visible. The router routes refund-status questions here and no
-    # refund-status handler exists yet, so the order's status answers them — as
-    # it always silently did. The fix is a real handler, in its own commit.
-    "refund_status": order_status,
+    "refund_status": refund_status,
 }
 
 
@@ -109,4 +145,14 @@ async def answer(
         return await handler(decision, identity, run_id, tools)
 
 
-__all__ = ["HANDLERS", "LOOKUP_TOOL", "STATUS_REPLY", "DirectHandler", "answer", "order_status"]
+__all__ = [
+    "HANDLERS",
+    "LOOKUP_TOOL",
+    "NO_REFUND_REPLY",
+    "REFUND_REPLIES",
+    "STATUS_REPLY",
+    "DirectHandler",
+    "answer",
+    "order_status",
+    "refund_status",
+]

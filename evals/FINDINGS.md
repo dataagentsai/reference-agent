@@ -766,6 +766,15 @@ open/closed defect in its most literal form.
 **Fix** A `DirectHandler` registry keyed by `decision.handler`, and a real
 `refund_status` handler — a separate, behaviour-changing commit with its own test.
 
+**Fixed — 2026-09-12 (G0.5), spec first.** The AOAS had never said how a
+refund-status question is answered, which is why no handler could be written to
+it. It now does — `P-REFUND-STATUS`: from the order's status, since the order
+system holds no refund record; `refunded` → issued, to the original payment
+method; `returned` → being processed; anything else → no refund on this order;
+never a date, never an amount. `direct.refund_status` implements it over the same
+lookup `order_status` uses, and the registry routes to it. Table-driven over four
+statuses; routing refund status back to the order handler fails all four.
+
 ---
 
 ## F-019 · The cost ceiling cannot be reached from the entrypoint
