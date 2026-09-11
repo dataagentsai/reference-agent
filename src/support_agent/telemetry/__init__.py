@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -38,13 +39,36 @@ from opentelemetry.trace import Span, StatusCode
 # still moving; changing a name here must not mean grepping the codebase.
 # --------------------------------------------------------------------------- #
 
+GEN_AI_PROVIDER = "gen_ai.provider.name"
 GEN_AI_SYSTEM = "gen_ai.system"
+"""Deprecated. Renamed to `gen_ai.provider.name` in semantic-conventions v1.37.0,
+and the whole `gen_ai.*` namespace has since moved to its own repository.
+
+Both are emitted for one release cycle, because a backend built against the
+current spec no longer matches the old name — a dashboard grouping by
+`gen_ai.system` goes dark the moment the libraries around it update. Drop this
+constant, the two call sites in `llm`, the one in `cassette`, and its entry in
+the contract together."""
+
 GEN_AI_OPERATION = "gen_ai.operation.name"
 GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
 GEN_AI_RESPONSE_MODEL = "gen_ai.response.model"
 GEN_AI_INPUT_TOKENS = "gen_ai.usage.input_tokens"
 GEN_AI_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
 GEN_AI_TOOL_NAME = "gen_ai.tool.name"
+
+# OTel general conventions rather than GenAI ones, and deliberately standard
+# names. A turn is one trace, so turn 1 and turn 7 of a conversation arrive as
+# *different traces* and nothing in the span tree relates them. `session.id` is
+# the only thing that does, which makes it the join key any conversation-level
+# reporting is built on — and one that cannot be recovered later, because a
+# trace not emitted with it is a trace that can never be grouped.
+#
+# Standard names on purpose: a backend that groups by session and attributes to
+# a user does so with no mapping configuration. `agent.tenant` below is ours and
+# is understood by nothing.
+SESSION_ID = "session.id"
+USER_ID = "user.id"
 
 # Ours. Namespaced so they are visibly not part of the standard.
 RUN_ID = "agent.run.id"
@@ -60,6 +84,29 @@ TENANT = "agent.tenant"
 """AAC-0104 — spend is attributable to tenant, feature and route. Tenant here,
 feature is the handler or intent, route is ROUTE_KIND above."""
 IDEMPOTENCY_KEY = "agent.idempotency.key"
+ESCALATION_ID = "agent.escalation.id"
+"""The join key across raise, wait and lapse. Without one on every span, queue
+wait time is not computable from the trace."""
+ESCALATION_TIER = "agent.escalation.tier"
+ESCALATION_RULE = "agent.escalation.rule_id"
+"""Which rule fired. Sliced by this, the outcome of an escalation answers the
+question that tunes the rule set — AAC-0020's over-refusal rate, in the shape
+this agent actually has."""
+CONTEXT_CHARS = "agent.context.chars"
+"""How full the assembled transcript was on this call.
+
+AAC-0103 says context growth is tracked across releases, and a committed
+baseline does that between releases. This does it *per call*, which is the half
+that tells you whether a threshold is anywhere near right — a system that never
+trims has headroom it is not using, and one that trims constantly is losing
+information silently."""
+CONTEXT_EXCHANGES = "agent.context.exchanges"
+CONTEXT_TRIMMED = "agent.context.trimmed"
+"""Units dropped to make the call fit. The number that decides whether the rest
+of the context work is justified or premature."""
+CONTEXT_STORED = "agent.context.stored_chars"
+"""What the checkpoint actually holds, which is a different question from what
+the model was sent and was for a long time nobody's."""
 SIDE_EFFECT = "agent.tool.side_effect"
 MODEL_MALFORMED = "agent.model.malformed"
 """How many provider responses could not be parsed this run — AHC-0001.
@@ -114,8 +161,13 @@ class SpanSpec:
 
 CONTRACT: dict[str, SpanSpec] = {
     "agent.turn": SpanSpec(
-        required=frozenset({RUN_ID}),
-        optional=frozenset({CONFIG_FINGERPRINT, RESOLUTION}),
+        # Session and user are required, not optional: both are always in scope
+        # by the time this span opens — a conversation is minted if one was not
+        # supplied — so anything less than required would let the join key go
+        # missing silently, which is the one failure that cannot be repaired
+        # after the fact.
+        required=frozenset({RUN_ID, SESSION_ID, USER_ID}),
+        optional=frozenset({CONFIG_FINGERPRINT, RESOLUTION, CONTEXT_STORED}),
     ),
     "agent.run": SpanSpec(
         required=frozenset({RUN_ID, TENANT}),
@@ -130,15 +182,54 @@ CONTRACT: dict[str, SpanSpec] = {
         required=frozenset(),
         optional=frozenset({TENANT, "http.status_code", "http.refusal_detail", "agent.result"}),
     ),
-    "agent.step": SpanSpec(required=frozenset({STEP, RUN_ID})),
+    "agent.step": SpanSpec(
+        required=frozenset({STEP, RUN_ID}),
+        optional=frozenset({CONTEXT_CHARS, CONTEXT_EXCHANGES, CONTEXT_TRIMMED}),
+    ),
     "agent.route": SpanSpec(
         required=frozenset({ROUTE_KIND, ROUTE_REASON, "agent.router.rules_version"})
     ),
     "agent.direct": SpanSpec(required=frozenset({"agent.handler"})),
+    "agent.escalation.raise": SpanSpec(
+        # The rule id is required, not optional. An escalation whose span says
+        # only "escalated" is one nobody can attribute to a rule, and attributing
+        # them to rules is the entire mechanism for telling over-escalation from
+        # correct handoff later.
+        required=frozenset({ESCALATION_ID, ESCALATION_TIER, ESCALATION_RULE}),
+        optional=frozenset({"agent.escalation.rules_version"}),
+    ),
+    "agent.escalation.lapse": SpanSpec(
+        required=frozenset({ESCALATION_ID, ESCALATION_RULE}),
+        optional=frozenset({"agent.escalation.waited_s"}),
+    ),
+    "agent.escalation.wait": SpanSpec(
+        required=frozenset({ESCALATION_ID}),
+        optional=frozenset({"agent.escalation.waited_s"}),
+    ),
+    "agent.escalation.queue": SpanSpec(
+        required=frozenset({TENANT}), optional=frozenset({"agent.escalation.depth"})
+    ),
+    "agent.escalation.refused": SpanSpec(
+        # Nothing required: a request refused before its token is read has no
+        # tenant to record, the same reasoning `http.chat` already carries.
+        required=frozenset(),
+        optional=frozenset({"http.refusal_detail"}),
+    ),
+    "agent.escalation.resolve": SpanSpec(
+        # The outcome is required. It is the ground truth behind the
+        # over-escalation rate, and a close that did not record one is a close
+        # that taught us nothing — which is how the false-positive rate stays
+        # unmeasurable forever.
+        required=frozenset({ESCALATION_ID, ESCALATION_RULE, "agent.escalation.outcome"}),
+        optional=frozenset({"agent.escalation.waited_s"}),
+    ),
     "gen_ai.chat": SpanSpec(
-        required=frozenset({GEN_AI_SYSTEM}),
+        # The current name is required; the deprecated one is merely allowed, so
+        # dropping it later is a deletion rather than a contract change.
+        required=frozenset({GEN_AI_PROVIDER}),
         optional=frozenset(
             {
+                GEN_AI_SYSTEM,
                 GEN_AI_OPERATION,
                 GEN_AI_REQUEST_MODEL,
                 GEN_AI_RESPONSE_MODEL,
@@ -193,6 +284,18 @@ def validate(spans: Iterable[ReadableSpan]) -> list[str]:
     return out
 
 
+def set_current_attribute(name: str, value: Any) -> None:
+    """Record onto whatever span is already open.
+
+    For the case where the fact is learned in a helper several calls below the
+    span that should carry it, and threading the span down would mean four
+    signatures growing a parameter to serve one attribute. A no-op when nothing
+    is open, which is the honest behaviour for a caller that may run outside a
+    turn.
+    """
+    trace.get_current_span().set_attribute(name, value)
+
+
 def redact(text: str, *, limit: int = 4000) -> str:
     """The single redaction point. Everything captured onto a span comes here.
 
@@ -214,8 +317,20 @@ _LAST_EXPORTER: InMemorySpanExporter | None = None
 contract without every test threading the exporter through."""
 
 
-def configure(*, capture_payloads: bool = False) -> InMemorySpanExporter:
+def configure(
+    *,
+    capture_payloads: bool = False,
+    service_name: str = "support-agent",
+    service_version: str | None = None,
+    environment: str | None = None,
+) -> InMemorySpanExporter:
     """Install a provider and return the in-memory exporter.
+
+    The resource is set here rather than left to default. Every backend groups
+    and bills by `service.name`, and a provider built without one reports
+    `unknown_service` — which is not a cosmetic problem: it is a whole
+    deployment's telemetry landing in a bucket that cannot be told apart from
+    anyone else's.
 
     We hold our own provider rather than relying on OpenTelemetry's global,
     which is set-once: a second `set_tracer_provider` is ignored with a warning,
@@ -230,7 +345,15 @@ def configure(*, capture_payloads: bool = False) -> InMemorySpanExporter:
     global _CAPTURE_PAYLOADS, _PROVIDER
     _CAPTURE_PAYLOADS = capture_payloads
     exporter = InMemorySpanExporter()
-    provider = TracerProvider()
+    # `deployment.environment.name` is the current spelling; the older
+    # `deployment.environment` is deprecated. Attributes are dropped when unset
+    # rather than filled with "unknown", so an absent value stays absent.
+    attributes = {"service.name": service_name}
+    if service_version is not None:
+        attributes["service.version"] = service_version
+    if environment is not None:
+        attributes["deployment.environment.name"] = environment
+    provider = TracerProvider(resource=Resource.create(attributes))
     provider.add_span_processor(SimpleSpanProcessor(exporter))
     _PROVIDER = provider
     global _LAST_EXPORTER
@@ -285,6 +408,10 @@ def attributes_of(finished: ReadableSpan) -> Mapping[str, Any]:
 __all__ = [
     "CONFIG_FINGERPRINT",
     "CONTRACT",
+    "CONTEXT_CHARS",
+    "CONTEXT_EXCHANGES",
+    "CONTEXT_STORED",
+    "CONTEXT_TRIMMED",
     "COST_CALL_USD",
     "COST_USD",
     "GEN_AI_INPUT_TOKENS",
@@ -292,7 +419,13 @@ __all__ = [
     "GEN_AI_OUTPUT_TOKENS",
     "GEN_AI_REQUEST_MODEL",
     "GEN_AI_RESPONSE_MODEL",
+    "GEN_AI_PROVIDER",
     "GEN_AI_SYSTEM",
+    "SESSION_ID",
+    "USER_ID",
+    "ESCALATION_ID",
+    "ESCALATION_RULE",
+    "ESCALATION_TIER",
     "GEN_AI_TOOL_NAME",
     "IDEMPOTENCY_KEY",
     "ITERATION",
@@ -308,6 +441,7 @@ __all__ = [
     "attributes_of",
     "configure",
     "redact",
+    "set_current_attribute",
     "set_payload",
     "set_usage",
     "span",

@@ -276,7 +276,11 @@ class Player:
     async def complete(self, request: ModelRequest) -> ModelResponse:
         with tel.span(
             "gen_ai.chat",
-            **{tel.GEN_AI_SYSTEM: "cassette", tel.RESOLUTION: "replay"},
+            **{
+                tel.GEN_AI_PROVIDER: "cassette",
+                tel.GEN_AI_SYSTEM: "cassette",  # deprecated; emitted during migration
+                tel.RESOLUTION: "replay",
+            },
         ) as span:
             wanted = fingerprint(request)
             exchange = self._next(wanted)

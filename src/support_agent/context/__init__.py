@@ -23,6 +23,7 @@ source. A summary of untrusted content is untrusted content.
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 
 from jinja2 import Environment, StrictUndefined
 
@@ -108,12 +109,46 @@ class BrokenTranscript(Exception):
     """Assembly produced a transcript no provider will accept."""
 
 
+@dataclass(frozen=True)
+class Assembly:
+    """The transcript, and what it cost to make it fit.
+
+    The numbers exist because a threshold picked without them is a guess. Nothing
+    in this repository could previously answer *how full is a typical call* or
+    *how often do we trim* — so every context decision after this one was going
+    to be argued from intuition. `trimmed` is the one that matters: a system that
+    never trims has headroom it is not using, and one that trims on most calls is
+    losing information continuously and silently.
+    """
+
+    messages: tuple[Message, ...]
+    chars: int
+    """Assembled size including the system prompt. Characters, not tokens —
+    R-004 recorded that accurate counting is lost to the provider choice, so this
+    is an approximate ruler used consistently rather than a precise one."""
+    exchanges: int
+    """Units kept."""
+    trimmed: int
+    """Units dropped to make it fit. Zero on almost every call, and the moment it
+    stops being zero is when the rest of the context work becomes justified."""
+
+
 def assemble(
     *,
     system: str,
     history: Sequence[Message],
     max_chars: int = 24_000,
 ) -> tuple[Message, ...]:
+    """The transcript alone. See `assembled` for the same work with its cost."""
+    return assembled(system=system, history=history, max_chars=max_chars).messages
+
+
+def assembled(
+    *,
+    system: str,
+    history: Sequence[Message],
+    max_chars: int = 24_000,
+) -> Assembly:
     """Order for cache friendliness, then trim whole exchanges from the middle.
 
     The system prompt is a stable prefix and goes first and unchanged: any byte
@@ -133,6 +168,7 @@ def assemble(
     """
     head = Message(role="system", content=system, provenance="operator")
     units = exchanges(history)
+    before = len(units)
 
     def size(groups: Iterable[list[Message]]) -> int:
         return sum(len(m.content) for group in groups for m in group)
@@ -147,7 +183,49 @@ def assemble(
             f"assembly orphaned tool calls {sorted(missing_answers)} "
             f"and results {sorted(missing_calls)}"
         )
-    return (head, *kept)
+    return Assembly(
+        messages=(head, *kept),
+        chars=size(units) + len(system),
+        exchanges=len(units),
+        trimmed=before - len(units),
+    )
+
+
+def bounded(history: Sequence[Message], *, max_chars: int) -> tuple[Message, ...]:
+    """The same trim, applied to what is *stored* rather than what is sent.
+
+    `assemble` bounds the transcript on the way to the model, per call, and that
+    hid a real problem for as long as it existed: the trimming was invisible to
+    the database. `Conversation.messages` had no cap at all, so a conversation
+    that ran all day wrote a larger row on every turn and read it back on the
+    next — while the class it lives on claims the trace/checkpoint split is
+    "what stops a checkpoint growing without bound".
+
+    Deliberately the *same* middle-out policy, not a different one. A stored
+    history shaped differently from the one the model saw is a second thing to
+    reason about, and the argument holds either way round: the earliest turns
+    establish the task and the latest are what is being answered.
+
+    **This trim is permanent**, which `assemble`'s is not. That is the reason the
+    default here is more generous than the model's window: losing the middle of a
+    conversation from storage is not recoverable, so the cap is a guard against
+    unbounded growth rather than an attempt to be tight.
+    """
+    units = exchanges(history)
+    while len(units) > 2 and sum(len(m.content) for u in units for m in u) > max_chars:
+        units.pop(len(units) // 2)
+
+    kept = tuple(m for unit in units for m in unit)
+    missing_answers, missing_calls = orphaned(kept)
+    if missing_answers or missing_calls:
+        # The same guard `assemble` runs, for the same reason and one layer
+        # earlier: a trimming bug is silent until a conversation is long enough
+        # to trim, and this one would persist the broken transcript.
+        raise BrokenTranscript(
+            f"bounding orphaned tool calls {sorted(missing_answers)} "
+            f"and results {sorted(missing_calls)}"
+        )
+    return kept
 
 
 def budget_exceeded(messages: Sequence[Message], *, max_chars: int) -> bool:
@@ -155,10 +233,13 @@ def budget_exceeded(messages: Sequence[Message], *, max_chars: int) -> bool:
 
 
 __all__ = [
+    "Assembly",
     "BrokenTranscript",
     "FENCE_CLOSE",
     "FENCE_OPEN",
     "assemble",
+    "assembled",
+    "bounded",
     "budget_exceeded",
     "exchanges",
     "orphaned",

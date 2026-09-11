@@ -19,10 +19,12 @@ and **only one of them reaches the model**:
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 
 from support_agent import approvals as ap
 from support_agent import context as ctx
+from support_agent import escalation as esc
 from support_agent import loop as agent_loop
 from support_agent import router
 from support_agent import telemetry as tel
@@ -32,10 +34,12 @@ from support_agent.contracts import (
     Agentic,
     ApprovalStore,
     CheckpointStore,
+    Clock,
     Completed,
     Direct,
     Escalate,
     Escalated,
+    EscalationStore,
     Failed,
     IdempotencyKey,
     Identity,
@@ -50,7 +54,8 @@ from support_agent.contracts import (
     new_conversation_id,
     new_run_id,
 )
-from support_agent.state import Conversation
+from support_agent.escalation import rules as t2
+from support_agent.state import Conversation, TurnNote
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a customer support agent for a clothing retailer. "
@@ -75,11 +80,39 @@ class Agent:
     tools: ToolClient
     store: CheckpointStore
     approvals: ApprovalStore | None = None
+    escalations: EscalationStore | None = None
+    """Absent means the agent cannot escalate durably, and it says so rather than
+    pretending: with no store, `Escalated.ticket_id` stays `None` and the reply
+    promises no reference. Same honesty as `_local_tools` refusing to offer a
+    refund tool when no approval store is wired."""
     deliveries: object | None = None
+    clock: Clock | None = None
+    """Epoch seconds, injected. Defaults to the wall clock.
+
+    An escalation expires, and an expiry the caller cannot control is one no
+    simulation can reach: AgentTwin could drive the *desk's* moment but not the
+    agent's, so the lapse path had to be tested by rewriting `expires_at` behind
+    the agent's back. A seam that only one side of a conversation can see is not
+    one."""
     config: RunConfig | None = None
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     budgets: Budgets = field(default_factory=Budgets)
     rules: router.Rules = field(default_factory=router.Rules)
+    capacity: esc.Capacity | None = None
+    """What the desk can actually absorb. `None` means unmeasured, and the agent
+    then promises a reference and no time — which is true, where "a few minutes"
+    would not be."""
+    history_chars: int = 32_000
+    """How much transcript survives a checkpoint.
+
+    More generous than `assemble`'s window on purpose: that trim is per call and
+    reversible, this one is permanent. The number is a guard against unbounded
+    growth, not an attempt to be tight — and it is counted in characters rather
+    than tokens because R-004 recorded that accurate counting is lost to the
+    provider choice. The ruler is approximate; the bound is not."""
+    tier_2: t2.RuleSet | None = None
+    """State-derived escalation rules. `None` uses the defaults; an agent with no
+    escalation store never reaches them at all."""
 
     async def handle(
         self,
@@ -118,22 +151,40 @@ class Agent:
             customer_id=identity.customer_id,
         )
 
-        attributes = {tel.RUN_ID: run_id}
+        attributes = {
+            tel.RUN_ID: run_id,
+            # Standard names, so a backend groups turns into a conversation and
+            # attributes them to a customer with no mapping. Emitted here rather
+            # than at the edge because a turn reaches this point whether it
+            # arrived over HTTP or from a test, and a join key that only some
+            # callers produce is one nothing downstream can rely on.
+            tel.SESSION_ID: conversation.conversation_id,
+            tel.USER_ID: identity.customer_id,
+        }
         if self.config is not None:
             attributes[tel.CONFIG_FINGERPRINT] = self.config.fingerprint
             attributes[tel.RESOLUTION] = self.config.resolution
 
         with tel.span("agent.turn", **attributes):
+            # Checked before the approval resume, and before routing. A person
+            # owns this conversation: nothing the customer says should start work
+            # the colleague may be about to make pointless, and answering as
+            # though no handoff happened is the exact defect this closes.
+            if conversation.pending_escalation_id is not None:
+                held = await self._still_with_a_colleague(conversation)
+                if held is not None:
+                    result, conversation = held
+                    return result, await self._persist(run_id, conversation)
+                # Nothing holds it any more — resolved, missing, or no store to
+                # read. The flag is stale and is cleared here rather than left to
+                # re-answer the same question on every future turn.
+                conversation = conversation.model_copy(update={"pending_escalation_id": None})
+
             if conversation.pending_approval_id is not None:
                 resumed = await self._resume(conversation, identity, run_id)
                 if resumed is not None:
                     result, conversation = resumed
-                    await self.store.checkpoint(
-                        run_id,
-                        conversation.encode(),
-                        conversation_id=conversation.conversation_id,
-                    )
-                    return result, conversation
+                    return result, await self._persist(run_id, conversation)
 
             decision = router.route(text, rules=self.rules)
             conversation = conversation.with_messages(ctx.user_message(text))
@@ -144,10 +195,7 @@ class Agent:
                         reply=_refusal_text(decision), reason=decision.reason
                     )
                 case Escalate():
-                    result = Escalated(
-                        reply="Let me pass you to a colleague who can help with that.",
-                        reason=decision.reason,
-                    )
+                    result = await self._escalate(decision, conversation, identity, run_id)
                 case Direct():
                     result = await self._direct(decision, identity, run_id)
                 case Agentic():
@@ -163,11 +211,198 @@ class Agent:
                         local_tools=self._local_tools(identity, run_id),
                     )
 
+            conversation = conversation.with_turn(_note(decision, result))
+
+            # Tier 2, after the work rather than before it. Every rule here asks
+            # how the turn *went* — did the loop give up, did the tools answer,
+            # is this the third time they have asked — and none of those facts
+            # exist until the route has run. That is also what closes R-011:
+            # a trajectory that exhausted its budget can now fetch a person,
+            # without the loop knowing this module exists.
+            escalated = await self._tier_two(conversation, identity, run_id, result)
+            if escalated is not None:
+                result = escalated
+
             conversation = _record(conversation, result)
-            await self.store.checkpoint(
-                run_id, conversation.encode(), conversation_id=conversation.conversation_id
+            return result, await self._persist(run_id, conversation)
+
+    async def _tier_two(
+        self,
+        conversation: Conversation,
+        identity: Identity,
+        run_id: RunId,
+        result: TurnResult,
+    ) -> TurnResult | None:
+        """Raise on a state-derived rule, or leave the turn alone.
+
+        Returns `None` far more often than not, and deliberately never overrides
+        a Tier 1 escalation: a turn that already fetched a person does not need
+        a second reason to. Nor does it override `NeedsApproval` — an outstanding
+        approval is a human already engaged, and replacing that with an
+        escalation would discard the decision they are in the middle of making.
+        """
+        if self.escalations is None or isinstance(result, Escalated | NeedsApproval):
+            return None
+
+        facts = _facts(conversation)
+        rule = t2.evaluate(facts, self.tier_2)
+        if rule is None:
+            return None
+
+        raised = await esc.raise_for(
+            self.escalations,
+            conversation_id=conversation.conversation_id,
+            run_id=run_id,
+            customer_id=identity.customer_id,
+            reason=rule.reason,
+            rule_id=rule.id,
+            rules_version=(self.tier_2 or t2.RuleSet()).version,
+            tier=2,
+            ttl_s=rule.ttl_s,
+            now=self._now(),
+        )
+        return Escalated(
+            reply=await self._handoff_text(raised.id),
+            reason=rule.reason,
+            ticket_id=raised.id,
+            rule_id=raised.rule_id,
+        )
+
+    async def _persist(self, run_id: RunId, conversation: Conversation) -> Conversation:
+        """Bound the history, write it, and hand back what was actually stored.
+
+        Every checkpoint goes through here, which is the point: three call sites
+        wrote the conversation and none of them capped it, so the one durable
+        structure in the system grew without limit on every turn.
+
+        The bounded copy is **returned**, not just written. A caller holding a
+        larger history than the store does would be looking at state that no
+        longer exists anywhere — and this class already promises the opposite:
+        the conversation comes back so a caller always holds what produced the
+        result it is looking at.
+        """
+        bounded = conversation.model_copy(
+            update={"messages": ctx.bounded(conversation.messages, max_chars=self.history_chars)}
+        )
+        raw = bounded.encode()
+        tel.set_current_attribute(tel.CONTEXT_STORED, len(raw))
+        await self.store.checkpoint(run_id, raw, conversation_id=bounded.conversation_id)
+        return bounded
+
+    def _now(self) -> int:
+        return self.clock() if self.clock is not None else int(time.time())
+
+    async def _escalate(
+        self,
+        decision: Escalate,
+        conversation: Conversation,
+        identity: Identity,
+        run_id: RunId,
+    ) -> TurnResult:
+        """Write the record, then say something true about it.
+
+        With no store the reply is deliberately weaker — no reference number,
+        because there is no record to reference. An agent that invented a ticket
+        id would be doing precisely what the system prompt forbids.
+        """
+        if self.escalations is None:
+            return Escalated(
+                reply="Let me pass you to a colleague who can help with that.",
+                reason=decision.reason,
+                rule_id=decision.rule_id,
             )
-            return result, conversation
+
+        raised = await esc.raise_for(
+            self.escalations,
+            conversation_id=conversation.conversation_id,
+            run_id=run_id,
+            customer_id=identity.customer_id,
+            reason=decision.reason,
+            rule_id=decision.rule_id,
+            rules_version=self.rules.version,
+            tier=decision.tier,
+            now=self._now(),
+        )
+        return Escalated(
+            reply=await self._handoff_text(raised.id),
+            reason=decision.reason,
+            ticket_id=raised.id,
+            rule_id=raised.rule_id,
+        )
+
+    async def _handoff_text(self, ticket: str) -> str:
+        """Say only what the queue supports.
+
+        Three answers, and the agent is never the one choosing between them —
+        the desk's state is. Closed means nobody is there and the reply says so;
+        a measured desk gets a real number from depth over throughput; an
+        unmeasured one gets a reference and no promise about time.
+        """
+        capacity = self.capacity
+        if capacity is None:
+            return esc.RAISED_REPLY.format(ticket=ticket)
+        if not capacity.open:
+            return esc.CLOSED_REPLY.format(ticket=ticket)
+
+        depth = len(await self.escalations.pending()) if self.escalations else 0
+        waiting = capacity.estimate_s(depth)
+        if waiting is None:
+            return esc.RAISED_REPLY.format(ticket=ticket)
+        return esc.QUEUED_REPLY.format(ticket=ticket, wait=esc.humanise(waiting))
+
+    async def _still_with_a_colleague(
+        self, conversation: Conversation
+    ) -> tuple[TurnResult, Conversation] | None:
+        """Hold the conversation while a person owns it — or hand it back.
+
+        Returns `None` when there is nothing to hold, so the turn proceeds
+        normally. Three ways that happens, and each is a real case rather than a
+        defensive branch:
+
+        *No store.* The flag was set by an agent that had one and this one does
+        not. Clearing it beats holding a conversation against a record nobody
+        here can read.
+
+        *The record is gone or already closed.* A colleague finished, or the
+        store lost it. Either way the customer is served again.
+
+        *Nobody came.* The escalation lapsed. This is the case that makes step 1
+        shippable before the reviewer surface exists — without it, every
+        escalated conversation would be held open forever by a queue no human can
+        yet see.
+        """
+        assert conversation.pending_escalation_id is not None
+        if self.escalations is None:
+            return None
+
+        open_now = await self.escalations.get(conversation.pending_escalation_id)
+        if open_now is None or not open_now.open:
+            return None
+
+        moment = self._now()
+        if open_now.lapsed(moment):
+            lapsed = await esc.lapse(self.escalations, open_now, now=moment)
+            handed_back = Completed(reply=esc.LAPSED_REPLY.format(ticket=lapsed.id))
+            return handed_back, _record(
+                conversation.model_copy(update={"pending_escalation_id": None}), handed_back
+            )
+
+        with tel.span(
+            "agent.escalation.wait",
+            **{
+                tel.ESCALATION_ID: open_now.id,
+                "agent.escalation.waited_s": moment - open_now.created_at,
+            },
+        ):
+            return (
+                Escalated(
+                    reply=esc.WAITING_REPLY.format(ticket=open_now.id),
+                    reason=open_now.reason,
+                    ticket_id=open_now.id,
+                    rule_id=open_now.rule_id,
+                ),
+                conversation,
+            )
 
     def _local_tools(self, identity: Identity, run_id: RunId) -> dict[str, ap.LocalTool]:
         """Harness-answered tools. Empty when no approval store is wired, so an
@@ -377,6 +612,53 @@ def _reads_as(offered: str, required: str) -> bool:
     )
 
 
+def _note(decision, result: TurnResult) -> TurnNote:
+    """Reduce a turn to what a rule can ask about.
+
+    The intent is only known on a `Direct` route; `Agentic` carries candidates
+    rather than a decision, and recording a guess as a fact is how a rule ends up
+    counting something nobody classified.
+    """
+    return TurnNote(
+        route=decision.kind,
+        result=result.kind,
+        intent=decision.intent.value if isinstance(decision, Direct) else None,
+        termination=getattr(result, "termination", None),
+    )
+
+
+def _facts(conversation: Conversation) -> t2.Facts:
+    """Turn the remembered outcomes into the numbers rules read.
+
+    Computed rather than stored, so a rule change never needs a migration and a
+    conversation written last week answers today's rules.
+    """
+    recent = conversation.recent
+    failed = 0
+    for note in reversed(recent):
+        if note.result != "failed":
+            break
+        failed += 1
+
+    repeated = 0
+    for note in reversed(recent):
+        if note.result == "completed" or note.intent is None:
+            break
+        if note.intent != recent[-1].intent:
+            break
+        repeated += 1
+
+    return t2.Facts(
+        turn_count=conversation.turn_count,
+        termination=recent[-1].termination if recent else None,
+        consecutive_failed=failed,
+        refusals=sum(1 for n in recent if n.result == "refused"),
+        repeated_intent=repeated,
+        escalations=len(conversation.escalated_rules),
+        already_fired=frozenset(conversation.escalated_rules),
+    )
+
+
 def _refusal_text(decision: Refuse) -> str:
     if decision.alternative:
         return f"I am sorry — {decision.reason}. {decision.alternative}"
@@ -398,6 +680,16 @@ def _record(conversation: Conversation, result: TurnResult) -> Conversation:
     )
     if isinstance(result, NeedsApproval):
         return updated.model_copy(update={"pending_approval_id": result.approval_id})
+    # Only when there is a record to point at. An escalation with no `ticket_id`
+    # is one no store accepted, and flagging the conversation against a record
+    # that does not exist would hold it closed with nothing able to reopen it.
+    if isinstance(result, Escalated) and result.ticket_id is not None:
+        fired = updated.escalated_rules
+        if result.rule_id and result.rule_id not in fired:
+            fired = (*fired, result.rule_id)
+        return updated.model_copy(
+            update={"pending_escalation_id": result.ticket_id, "escalated_rules": fired}
+        )
     return updated
 
 
@@ -407,9 +699,13 @@ def build(
     tools: ToolClient,
     store: CheckpointStore,
     approvals: ApprovalStore | None = None,
+    escalations: EscalationStore | None = None,
+    capacity: esc.Capacity | None = None,
     deliveries: object | None = None,
+    clock: Clock | None = None,
     config: RunConfig | None = None,
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+    history_chars: int = 32_000,
 ) -> Agent:
     """The composition root.
 
@@ -424,6 +720,10 @@ def build(
         deliveries=deliveries,
         store=store,
         approvals=approvals,
+        escalations=escalations,
+        capacity=capacity,
+        clock=clock,
+        history_chars=history_chars,
         config=config,
         system_prompt=system_prompt,
         budgets=config.budgets if config else Budgets(),

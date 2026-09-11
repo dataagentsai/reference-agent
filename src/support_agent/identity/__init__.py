@@ -26,6 +26,8 @@ SCOPE_ORDERS_READ = "orders:read"
 SCOPE_ORDERS_WRITE = "orders:write"
 SCOPE_RETURNS_WRITE = "returns:write"
 SCOPE_REFUNDS_WRITE = "refunds:write"
+SCOPE_ESCALATIONS_READ = "escalations:read"
+SCOPE_ESCALATIONS_REVIEW = "escalations:review"
 
 CUSTOMER_SCOPES = frozenset({SCOPE_ORDERS_READ, SCOPE_ORDERS_WRITE, SCOPE_RETURNS_WRITE})
 """What a customer session may do on its own.
@@ -34,6 +36,19 @@ CUSTOMER_SCOPES = frozenset({SCOPE_ORDERS_READ, SCOPE_ORDERS_WRITE, SCOPE_RETURN
 approval threshold it needs a human, so the agent acting as the customer must
 not hold the scope that would let it skip that gate. The gate is not the only
 control; it is the second one.
+"""
+
+REVIEWER_SCOPES = frozenset({SCOPE_ESCALATIONS_READ, SCOPE_ESCALATIONS_REVIEW})
+"""What a person working the escalation desk may do.
+
+Disjoint from `CUSTOMER_SCOPES`, and that is the whole design. A reviewer holds
+no `orders:*` at all: the desk reads and closes escalations, and if it needs to
+act on an order it does so as itself through the ordinary surface, where the
+same authorisation applies to it as to anyone. And a customer session can never
+hold `escalations:review`, which is what makes `resolve`'s refusal to let a
+customer close their own case a control rather than a convention — the outcome
+label is the input to the over-escalation rate, so the party being measured must
+not be able to write it.
 """
 
 
@@ -133,6 +148,9 @@ __all__ = [
     "MIN_SECRET_BYTES",
     "CUSTOMER_SCOPES",
     "ISSUER",
+    "REVIEWER_SCOPES",
+    "SCOPE_ESCALATIONS_READ",
+    "SCOPE_ESCALATIONS_REVIEW",
     "SCOPE_ORDERS_READ",
     "SCOPE_ORDERS_WRITE",
     "SCOPE_REFUNDS_WRITE",

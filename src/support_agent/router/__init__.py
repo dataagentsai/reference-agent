@@ -50,15 +50,50 @@ class Rules:
             ),
         )
     )
-    escalate: tuple[tuple[str, re.Pattern[str]], ...] = field(
+    escalate: tuple[tuple[str, str, re.Pattern[str]], ...] = field(
         default_factory=lambda: (
             (
+                "asked-for-human",
                 "the customer asked for a human",
-                re.compile(r"\b(human|agent|manager|supervisor|real person)\b", re.I),
+                # Anchored on the *request*, not on the noun. The first version
+                # of this matched `\b(human|agent|manager|...)\b` anywhere in the
+                # turn, so "the delivery agent left it at the wrong door" — an
+                # ordinary missing-item turn this agent is built to handle — was
+                # escalated to a person. Over-escalation with no way to see it:
+                # the route was recorded as correct because the rule did fire.
+                #
+                # So a verb of asking must appear with the noun. `transfer me`
+                # and `escalate` stand alone because neither has an innocent
+                # reading in a support conversation.
+                re.compile(
+                    r"\b(?:speak|talk|chat)(?:ing)?\s+(?:to|with)\s+(?:a|an|the)?\s*"
+                    r"(?:human|person|agent|manager|supervisor|someone|somebody"
+                    r"|representative|rep)\b"
+                    r"|\b(?:put|get|pass|connect|transfer)\s+me\b"
+                    r"|\b(?:want|need)\s+(?:a|an|the)\s+"
+                    r"(?:human|person|agent|manager|supervisor|someone|somebody"
+                    r"|representative|rep)\b"
+                    r"|\breal\s+(?:person|human)\b"
+                    r"|\bhuman\s+being\b"
+                    r"|\bescalate\b",
+                    re.I,
+                ),
             ),
-            ("the item is reported lost in transit", re.compile(r"\blost in transit\b", re.I)),
+            (
+                "lost-in-transit",
+                "the item is reported lost in transit",
+                re.compile(r"\blost in transit\b", re.I),
+            ),
         )
     )
+    """Two rules, and they are not the same kind of thing.
+
+    The first is the customer asking. The second is a **policy** escalation — a
+    case class this agent may not resolve alone — and nobody asked for it. Tier 2
+    of the design is a whole family of the second kind, derived from conversation
+    state rather than from text; these are the two that can be decided from the
+    turn alone.
+    """
     intents: tuple[tuple[Intent, re.Pattern[str]], ...] = field(
         default_factory=lambda: (
             (Intent.CANCEL_ORDER, re.compile(r"\bcancel\b", re.I)),
@@ -110,9 +145,9 @@ def _decide(text: str, rules: Rules) -> Route:
         if pattern.search(text):
             return Refuse(reason=reason, alternative="I can help with orders, returns and refunds.")
 
-    for reason, pattern in rules.escalate:
+    for rule_id, reason, pattern in rules.escalate:
         if pattern.search(text):
-            return Escalate(reason=reason)
+            return Escalate(reason=reason, rule_id=rule_id, tier=1)
 
     matched = tuple(intent for intent, pattern in rules.intents if pattern.search(text))
 

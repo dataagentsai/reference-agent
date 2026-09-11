@@ -62,6 +62,53 @@ CREATE TABLE IF NOT EXISTS agent_state.approvals (
 CREATE INDEX IF NOT EXISTS approvals_pending
     ON agent_state.approvals (decided) WHERE NOT decided;
 
+-- An escalation is a conversation changing hands, and this row is the only thing
+-- that makes that real. Without it the agent said "let me pass you to a
+-- colleague" and wrote nothing down — so no colleague could find it, nothing
+-- could count it, and the next turn behaved as though it had never happened.
+CREATE TABLE IF NOT EXISTS agent_state.escalations (
+    id              text PRIMARY KEY,          -- E-XXXXXXXX, said out loud to the customer
+    conversation_id text        NOT NULL,
+    run_id          text        NOT NULL,      -- the turn that decided, so the trace is findable
+    customer_id     text        NOT NULL,
+
+    -- Why it fired, reproducibly. `rule_id` rather than only `reason`: prose
+    -- cannot be grouped, and "which rule produces escalations the human said
+    -- were unnecessary" is the question that tunes the rule set.
+    tier            smallint    NOT NULL DEFAULT 1,
+    rule_id         text        NOT NULL,
+    rules_version   text        NOT NULL,      -- AAC-0101 gates changing these
+    reason          text        NOT NULL,
+
+    state           text        NOT NULL DEFAULT 'queued',
+    created_at      bigint      NOT NULL,
+    expires_at      bigint      NOT NULL,      -- nobody came; hand the conversation back
+
+    -- The ground truth that makes over- and under-escalation measurable rather
+    -- than arguable. Written by whoever closes the ticket; nothing else can
+    -- supply it. Present from the first version so the data exists when the
+    -- analysis is built.
+    resolved_at     bigint,
+    outcome         text,
+    outcome_by      text,
+    outcome_note    text,
+
+    CONSTRAINT escalations_state_known CHECK (state IN ('queued','resolved','expired')),
+    CONSTRAINT escalations_outcome_known CHECK (outcome IS NULL OR outcome IN (
+        'resolved','agent_could_have','misrouted','customer_gone'
+    ))
+);
+
+-- The hot path: every turn of an escalated conversation asks "is one open?".
+-- Partial, because a resolved escalation is never read this way.
+CREATE INDEX IF NOT EXISTS escalations_open
+    ON agent_state.escalations (conversation_id, created_at DESC) WHERE state = 'queued';
+
+-- The queue a reviewer will see — step 4. Indexed now because the column order
+-- is the part that is awkward to change once rows exist.
+CREATE INDEX IF NOT EXISTS escalations_queue
+    ON agent_state.escalations (state, created_at);
+
 -- --------------------------------------------------------------------------
 -- ecom — the world AgentTwin projects
 --

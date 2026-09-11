@@ -51,7 +51,7 @@ from typing import Any
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
-from starlette.routing import Route
+from starlette.routing import Mount, Route
 
 from support_agent import identity as ident
 from support_agent import telemetry as tel
@@ -154,14 +154,26 @@ async def decode(request: Request, *, secret: str) -> Inbound:
     )
 
 
-REPLY_STATUS = {Completed: 200, Refused: 200, Escalated: 200, NeedsApproval: 202, Failed: 502}
+REPLY_STATUS = {Completed: 200, Refused: 200, Escalated: 202, NeedsApproval: 202, Failed: 502}
 """A refusal is a **200**: the agent worked correctly and the answer is no.
 Returning 4xx would make every dashboard count correct behaviour as an error
 rate. `NeedsApproval` is 202 — accepted, not finished. `Failed` is 502, because
-the thing that failed was downstream of us."""
+the thing that failed was downstream of us.
+
+`Escalated` moved from 200 to **202** when escalations became records. As long as
+the route only produced a sentence, 200 was the honest answer: the turn really
+was finished, because nothing was outstanding. Now something is — a person owes
+this conversation an answer — and 202 is the same statement `NeedsApproval`
+makes. The status code is the difference between *we did it* and *we owe you*."""
 
 
-def build(agent: Agent | AgentFactory, *, secret: str, store: object | None = None) -> Starlette:
+def build(
+    agent: Agent | AgentFactory,
+    *,
+    secret: str,
+    store: object | None = None,
+    escalations: object | None = None,
+) -> Starlette:
     """Wire an agent behind HTTP.
 
     Takes either a ready `Agent` or a **factory**: an async context manager that
@@ -249,6 +261,16 @@ def build(agent: Agent | AgentFactory, *, secret: str, store: object | None = No
         return HTMLResponse(CHAT_PAGE)
 
     routes = [Route("/", page), Route("/healthz", health), Route("/chat", chat, methods=["POST"])]
+
+    # Mounted, not merged. FastAPI *is* Starlette, so this is the whole
+    # integration — and `/chat` keeps the hand-written decode whose 400s and
+    # opaque 401 its tests pin, while the desk gets Pydantic bodies, scoped
+    # dependencies and a generated schema an ops tool can read. Neither surface
+    # pays for the other's decisions.
+    if escalations is not None:
+        from support_agent import reviewer
+
+        routes.append(Mount("/ops", app=reviewer.build(escalations, secret=secret)))
 
     if isinstance(agent, Agent):
         app = Starlette(routes=routes)

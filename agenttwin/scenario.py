@@ -57,6 +57,7 @@ async def run(
     agent,
     identity,
     approver=None,
+    desk=None,
     clock: Callable[[], int] | None = None,
     resolution: str = "mock",
     config_fingerprint: str = "",
@@ -93,8 +94,15 @@ async def run(
         reply = getattr(result, "reply", "") or getattr(result, "customer_message", "")
         transcript.add(said, reply)
 
-        if approver is not None:
-            await approver.review(at=tick())
+        # One tick per turn, shared. Two offstage humans acting on the same turn
+        # must experience the same moment, or a scenario's "an hour passed"
+        # would mean two hours the moment a second reviewer joined it.
+        if approver is not None or desk is not None:
+            moment = tick()
+            if approver is not None:
+                await approver.review(at=moment)
+            if desk is not None:
+                await desk.review(at=moment)
 
     return RunRecord(
         scenario=scenario.name,
