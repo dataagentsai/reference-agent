@@ -46,6 +46,7 @@ from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.contracts import (
     Approval,
+    ApprovalRequested,
     ApprovalStore,
     IdempotencyKey,
     Identity,
@@ -62,18 +63,15 @@ class ApprovalError(Exception):
     """Something about this decision is not allowed."""
 
 
-class RefundRequested(Exception):  # noqa: N818 — control flow, not a failure
-    """The model asked for a refund that needs a human.
+REFUND_WAIT_REPLY = "I have sent this to a colleague to authorise. Nothing has been refunded yet."
 
-    Carried as an exception because it is the one thing a local tool can do that
-    the loop cannot express as a `ToolResult`: it must stop the loop rather than
-    feed a result back into it. Continuing would let the model narrate a refund
-    that has not been authorised.
-    """
+
+class RefundRequested(ApprovalRequested):
+    """The model asked for a refund that needs a human. The loop sees only the
+    generic `ApprovalRequested`; what the customer is told is decided here."""
 
     def __init__(self, approval: Approval) -> None:
-        self.approval = approval
-        super().__init__(approval.id)
+        super().__init__(approval, REFUND_WAIT_REPLY)
 
 
 @dataclass(frozen=True)

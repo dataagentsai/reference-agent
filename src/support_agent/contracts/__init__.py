@@ -57,6 +57,7 @@ from support_agent.contracts.results import (
 )
 from support_agent.contracts.tools import (
     Approval,
+    ApprovalRequested,
     LocalTool,
     MissingIdempotencyKey,
     ToolRegistry,
@@ -69,6 +70,7 @@ from support_agent.contracts.tools import (
 )
 
 __all__ = [
+    "ApprovalRequested",
     "Unbindable",
     "bind_arguments",
     "Agentic",

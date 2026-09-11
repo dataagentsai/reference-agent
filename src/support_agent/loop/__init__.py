@@ -42,9 +42,9 @@ from support_agent import context as ctx
 from support_agent import flow as flw
 from support_agent import policy as pol
 from support_agent import telemetry as tel
-from support_agent.approvals import RefundRequested
 from support_agent.config import Budgets
 from support_agent.contracts import (
+    ApprovalRequested,
     Completed,
     Failed,
     IdempotencyKey,
@@ -54,6 +54,7 @@ from support_agent.contracts import (
     Message,
     ModelMalformed,
     ModelRequest,
+    ModelResponse,
     ModelUnavailable,
     NeedsApproval,
     RunId,
@@ -95,6 +96,15 @@ def _signature(name: str, arguments: dict[str, object]) -> tuple[str, str]:
     return name, json.dumps(arguments, sort_keys=True, default=str)
 
 
+PASS_ON = "I have not been able to resolve this — let me pass you to a colleague."
+IN_CIRCLES = "I am going round in circles on this — let me pass you to a colleague."
+TROUBLE = "I am having trouble answering right now."
+UNREACHABLE = "I cannot reach our order system right now."
+
+Ended = tuple[TurnResult, Trace]
+"""A terminated run: the typed result, and the trajectory that produced it."""
+
+
 async def run(
     goal: str,
     *,
@@ -110,159 +120,208 @@ async def run(
     local_tools: Mapping[str, LocalTool] | None = None,
     policy_rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None = None,
     fan_out: int = flw.DEFAULT_FAN_OUT,
-) -> tuple[TurnResult, Trace]:
+) -> Ended:
+    """One task, step by step, until one of the terminations above.
+
+    The loop itself is only this: open the tool surface, take steps until one
+    ends the run, and stop on the step budget if none does. What a step *is* —
+    ask, account, answer or act — is `_Run`'s, one phase per method.
+    """
     budgets = budgets or Budgets()
     run_id = run_id or new_run_id()
     trace = Trace()
-    messages: list[Message] = [*history, ctx.user_message(goal)]
-    seen_results: list[ToolResult] = []
-
     with tel.span(
         "agent.run", **{tel.RUN_ID: run_id, tel.TENANT: identity.customer_id}
     ) as run_span:
         try:
             registry = await tools.list_tools(identity)
         except ToolUnavailable as exc:
-            return _failed(run_span, trace, "I cannot reach our order system right now.", str(exc))
+            return _failed(run_span, trace, UNREACHABLE, str(exc))
 
-        local_tools = dict(local_tools or {})
+        local = dict(local_tools or {})
         registry = registry.model_copy(
-            update={"tools": (*registry.tools, *(t.spec for t in local_tools.values()))}
+            update={"tools": (*registry.tools, *(t.spec for t in local.values()))}
         )
-        tool_defs = ctx.model_tools(registry)
-
+        this = _Run(
+            span=run_span,
+            trace=trace,
+            identity=identity,
+            llm=llm,
+            tools=tools,
+            registry=registry,
+            local_tools=local,
+            run_id=run_id,
+            system_prompt=system_prompt,
+            budgets=budgets,
+            meter=meter,
+            policy_rules=policy_rules,
+            oscillation_threshold=oscillation_threshold,
+            fan_out=fan_out,
+            messages=[*history, ctx.user_message(goal)],
+        )
         for step in range(budgets.max_steps):
-            trace.steps = step + 1
-            with tel.span("agent.step", **{tel.STEP: step, tel.RUN_ID: run_id}) as step_span:
-                # Measured on the way past rather than computed separately: the
-                # assembly already knows what it dropped, and asking a second
-                # time would do the work twice to learn the same thing.
-                built = ctx.assembled(system=system_prompt, history=messages)
-                step_span.set_attribute(tel.CONTEXT_CHARS, built.chars)
-                step_span.set_attribute(tel.CONTEXT_EXCHANGES, built.exchanges)
-                step_span.set_attribute(tel.CONTEXT_TRIMMED, built.trimmed)
-                request = ModelRequest(
-                    messages=built.messages,
-                    tools=tool_defs,
-                    max_tokens=budgets.max_output_tokens,
+            ended = await this.step(step)
+            if ended is not None:
+                return ended
+        return _stopped(run_span, trace, TerminationReason.STEP_BUDGET_EXHAUSTED, PASS_ON)
+
+
+@dataclass
+class _Run:
+    """One run's state, and the phases of a step as methods.
+
+    A method object rather than one long function: each phase is readable on its
+    own, and the state they share is named once, here, instead of being threaded
+    through a dozen locals.
+    """
+
+    span: Span
+    trace: Trace
+    identity: Identity
+    llm: LLMClient
+    tools: ToolClient
+    registry: ToolRegistry
+    local_tools: dict[str, LocalTool]
+    run_id: RunId
+    system_prompt: str
+    budgets: Budgets
+    meter: Meter | None
+    policy_rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None
+    oscillation_threshold: int
+    fan_out: int
+    messages: list[Message]
+    seen_results: list[ToolResult] = field(default_factory=list)
+
+    async def step(self, step: int) -> Ended | None:
+        """Ask, account, then answer or act. `None` means take another step."""
+        self.trace.steps = step + 1
+        with tel.span("agent.step", **{tel.STEP: step, tel.RUN_ID: self.run_id}) as step_span:
+            response = await self._ask(step_span)
+            if not isinstance(response, ModelResponse):
+                return response
+            self._account(response)
+
+            if not response.wants_tools:
+                return self._answer(response)
+            if self.meter is not None and self.meter.exceeded:
+                return self._stop(TerminationReason.COST_CEILING_REACHED, PASS_ON)
+
+            self.messages.append(
+                Message(
+                    role="assistant", content=response.text or "", tool_calls=response.tool_calls
                 )
-                try:
-                    response = await llm.complete(request)
-                except ModelUnavailable as exc:
-                    return _failed(
-                        run_span, trace, "I am having trouble answering right now.", str(exc)
-                    )
-                except ModelMalformed as exc:
-                    # AHC-0001's `parse_failure` decision: fail into a declared
-                    # shape and **count** the failures. Retrying is deliberately
-                    # not the answer — unavailable may pass on a second attempt,
-                    # but the same prompt to the same model produced something
-                    # unreadable, so a retry mostly buys a second bill.
-                    #
-                    # Counted on the span rather than logged, because a parse
-                    # failure rate that lives in a log line is a number nobody
-                    # ever plots, and this one moves when a model is swapped.
-                    trace.malformed += 1
-                    run_span.set_attribute(tel.MODEL_MALFORMED, trace.malformed)
-                    return _failed(
-                        run_span, trace, "I am having trouble answering right now.", exc.reason
-                    )
+            )
+            planned = self._plan(response.tool_calls, step)
+            if not isinstance(planned, list):
+                return planned
+            return await self._act(planned)
 
-                trace.usage = Usage(
-                    input_tokens=trace.usage.input_tokens + response.usage.input_tokens,
-                    output_tokens=trace.usage.output_tokens + response.usage.output_tokens,
-                )
-                if meter is not None:
-                    call_cost = meter.record(response.usage)
-                    trace.spend_usd = meter.as_usd()
-                    run_span.set_attribute(tel.COST_CALL_USD, float(call_cost))
-                    run_span.set_attribute(tel.COST_USD, trace.spend_usd)
-
-                if not response.wants_tools:
-                    verdict = pol.enforce(
-                        pol.Context(
-                            position=pol.Position.POST_MODEL,
-                            identity=identity,
-                            text=response.text,
-                            tool_results=tuple(seen_results),
-                        ),
-                        None if policy_rules is None else policy_rules.get(pol.Position.POST_MODEL),
-                    )
-                    if verdict.blocked:
-                        run_span.set_attribute("agent.policy.blocked_by", verdict.rule)
-                        return _stopped(run_span, trace, TerminationReason.REFUSED, pol.SAFE_REPLY)
-                    return _completed(run_span, trace, response.text)
-
-                if meter is not None and meter.exceeded:
-                    return _stopped(
-                        run_span,
-                        trace,
-                        TerminationReason.COST_CEILING_REACHED,
-                        "I have not been able to resolve this — let me pass you to a colleague.",
-                    )
-
-                messages.append(
-                    Message(
-                        role="assistant",
-                        content=response.text or "",
-                        tool_calls=response.tool_calls,
-                    )
-                )
-
-                # Keys are minted and oscillation checked in the order the
-                # model emitted the calls, before anything runs. Scheduling must
-                # not change which call gets which key.
-                planned: list[tuple[ToolCall, IdempotencyKey]] = []
-                for call in response.tool_calls:
-                    signature = _signature(call.name, call.arguments)
-                    trace.tool_calls.append(signature)
-
-                    if trace.signature_counts()[signature] >= oscillation_threshold:
-                        return _stopped(
-                            run_span,
-                            trace,
-                            TerminationReason.OSCILLATION_DETECTED,
-                            "I am going round in circles on this — let me pass you to a colleague.",
-                        )
-                    planned.append(
-                        (
-                            call,
-                            IdempotencyKey(
-                                run_id=run_id, step=step, iteration=len(trace.tool_calls)
-                            ),
-                        )
-                    )
-
-                try:
-                    results = await _dispatch(
-                        tools, planned, identity, local_tools, registry, fan_out
-                    )
-                except RefundRequested as raised:
-                    trace.termination = TerminationReason.AWAITING_APPROVAL
-                    run_span.set_attribute(tel.TERMINATION, trace.termination.value)
-                    return (
-                        NeedsApproval(
-                            approval_id=raised.approval.id,
-                            action=raised.approval.action,
-                            reason=raised.approval.reason,
-                            reply=(
-                                "I have sent this to a colleague to authorise. "
-                                "Nothing has been refunded yet."
-                            ),
-                        ),
-                        trace,
-                    )
-
-                for (call, _), result in zip(planned, results, strict=True):
-                    seen_results.append(result)
-                    messages.append(ctx.tool_message(result, tool_call_id=call.id))
-
-        return _stopped(
-            run_span,
-            trace,
-            TerminationReason.STEP_BUDGET_EXHAUSTED,
-            "I have not been able to resolve this — let me pass you to a colleague.",
+    async def _ask(self, step_span: Span) -> ModelResponse | Ended:
+        """One model call, over the assembled context; its failures become typed ends."""
+        # Measured on the way past rather than computed separately: the assembly
+        # already knows what it dropped, and asking again would do the work twice.
+        built = ctx.assembled(system=self.system_prompt, history=self.messages)
+        step_span.set_attribute(tel.CONTEXT_CHARS, built.chars)
+        step_span.set_attribute(tel.CONTEXT_EXCHANGES, built.exchanges)
+        step_span.set_attribute(tel.CONTEXT_TRIMMED, built.trimmed)
+        request = ModelRequest(
+            messages=built.messages,
+            tools=ctx.model_tools(self.registry),
+            max_tokens=self.budgets.max_output_tokens,
         )
+        try:
+            return await self.llm.complete(request)
+        except ModelUnavailable as exc:
+            return _failed(self.span, self.trace, TROUBLE, str(exc))
+        except ModelMalformed as exc:
+            # AHC-0001's `parse_failure` decision: fail into a declared shape and
+            # **count** the failures. Retrying is deliberately not the answer —
+            # the same prompt to the same model produced something unreadable, so
+            # a retry mostly buys a second bill. Counted on the span, because a
+            # parse-failure rate in a log line is a number nobody ever plots.
+            self.trace.malformed += 1
+            self.span.set_attribute(tel.MODEL_MALFORMED, self.trace.malformed)
+            return _failed(self.span, self.trace, TROUBLE, exc.reason)
+
+    def _account(self, response: ModelResponse) -> None:
+        """Tokens always; money when a meter is wired."""
+        self.trace.usage = Usage(
+            input_tokens=self.trace.usage.input_tokens + response.usage.input_tokens,
+            output_tokens=self.trace.usage.output_tokens + response.usage.output_tokens,
+        )
+        if self.meter is not None:
+            call_cost = self.meter.record(response.usage)
+            self.trace.spend_usd = self.meter.as_usd()
+            self.span.set_attribute(tel.COST_CALL_USD, float(call_cost))
+            self.span.set_attribute(tel.COST_USD, self.trace.spend_usd)
+
+    def _answer(self, response: ModelResponse) -> Ended:
+        """The model is done: its reply passes the output guardrail, or is replaced."""
+        rules = (
+            None if self.policy_rules is None else self.policy_rules.get(pol.Position.POST_MODEL)
+        )
+        verdict = pol.enforce(
+            pol.Context(
+                position=pol.Position.POST_MODEL,
+                identity=self.identity,
+                text=response.text,
+                tool_results=tuple(self.seen_results),
+            ),
+            rules,
+        )
+        if verdict.blocked:
+            self.span.set_attribute("agent.policy.blocked_by", verdict.rule)
+            return self._stop(TerminationReason.REFUSED, pol.SAFE_REPLY)
+        return _completed(self.span, self.trace, response.text)
+
+    def _plan(
+        self, calls: tuple[ToolCall, ...], step: int
+    ) -> list[tuple[ToolCall, IdempotencyKey]] | Ended:
+        """Mint keys and check for oscillation in the order the model emitted the
+        calls, before anything runs. Scheduling must not change which call gets
+        which key."""
+        planned: list[tuple[ToolCall, IdempotencyKey]] = []
+        for call in calls:
+            signature = _signature(call.name, call.arguments)
+            self.trace.tool_calls.append(signature)
+            if self.trace.signature_counts()[signature] >= self.oscillation_threshold:
+                return self._stop(TerminationReason.OSCILLATION_DETECTED, IN_CIRCLES)
+            key = IdempotencyKey(
+                run_id=self.run_id, step=step, iteration=len(self.trace.tool_calls)
+            )
+            planned.append((call, key))
+        return planned
+
+    async def _act(self, planned: list[tuple[ToolCall, IdempotencyKey]]) -> Ended | None:
+        """Run the calls and feed their results back — or stop for a person.
+
+        An `ApprovalRequested` is the one outcome a tool cannot express as a
+        result. The loop does not know which action it was; the signal carries
+        what the customer is told.
+        """
+        try:
+            results = await _dispatch(
+                self.tools, planned, self.identity, self.local_tools, self.registry, self.fan_out
+            )
+        except ApprovalRequested as raised:
+            self.trace.termination = TerminationReason.AWAITING_APPROVAL
+            self.span.set_attribute(tel.TERMINATION, self.trace.termination.value)
+            approval = raised.approval
+            waiting = NeedsApproval(
+                approval_id=approval.id,
+                action=approval.action,
+                reason=approval.reason,
+                reply=raised.reply,
+            )
+            return waiting, self.trace
+
+        for (call, _), result in zip(planned, results, strict=True):
+            self.seen_results.append(result)
+            self.messages.append(ctx.tool_message(result, tool_call_id=call.id))
+        return None
+
+    def _stop(self, reason: TerminationReason, message: str) -> Ended:
+        return _stopped(self.span, self.trace, reason, message)
 
 
 async def _dispatch(
@@ -336,23 +395,19 @@ async def _invoke(
         )
 
 
-def _completed(span: Span, trace: Trace, text: str) -> tuple[TurnResult, Trace]:
+def _completed(span: Span, trace: Trace, text: str) -> Ended:
     trace.termination = TerminationReason.GOAL_REACHED
     span.set_attribute(tel.TERMINATION, trace.termination.value)
     return Completed(reply=text), trace
 
 
-def _stopped(
-    span: Span, trace: Trace, reason: TerminationReason, message: str
-) -> tuple[TurnResult, Trace]:
+def _stopped(span: Span, trace: Trace, reason: TerminationReason, message: str) -> Ended:
     trace.termination = reason
     span.set_attribute(tel.TERMINATION, reason.value)
     return Completed(reply=message, termination=reason), trace
 
 
-def _failed(
-    span: Span, trace: Trace, customer_message: str, detail: str
-) -> tuple[TurnResult, Trace]:
+def _failed(span: Span, trace: Trace, customer_message: str, detail: str) -> Ended:
     trace.termination = TerminationReason.UNRECOVERABLE_ERROR
     span.set_attribute(tel.TERMINATION, trace.termination.value)
     return Failed(customer_message=customer_message, detail=detail), trace

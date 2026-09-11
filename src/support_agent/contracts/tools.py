@@ -117,6 +117,22 @@ class MissingIdempotencyKey(Exception):
     """
 
 
+class ApprovalRequested(Exception):  # noqa: N818 — control flow, not a failure
+    """A harness-local tool handed a decision to a person, and the loop must stop.
+
+    The one thing a local tool can do that the loop cannot express as a
+    `ToolResult`: continuing would let the model narrate an effect nobody has
+    authorised. Generic on purpose — the loop catches this and never knows which
+    action it was, so a second approvable action adds a raise, not a loop edit.
+    `reply` is what the customer is told while they wait.
+    """
+
+    def __init__(self, approval: Approval, reply: str) -> None:
+        self.approval = approval
+        self.reply = reply
+        super().__init__(approval.id)
+
+
 class Approval(BaseModel):
     """A pending human decision. Lives in agent-owned state, never in the
     simulated world — if the oracle can be faked, it is not an oracle."""
