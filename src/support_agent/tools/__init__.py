@@ -24,10 +24,11 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Protocol
 
 import jsonschema
 from mcp.client import Client
+from opentelemetry.trace import Span
 
 from support_agent import telemetry as tel
 from support_agent.contracts import (
@@ -86,64 +87,105 @@ def _spec_from(tool: Any) -> ToolSpec:
     )
 
 
-class MCPToolClient:
-    """Speaks MCP. The only module that may.
+class Transport(Protocol):
+    """How tools are listed and called — nothing about whether they should be.
 
-    Deliberately owns no connection lifecycle. An earlier version stored a
-    half-entered context manager and drove `__aenter__`/`__aexit__` by hand,
-    which breaks under structured concurrency the moment entry and exit land in
-    different tasks — anyio cancel scopes are task-bound. The composition root
-    owns the `async with`; this is a pure adapter over a live client.
+    The seam between *what a tool server says* and *what this agent permits*.
+    MCP is one implementation; the checks in `GatedTools` hold for any.
+    """
 
-    Use `connect()` below, which keeps the scope in one place.
+    async def advertised(self) -> tuple[tuple[ToolSpec, ...], tuple[str, ...]]:
+        """Every tool the server offers that can be exposed, and why the rest cannot."""
+        ...
+
+    async def invoke(self, name: str, arguments: dict[str, object]) -> ToolResult: ...
+
+
+class MCPTransport:
+    """Speaks MCP. The only class that may.
+
+    Deliberately owns no connection lifecycle: an earlier version drove
+    `__aenter__`/`__aexit__` by hand, which breaks under structured concurrency
+    the moment entry and exit land in different tasks. `connect()` below owns
+    the `async with`; this is a pure adapter over a live client.
+    """
+
+    def __init__(self, client: Client) -> None:
+        self._client = client
+
+    async def advertised(self) -> tuple[tuple[ToolSpec, ...], tuple[str, ...]]:
+        try:
+            listed = await self._client.list_tools()
+        except Exception as exc:
+            raise ToolUnavailable(str(exc)) from exc
+        specs: list[ToolSpec] = []
+        rejected: list[str] = []
+        for tool in listed.tools:
+            try:
+                specs.append(_spec_from(tool))
+            except ToolRejected as exc:
+                rejected.append(str(exc))
+        return tuple(specs), tuple(rejected)
+
+    async def invoke(self, name: str, arguments: dict[str, object]) -> ToolResult:
+        """Both MCP failure channels, kept apart.
+
+        A protocol error (unknown tool, malformed request) raises and surfaces
+        here; an execution error comes back as an ordinary result with
+        `is_error` set. An agent that handles one and not the other looks
+        healthy until production.
+        """
+        try:
+            raw = await self._client.call_tool(name, arguments)
+        except Exception as exc:
+            return ToolResult(name=name, text=str(exc), is_error=True, error_channel="protocol")
+
+        structured = getattr(raw, "structured_content", None)
+        text = "".join(
+            getattr(block, "text", "") for block in (getattr(raw, "content", None) or [])
+        )
+        is_error = bool(getattr(raw, "is_error", False))
+        return ToolResult(
+            name=name,
+            structured=structured,
+            text=text,
+            is_error=is_error,
+            error_channel="execution" if is_error else "none",
+        )
+
+
+class GatedTools:
+    """The four checks at P5, in order, over any transport. A `ToolClient`.
+
+    None of them trusts anything the model said: the tool must be on this
+    identity's surface, its arguments must validate, a non-read effect must pass
+    the idempotency ledger, and what comes back is bounded before it can enter
+    context.
     """
 
     def __init__(
-        self,
-        client: Client,
-        *,
-        ledger: IdempotencyLedger,
-        max_result_chars: int = 8000,
+        self, transport: Transport, *, ledger: IdempotencyLedger, max_result_chars: int = 8000
     ) -> None:
-        self._client = client
+        self._transport = transport
         self._ledger = ledger
         self._max_result_chars = max_result_chars
         self.rejected: tuple[str, ...] = ()
-
-    def _require_open(self) -> Client:
-        return self._client
 
     async def list_tools(self, identity: Identity) -> ToolRegistry:
         """The action surface for this identity.
 
         MCP permits `tools/list` to vary by the authorization presented, so a
-        scope-filtered surface is protocol-legal rather than a local invention —
-        and it is what makes the confused-deputy case testable at the protocol
-        level rather than only inside a tool body.
+        scope-filtered surface is protocol-legal rather than a local invention.
         """
-        client = self._require_open()
         with tel.span("agent.tools.list") as span:
-            try:
-                listed = await client.list_tools()
-            except Exception as exc:
-                raise ToolUnavailable(str(exc)) from exc
-
-            specs: list[ToolSpec] = []
-            rejected: list[str] = []
-            for tool in listed.tools:
-                try:
-                    spec = _spec_from(tool)
-                except ToolRejected as exc:
-                    rejected.append(str(exc))
-                    continue
-                if spec.required_scope and not identity.may(spec.required_scope):
-                    continue
-                specs.append(spec)
-
-            self.rejected = tuple(rejected)
-            span.set_attribute("agent.tools.count", len(specs))
+            specs, rejected = await self._transport.advertised()
+            visible = tuple(
+                s for s in specs if not s.required_scope or identity.may(s.required_scope)
+            )
+            self.rejected = rejected
+            span.set_attribute("agent.tools.count", len(visible))
             span.set_attribute("agent.tools.rejected", len(rejected))
-            return ToolRegistry(tools=tuple(specs))
+            return ToolRegistry(tools=visible)
 
     async def call(
         self,
@@ -152,7 +194,6 @@ class MCPToolClient:
         identity: Identity,
         idempotency_key: IdempotencyKey,
     ) -> ToolResult:
-        client = self._require_open()
         registry = await self.list_tools(identity)
         spec = registry.get(name)
         if spec is None:
@@ -169,66 +210,39 @@ class MCPToolClient:
             jsonschema.validate(arguments, spec.input_schema)
 
             if spec.side_effect is SideEffectClass.READ:
-                result = await self._invoke(client, name, arguments)
-                return self._bound(result, span)
+                return self._bound(await self._transport.invoke(name, arguments), span)
 
             previous = await self._ledger.seen(idempotency_key)
             if previous is not None:
                 span.set_attribute("agent.tool.replayed", True)
                 return previous
 
-            result = self._bound(await self._invoke(client, name, arguments), span)
+            result = self._bound(await self._transport.invoke(name, arguments), span)
             if not result.is_error:
                 await self._ledger.record(idempotency_key, result)
             return result
 
-    async def _invoke(self, client: Client, name: str, arguments: dict[str, object]) -> ToolResult:
-        """Both MCP failure channels, kept apart.
-
-        A protocol error (unknown tool, malformed request) raises and surfaces
-        here; an execution error comes back as an ordinary result with
-        `is_error` set. An agent that handles one and not the other looks
-        healthy until production.
-        """
-        try:
-            raw = await client.call_tool(name, arguments)
-        except Exception as exc:
-            return ToolResult(
-                name=name,
-                text=str(exc),
-                is_error=True,
-                error_channel="protocol",
-            )
-
-        structured = getattr(raw, "structured_content", None)
-        text = "".join(
-            getattr(block, "text", "") for block in (getattr(raw, "content", None) or [])
-        )
-        is_error = bool(getattr(raw, "is_error", False))
-        return ToolResult(
-            name=name,
-            structured=structured,
-            text=text,
-            is_error=is_error,
-            error_channel="execution" if is_error else "none",
-        )
-
-    def _bound(self, result: ToolResult, span: Any) -> ToolResult:
+    def _bound(self, result: ToolResult, span: Span) -> ToolResult:
         """AAC-0105 — tool results are bounded before they enter context.
 
-        The structured payload is what assertions read, so it is bounded by
+        The structured payload is what assertions read, so it is measured by
         serialised size rather than by the prose length of the text block.
         """
         serialised = json.dumps(result.structured, default=str) if result.structured else ""
-        if len(serialised) <= self._max_result_chars and len(result.text) <= self._max_result_chars:
+        limit = self._max_result_chars
+        if len(serialised) <= limit and len(result.text) <= limit:
             return result
         span.set_attribute("agent.tool.truncated", True)
-        return result.model_copy(
-            update={
-                "text": result.text[: self._max_result_chars],
-                "truncated": True,
-            }
-        )
+        return result.model_copy(update={"text": result.text[:limit], "truncated": True})
+
+
+class MCPToolClient(GatedTools):
+    """The gated tool client over MCP — what `connect()` yields."""
+
+    def __init__(
+        self, client: Client, *, ledger: IdempotencyLedger, max_result_chars: int = 8000
+    ) -> None:
+        super().__init__(MCPTransport(client), ledger=ledger, max_result_chars=max_result_chars)
 
 
 @asynccontextmanager
@@ -251,7 +265,10 @@ async def connect(
 __all__ = [
     "META_REQUIRED_SCOPE",
     "META_SIDE_EFFECT",
+    "GatedTools",
     "MCPToolClient",
+    "MCPTransport",
     "ToolRejected",
+    "Transport",
     "connect",
 ]
