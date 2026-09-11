@@ -12,6 +12,8 @@ takes the worst offenders apart. Tooling — these test the build, not the agent
 
 from __future__ import annotations
 
+import ast
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -57,3 +59,33 @@ RATCHETS = [
 def test_the_ratchet_holds(what: str, measure, ceiling: int) -> None:
     value = measure()
     assert value <= ceiling, f"{what}: {value}, ceiling {ceiling} — the ratchet only turns one way"
+
+
+REALISATION = re.compile(
+    r"(InMemory|Postgres|File)\w+|GroqClient|ScriptedClient|MCPToolClient|MCPTransport"
+    r"|Recorder|Player"
+)
+
+
+def test_only_the_composition_root_constructs_a_realisation() -> None:
+    """A store, client or transport is constructed only where it is defined —
+    the package receives its collaborators, it never fetches them. Tests and
+    scripts are composition roots and may build what they like; `src` may not.
+    """
+    defined: dict[str, Path] = {}
+    for path in SRC.rglob("*.py"):
+        for node in ast.parse(path.read_text()).body:
+            if isinstance(node, ast.ClassDef) and REALISATION.fullmatch(node.name):
+                defined[node.name] = path
+
+    offences = []
+    for path in SRC.rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+            if name in defined and defined[name] != path:
+                offences.append(f"{path.relative_to(ROOT)}:{node.lineno} constructs {name}")
+    assert defined, "the realisation pattern matched nothing — the check has gone quiet"
+    assert offences == [], "\n".join(offences)
