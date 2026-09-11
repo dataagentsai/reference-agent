@@ -185,4 +185,11 @@ def _reason_of(decision: Route) -> str:
             assert_never(decision)
 
 
-__all__ = ["DIRECT_HANDLERS", "ORDER_ID", "Rules", "route"]
+def refusal_text(decision: Refuse) -> str:
+    """What a refused customer is told — the reason, and the offer if there is one."""
+    if decision.alternative:
+        return f"I am sorry — {decision.reason}. {decision.alternative}"
+    return f"I am sorry — {decision.reason}."
+
+
+__all__ = ["DIRECT_HANDLERS", "ORDER_ID", "Rules", "refusal_text", "route"]

@@ -49,12 +49,12 @@ from support_agent.contracts import (
     NeedsApproval,
     Refuse,
     Refused,
-    Route,
     RunId,
     ToolClient,
-    ToolSpec,
     ToolUnavailable,
     TurnResult,
+    Unbindable,
+    bind_arguments,
     new_conversation_id,
     new_run_id,
 )
@@ -196,7 +196,7 @@ class Agent:
 
             match decision:
                 case Refuse():
-                    result = Refused(reply=_refusal_text(decision), reason=decision.reason)
+                    result = Refused(reply=router.refusal_text(decision), reason=decision.reason)
                 case Escalate():
                     result = await self._escalate(decision, conversation, identity, run_id)
                 case Direct():
@@ -216,7 +216,7 @@ class Agent:
                 case _:
                     assert_never(decision)
 
-            conversation = conversation.with_turn(_note(decision, result))
+            conversation = conversation.with_turn(TurnNote.of(decision, result))
 
             # Tier 2, after the work rather than before it. Every rule here asks
             # how the turn *went* — did the loop give up, did the tools answer,
@@ -228,7 +228,7 @@ class Agent:
             if escalated is not None:
                 result = escalated
 
-            conversation = _record(conversation, result)
+            conversation = conversation.recording(result)
             return result, await self._persist(run_id, conversation)
 
     async def _tier_two(
@@ -249,7 +249,7 @@ class Agent:
         if self.escalations is None or isinstance(result, Escalated | NeedsApproval):
             return None
 
-        facts = _facts(conversation)
+        facts = t2.facts_of(conversation)
         rule = t2.evaluate(facts, self.tier_2)
         if rule is None:
             return None
@@ -388,9 +388,9 @@ class Agent:
         if open_now.lapsed(moment):
             lapsed = await esc.lapse(self.escalations, open_now, now=moment)
             handed_back = Completed(reply=esc.LAPSED_REPLY.format(ticket=lapsed.id))
-            return handed_back, _record(
-                conversation.model_copy(update={"pending_escalation_id": None}), handed_back
-            )
+            return handed_back, conversation.model_copy(
+                update={"pending_escalation_id": None}
+            ).recording(handed_back)
 
         with tel.span(
             "agent.escalation.wait",
@@ -452,7 +452,7 @@ class Agent:
             if not approval.granted:
                 return (
                     Completed(reply="A colleague reviewed this and could not authorise it."),
-                    _record(cleared, Completed(reply="")),
+                    cleared.recording(Completed(reply="")),
                 )
 
             try:
@@ -486,7 +486,7 @@ class Agent:
                     cleared,
                 )
             try:
-                arguments = _bind(spec, dict(approval.args))
+                arguments = bind_arguments(spec, dict(approval.args))
             except Unbindable as exc:
                 return (
                     Failed(
@@ -534,7 +534,7 @@ class Agent:
                         customer_message="I cannot look that up right now.",
                         detail=f"{LOOKUP_TOOL} is not on this identity's surface",
                     )
-                arguments = _bind(spec, decision.args)
+                arguments = bind_arguments(spec, decision.args)
                 result = await self.tools.call(LOOKUP_TOOL, arguments, identity, key)
             except ToolUnavailable as exc:
                 return Failed(
@@ -559,149 +559,6 @@ class Agent:
                     status=result.structured.get("status", "unknown"),
                 )
             )
-
-
-class Unbindable(Exception):
-    """These arguments cannot be fitted to that tool's declared schema."""
-
-
-def _bind(spec: ToolSpec, args: dict[str, object]) -> dict[str, object]:
-    """Map arguments onto whatever the tool actually declares.
-
-    The caller knows it found an order id; it does not know what this world calls
-    that field. One required string property means one place to put it.
-
-    **Extended for the resume path (F-013).** The router hands over exactly one
-    argument, which made the single-required/single-argument rule sufficient. An
-    approval does not: it stores `{order_id, amount}` from the harness-local
-    request tool, and the projected `issue_refund` declares only the entity's
-    key. So two more steps, in order of confidence:
-
-    1. **Keep what the tool declares.** An argument the schema does not mention
-       is dropped rather than passed — `additionalProperties: false` would reject
-       the whole call for it.
-    2. **Fill a missing required slot by name.** `order_id` for a required `id`
-       is the `<entity>_<key>` convention, and it is checked rather than assumed:
-       the spare must equal the required name, or end with `_id`-style suffix, or
-       carry it as a prefix. Exactly one candidate or nothing.
-
-    Ambiguity raises. On the path where money moves, guessing between two spare
-    values is worse than stopping — and stopping with a message beats the
-    `jsonschema` exception that was surfacing through three nested task groups.
-    """
-    declared = spec.input_schema.get("properties")
-    properties: dict[str, object] = declared if isinstance(declared, dict) else {}
-    listed = spec.input_schema.get("required")
-    required = (
-        [n for n in listed if isinstance(n, str) and n in properties]
-        if isinstance(listed, list)
-        else []
-    )
-    if len(required) == 1 and len(args) == 1:
-        return {required[0]: next(iter(args.values()))}
-
-    kept = {n: v for n, v in args.items() if n in properties}
-    spare = {n: v for n, v in args.items() if n not in properties}
-
-    for name in [n for n in required if n not in kept]:
-        candidates = [n for n in spare if _reads_as(n, name)]
-        if len(candidates) != 1:
-            raise Unbindable(
-                f"{spec.name} requires {name!r} and the stored arguments "
-                f"{sorted(args)} offer {candidates or 'nothing'} for it"
-            )
-        kept[name] = spare.pop(candidates[0])
-
-    return kept
-
-
-def _reads_as(offered: str, required: str) -> bool:
-    return (
-        offered == required
-        or offered.endswith(f"_{required}")
-        or offered.startswith(f"{required}_")
-    )
-
-
-def _note(decision: Route, result: TurnResult) -> TurnNote:
-    """Reduce a turn to what a rule can ask about.
-
-    The intent is only known on a `Direct` route; `Agentic` carries candidates
-    rather than a decision, and recording a guess as a fact is how a rule ends up
-    counting something nobody classified.
-    """
-    return TurnNote(
-        route=decision.kind,
-        result=result.kind,
-        intent=decision.intent.value if isinstance(decision, Direct) else None,
-        termination=getattr(result, "termination", None),
-    )
-
-
-def _facts(conversation: Conversation) -> t2.Facts:
-    """Turn the remembered outcomes into the numbers rules read.
-
-    Computed rather than stored, so a rule change never needs a migration and a
-    conversation written last week answers today's rules.
-    """
-    recent = conversation.recent
-    failed = 0
-    for note in reversed(recent):
-        if note.result != "failed":
-            break
-        failed += 1
-
-    repeated = 0
-    for note in reversed(recent):
-        if note.result == "completed" or note.intent is None:
-            break
-        if note.intent != recent[-1].intent:
-            break
-        repeated += 1
-
-    return t2.Facts(
-        turn_count=conversation.turn_count,
-        termination=recent[-1].termination if recent else None,
-        consecutive_failed=failed,
-        refusals=sum(1 for n in recent if n.result == "refused"),
-        repeated_intent=repeated,
-        escalations=len(conversation.escalated_rules),
-        already_fired=frozenset(conversation.escalated_rules),
-    )
-
-
-def _refusal_text(decision: Refuse) -> str:
-    if decision.alternative:
-        return f"I am sorry — {decision.reason}. {decision.alternative}"
-    return f"I am sorry — {decision.reason}."
-
-
-def _record(conversation: Conversation, result: TurnResult) -> Conversation:
-    """Append what the customer was told, and remember an open approval.
-
-    `Failed.detail` is deliberately not stored on the conversation: it is for the
-    operator and lives on the span. A conversation is what the customer can be
-    shown.
-    """
-    from support_agent.contracts import Message
-
-    reply = getattr(result, "reply", None) or getattr(result, "customer_message", "")
-    updated = conversation.with_messages(
-        Message(role="assistant", content=reply, provenance="operator")
-    )
-    if isinstance(result, NeedsApproval):
-        return updated.model_copy(update={"pending_approval_id": result.approval_id})
-    # Only when there is a record to point at. An escalation with no `ticket_id`
-    # is one no store accepted, and flagging the conversation against a record
-    # that does not exist would hold it closed with nothing able to reopen it.
-    if isinstance(result, Escalated) and result.ticket_id is not None:
-        fired = updated.escalated_rules
-        if result.rule_id and result.rule_id not in fired:
-            fired = (*fired, result.rule_id)
-        return updated.model_copy(
-            update={"pending_escalation_id": result.ticket_id, "escalated_rules": fired}
-        )
-    return updated
 
 
 def build(

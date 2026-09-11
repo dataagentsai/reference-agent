@@ -63,10 +63,14 @@ from support_agent.contracts.tools import (
     ToolResult,
     ToolSpec,
     ToolUnavailable,
+    Unbindable,
     UnknownTool,
+    bind_arguments,
 )
 
 __all__ = [
+    "Unbindable",
+    "bind_arguments",
     "Agentic",
     "Approval",
     "ApprovalStore",

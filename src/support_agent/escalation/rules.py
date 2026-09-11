@@ -48,6 +48,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from support_agent.state import Conversation
+
 MAX_PER_CONVERSATION = 2
 """After this, stop raising. A third reference number for one unresolved problem
 helps nobody and makes the queue read as three customers."""
@@ -202,7 +204,40 @@ def evaluate(facts: Facts, rules: RuleSet | None = None) -> Tier2Rule | None:
     return None
 
 
+def facts_of(conversation: Conversation) -> Facts:
+    """Turn the remembered outcomes into the numbers rules read.
+
+    Computed rather than stored, so a rule change never needs a migration and a
+    conversation written last week answers today's rules.
+    """
+    recent = conversation.recent
+    failed = 0
+    for note in reversed(recent):
+        if note.result != "failed":
+            break
+        failed += 1
+
+    repeated = 0
+    for note in reversed(recent):
+        if note.result == "completed" or note.intent is None:
+            break
+        if note.intent != recent[-1].intent:
+            break
+        repeated += 1
+
+    return Facts(
+        turn_count=conversation.turn_count,
+        termination=recent[-1].termination if recent else None,
+        consecutive_failed=failed,
+        refusals=sum(1 for n in recent if n.result == "refused"),
+        repeated_intent=repeated,
+        escalations=len(conversation.escalated_rules),
+        already_fired=frozenset(conversation.escalated_rules),
+    )
+
+
 __all__ = [
+    "facts_of",
     "DEFAULT_RULES",
     "MAX_PER_CONVERSATION",
     "TERMINATED_BADLY",

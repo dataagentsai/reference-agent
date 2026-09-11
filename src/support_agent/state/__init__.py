@@ -24,7 +24,16 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from support_agent.contracts import ConversationId, Message, RunId
+from support_agent.contracts import (
+    ConversationId,
+    Direct,
+    Escalated,
+    Message,
+    NeedsApproval,
+    Route,
+    RunId,
+    TurnResult,
+)
 
 RECENT_TURNS = 12
 """How many turn outcomes are kept.
@@ -52,6 +61,21 @@ class TurnNote(BaseModel):
     """completed · refused · escalated · failed · needs_approval."""
     intent: str | None = None
     termination: str | None = None
+
+    @classmethod
+    def of(cls, decision: Route, result: TurnResult) -> TurnNote:
+        """Reduce a turn to what a rule can ask about.
+
+        The intent is only known on a `Direct` route; `Agentic` carries candidates
+        rather than a decision, and recording a guess as a fact is how a rule ends up
+        counting something nobody classified.
+        """
+        return cls(
+            route=decision.kind,
+            result=result.kind,
+            intent=decision.intent.value if isinstance(decision, Direct) else None,
+            termination=getattr(result, "termination", None),
+        )
 
 
 class Conversation(BaseModel):
@@ -106,6 +130,32 @@ class Conversation(BaseModel):
                 "turn_count": self.turn_count + 1,
             }
         )
+
+    def recording(self, result: TurnResult) -> Conversation:
+        """Append what the customer was told, and remember an open approval.
+
+        `Failed.detail` is deliberately not stored on the conversation: it is for
+        the operator and lives on the span. A conversation is what the customer
+        can be shown.
+        """
+        reply = getattr(result, "reply", None) or getattr(result, "customer_message", "")
+        updated = self.with_messages(
+            Message(role="assistant", content=reply, provenance="operator")
+        )
+        if isinstance(result, NeedsApproval):
+            return updated.model_copy(update={"pending_approval_id": result.approval_id})
+        # Only when there is a record to point at. An escalation with no
+        # `ticket_id` is one no store accepted, and flagging the conversation
+        # against a record that does not exist would hold it closed with nothing
+        # able to reopen it.
+        if isinstance(result, Escalated) and result.ticket_id is not None:
+            fired = updated.escalated_rules
+            if result.rule_id and result.rule_id not in fired:
+                fired = (*fired, result.rule_id)
+            return updated.model_copy(
+                update={"pending_escalation_id": result.ticket_id, "escalated_rules": fired}
+            )
+        return updated
 
     def encode(self) -> bytes:
         return self.model_dump_json().encode()

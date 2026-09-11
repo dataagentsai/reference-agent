@@ -143,7 +143,8 @@ async def test_a_refund_the_world_cannot_take_fails_with_something_readable() ->
     typed failure; what the operator gets is a sentence naming the tool, the
     argument it wanted and what was on offer.
     """
-    from support_agent.entrypoint import Unbindable, _bind
+    from support_agent.contracts import Unbindable
+    from support_agent.contracts import bind_arguments as _bind
 
     class Spec:
         name = "issue_refund"

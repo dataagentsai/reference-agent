@@ -159,3 +159,65 @@ class LocalTool:
 
     spec: ToolSpec
     handler: Callable[[dict[str, object]], Awaitable[ToolResult]]
+
+
+class Unbindable(Exception):
+    """These arguments cannot be fitted to that tool's declared schema."""
+
+
+def bind_arguments(spec: ToolSpec, args: dict[str, object]) -> dict[str, object]:
+    """Map arguments onto whatever the tool actually declares.
+
+    The caller knows it found an order id; it does not know what this world calls
+    that field. One required string property means one place to put it.
+
+    **Extended for the resume path (F-013).** The router hands over exactly one
+    argument, which made the single-required/single-argument rule sufficient. An
+    approval does not: it stores `{order_id, amount}` from the harness-local
+    request tool, and the projected `issue_refund` declares only the entity's
+    key. So two more steps, in order of confidence:
+
+    1. **Keep what the tool declares.** An argument the schema does not mention
+       is dropped rather than passed — `additionalProperties: false` would reject
+       the whole call for it.
+    2. **Fill a missing required slot by name.** `order_id` for a required `id`
+       is the `<entity>_<key>` convention, and it is checked rather than assumed:
+       the spare must equal the required name, or end with `_id`-style suffix, or
+       carry it as a prefix. Exactly one candidate or nothing.
+
+    Ambiguity raises. On the path where money moves, guessing between two spare
+    values is worse than stopping — and stopping with a message beats the
+    `jsonschema` exception that was surfacing through three nested task groups.
+    """
+    declared = spec.input_schema.get("properties")
+    properties: dict[str, object] = declared if isinstance(declared, dict) else {}
+    listed = spec.input_schema.get("required")
+    required = (
+        [n for n in listed if isinstance(n, str) and n in properties]
+        if isinstance(listed, list)
+        else []
+    )
+    if len(required) == 1 and len(args) == 1:
+        return {required[0]: next(iter(args.values()))}
+
+    kept = {n: v for n, v in args.items() if n in properties}
+    spare = {n: v for n, v in args.items() if n not in properties}
+
+    for name in [n for n in required if n not in kept]:
+        candidates = [n for n in spare if _reads_as(n, name)]
+        if len(candidates) != 1:
+            raise Unbindable(
+                f"{spec.name} requires {name!r} and the stored arguments "
+                f"{sorted(args)} offer {candidates or 'nothing'} for it"
+            )
+        kept[name] = spare.pop(candidates[0])
+
+    return kept
+
+
+def _reads_as(offered: str, required: str) -> bool:
+    return (
+        offered == required
+        or offered.endswith(f"_{required}")
+        or offered.startswith(f"{required}_")
+    )

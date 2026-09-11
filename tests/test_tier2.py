@@ -326,7 +326,7 @@ def test_the_termination_reason_reaches_the_facts() -> None:
             ),
         ),
     )
-    facts = ep._facts(conversation)
+    facts = t2.facts_of(conversation)
     assert facts.termination == "step_budget_exhausted"
     matched = t2.evaluate(facts)
     assert matched is not None and matched.id == "loop-exhausted"
