@@ -86,8 +86,8 @@ select = ["E", "F", "I", "UP", "B", "SIM", "TID", "C901", "PLR0912", "PLR0915"]
 max-complexity = 14      # serve.build — next in G0.4
 
 [tool.ruff.lint.pylint]
-max-statements = 50      # loop.run — lower after G0.4
-max-branches = 12        # loop.run
+max-statements = 41      # serve.build — was 50 (loop.run) before G0.4
+max-branches = 7         # serve, router, policy — was 12 (loop.run)
 
 [tool.ruff.lint.per-file-ignores]
 # The ceilings govern the agent. Test tooling — table-driven suites, the
