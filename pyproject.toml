@@ -69,7 +69,9 @@ strict = true
 plugins = ["pydantic.mypy"]
 warn_unused_ignores = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined", "exhaustive-match"]
-files = ["src/support_agent"]
+# The deployment script is a composition root too: a required argument it misses
+# is the same defect as one `src` misses, and only mypy sees it before a run.
+files = ["src/support_agent", "scripts/run_server.py"]
 
 [tool.ruff]
 line-length = 100

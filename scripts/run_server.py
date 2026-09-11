@@ -86,7 +86,7 @@ async def main(real: bool, port: int) -> None:
                     model=settings.model,
                 )
             )
-            if real and settings is not None
+            if settings is not None
             else demo_replies()
         )
         escalations = esc.InMemoryEscalationStore()
@@ -104,13 +104,13 @@ async def main(real: bool, port: int) -> None:
             deliveries=trg.InMemoryDeliveryLog(),
             # The real model is priced, so its cost ceiling is live; the scripted
             # one is free and has nothing to meter.
-            config=resolve(settings) if real and settings is not None else None,
+            config=resolve(settings) if settings is not None else None,
         )
         app = serve.build(agent, secret=SECRET)  # the desk reads the agent's own store
 
         token = ident.mint("C-1042", secret=SECRET, ttl_s=8 * 3600, now=int(time.time()))
         print("\n  Support agent running against the simulated clothing shop")
-        print(f"  model: {'REAL — ' + settings.model if real else 'scripted (free, offline)'}")
+        print(f"  model: {'REAL — ' + settings.model if settings is not None else 'scripted (free, offline)'}")
         print("\n  Open this — the token is in the link:\n")
         print(f"    http://127.0.0.1:{port}/?token={token}\n")
         print("  Orders: AB-10001 shipped · AB-10002 pending · AB-10003 delivered 5d")
@@ -121,7 +121,9 @@ async def main(real: bool, port: int) -> None:
         async def sweeping() -> None:
             while True:
                 await asyncio.sleep(60)
-                for lapsed in await esc.sweep(escalations):
+                # The deployment is where the wall clock is read; everything
+                # below this line takes the moment it is given.
+                for lapsed in await esc.sweep(escalations, now=int(time.time())):
                     print(f"  escalation {lapsed.id} lapsed — nobody came")
 
         config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")

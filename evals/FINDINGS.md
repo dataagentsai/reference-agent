@@ -864,6 +864,20 @@ replays. The same fallback pattern — `now or time.time()` — appears in
 
 **Fix** Pass the injected clock; make the fallback an error in sealed runs.
 
+**Fixed — 2026-09-12 (G0.5), from AHC L9 (no clock outside the injected seam).**
+`ApprovalFlow` is given the agent's clock and reads it in both places an
+approval meets time: minting the request and checking the grant on resume. The
+fallback is gone rather than guarded — `now` is a **required** argument of every
+function in `approvals.workflow`, `escalation.workflow` and `refund_tool`, so a
+caller that forgets the clock is a type error, not a silent wall-clock read. That
+change found two more callers the grep in this finding had missed, both in
+scripts: the demo server's escalation sweeper, which would have raised on its
+first tick, and the trace script. mypy now checks `scripts/run_server.py` as a
+composition root, and both packages ship `py.typed` so it can see them. The
+remaining fallbacks are deliberate: `identity.verify` with no `now` lets the JWT
+library check expiry at the edge, and the reviewer desk reads the wall clock only
+when the agent it serves was built without one.
+
 ---
 
 ## F-022 · Retry, throttling and the circuit breaker exist and are never called

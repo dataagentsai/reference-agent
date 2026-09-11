@@ -64,7 +64,7 @@ def refund_tool(
     identity: Identity,
     idempotency_key: IdempotencyKey,
     policy: Policy | None = None,
-    now: int | None = None,
+    now: int,
 ) -> LocalTool:
     """Bind the request tool to one run's identity and key.
 

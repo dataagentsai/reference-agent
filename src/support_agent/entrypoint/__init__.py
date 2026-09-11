@@ -253,7 +253,9 @@ class Agent:
     @property
     def pending(self) -> PendingWork:
         """Read at call time, like `desk`."""
-        return NoApprovals() if self.approvals is None else ApprovalFlow(self.approvals)
+        if self.approvals is None:
+            return NoApprovals()
+        return ApprovalFlow(self.approvals, now=self._now)
 
     @property
     def desk(self) -> Handoff:

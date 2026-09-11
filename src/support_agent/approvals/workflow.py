@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 import uuid
 
 from support_agent import telemetry as tel
@@ -28,7 +27,7 @@ async def request(
     identity: Identity,
     idempotency_key: IdempotencyKey,
     policy: Policy | None = None,
-    now: int | None = None,
+    now: int,
 ) -> Approval:
     """Record a pending decision and hand back the record.
 
@@ -36,7 +35,6 @@ async def request(
     reason a grant an hour from now still produces one effect.
     """
     policy = policy or Policy()
-    moment = now if now is not None else int(time.time())
     approval = Approval(
         id=f"apr_{uuid.uuid4().hex[:12]}",
         action=action,
@@ -44,8 +42,8 @@ async def request(
         reason=reason,
         customer_id=identity.customer_id,
         idempotency_key=idempotency_key.value,
-        created_at=moment,
-        expires_at=moment + policy.ttl_s,
+        created_at=now,
+        expires_at=now + policy.ttl_s,
     )
     with tel.span(
         "agent.approval.request",
@@ -61,7 +59,7 @@ async def decide(
     *,
     granted: bool,
     by: str,
-    now: int | None = None,
+    now: int,
 ) -> Approval:
     """A reviewer answers. Three refusals, all fail-closed.
 
@@ -77,13 +75,12 @@ async def decide(
     **An expired request cannot be decided.** It must be raised again against
     today's facts.
     """
-    moment = now if now is not None else int(time.time())
     approval = await store.get(approval_id)
     if approval is None:
         raise ApprovalError(f"no approval {approval_id!r}")
     if approval.decided:
         raise ApprovalError(f"approval {approval_id!r} was already decided")
-    if moment >= approval.expires_at:
+    if now >= approval.expires_at:
         raise ApprovalError(f"approval {approval_id!r} has expired")
     if by == approval.customer_id:
         raise ApprovalError("an approval cannot be granted by the customer it belongs to")
@@ -97,10 +94,9 @@ async def decide(
     return decided
 
 
-def is_executable(approval: Approval, *, now: int | None = None) -> bool:
+def is_executable(approval: Approval, *, now: int) -> bool:
     """Granted, and still within its window."""
-    moment = now if now is not None else int(time.time())
-    return approval.decided and approval.granted and moment < approval.expires_at
+    return approval.decided and approval.granted and now < approval.expires_at
 
 
 def granted_identity(
@@ -108,7 +104,7 @@ def granted_identity(
     base: Identity,
     *,
     policy: Policy | None = None,
-    now: int | None = None,
+    now: int,
 ) -> Identity:
     """Mint the elevated identity — and only for a live grant.
 

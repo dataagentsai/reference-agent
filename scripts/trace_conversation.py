@@ -30,6 +30,7 @@ import functools
 import inspect
 import pathlib
 import sys
+import time
 
 # `agenttwin` sits at the repo root, outside the installed package, so a plain
 # `uv run python scripts/...` cannot see it. Tests get it from pytest's
@@ -160,7 +161,7 @@ async def main() -> None:
             if n == 7:
                 ON[0] = False
                 waiting = (await approvals.pending())[0]
-                decided = await ap.decide(approvals, waiting.id, granted=True, by="ops-7")
+                decided = await ap.decide(approvals, waiting.id, granted=True, by="ops-7", now=int(time.time()))
                 ON[0] = True
                 print(f"\n{'─' * 76}")
                 print(f"  OUT OF BAND — a colleague opens the queue and grants {decided.id}")

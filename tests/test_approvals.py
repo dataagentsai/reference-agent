@@ -113,7 +113,7 @@ async def test_an_expired_request_cannot_be_decided() -> None:
 
 async def test_deciding_an_unknown_approval_is_an_error() -> None:
     with pytest.raises(ap.ApprovalError, match="no approval"):
-        await ap.decide(ap.InMemoryApprovalStore(), "apr_nope", granted=True, by="ops-7")
+        await ap.decide(ap.InMemoryApprovalStore(), "apr_nope", granted=True, by="ops-7", now=T0)
 
 
 async def test_the_queue_shows_only_undecided_items() -> None:
@@ -275,7 +275,7 @@ async def test_the_decision_is_on_the_trace(exporter) -> None:
 def refund_agent(tools, store, approvals, llm):
     from support_agent import entrypoint as ep
 
-    return ep.build(llm=llm, tools=tools, store=store, approvals=approvals)
+    return ep.build(llm=llm, tools=tools, store=store, approvals=approvals, clock=lambda: T0)
 
 
 def wants_refund(amount: str):
@@ -330,7 +330,7 @@ async def test_a_large_refund_waits_and_then_completes_across_turns(server) -> N
         assert server.state["refunds"] == 0
         assert conversation.pending_approval_id == first.approval_id
 
-        await ap.decide(approvals, first.approval_id, granted=True, by="ops-7")
+        await ap.decide(approvals, first.approval_id, granted=True, by="ops-7", now=T0 + 1)
 
         agent.llm = ScriptedClient([])  # a resume must not need the model
         second, conversation = await agent.handle(
@@ -374,7 +374,7 @@ async def test_a_refused_approval_is_reported_and_nothing_is_refunded(server) ->
             tools, InMemoryCheckpointStore(), approvals, ScriptedClient([wants_refund("12400")])
         )
         first, conversation = await agent.handle("refund AB-1", identity=customer())
-        await ap.decide(approvals, first.approval_id, granted=False, by="ops-7")
+        await ap.decide(approvals, first.approval_id, granted=False, by="ops-7", now=T0 + 1)
 
         agent.llm = ScriptedClient([])
         second, conversation = await agent.handle(
@@ -407,3 +407,43 @@ def _says():
     from support_agent.contracts import ModelResponse
 
     return ModelResponse(text="I cannot do that.")
+
+
+# (name, seconds after the request the next turn resumes, the result it must be)
+RESUMES = [
+    ("inside the approval's life, the grant executes", HOUR, "Completed"),
+    ("past its life, the grant is refused as expired", 24 * HOUR + 1, "Failed"),
+]
+
+
+@pytest.mark.discharges("AHC-0057", "AHC-0014", "op:request_refund")
+@pytest.mark.parametrize(("name", "later", "outcome"), RESUMES, ids=[r[0] for r in RESUMES])
+async def test_an_approval_lives_on_the_agents_clock(
+    server, name: str, later: int, outcome: str
+) -> None:
+    """F-021: the request tool and the resume check read the wall clock, so an
+    approval's life was not the agent's to control — and a replay minted a
+    different expiry every time."""
+    from support_agent import entrypoint as ep
+    from support_agent.state import InMemoryCheckpointStore
+
+    moment = [T0]
+    approvals = ap.InMemoryApprovalStore()
+    async with connect(server, ledger=InMemoryLedger()) as tools:
+        agent = ep.build(
+            llm=ScriptedClient([wants_refund("12400")]),
+            tools=tools,
+            store=InMemoryCheckpointStore(),
+            approvals=approvals,
+            clock=lambda: moment[0],
+        )
+        first, conversation = await agent.handle("refund AB-1 please", identity=customer())
+        requested = await approvals.get(first.approval_id)
+        assert requested.expires_at == T0 + 24 * HOUR, "the expiry is the agent's, not the wall's"
+
+        await ap.decide(approvals, first.approval_id, granted=True, by="ops-7", now=T0 + 1)
+        moment[0] = T0 + later
+        agent.llm = ScriptedClient([])
+        second, _ = await agent.handle("any news?", identity=customer(), conversation=conversation)
+
+    assert type(second).__name__ == outcome, second

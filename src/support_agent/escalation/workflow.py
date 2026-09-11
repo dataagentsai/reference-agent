@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 import uuid
 
 from support_agent import telemetry as tel
@@ -22,7 +21,7 @@ path is exercised rather than theoretical.
 """
 
 
-async def sweep(store: EscalationStore, *, now: int | None = None) -> tuple[Escalation, ...]:
+async def sweep(store: EscalationStore, *, now: int) -> tuple[Escalation, ...]:
     """Lapse everything nobody came for.
 
     The lapse path was lazy: it only ran when the customer sent another turn. So
@@ -36,11 +35,10 @@ async def sweep(store: EscalationStore, *, now: int | None = None) -> tuple[Esca
     cron job in a deployment. A sweeper that owns its own scheduling is one
     nobody can drive from a scenario.
     """
-    moment = int(time.time()) if now is None else now
     lapsed: list[Escalation] = []
     for escalation in await store.pending():
-        if escalation.lapsed(moment):
-            lapsed.append(await lapse(store, escalation, now=moment))
+        if escalation.lapsed(now):
+            lapsed.append(await lapse(store, escalation, now=now))
     return tuple(lapsed)
 
 
@@ -65,7 +63,7 @@ async def raise_for(
     rules_version: str,
     tier: int = 1,
     ttl_s: int = DEFAULT_TTL_S,
-    now: int | None = None,
+    now: int,
 ) -> Escalation:
     """Write the record, then let the caller speak.
 
@@ -73,7 +71,6 @@ async def raise_for(
     came from telling the customer first and recording second — which is to say,
     never recording at all.
     """
-    moment = int(time.time()) if now is None else now
     escalation = Escalation(
         id=new_escalation_id(),
         conversation_id=conversation_id,
@@ -84,8 +81,8 @@ async def raise_for(
         rules_version=rules_version,
         reason=reason,
         state=EscalationState.QUEUED,
-        created_at=moment,
-        expires_at=moment + ttl_s,
+        created_at=now,
+        expires_at=now + ttl_s,
     )
     with tel.span(
         "agent.escalation.raise",
@@ -111,7 +108,7 @@ async def resolve(
     outcome: EscalationOutcome | str,
     by: str,
     note: str = "",
-    now: int | None = None,
+    now: int,
 ) -> Escalation:
     """A person closes it, and says what it was.
 
@@ -148,13 +145,12 @@ async def resolve(
             f"{outcome!r} is not an outcome; expected one of {[o.value for o in EscalationOutcome]}"
         ) from None
 
-    moment = int(time.time()) if now is None else now
     escalation = await store.get(escalation_id)
     if escalation is None:
         raise EscalationError(f"no escalation {escalation_id!r}")
     if not escalation.open:
         raise EscalationError(f"escalation {escalation_id!r} is already {escalation.state.value}")
-    if escalation.lapsed(moment):
+    if escalation.lapsed(now):
         raise EscalationError(f"escalation {escalation_id!r} lapsed before anyone came")
     if by == escalation.customer_id:
         raise EscalationError("an escalation cannot be closed by the customer it belongs to")
@@ -162,7 +158,7 @@ async def resolve(
     closed = escalation.model_copy(
         update={
             "state": EscalationState.RESOLVED,
-            "resolved_at": moment,
+            "resolved_at": now,
             "outcome": label,
             "outcome_by": by,
             "outcome_note": note or None,
@@ -174,27 +170,22 @@ async def resolve(
             tel.ESCALATION_ID: closed.id,
             tel.ESCALATION_RULE: closed.rule_id,
             "agent.escalation.outcome": label.value,
-            "agent.escalation.waited_s": moment - closed.created_at,
+            "agent.escalation.waited_s": now - closed.created_at,
         },
     ):
         await store.put(closed)
     return closed
 
 
-async def lapse(
-    store: EscalationStore, escalation: Escalation, *, now: int | None = None
-) -> Escalation:
+async def lapse(store: EscalationStore, escalation: Escalation, *, now: int) -> Escalation:
     """Nobody came. Close it as expired and hand the conversation back."""
-    moment = int(time.time()) if now is None else now
-    expired = escalation.model_copy(
-        update={"state": EscalationState.EXPIRED, "resolved_at": moment}
-    )
+    expired = escalation.model_copy(update={"state": EscalationState.EXPIRED, "resolved_at": now})
     with tel.span(
         "agent.escalation.lapse",
         **{
             tel.ESCALATION_ID: expired.id,
             tel.ESCALATION_RULE: expired.rule_id,
-            "agent.escalation.waited_s": moment - expired.created_at,
+            "agent.escalation.waited_s": now - expired.created_at,
         },
     ):
         await store.put(expired)

@@ -11,6 +11,8 @@ this existed the number was not merely unmeasured — it was unmeasurable.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 from starlette.testclient import TestClient
 
@@ -72,6 +74,7 @@ async def queued(store, *, rule_id: str = "asked-for-human", ttl_s: int = 1800):
         rule_id=rule_id,
         rules_version="v1",
         ttl_s=ttl_s,
+        now=int(time.time()),  # the desk under test reads the wall clock
     )
 
 

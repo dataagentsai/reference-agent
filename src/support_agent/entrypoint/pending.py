@@ -12,6 +12,7 @@ a typed `NeedsApproval`; the next turn resumes from here.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -60,12 +61,17 @@ class NoApprovals:
 @dataclass(frozen=True)
 class ApprovalFlow:
     store: ApprovalStore
+    now: Callable[[], int]
+    """The agent's clock — the only time this flow reads. An approval minted or
+    checked against the wall clock while everything else reads an injected one
+    gets a different expiry on every replay of the same run (F-021)."""
 
     def offer(self, identity: Identity, run_id: RunId) -> dict[str, LocalTool]:
         tool = ap.refund_tool(
             self.store,
             identity=identity,
             idempotency_key=IdempotencyKey(run_id=run_id, step=0, iteration=0),
+            now=self.now(),
         )
         return {tool.spec.name: tool}
 
@@ -93,7 +99,7 @@ class ApprovalFlow:
                 return refused, cleared.recording(Completed(reply=""))
 
             try:
-                elevated = ap.granted_identity(approval, identity)
+                elevated = ap.granted_identity(approval, identity, now=self.now())
             except ap.ApprovalError as exc:
                 expired = Failed(
                     customer_message=(
