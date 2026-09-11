@@ -19,9 +19,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from evals import assurance_map as amap
 from evals import statements
+
 from support_agent.conformance import Report
 
 _report: Report | None = None

@@ -8,8 +8,8 @@ from five places, told apart by their shape:
 | `AAC-0047` | assurance catalog — what must be TRUE | `evals/a6_obligations.json` |
 | `AHC-0074` | harness catalog — what must EXIST | the sibling `ai-harness-catalog` checkout |
 | `B5` | the Baseline profile | the sibling `clean-ai-engineering/BASELINE.md` |
-| `P-CANCEL`, `R-STYLE`, `Q-COST` | this agent's AOAS — policies, refusals, properties | the spec the clothing world cites |
-| `op:cancel_order`, `esc:loop-exhausted`, `ext:order_system` | this agent's AOAS — operations, escalation rules, external contracts | the same spec |
+| `P-CANCEL`, `R-STYLE`, `Q-COST` | this agent's AOAS — policies, refusals, properties | its spec |
+| `op:…`, `esc:…`, `ext:…` | the AOAS's operations, escalation rules, external contracts | its spec |
 
 **An unknown id fails collection**, before a single test runs. A tag that names
 nothing is worse than no tag: it reads as coverage and verifies nothing.

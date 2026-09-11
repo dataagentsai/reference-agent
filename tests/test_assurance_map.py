@@ -7,7 +7,6 @@ stay out of the untagged remainder they help compute.
 from __future__ import annotations
 
 import pytest
-
 from evals import assurance_map as amap
 from evals import statements
 
