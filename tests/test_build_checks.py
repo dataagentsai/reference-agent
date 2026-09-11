@@ -50,7 +50,7 @@ RATCHETS = [
     (
         "lines in the longest module",
         lambda: max(len(p.read_text().splitlines()) for p in SRC.rglob("*.py")),
-        449,  # telemetry — was 744 (the entrypoint) before G0.4
+        416,  # loop — was 744 (the entrypoint) before G0.4
     ),
 ]
 
