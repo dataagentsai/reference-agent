@@ -53,9 +53,11 @@ side effects it managed before failing.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Protocol
 
 
 class TriggerRefused(Exception):
@@ -125,8 +127,21 @@ class InMemoryDeliveryLog:
             return self._seen.get(delivery_id)
 
 
+class DeliveryLog(Protocol):
+    """What `once` needs from a delivery log, and nothing else.
+
+    A protocol rather than the in-memory class, because the durable log T-003
+    calls for is a different implementation of the same two calls — and a
+    parameter typed `object` let any argument through until the first `claim`.
+    """
+
+    async def claim(self, delivery_id: str) -> Delivery: ...
+
+    async def settle(self, delivery_id: str) -> None: ...
+
+
 @asynccontextmanager
-async def once(log: object, delivery_id: str | None):
+async def once(log: DeliveryLog, delivery_id: str | None) -> AsyncIterator[Delivery | None]:
     """Run the body at most once for this delivery.
 
     A `None` id means the caller did not identify the delivery, and the run
@@ -138,18 +153,19 @@ async def once(log: object, delivery_id: str | None):
         yield None
         return
 
-    claim = await log.claim(delivery_id)  # type: ignore[attr-defined]
+    claim = await log.claim(delivery_id)
     try:
         yield claim
     finally:
         # Settled even on failure: a delivery that was tried and failed has
         # still been delivered, and re-running it on redelivery would repeat
         # whatever effects it managed before failing.
-        await log.settle(delivery_id)  # type: ignore[attr-defined]
+        await log.settle(delivery_id)
 
 
 __all__ = [
     "Delivery",
+    "DeliveryLog",
     "DuplicateDelivery",
     "InMemoryDeliveryLog",
     "OverlappingRun",

@@ -32,8 +32,11 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
+from functools import partial
+
+from opentelemetry.trace import Span
 
 from support_agent import context as ctx
 from support_agent import flow as flw
@@ -55,7 +58,9 @@ from support_agent.contracts import (
     NeedsApproval,
     RunId,
     TerminationReason,
+    ToolCall,
     ToolClient,
+    ToolRegistry,
     ToolResult,
     ToolUnavailable,
     TurnResult,
@@ -103,7 +108,7 @@ async def run(
     oscillation_threshold: int = 3,
     meter: Meter | None = None,
     local_tools: Mapping[str, LocalTool] | None = None,
-    policy_rules: Mapping[pol.Position, tuple] | None = None,
+    policy_rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None = None,
     fan_out: int = flw.DEFAULT_FAN_OUT,
 ) -> tuple[TurnResult, Trace]:
     budgets = budgets or Budgets()
@@ -207,7 +212,7 @@ async def run(
                 # Keys are minted and oscillation checked in the order the
                 # model emitted the calls, before anything runs. Scheduling must
                 # not change which call gets which key.
-                planned: list[tuple[object, IdempotencyKey]] = []
+                planned: list[tuple[ToolCall, IdempotencyKey]] = []
                 for call in response.tool_calls:
                     signature = _signature(call.name, call.arguments)
                     trace.tool_calls.append(signature)
@@ -262,12 +267,12 @@ async def run(
 
 async def _dispatch(
     tools: ToolClient,
-    planned: list[tuple[object, IdempotencyKey]],
+    planned: list[tuple[ToolCall, IdempotencyKey]],
     identity: Identity,
     local_tools: Mapping[str, LocalTool],
-    registry,
+    registry: ToolRegistry,
     fan_out: int,
-):
+) -> list[ToolResult]:
     """Reads concurrently, everything else in the order the model asked.
 
     A read that fails costs a retry. A write that fails halfway through a
@@ -277,29 +282,26 @@ async def _dispatch(
     """
     from support_agent.contracts import SideEffectClass
 
-    def is_read(call) -> bool:
+    def is_read(call: ToolCall) -> bool:
         spec = registry.get(call.name)
         return spec is not None and spec.side_effect is SideEffectClass.READ
 
     if len(planned) > 1 and all(is_read(call) for call, _ in planned):
-        return await flw.gather_bounded(
-            [
-                (lambda c=call, k=key: _invoke(tools, c, identity, k, local_tools))
-                for call, key in planned
-            ],
-            limit=fan_out,
-        )
+        thunks: list[Callable[[], Awaitable[ToolResult]]] = [
+            partial(_invoke, tools, call, identity, key, local_tools) for call, key in planned
+        ]
+        return await flw.gather_bounded(thunks, limit=fan_out)
 
     return [await _invoke(tools, call, identity, key, local_tools) for call, key in planned]
 
 
 async def _invoke(
     tools: ToolClient,
-    call,
+    call: ToolCall,
     identity: Identity,
     key: IdempotencyKey,
     local_tools: Mapping[str, LocalTool],
-):
+) -> ToolResult:
     """Every failure is reported back to the model rather than raised.
 
     A tool that does not exist, or arguments that do not validate, are things the
@@ -334,21 +336,23 @@ async def _invoke(
         )
 
 
-def _completed(span, trace: Trace, text: str) -> tuple[TurnResult, Trace]:
+def _completed(span: Span, trace: Trace, text: str) -> tuple[TurnResult, Trace]:
     trace.termination = TerminationReason.GOAL_REACHED
     span.set_attribute(tel.TERMINATION, trace.termination.value)
     return Completed(reply=text), trace
 
 
 def _stopped(
-    span, trace: Trace, reason: TerminationReason, message: str
+    span: Span, trace: Trace, reason: TerminationReason, message: str
 ) -> tuple[TurnResult, Trace]:
     trace.termination = reason
     span.set_attribute(tel.TERMINATION, reason.value)
     return Completed(reply=message, termination=reason), trace
 
 
-def _failed(span, trace: Trace, customer_message: str, detail: str) -> tuple[TurnResult, Trace]:
+def _failed(
+    span: Span, trace: Trace, customer_message: str, detail: str
+) -> tuple[TurnResult, Trace]:
     trace.termination = TerminationReason.UNRECOVERABLE_ERROR
     span.set_attribute(tel.TERMINATION, trace.termination.value)
     return Failed(customer_message=customer_message, detail=detail), trace

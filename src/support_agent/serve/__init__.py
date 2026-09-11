@@ -43,7 +43,7 @@ this is; everything else is the agent's.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -51,16 +51,19 @@ from typing import Any
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
-from starlette.routing import Mount, Route
+from starlette.routing import BaseRoute, Mount, Route
 
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
 from support_agent.contracts import (
+    CheckpointStore,
     Completed,
     ConversationId,
     Escalated,
+    EscalationStore,
     Failed,
+    Identity,
     NeedsApproval,
     Refused,
 )
@@ -102,7 +105,7 @@ class Inbound:
     """
 
     text: str
-    identity: ident.Identity
+    identity: Identity
     conversation_id: ConversationId | None
     delivery_id: str | None
 
@@ -154,7 +157,13 @@ async def decode(request: Request, *, secret: str) -> Inbound:
     )
 
 
-REPLY_STATUS = {Completed: 200, Refused: 200, Escalated: 202, NeedsApproval: 202, Failed: 502}
+REPLY_STATUS: dict[type[object], int] = {
+    Completed: 200,
+    Refused: 200,
+    Escalated: 202,
+    NeedsApproval: 202,
+    Failed: 502,
+}
 """A refusal is a **200**: the agent worked correctly and the answer is no.
 Returning 4xx would make every dashboard count correct behaviour as an error
 rate. `NeedsApproval` is 202 — accepted, not finished. `Failed` is 502, because
@@ -171,8 +180,8 @@ def build(
     agent: Agent | AgentFactory,
     *,
     secret: str,
-    store: object | None = None,
-    escalations: object | None = None,
+    store: CheckpointStore | None = None,
+    escalations: EscalationStore | None = None,
 ) -> Starlette:
     """Wire an agent behind HTTP.
 
@@ -207,7 +216,7 @@ def build(
             # written — which is how an abstract finding became a blocker.
             conversation = None
             if inbound.conversation_id is not None:
-                previous = await store.latest(inbound.conversation_id)  # type: ignore[attr-defined]
+                previous = await store.latest(inbound.conversation_id)
                 if previous is not None:
                     conversation = Conversation.decode(previous)
                     if conversation.customer_id != inbound.identity.customer_id:
@@ -260,7 +269,11 @@ def build(
     async def page(_: Request) -> Response:
         return HTMLResponse(CHAT_PAGE)
 
-    routes = [Route("/", page), Route("/healthz", health), Route("/chat", chat, methods=["POST"])]
+    routes: list[BaseRoute] = [
+        Route("/", page),
+        Route("/healthz", health),
+        Route("/chat", chat, methods=["POST"]),
+    ]
 
     # Mounted, not merged. FastAPI *is* Starlette, so this is the whole
     # integration — and `/chat` keeps the hand-written decode whose 400s and
@@ -279,7 +292,7 @@ def build(
         return app
 
     @asynccontextmanager
-    async def lifespan(app: Starlette):
+    async def lifespan(app: Starlette) -> AsyncIterator[None]:
         async with agent() as built:
             app.state.agent = built
             app.state.store = store or built.store

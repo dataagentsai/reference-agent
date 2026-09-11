@@ -46,6 +46,7 @@ from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.contracts import (
     Approval,
+    ApprovalStore,
     IdempotencyKey,
     Identity,
     LocalTool,
@@ -131,7 +132,7 @@ class InMemoryApprovalStore:
 
 
 async def request(
-    store: object,
+    store: ApprovalStore,
     *,
     action: str,
     args: dict[str, object],
@@ -162,12 +163,12 @@ async def request(
         "agent.approval.request",
         **{"agent.approval.id": approval.id, "agent.approval.action": action},
     ):
-        await store.put(approval)  # type: ignore[attr-defined]
+        await store.put(approval)
     return approval
 
 
 async def decide(
-    store: object,
+    store: ApprovalStore,
     approval_id: str,
     *,
     granted: bool,
@@ -189,7 +190,7 @@ async def decide(
     today's facts.
     """
     moment = now if now is not None else int(time.time())
-    approval = await store.get(approval_id)  # type: ignore[attr-defined]
+    approval = await store.get(approval_id)
     if approval is None:
         raise ApprovalError(f"no approval {approval_id!r}")
     if approval.decided:
@@ -204,7 +205,7 @@ async def decide(
         "agent.approval.decide",
         **{"agent.approval.id": approval_id, "agent.approval.granted": granted},
     ):
-        await store.put(decided)  # type: ignore[attr-defined]
+        await store.put(decided)
     return decided
 
 
@@ -275,7 +276,7 @@ refund to the customer has already done the damage the gate exists to prevent.""
 
 
 def refund_tool(
-    store: object,
+    store: ApprovalStore,
     *,
     identity: Identity,
     idempotency_key: IdempotencyKey,

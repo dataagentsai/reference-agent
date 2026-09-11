@@ -37,7 +37,12 @@ import uuid
 from dataclasses import dataclass
 
 from support_agent import telemetry as tel
-from support_agent.contracts import Escalation, EscalationOutcome, EscalationState
+from support_agent.contracts import (
+    Escalation,
+    EscalationOutcome,
+    EscalationState,
+    EscalationStore,
+)
 
 DEFAULT_TTL_S = 30 * 60
 """How long a queued escalation waits before it lapses.
@@ -119,7 +124,7 @@ def humanise(seconds: int) -> str:
     return "an hour" if hours == 1 else f"{hours} hours"
 
 
-async def sweep(store: object, *, now: int | None = None) -> tuple[Escalation, ...]:
+async def sweep(store: EscalationStore, *, now: int | None = None) -> tuple[Escalation, ...]:
     """Lapse everything nobody came for.
 
     The lapse path was lazy: it only ran when the customer sent another turn. So
@@ -135,7 +140,7 @@ async def sweep(store: object, *, now: int | None = None) -> tuple[Escalation, .
     """
     moment = int(time.time()) if now is None else now
     lapsed: list[Escalation] = []
-    for escalation in await store.pending():  # type: ignore[attr-defined]
+    for escalation in await store.pending():
         if escalation.lapsed(moment):
             lapsed.append(await lapse(store, escalation, now=moment))
     return tuple(lapsed)
@@ -194,7 +199,7 @@ class InMemoryEscalationStore:
 
 
 async def raise_for(
-    store: object,
+    store: EscalationStore,
     *,
     conversation_id: str,
     run_id: str,
@@ -235,7 +240,7 @@ async def raise_for(
             "agent.escalation.rules_version": rules_version,
         },
     ):
-        await store.put(escalation)  # type: ignore[attr-defined]
+        await store.put(escalation)
     return escalation
 
 
@@ -244,7 +249,7 @@ class EscalationError(Exception):
 
 
 async def resolve(
-    store: object,
+    store: EscalationStore,
     escalation_id: str,
     *,
     outcome: EscalationOutcome | str,
@@ -288,7 +293,7 @@ async def resolve(
         ) from None
 
     moment = int(time.time()) if now is None else now
-    escalation = await store.get(escalation_id)  # type: ignore[attr-defined]
+    escalation = await store.get(escalation_id)
     if escalation is None:
         raise EscalationError(f"no escalation {escalation_id!r}")
     if not escalation.open:
@@ -316,11 +321,13 @@ async def resolve(
             "agent.escalation.waited_s": moment - closed.created_at,
         },
     ):
-        await store.put(closed)  # type: ignore[attr-defined]
+        await store.put(closed)
     return closed
 
 
-async def lapse(store: object, escalation: Escalation, *, now: int | None = None) -> Escalation:
+async def lapse(
+    store: EscalationStore, escalation: Escalation, *, now: int | None = None
+) -> Escalation:
     """Nobody came. Close it as expired and hand the conversation back."""
     moment = int(time.time()) if now is None else now
     expired = escalation.model_copy(
@@ -334,7 +341,7 @@ async def lapse(store: object, escalation: Escalation, *, now: int | None = None
             "agent.escalation.waited_s": moment - expired.created_at,
         },
     ):
-        await store.put(expired)  # type: ignore[attr-defined]
+        await store.put(expired)
     return expired
 
 

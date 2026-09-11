@@ -26,6 +26,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
+from typing import TypedDict
 
 MANIFEST = Path(__file__).resolve().parents[2] / "evals" / "a6_obligations.json"
 
@@ -82,9 +83,19 @@ def load(path: Path | str = MANIFEST) -> tuple[Obligation, ...]:
     )
 
 
-def load_elsewhere(path: Path | str = MANIFEST) -> dict[str, dict]:
+class Elsewhere(TypedDict):
+    """An obligation the catalog tags for other shapes — its id is the key."""
+
+    archetypes: list[str]
+    title: str
+
+
+def load_elsewhere(path: Path | str = MANIFEST) -> dict[str, Elsewhere]:
     """Obligations that exist in the catalog but are not tagged A6."""
-    return json.loads(Path(path).read_text()).get("elsewhere_in_catalog", {})
+    elsewhere: dict[str, Elsewhere] = json.loads(Path(path).read_text()).get(
+        "elsewhere_in_catalog", {}
+    )
+    return elsewhere
 
 
 class Report:

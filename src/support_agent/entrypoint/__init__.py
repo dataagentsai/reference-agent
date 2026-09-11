@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from typing import assert_never
 
 from support_agent import approvals as ap
 from support_agent import context as ctx
@@ -44,11 +45,14 @@ from support_agent.contracts import (
     IdempotencyKey,
     Identity,
     LLMClient,
+    LocalTool,
     NeedsApproval,
     Refuse,
     Refused,
+    Route,
     RunId,
     ToolClient,
+    ToolSpec,
     ToolUnavailable,
     TurnResult,
     new_conversation_id,
@@ -85,7 +89,7 @@ class Agent:
     pretending: with no store, `Escalated.ticket_id` stays `None` and the reply
     promises no reference. Same honesty as `_local_tools` refusing to offer a
     refund tool when no approval store is wired."""
-    deliveries: object | None = None
+    deliveries: trg.DeliveryLog | None = None
     clock: Clock | None = None
     """Epoch seconds, injected. Defaults to the wall clock.
 
@@ -170,6 +174,7 @@ class Agent:
             # owns this conversation: nothing the customer says should start work
             # the colleague may be about to make pointless, and answering as
             # though no handoff happened is the exact defect this closes.
+            result: TurnResult
             if conversation.pending_escalation_id is not None:
                 held = await self._still_with_a_colleague(conversation)
                 if held is not None:
@@ -191,9 +196,7 @@ class Agent:
 
             match decision:
                 case Refuse():
-                    result: TurnResult = Refused(
-                        reply=_refusal_text(decision), reason=decision.reason
-                    )
+                    result = Refused(reply=_refusal_text(decision), reason=decision.reason)
                 case Escalate():
                     result = await self._escalate(decision, conversation, identity, run_id)
                 case Direct():
@@ -210,6 +213,8 @@ class Agent:
                         history=conversation.messages[:-1],
                         local_tools=self._local_tools(identity, run_id),
                     )
+                case _:
+                    assert_never(decision)
 
             conversation = conversation.with_turn(_note(decision, result))
 
@@ -404,7 +409,7 @@ class Agent:
                 conversation,
             )
 
-    def _local_tools(self, identity: Identity, run_id: RunId) -> dict[str, ap.LocalTool]:
+    def _local_tools(self, identity: Identity, run_id: RunId) -> dict[str, LocalTool]:
         """Harness-answered tools. Empty when no approval store is wired, so an
         agent without one simply cannot raise a refund — it does not fall back
         to issuing one."""
@@ -560,7 +565,7 @@ class Unbindable(Exception):
     """These arguments cannot be fitted to that tool's declared schema."""
 
 
-def _bind(spec, args: dict[str, object]) -> dict[str, object]:
+def _bind(spec: ToolSpec, args: dict[str, object]) -> dict[str, object]:
     """Map arguments onto whatever the tool actually declares.
 
     The caller knows it found an order id; it does not know what this world calls
@@ -584,8 +589,14 @@ def _bind(spec, args: dict[str, object]) -> dict[str, object]:
     values is worse than stopping — and stopping with a message beats the
     `jsonschema` exception that was surfacing through three nested task groups.
     """
-    properties = spec.input_schema.get("properties", {})
-    required = [n for n in spec.input_schema.get("required", []) if n in properties]
+    declared = spec.input_schema.get("properties")
+    properties: dict[str, object] = declared if isinstance(declared, dict) else {}
+    listed = spec.input_schema.get("required")
+    required = (
+        [n for n in listed if isinstance(n, str) and n in properties]
+        if isinstance(listed, list)
+        else []
+    )
     if len(required) == 1 and len(args) == 1:
         return {required[0]: next(iter(args.values()))}
 
@@ -612,7 +623,7 @@ def _reads_as(offered: str, required: str) -> bool:
     )
 
 
-def _note(decision, result: TurnResult) -> TurnNote:
+def _note(decision: Route, result: TurnResult) -> TurnNote:
     """Reduce a turn to what a rule can ask about.
 
     The intent is only known on a `Direct` route; `Agentic` carries candidates
@@ -701,7 +712,7 @@ def build(
     approvals: ApprovalStore | None = None,
     escalations: EscalationStore | None = None,
     capacity: esc.Capacity | None = None,
-    deliveries: object | None = None,
+    deliveries: trg.DeliveryLog | None = None,
     clock: Clock | None = None,
     config: RunConfig | None = None,
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,

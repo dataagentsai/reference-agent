@@ -118,6 +118,12 @@ def _as_key(context: Context | str | None) -> str:
     return context.key() if isinstance(context, Context) else context
 
 
+def _tool_name(tool: dict[str, object]) -> str:
+    """A tool definition's name, from the provider shape `{"function": {"name"}}`."""
+    function = tool.get("function")
+    return str(function.get("name", "")) if isinstance(function, dict) else ""
+
+
 def fingerprint(request: ModelRequest) -> str:
     """A stable identity for a request.
 
@@ -131,10 +137,7 @@ def fingerprint(request: ModelRequest) -> str:
             {"role": m.role, "content": m.content, "tool_call_id": m.tool_call_id}
             for m in request.messages
         ],
-        "tools": sorted(
-            str(t.get("function", {}).get("name", ""))
-            for t in request.tools  # type: ignore[union-attr]
-        ),
+        "tools": sorted(_tool_name(t) for t in request.tools),
         "max_tokens": request.max_tokens,
         "temperature": request.temperature,
     }

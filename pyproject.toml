@@ -43,6 +43,8 @@ dev = [
     "ruff>=0.6",
     "allpairspy>=2.5",
     "hypothesis>=6.100",
+    "mypy>=1.13",
+    "types-jsonschema>=4.26.0.20260518",
 ]
 
 [tool.uv.sources]
@@ -57,12 +59,42 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/support_agent"]
 
+[tool.mypy]
+# G0.3, check one of three: catch at build time what a test only catches if it
+# happens to run the line. Strict, plus the codes that make an escape hatch
+# visible: an ignore must name what it ignores, an unused one is an error, and a
+# match over a closed set must handle every member.
+python_version = "3.13"
+strict = true
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined", "exhaustive-match"]
+files = ["src/support_agent"]
+
 [tool.ruff]
 line-length = 100
 src = ["src"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "TID"]
+select = ["E", "F", "I", "UP", "B", "SIM", "TID", "C901", "PLR0912", "PLR0915"]
+
+# G0.3, check three of three: size and complexity ceilings, as a RATCHET. Each
+# starts at today's worst value, so nothing can grow from here, and each is
+# lowered as the decomposition (G0.4) takes the worst offenders apart. A ceiling
+# that failed on day one would block the refactor it exists to guide.
+[tool.ruff.lint.mccabe]
+max-complexity = 14      # serve.build — lower after G0.4
+
+[tool.ruff.lint.pylint]
+max-statements = 50      # loop.run — lower after G0.4
+max-branches = 12        # loop.run
+
+[tool.ruff.lint.per-file-ignores]
+# The ceilings govern the agent. Test tooling — table-driven suites, the
+# hand-written world — is exempt, and says so here rather than by raising the
+# ceilings for everything.
+"tests/**" = ["C901", "PLR0912", "PLR0915"]
+"evals/**" = ["C901", "PLR0912", "PLR0915"]
 
 [tool.ruff.lint.flake8-bugbear]
 # B008 forbids a function call in an argument default, and it is right almost

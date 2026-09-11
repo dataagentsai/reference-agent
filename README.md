@@ -36,9 +36,15 @@ the architecture**.
 
 ```bash
 uv sync --extra dev
-uv run lint-imports    # 4 contracts
-uv run pytest          # database tests skip if none is reachable
+uv run pytest          # everything: the suite, plus the build checks below
+                       # database tests skip if none is reachable
 ```
+
+`pytest` also runs the three build-time checks (`tests/test_build_checks.py`),
+so they cannot be skipped: **strict types** (`mypy`, strict, exhaustive
+matches, no ignore without its error code), **the import contract**
+(`lint-imports`, 5 contracts), and **size and complexity ceilings** (ruff),
+which start at today's worst value and only move down.
 
 Durable stores need Postgres (native, not Docker):
 

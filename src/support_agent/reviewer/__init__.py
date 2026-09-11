@@ -35,6 +35,7 @@ rate, and the party being measured must not be able to write it.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Path
@@ -43,7 +44,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import telemetry as tel
-from support_agent.contracts import Escalation, EscalationOutcome, EscalationStore, Identity
+from support_agent.contracts import (
+    Clock,
+    Escalation,
+    EscalationOutcome,
+    EscalationStore,
+    Identity,
+)
 
 
 class Queued(BaseModel):
@@ -108,7 +115,7 @@ class Closed(BaseModel):
     waited_s: int
 
 
-def build(store: EscalationStore, *, secret: str, clock=None) -> FastAPI:
+def build(store: EscalationStore, *, secret: str, clock: Clock | None = None) -> FastAPI:
     """The reviewer app, ready to mount.
 
     Takes the store rather than the agent: this surface never runs a turn, never
@@ -148,7 +155,7 @@ def build(store: EscalationStore, *, secret: str, clock=None) -> FastAPI:
                 pass
             raise HTTPException(401, "the session token is not valid") from None
 
-    def requires(scope: str):
+    def requires(scope: str) -> Callable[..., Identity]:
         """One scope check, declared per route.
 
         The reason this surface is worth a framework: written once, applied by

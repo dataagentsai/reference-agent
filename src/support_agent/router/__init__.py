@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import assert_never
 
 from support_agent import telemetry as tel
 from support_agent.contracts import Agentic, Direct, Escalate, Intent, Refuse, Route
@@ -176,8 +177,12 @@ def _reason_of(decision: Route) -> str:
             return decision.reason
         case Direct():
             return f"unambiguous {decision.intent.value} with an order id"
-        case _:
+        case Agentic():
             return "ambiguous, multi-intent or unmodelled"
+        case _:
+            # A new route kind fails the type check here, rather than being
+            # described as whichever case happened to be last.
+            assert_never(decision)
 
 
 __all__ = ["DIRECT_HANDLERS", "ORDER_ID", "Rules", "route"]

@@ -25,7 +25,7 @@ having none, because nobody goes looking for the control they think they have.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -268,7 +268,11 @@ OUTPUT_RULES = (
     no_discount_offer,
 )
 
-DEFAULT_RULES: dict[Position, tuple] = {
+Rule = Callable[[Context], Verdict]
+"""A rule is a pure function of what is being inspected. Typed, so a rule that
+returns something other than a verdict fails the build rather than the call."""
+
+DEFAULT_RULES: dict[Position, tuple[Rule, ...]] = {
     Position.PRE_MODEL: (),
     Position.POST_MODEL: OUTPUT_RULES,
     Position.PRE_TOOL: (),
@@ -281,7 +285,7 @@ DEFAULT_RULES: dict[Position, tuple] = {
 # --------------------------------------------------------------------------- #
 
 
-def enforce(ctx: Context, rules: Sequence | None = None) -> Verdict:
+def enforce(ctx: Context, rules: Sequence[Rule] | None = None) -> Verdict:
     """Run the rules for this position. First block wins.
 
     A rule that raises **blocks**. That is the whole of AAC-0091: a guardrail
@@ -313,6 +317,7 @@ it says nothing false, and it moves the person forward.
 
 
 __all__ = [
+    "Rule",
     "ALLOW",
     "DEFAULT_RULES",
     "CLAIM_PATTERNS",

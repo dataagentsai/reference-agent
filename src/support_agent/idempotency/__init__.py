@@ -16,8 +16,9 @@ is why `InMemoryLedger` below says so out loud.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 
-from support_agent.contracts import IdempotencyKey, SideEffectClass, ToolResult
+from support_agent.contracts import IdempotencyKey, IdempotencyLedger, SideEffectClass, ToolResult
 
 
 class InMemoryLedger:
@@ -51,10 +52,10 @@ class InMemoryLedger:
 
 
 async def once(
-    ledger: object,
+    ledger: IdempotencyLedger,
     key: IdempotencyKey,
     side_effect: SideEffectClass,
-    action,  # Callable[[], Awaitable[ToolResult]]
+    action: Callable[[], Awaitable[ToolResult]],
 ) -> tuple[ToolResult, bool]:
     """Run `action` at most once per key. Returns the result and whether it was
     replayed from the ledger rather than executed.
@@ -67,13 +68,13 @@ async def once(
     if side_effect is SideEffectClass.READ:
         return await action(), False
 
-    previous = await ledger.seen(key)  # type: ignore[attr-defined]
+    previous = await ledger.seen(key)
     if previous is not None:
         return previous, True
 
     result = await action()
     if not result.is_error:
-        await ledger.record(key, result)  # type: ignore[attr-defined]
+        await ledger.record(key, result)
         # Errors are not recorded. A tool that failed did not apply an effect,
         # so a retry under the same key must be allowed to reach it. Recording
         # failures would turn one transient 503 into a permanent refusal.
