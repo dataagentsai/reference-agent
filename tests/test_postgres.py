@@ -107,6 +107,7 @@ async def test_a_checkpoint_is_never_briefly_absent(pool) -> None:
     assert Conversation.decode(raw).messages[0].content == "second"
 
 
+@pytest.mark.discharges("AHC-0102")
 async def test_resuming_an_unknown_run_is_none(pool) -> None:
     from support_agent.state.postgres import PostgresCheckpointStore
 
@@ -296,6 +297,7 @@ async def test_the_action_and_key_cannot_change_after_the_request(pool) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0102")
 def test_every_postgres_store_declares_itself_durable() -> None:
     from support_agent.idempotency.postgres import PostgresLedger
     from support_agent.state.postgres import (

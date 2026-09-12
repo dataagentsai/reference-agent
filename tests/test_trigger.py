@@ -114,6 +114,7 @@ async def test_an_unidentified_delivery_runs_unguarded() -> None:
             pass
 
 
+@pytest.mark.discharges("AHC-0102")
 def test_the_in_memory_log_says_it_is_not_durable() -> None:
     """It answers the obligation for one instance, not for a deployment, and it
     says so rather than letting a reader assume otherwise."""

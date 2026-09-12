@@ -212,6 +212,7 @@ DURABILITY_CASES = [
 @pytest.mark.parametrize(
     ("name", "cls", "durable"), DURABILITY_CASES, ids=[c[0] for c in DURABILITY_CASES]
 )
+@pytest.mark.discharges("AHC-0102")
 def test_each_store_declares_its_durability(name: str, cls: type, durable: bool) -> None:
     """Stated per implementation rather than assumed. An approval may take a
     human an hour, and a store that dies with the process is absent exactly when
@@ -237,6 +238,7 @@ async def test_a_file_checkpoint_survives_a_new_store_instance(tmp_path) -> None
     assert Conversation.decode(recovered).messages[0].content == "hello"
 
 
+@pytest.mark.discharges("AHC-0102")
 async def test_a_truncated_checkpoint_is_refused_rather_than_resumed(tmp_path) -> None:
     """A checkpoint half-written during a crash is worse than none — it resumes
     into a state that never existed."""
@@ -245,6 +247,7 @@ async def test_a_truncated_checkpoint_is_refused_rather_than_resumed(tmp_path) -
     assert await store.resume(RunId("run_broken")) is None
 
 
+@pytest.mark.discharges("AHC-0102")
 async def test_resuming_an_unknown_run_is_none_not_an_error(tmp_path) -> None:
     assert await FileCheckpointStore(tmp_path).resume(RunId("never_ran")) is None
 

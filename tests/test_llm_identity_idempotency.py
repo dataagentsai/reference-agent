@@ -232,6 +232,7 @@ async def test_the_first_outcome_for_a_key_is_the_outcome() -> None:
     assert stored is not None and stored.name == "first"
 
 
+@pytest.mark.discharges("AHC-0102")
 def test_in_memory_ledger_declares_it_is_not_durable() -> None:
     """P6 exists because enforcement must survive process death. This one does
     not, and says so rather than being quietly wrong in production."""
