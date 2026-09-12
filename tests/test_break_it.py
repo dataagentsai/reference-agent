@@ -199,6 +199,7 @@ async def test_the_world_re_checks_under_a_stale_read() -> None:
     assert world.count("cancel_order") == 0
 
 
+@pytest.mark.discharges("AHC-0096")
 async def test_a_slow_call_still_completes() -> None:
     world = live()
     timeline = Timeline(Slow(tool="get_order", seconds=0.02))

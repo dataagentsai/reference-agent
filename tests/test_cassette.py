@@ -88,12 +88,14 @@ SAME_CASES = [
 @pytest.mark.parametrize(
     ("name", "left", "right", "same"), SAME_CASES, ids=[c[0] for c in SAME_CASES]
 )
+@pytest.mark.discharges("AHC-0105")
 def test_fingerprint_identity(
     name: str, left: ModelRequest, right: ModelRequest, same: bool
 ) -> None:
     assert (fingerprint(left) == fingerprint(right)) is same
 
 
+@pytest.mark.discharges("AHC-0105")
 def test_rewording_a_tool_description_does_not_invalidate_a_cassette() -> None:
     """Only tool *names* count. A docstring edit is not a different question, and
     including schemas would invalidate every recording on a comment change."""
@@ -108,6 +110,7 @@ def test_rewording_a_tool_description_does_not_invalidate_a_cassette() -> None:
     )
 
 
+@pytest.mark.discharges("AHC-0105")
 def test_adding_a_tool_does_invalidate_a_cassette() -> None:
     """A different action surface is a different question."""
     one = ({"type": "function", "function": {"name": "get_order"}},)
@@ -120,6 +123,7 @@ def test_adding_a_tool_does_invalidate_a_cassette() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0105")
 async def test_recording_does_not_change_behaviour() -> None:
     inner = ScriptedClient([says("one"), says("two")])
     recorder = Recorder(inner)
@@ -149,6 +153,7 @@ async def test_a_player_cannot_reach_a_provider_even_on_a_miss() -> None:
     assert not hasattr(player, "_inner")
 
 
+@pytest.mark.discharges("AHC-0105")
 async def test_a_changed_request_is_a_mismatch_not_a_silent_pass() -> None:
     """The drift a regression case exists to catch."""
     recorder = Recorder(ScriptedClient([says("recorded")]))
@@ -159,6 +164,7 @@ async def test_a_changed_request_is_a_mismatch_not_a_silent_pass() -> None:
         await player.complete(request("a different question"))
 
 
+@pytest.mark.discharges("AHC-0105")
 async def test_a_run_longer_than_its_recording_is_a_miss() -> None:
     recorder = Recorder(ScriptedClient([says("only one")]))
     await recorder.complete(request("a"))
@@ -169,6 +175,7 @@ async def test_a_run_longer_than_its_recording_is_a_miss() -> None:
         await player.complete(request("a"))
 
 
+@pytest.mark.discharges("AHC-0105")
 async def test_by_request_matching_tolerates_reordering() -> None:
     recorder = Recorder(ScriptedClient([says("first"), says("second")]))
     await recorder.complete(request("a"))
@@ -179,6 +186,7 @@ async def test_by_request_matching_tolerates_reordering() -> None:
     assert (await player.complete(request("a"))).text == "first"
 
 
+@pytest.mark.discharges("AHC-0105")
 async def test_ordered_matching_does_not_tolerate_reordering() -> None:
     """Which is the point — it is the default for exactly this reason."""
     recorder = Recorder(ScriptedClient([says("first"), says("second")]))
@@ -189,6 +197,7 @@ async def test_ordered_matching_does_not_tolerate_reordering() -> None:
         await Player(recorder.cassette).complete(request("b"))
 
 
+@pytest.mark.discharges("AHC-0105")
 def test_a_cassette_miss_is_not_a_provider_outage() -> None:
     """They must stay distinct: a provider being down is a production condition
     to degrade through; a missing recording is a test defect that must fail

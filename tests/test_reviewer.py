@@ -90,6 +90,7 @@ REFUSED = [
 ]
 
 
+@pytest.mark.discharges("AHC-0040", "AHC-0099")
 @pytest.mark.parametrize(("name", "headers", "status"), REFUSED, ids=[c[0] for c in REFUSED])
 def test_who_may_read_the_queue(client, name: str, headers, status: int) -> None:
     """A customer token is *valid* and still refused — 403, not 401. The
@@ -99,6 +100,7 @@ def test_who_may_read_the_queue(client, name: str, headers, status: int) -> None
     assert client.get("/ops/escalations", headers=sent).status_code == status
 
 
+@pytest.mark.discharges("AHC-0099")
 def test_the_401_body_says_nothing_useful_to_a_prober(client) -> None:
     """Same reasoning as `/chat`'s: the library's own message would report which
     part of the token was malformed."""
@@ -150,6 +152,7 @@ async def test_a_resolved_escalation_leaves_the_queue(client, store) -> None:
     assert client.get("/ops/escalations", headers=reader()).json() == []
 
 
+@pytest.mark.discharges("AHC-0017")
 def test_an_unknown_escalation_is_404_not_500(client) -> None:
     assert client.get("/ops/escalations/E-NOPE", headers=reader()).status_code == 404
 
@@ -250,6 +253,7 @@ async def test_an_invented_outcome_never_reaches_the_row(client, store) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0017")
 def test_the_two_surfaces_share_a_process_and_not_a_contract(client) -> None:
     """`/chat` keeps its hand-written 400s; the desk answers FastAPI's 422 for
     the same class of fault. That is the trade the mount exists to make, and
@@ -259,6 +263,7 @@ def test_the_two_surfaces_share_a_process_and_not_a_contract(client) -> None:
     assert client.get("/ops/openapi.json").status_code == 200
 
 
+@pytest.mark.discharges("AHC-0040", "P-APPROVER")
 def test_the_desk_holds_no_scope_over_orders() -> None:
     """A reviewer is not a customer with extra powers. It cannot cancel, refund
     or amend anything — if it needs to, it does so as itself through the ordinary

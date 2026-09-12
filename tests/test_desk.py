@@ -200,6 +200,10 @@ async def test_nobody_comes_and_the_queue_says_so() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.documents_gap(
+    "dissatisfaction is not an intent, so a customer repeating it carries none to "
+    "repeat and no rule sees them (GAPS section 7)"
+)
 async def test_a_frustrated_customer_is_never_escalated_today() -> None:
     """The gap `repeated-intent` does **not** close — narrower now, and named.
 

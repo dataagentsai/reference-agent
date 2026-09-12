@@ -263,6 +263,7 @@ def test_declared_compensations(name: str, action: str, undo: str) -> None:
     assert res.compensation_for(action).undo_action == undo
 
 
+@pytest.mark.discharges("AHC-0039")
 def test_an_undeclared_action_raises_rather_than_returning_none() -> None:
     """A caller treating "no compensation" as "nothing to do" has silently
     decided an irreversible action was reversible."""

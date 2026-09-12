@@ -119,6 +119,7 @@ async def test_resuming_an_unknown_run_is_none(pool) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0102")
 async def test_the_ledger_round_trips(pool) -> None:
     from support_agent.idempotency.postgres import PostgresLedger
 
@@ -153,6 +154,7 @@ async def test_two_writers_racing_leave_one_row(pool) -> None:
     assert row[0] == 1
 
 
+@pytest.mark.discharges("AHC-0074", "AAC-0047", "AHC-0102")
 async def test_the_first_outcome_for_a_key_is_the_outcome(pool) -> None:
     from support_agent.idempotency.postgres import PostgresLedger
 

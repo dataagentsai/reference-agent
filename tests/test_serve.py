@@ -249,6 +249,7 @@ def test_a_refusal_is_a_two_hundred(client) -> None:
     assert res.json()["outcome"] == "refused"
 
 
+@pytest.mark.discharges("B4")
 def test_health_does_not_touch_the_model(client) -> None:
     """A health check that calls the provider fails when the provider is slow,
     and an orchestrator then restarts a process that was working."""
@@ -281,6 +282,7 @@ WIRING = [
 ]
 
 
+@pytest.mark.discharges("B3")
 @pytest.mark.parametrize(("name", "passed", "raises"), WIRING, ids=[w[0] for w in WIRING])
 def test_the_desk_and_the_agent_share_one_escalation_store(
     name: str, passed: str, raises: bool

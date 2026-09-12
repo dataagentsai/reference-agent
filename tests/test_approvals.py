@@ -114,6 +114,7 @@ async def test_an_expired_request_cannot_be_decided() -> None:
         await ap.decide(store, approval.id, granted=True, by="ops-7", now=T0 + 3 * 24 * HOUR)
 
 
+@pytest.mark.discharges("AHC-0018")
 async def test_deciding_an_unknown_approval_is_an_error() -> None:
     with pytest.raises(ap.ApprovalError, match="no approval"):
         await ap.decide(ap.InMemoryApprovalStore(), "apr_nope", granted=True, by="ops-7", now=T0)
@@ -277,6 +278,7 @@ async def test_a_refused_approval_never_reaches_the_tool(server) -> None:
     assert server.state["refunds"] == 0
 
 
+@pytest.mark.discharges("AHC-0018")
 async def test_the_decision_is_on_the_trace(exporter) -> None:
     store = ap.InMemoryApprovalStore()
     approval = await pending_refund(store)

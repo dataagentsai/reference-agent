@@ -62,6 +62,7 @@ async def test_scripted_client_is_deterministic_and_free() -> None:
     assert scripted.exhausted
 
 
+@pytest.mark.tooling
 async def test_exhausting_the_script_is_an_error_not_an_empty_reply() -> None:
     """A scenario that runs longer than its script did not test what it claimed."""
     tel.configure()
@@ -178,6 +179,7 @@ async def test_retry_under_the_same_key_does_not_execute_twice() -> None:
     assert (replayed_1, replayed_2) == (False, True)
 
 
+@pytest.mark.discharges("AHC-0074")
 async def test_a_legitimate_second_execution_does_run() -> None:
     """Same step, next iteration — the loop genuinely came round again."""
     ledger, calls = InMemoryLedger(), []
@@ -224,6 +226,7 @@ async def test_failures_are_not_recorded_so_a_retry_can_reach_the_tool() -> None
     assert not replayed
 
 
+@pytest.mark.discharges("AHC-0074", "AAC-0047")
 async def test_the_first_outcome_for_a_key_is_the_outcome() -> None:
     ledger = InMemoryLedger()
     await ledger.record(key(), ok("first"))

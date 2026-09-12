@@ -52,6 +52,7 @@ SEALED_CASES = [
 @pytest.mark.parametrize(
     ("name", "sealed", "resolution", "ok"), SEALED_CASES, ids=[c[0] for c in SEALED_CASES]
 )
+@pytest.mark.discharges("B3", "B5")
 def test_sealed_mode_fails_closed(name: str, sealed: bool, resolution: str, ok: bool) -> None:
     if ok:
         assert resolve(settings(sealed=sealed, resolution=resolution)) is not None
@@ -97,6 +98,7 @@ def test_fingerprint_is_stable_across_identical_resolutions() -> None:
     assert resolve(settings()).fingerprint == resolve(settings()).fingerprint
 
 
+@pytest.mark.discharges("B3", "AHC-0022")
 def test_swapping_the_tool_endpoint_is_the_only_change_agenttwin_makes() -> None:
     """N3: the agent is byte-identical between the real world and a simulated
     one, and the fingerprint says so — pointing at a projection server is not a

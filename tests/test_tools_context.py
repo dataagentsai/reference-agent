@@ -259,6 +259,7 @@ def test_trimming_keeps_the_ends_and_takes_from_the_middle() -> None:
     assert len(body) < len(history)
 
 
+@pytest.mark.discharges("B11")
 def test_a_missing_template_variable_is_an_error() -> None:
     """A prompt that silently loses a section is the hardest defect to see."""
     from jinja2 import UndefinedError

@@ -171,6 +171,7 @@ async def test_a_long_conversation_stops_growing(server) -> None:
     assert max(sizes) < 12_000, f"a bound that does not bind: {max(sizes)}"
 
 
+@pytest.mark.discharges("AHC-0044")
 async def test_the_caller_holds_what_the_store_holds(server) -> None:
     """The returned conversation is the bounded one. A caller holding a larger
     history than the store does would be looking at state that exists nowhere."""

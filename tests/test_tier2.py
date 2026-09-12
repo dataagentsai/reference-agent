@@ -248,6 +248,7 @@ async def test_the_same_rule_does_not_raise_again_after_it_lapses(server) -> Non
     assert len(await store.pending()) == 0
 
 
+@pytest.mark.discharges("P-ESC-TIER1")
 async def test_a_tier_one_escalation_is_not_overridden(server) -> None:
     """A turn that already fetched a person does not need a second reason to."""
     store = esc.InMemoryEscalationStore()
@@ -268,6 +269,7 @@ async def test_a_tier_one_escalation_is_not_overridden(server) -> None:
     assert len(await store.pending()) == 1, "one person fetched, not two"
 
 
+@pytest.mark.discharges("AAC-0110", "op:escalate")
 async def test_without_a_store_tier_two_never_fires(server) -> None:
     """Same honesty as everywhere else: an agent with nowhere to write cannot
     escalate, and does not pretend to."""
@@ -302,6 +304,7 @@ async def test_a_turn_is_recorded_as_facts_not_prose(server) -> None:
     assert (note.route, note.result, note.intent) == ("direct", "completed", "order_status")
 
 
+@pytest.mark.discharges("AHC-0066")
 def test_the_remembered_history_is_bounded() -> None:
     """A checkpoint is written and read every turn. An unbounded history is how a
     conversation that runs all day becomes a row nobody can load."""

@@ -101,6 +101,7 @@ def test_the_matching_configuration_replays() -> None:
     assert isinstance(Player(cassette, expect=STRONG), LLMClient)
 
 
+@pytest.mark.discharges("AHC-0105")
 def test_the_refusal_is_still_a_cassette_miss() -> None:
     """Its own type so a suite can distinguish *nothing answers this* from
     *something answers this and must not be used* — and a subclass so existing

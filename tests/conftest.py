@@ -8,6 +8,7 @@ never exercised.
     async def test_the_step_budget_terminates(): ...
     @pytest.mark.scored          # model-driven: pass-rate, not pass/fail
     @pytest.mark.tooling         # tests an instrument, not the agent
+    @pytest.mark.documents_gap("why")   # asserts a statement is missing
 
 `discharges` takes an id from any spec in the family — see `evals/statements.py`
 for the shapes. An id that names nothing fails collection. `pytest
@@ -54,6 +55,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "unwired: tests a component the agent never calls — its ids are not counted",
     )
+    config.addinivalue_line(
+        "markers",
+        "documents_gap(why): asserts a statement is missing — listed with its reason, "
+        "never counted as an untagged oversight",
+    )
     _report = Report()
     _vocab = statements.load()
 
@@ -72,6 +78,13 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         raise pytest.UsageError(f"discharges names statements that do not exist:\n{detail}")
 
 
+def _gap_of(item: pytest.Item) -> str:
+    marker = item.get_closest_marker("documents_gap")
+    if marker is None:
+        return ""
+    return str(marker.args[0]) if marker.args else "unstated"
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
     outcome = yield
@@ -87,6 +100,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
             passed=result.passed,
             tooling=item.get_closest_marker("tooling") is not None,
             unwired=item.get_closest_marker("unwired") is not None,
+            gap=_gap_of(item),
         )
     )
     scored = item.get_closest_marker("scored") is not None

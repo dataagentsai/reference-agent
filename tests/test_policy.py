@@ -155,6 +155,7 @@ def test_the_failure_is_visible_on_the_trace(exporter) -> None:
     assert attrs["agent.policy.blocked_by"] == "explodes"
 
 
+@pytest.mark.discharges("AHC-0094")
 def test_first_block_wins_and_later_rules_do_not_run() -> None:
     ran: list[str] = []
 
@@ -170,6 +171,7 @@ def test_first_block_wins_and_later_rules_do_not_run() -> None:
     assert ran == ["blocks"]
 
 
+@pytest.mark.discharges("AHC-0094")
 def test_an_empty_rule_set_allows() -> None:
     assert not pol.enforce(reply("x"), rules=()).blocked
 
@@ -360,6 +362,10 @@ def test_separators_do_not_make_a_real_amount_look_invented() -> None:
     assert not pol.enforce(reply("We have refunded Rs 12,400.", REFUNDED)).blocked
 
 
+@pytest.mark.documents_gap(
+    "grounding compares identifiers, so a claim built only from words the tools "
+    "did return passes it"
+)
 def test_what_entity_grounding_cannot_catch() -> None:
     """Stated as a test so the limit is a fact rather than a hope.
 
