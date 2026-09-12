@@ -118,6 +118,7 @@ def test_escalation_is_checked_before_intent() -> None:
     assert router.route("cancel AB-12345, actually get me a manager").kind == "escalate"
 
 
+@pytest.mark.discharges("P-DIRECT", "AHC-0100")
 def test_a_direct_route_carries_everything_the_handler_needs() -> None:
     decision = router.route("where is order AB-12345")
     assert decision.kind == "direct"
@@ -125,6 +126,7 @@ def test_a_direct_route_carries_everything_the_handler_needs() -> None:
     assert decision.args == {"order_id": "AB-12345"}
 
 
+@pytest.mark.discharges("P-DIRECT-READS", "AHC-0100")
 def test_writes_are_never_direct() -> None:
     """A deterministic path is cheaper; it is not a place to hide an
     irreversible effect."""

@@ -112,6 +112,7 @@ async def test_refusal_and_escalation_never_call_the_model(
     assert llm.calls == []
 
 
+@pytest.mark.discharges("P-DIRECT", "AHC-0100")
 async def test_a_direct_route_answers_without_the_model(server) -> None:
     """The deterministic path. No model call, and the reply is templated."""
     llm = ScriptedClient([])
@@ -124,6 +125,7 @@ async def test_a_direct_route_answers_without_the_model(server) -> None:
     assert llm.calls == []
 
 
+@pytest.mark.discharges("P-DIRECT", "AHC-0100")
 async def test_an_ambiguous_turn_reaches_the_loop(server) -> None:
     llm = ScriptedClient([calls("get_order", order_id="AB-1"), says("It has shipped.")])
     async with open_tools(server) as tools:

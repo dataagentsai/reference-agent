@@ -114,6 +114,7 @@ def test_route_round_trips_through_its_discriminator(kind: str, route: Route) ->
     ],
     ids=["direct", "refuse", "escalate", "agentic"],
 )
+@pytest.mark.discharges("P-DIRECT", "AHC-0100")
 def test_only_the_agentic_route_reaches_the_model(route: Route, reaches_model: bool) -> None:
     assert (route.kind == "agentic") is reaches_model
 

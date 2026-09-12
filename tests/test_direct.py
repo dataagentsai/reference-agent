@@ -18,6 +18,7 @@ from support_agent.entrypoint import direct
 @pytest.mark.parametrize(
     ("intent", "name"), sorted(router.DIRECT_HANDLERS.items()), ids=lambda v: str(v)
 )
+@pytest.mark.discharges("P-DIRECT")
 def test_every_handler_the_router_names_is_registered(intent: Intent, name: str) -> None:
     assert name in direct.HANDLERS, f"the router routes {intent} to {name!r}, which is missing"
 
