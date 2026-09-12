@@ -1,0 +1,29 @@
+# The same request three times, and nobody has said the word "human".
+#
+# F-025: this rule shipped and could not fire, because the count reset on any
+# turn the agent answered — and a customer who asks again has not been resolved,
+# whatever the turn that answered them recorded. The customer never quotes an
+# order number, so every turn goes to the loop, and the router classifies each
+# one the same way. That is what makes them the *same* ask.
+apiVersion: awd-scenario/v0
+scenario: asking for the same thing three times fetches a person
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: Three asks for a cancellation, no order number, and a person takes over.
+discharges: [esc:repeated-intent, fact:repeated_intent, op:escalate]
+max_turns: 4
+step_seconds: 600
+
+actor:
+  says:
+    - I want to cancel my order
+    - I want to cancel my order
+    - I want to cancel my order
+    - please
+
+desk:
+  resolves: handled
+
+expect:
+  - {handed_off: 1}
+  - {world: unchanged}

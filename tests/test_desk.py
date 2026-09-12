@@ -266,7 +266,10 @@ async def test_the_clock_drives_expiry_rather_than_a_rewritten_row() -> None:
     ticking = Clock(step_s=20 * MINUTE)
     desk = Desk.never_comes(store(), esc.resolve)
     world = Live.start(load(WORLD))
-    actor = ScriptedActor(["I want to speak to a human", "any update?"])
+    # Three turns: the window closes during the second, and the third is when the
+    # agent looks and finds nothing came. Time moves on a tick per turn now and
+    # not on every read, so the turn that observes the lapse has to exist.
+    actor = ScriptedActor(["I want to speak to a human", "any update?", "anyone?"])
 
     async with connect(project(world), ledger=InMemoryLedger()) as tools:
         agent = ep.build(
@@ -277,7 +280,7 @@ async def test_the_clock_drives_expiry_rather_than_a_rewritten_row() -> None:
             clock=ticking,
         )
         record = await run_scenario(
-            Scenario(name="nobody ever came", max_turns=2),
+            Scenario(name="nobody ever came", max_turns=3),
             live=world,
             actor=actor,
             agent=agent,

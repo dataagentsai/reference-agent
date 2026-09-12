@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 from agenttwin import (
+    Clock,
     Live,
     load,
     load_scenario,
@@ -95,8 +96,12 @@ def obeys_the_note() -> ScriptedClient:
 
 
 def answers_plainly() -> ScriptedClient:
-    """One ordinary answer. The first attempt at it is throttled, so the client
-    that survives to produce this is the one under test."""
+    """One ordinary answer, many times over.
+
+    Long enough for the longest conversation that uses it. A script that runs
+    dry is not a quiet no-op: every later turn fails, the failures accumulate,
+    and a rule fires on them — which is how a twelve-turn scenario raised a
+    second escalation nobody wrote."""
     return ScriptedClient(
         [
             ModelResponse(
@@ -104,7 +109,7 @@ def answers_plainly() -> ScriptedClient:
                 usage=Usage(input_tokens=5, output_tokens=2),
             )
         ]
-        * 3
+        * 30
     )
 
 
@@ -149,6 +154,10 @@ SCRIPTS = {
     "refused-twice-reaches-a-person": asks_for_a_human,
     "a-lost-parcel-goes-to-a-person": asks_for_a_human,
     "the-reviewer-says-no": asks_for_a_refund,
+    "the-model-fails-twice": asks_for_a_human,
+    "a-long-conversation-fetches-a-person": answers_plainly,
+    "asking-three-times": answers_plainly,
+    "while-a-person-holds-it": asks_for_a_human,
 }
 """Scenarios that need the loop, and the reasoning the suite supplies for them.
 Anything absent gets an empty script, so reaching the model at all raises."""
@@ -162,14 +171,21 @@ async def test_a_declared_scenario_passes_every_check_it_makes(path: Path) -> No
 
     timeline = timeline_for(scenario)
     wrap = perturbed(live, timeline)  # always: the wrapper is what counts calls
+    # One clock for the agent and the people offstage. Two of them means the desk
+    # reviews at a moment the agent has not reached, so everything has expired by
+    # the time anybody looks (F-033).
+    clock = Clock(step_s=scenario.step_seconds)
 
     async with subject_for(
         live,
         llm=model_for(path.stem),
         wrap=wrap,
         provider_faults=provider_faults(scenario),
+        clock=clock,
     ) as subject:
-        record, outcomes = await run_file(path, subject=subject, live=live, timeline=timeline)
+        record, outcomes = await run_file(
+            path, subject=subject, live=live, timeline=timeline, clock=clock
+        )
 
     failed = [f"{o.check} — {o.detail}" for o in outcomes if not o.passed]
     assert failed == [], f"{scenario.scenario}:\n  " + "\n  ".join(failed)
@@ -185,7 +201,7 @@ def test_every_scenario_names_what_it_discharges() -> None:
         assert load_scenario(path).discharges, f"{path.name} discharges nothing"
 
 
-COVERED_AT_LEAST = 26
+COVERED_AT_LEAST = 36
 """What scenarios reached when this ratchet was set, 2026-09-12 — 17 of 55. It turns one
 way: a statement that has been demonstrated end to end does not stop being
 demonstrated because somebody deleted the scenario that did it."""

@@ -1,0 +1,33 @@
+# The provider fails twice, and the second failure fetches a person.
+#
+# One outage is bad luck and the customer is told something true. Two in a row is
+# a conversation that is not going to recover by itself, and the rule that
+# notices reads a *fact about the conversation* rather than the turn's words —
+# which is the whole distinction between the two tiers.
+apiVersion: awd-scenario/v0
+scenario: two failed turns in a row fetch a person
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  The model is unreachable twice. Nothing is claimed, nothing changes, and a
+  person ends up holding the conversation.
+discharges: [esc:tool-unavailable, fact:consecutive_failed, fact:termination, op:escalate]
+max_turns: 3
+step_seconds: 600
+
+actor:
+  says:
+    - I need help with something about my account
+    - are you still there
+    - hello?
+
+perturbations:
+  - {kind: provider_unavailable, at_call: 1}
+  - {kind: provider_unavailable, at_call: 2}
+
+desk:
+  resolves: handled
+
+expect:
+  - {handed_off: 1}
+  - {world: unchanged}

@@ -1,0 +1,31 @@
+# A colleague has the conversation, and the agent does not act while they do.
+#
+# The defect this closes was invisible from the transcript: the agent handed over
+# and then, on the next turn, answered the customer itself — two people working
+# the same conversation without either knowing. What must be true is stated on
+# the world rather than in words: while a person owns it, the agent touches
+# nothing.
+apiVersion: awd-scenario/v0
+scenario: while a person holds the conversation the agent does not act
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  A handoff, then two more customer turns before anybody picks it up. The agent
+  must not read, write, or answer as though it still owned the conversation.
+discharges: [P-ESC-OWNS, P-ESC-QUEUE, op:escalate, ext:escalation_desk]
+max_turns: 3
+step_seconds: 60
+
+actor:
+  says:
+    - I want to speak to a human
+    - where is my order AB-10003
+    - cancel my order AB-10002
+
+desk:
+  resolves: never
+
+expect:
+  - {called: get_order, times: 0}
+  - {effect: cancel_order, times: 0}
+  - {world: unchanged}

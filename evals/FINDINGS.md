@@ -1141,6 +1141,42 @@ which is the ratchet working: `loop/screen.py` (the positions) and
 
 ---
 
+## F-033 · The agent and the people offstage were running on different clocks
+
+**Found** 2026-09-12, writing a twelve-turn escalation scenario: the desk
+reported handling eight escalations in a conversation whose cap is two.
+
+**Severity** High for the instrument. Nothing was wrong with the agent, and
+every timing-sensitive scenario was measuring something other than what it
+claimed.
+
+Two faults, and the second is the interesting one.
+
+**The clock was not shared.** The runner made a stepping clock for the offstage
+humans, and the implementation was built without one — so the agent stamped
+escalations with the wall clock while a reviewer looked at a moment an hour into
+the future. Everything had expired before anyone came, every time, and the runs
+still passed because the scenarios asserted only that *something* happened.
+
+**Reading the clock moved it.** `Clock.__call__` advanced by a step on every
+call. That is usable exactly as long as one participant holds it; the moment the
+agent shares it, time races — a single turn reads the time to mint an approval,
+to check a hold and to stamp an escalation, and each read pushed the world
+further into the future than the scenario said. Sharing the object made it
+worse, not better.
+
+**Fixed — 2026-09-12.** Reading is idempotent: `clock()` says what time it is and
+`clock.tick()` is the only thing that moves it, once per turn. The agent and the
+humans are given the same clock, so a scenario's *"the reviewer took ten
+minutes"* means one thing.
+
+**The same shape as F-021**, one level up. There the agent read the wall clock
+while everything else read an injected one; here the harness did. A clock that
+advances when you look at it cannot be shared, and a simulation with two clocks
+is two simulations.
+
+---
+
 ## F-032 · A customer who cannot find their order number has nowhere to go
 
 **Found** 2026-09-12, by the first **model-driven** customer — a persona that

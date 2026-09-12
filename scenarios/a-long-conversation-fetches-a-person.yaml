@@ -1,0 +1,36 @@
+# Ten turns without resolution, and the length itself is the signal.
+#
+# Nothing in this conversation is wrong: no refusal, no failure, no repeated
+# request. It has simply gone on, which is a thing a support desk recognises and
+# an agent usually cannot. `turn_count` is the least clever of the Tier 2 facts
+# and the one that catches what the others miss.
+apiVersion: awd-scenario/v0
+scenario: a conversation that runs long fetches a person on its own
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: Ten turns of ordinary questions, and a person picks it up unasked.
+discharges: [esc:turns-exceeded, fact:turn_count, op:escalate, P-ESC-ONCE]
+max_turns: 12
+step_seconds: 600
+
+actor:
+  says:
+    - hello
+    - I have a question about returns
+    - how long do I have
+    - and for sale items
+    - what about exchanges
+    - is there a fee
+    - how do I post it back
+    - do I need the original box
+    - when would I get the money
+    - does it go back to my card
+    - and if I paid partly with a voucher
+    - one more thing
+
+desk:
+  resolves: handled
+
+expect:
+  - {handed_off: 1}
+  - {world: unchanged}
