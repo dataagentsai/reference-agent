@@ -8,7 +8,7 @@ scenario: nobody reviews the refund, and nothing is claimed
 world: ../worlds/clothing.yaml
 as: C-1042
 objective: The reviewer never comes. The world must not move, and the reply must not pretend.
-discharges: [op:request_refund, AHC-0057, P-APPROVAL-WAIT, AAC-0110]
+discharges: [op:request_refund, AHC-0057, ext:approval_queue, P-APPROVAL-WAIT, AAC-0110]
 max_turns: 3
 
 actor:

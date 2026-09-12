@@ -14,7 +14,7 @@ objective: >-
   The customer asks for their money back on an order that has been returned.
   It is above the automatic limit, so a person decides — and the customer is
   told nothing that is not yet true.
-discharges: [op:issue_refund, op:request_refund, P-REFUND, AHC-0057, P-APPROVAL-WAIT]
+discharges: [op:issue_refund, op:request_refund, P-REFUND, AHC-0057, ext:approval_queue, P-APPROVAL-WAIT]
 max_turns: 3
 step_seconds: 3600
 

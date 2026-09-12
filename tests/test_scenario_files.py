@@ -182,7 +182,7 @@ def test_every_scenario_names_what_it_discharges() -> None:
         assert load_scenario(path).discharges, f"{path.name} discharges nothing"
 
 
-COVERED_AT_LEAST = 19
+COVERED_AT_LEAST = 21
 """What scenarios reached when this ratchet was set, 2026-09-12 — 17 of 55. It turns one
 way: a statement that has been demonstrated end to end does not stop being
 demonstrated because somebody deleted the scenario that did it."""
