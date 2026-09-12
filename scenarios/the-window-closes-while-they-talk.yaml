@@ -21,13 +21,16 @@ discharges: [P-RETURN, op:open_return_request, ext:order_system]
 max_turns: 3
 step_days: 13
 
+# The customer does not ask for the return until the last turn, so an agent that
+# opens one earlier is not being punished for doing the right thing at the right
+# time. Only the final ask is outside the window, and only it may be refused.
 actor:
   says:
-    - can I return AB-10003
+    - I bought a jacket last week and I am not sure about it
     - I am still thinking about it
     - alright, I want to return AB-10003 now
 
 expect:
   - {row: order, id: AB-10003, field: days_since_delivery, equals: 44}
   - {effect: open_return_request, times: 0}
-  - {reply: never_says, text: return is open}
+  - {truthful: order, id: AB-10003}

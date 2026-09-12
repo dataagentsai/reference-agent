@@ -29,8 +29,8 @@ from datetime import UTC, datetime
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from agenttwin import Live, load, load_scenario, perturbed, provider_faults, run_file, timeline_for
-
 from evals.simulation import subject_for
+
 from support_agent.config import Settings, resolve
 from support_agent.cost import Meter
 from support_agent.llm import GroqClient
@@ -45,9 +45,11 @@ async def once(path: pathlib.Path, settings: Settings) -> tuple[list, str, float
     scenario = load_scenario(path)
     live = Live.start(load(path.parent / scenario.world))
     config = resolve(settings)
-    meter = Meter(config.model, ceiling_usd=config.budgets.max_cost_usd)
+    meters: list[Meter] = []
     timeline = timeline_for(scenario)
-    wrap = perturbed(live, timeline) if timeline.perturbations else None
+    # Always wrapped, even with nothing to fire: the wrapper is what counts calls,
+    # and a scenario asserting that the agent *read* before acting needs them.
+    wrap = perturbed(live, timeline)
 
     client = GroqClient(
         api_key=settings.provider_api_key,
@@ -61,9 +63,10 @@ async def once(path: pathlib.Path, settings: Settings) -> tuple[list, str, float
         wrap=wrap,
         provider_faults=provider_faults(scenario),
         config=config,
+        meters=meters,
     ) as subject:
         record, outcomes = await run_file(path, subject=subject, live=live, timeline=timeline)
-    return list(outcomes), record.reply, float(meter.spend)
+    return list(outcomes), record.reply, float(sum(m.spend for m in meters))
 
 
 async def main(runs: int) -> int:
@@ -138,29 +141,29 @@ def render(results, failures, spend, crashed, runs, settings) -> str:
             f"| `{scenario}` | {len(checks)} | **{rate:.2f}**{mark} | ${spend[scenario]:.4f} |"
         )
 
-    lines += ["", "## Per check", ""]
+    return "\n".join(lines + _per_check(results) + _crashed(crashed) + _failures(failures))
+
+
+def _per_check(results) -> list[str]:
+    lines = ["", "## Per check", ""]
     for scenario in sorted(results):
-        lines.append(f"### {scenario}")
-        lines.append("")
+        lines += [f"### {scenario}", ""]
         for check, outcomes in results[scenario].items():
-            rate = sum(outcomes) / len(outcomes)
-            lines.append(f"- `{rate:.2f}` {check}")
+            lines.append(f"- `{sum(outcomes) / len(outcomes):.2f}` {check}")
         lines.append("")
+    return lines
 
-    if crashed:
-        lines += ["## Crashed", "", "A run that raised is a result, and this is it.", ""]
-        lines += [f"- `{name}` — {why}" for name, why in sorted(crashed.items())]
-        lines.append("")
 
-    if failures:
-        lines += ["## What failed", ""]
-        for scenario, entries in sorted(failures.items()):
-            lines.append(f"### {scenario}")
-            lines.append("")
-            lines += [f"- {entry}" for entry in entries]
-            lines.append("")
-    else:
-        lines += [
+def _crashed(crashed) -> list[str]:
+    if not crashed:
+        return []
+    lines = ["## Crashed", "", "A run that raised is a result, and this is it.", ""]
+    return lines + [f"- `{name}` — {why}" for name, why in sorted(crashed.items())] + [""]
+
+
+def _failures(failures) -> list[str]:
+    if not failures:
+        return [
             "## What failed",
             "",
             "Nothing, in this run. That is a weaker statement than it looks at these",
@@ -168,7 +171,10 @@ def render(results, failures, spend, crashed, runs, settings) -> str:
             "than *no failure exists*.",
             "",
         ]
-    return "\n".join(lines)
+    lines = ["## What failed", ""]
+    for scenario, entries in sorted(failures.items()):
+        lines += [f"### {scenario}", ""] + [f"- {entry}" for entry in entries] + [""]
+    return lines
 
 
 if __name__ == "__main__":

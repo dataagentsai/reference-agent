@@ -43,6 +43,7 @@ from support_agent.contracts import (
     ModelThrottled,
     ModelUnavailable,
 )
+from support_agent.cost import Meter
 from support_agent.idempotency import InMemoryLedger
 from support_agent.resilience import ResilientLLM
 from support_agent.state import Conversation, InMemoryCheckpointStore
@@ -96,6 +97,7 @@ async def subject_for(
     wrap: object = None,
     provider_faults: tuple[tuple[int, str, float | None], ...] = (),
     config: RunConfig | None = None,
+    meters: list[Meter] | None = None,
 ) -> AsyncIterator[Subject]:
     """Wire this agent against a live world and hand back what a scenario drives.
 
@@ -105,6 +107,20 @@ async def subject_for(
     to the projection and never inspected."""
     approvals = ap.InMemoryApprovalStore()
     escalations = esc.InMemoryEscalationStore()
+    # A meter is made per unit of work, so the only way to know what a scenario
+    # cost is to keep the ones this run made. Kept here rather than on the
+    # contract: what a run costs is real, and it is not something a scenario
+    # should be able to see, or it becomes something a scenario can assert on
+    # and then nobody can change the prompt.
+    metering = None
+    if config is not None:
+
+        def metering() -> Meter:  # noqa: F811 — the None case is the default
+            made = Meter(config.model, ceiling_usd=config.budgets.max_cost_usd)
+            if meters is not None:
+                meters.append(made)
+            return made
+
     if provider_faults:
         llm = FaultyProvider(llm, {call: (kind, after) for call, kind, after in provider_faults})
     # Wrapped exactly as the deployment wraps it (F-029). A simulation that
@@ -124,6 +140,7 @@ async def subject_for(
             escalations=escalations,
             clock=clock,
             config=config,
+            metering=metering,
         )
 
         async def say(

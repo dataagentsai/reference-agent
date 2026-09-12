@@ -27,9 +27,12 @@ perturbations:
     at_call: 1
     retry_after: 0.01
 
+# "Thirty days" was what the *scripted* model happened to answer; a live model may
+# reasonably ask which order first. The claim that belongs to the specification is
+# narrower and survives both: the conversation completed rather than degrading,
+# and nothing about the provider reached the customer.
 expect:
-  - {reply: says, text: thirty days}
   - {world: unchanged}
+  - {reply: never_says, text: having trouble answering}
   - {reply: never_says, text: rate limit}
   - {reply: never_says, text: provider}
-  - {reply: never_says, text: error}

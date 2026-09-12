@@ -88,10 +88,8 @@ def asks_for_a_human() -> ScriptedClient:
 
 
 def wants_to_cancel() -> ScriptedClient:
-    look = ModelResponse(
-        tool_calls=(ToolCall(id="c1", name="get_order", arguments={"id": "AB-10002"}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
+    """The customer's first turn is answered by the deterministic route, which is
+    what makes the read happen; the model is first called on the second turn."""
     act = ModelResponse(
         tool_calls=(ToolCall(id="c2", name="cancel_order", arguments={"id": "AB-10002"}),),
         usage=Usage(input_tokens=5, output_tokens=2),
@@ -100,7 +98,7 @@ def wants_to_cancel() -> ScriptedClient:
         text="That order was still pending, so I have cancelled it.",
         usage=Usage(input_tokens=5, output_tokens=2),
     )
-    return ScriptedClient([look, act, claim, claim, claim])
+    return ScriptedClient([act, claim, claim, claim])
 
 
 def asks_for_a_refund() -> ScriptedClient:
@@ -134,7 +132,7 @@ async def test_a_declared_scenario_passes_every_check_it_makes(path: Path) -> No
     live = Live.start(load(path.parent / scenario.world))
 
     timeline = timeline_for(scenario)
-    wrap = perturbed(live, timeline) if scenario.perturbations else None
+    wrap = perturbed(live, timeline)  # always: the wrapper is what counts calls
 
     async with subject_for(
         live,

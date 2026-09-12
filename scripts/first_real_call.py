@@ -9,7 +9,7 @@ It runs behind a `Recorder`, so one live call becomes a permanent offline
 cassette rather than a one-off. Run it, then run `--replay` to prove the
 recording reproduces the run with no network at all.
 
-    uv run python scripts/first_real_call.py           # live, records
+    uv run python scripts/first_real_call.py           # live; --record to overwrite
     uv run python scripts/first_real_call.py --replay   # offline, from disk
 
 The key is read from AGENT_PROVIDER_API_KEY and never printed.
@@ -58,7 +58,7 @@ def build_server() -> MCPServer:
     return srv
 
 
-async def main(replay: bool) -> int:
+async def main(replay: bool, record: bool = False) -> int:
     tel.configure()
     settings = Settings(provider_api_key=os.environ.get("AGENT_PROVIDER_API_KEY", ""))
     if not replay and not settings.provider_api_key:
@@ -107,12 +107,18 @@ async def main(replay: bool) -> int:
             meter.record(exchange.response.usage)
         print(f"  calls     {meter.calls}")
         print(f"  cost      ${meter.spend:.6f}")
-        recorder.cassette.save(CASSETTE)
-        where = CASSETTE.relative_to(Path.cwd())
-        print(f"  recorded  {where} ({len(recorder.cassette)} exchanges)")
+        # The committed recording is a test fixture, and a live run is not a
+        # reason to replace it: running this script once quietly overwrote it and
+        # a release gate failed on a recording nobody meant to change.
+        if CASSETTE.exists() and not record:
+            print(f"  kept      {CASSETTE.name} unchanged — pass --record to replace it")
+        else:
+            recorder.cassette.save(CASSETTE)
+            where = CASSETTE.relative_to(Path.cwd())
+            print(f"  recorded  {where} ({len(recorder.cassette)} exchanges)")
 
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main("--replay" in sys.argv)))
+    raise SystemExit(asyncio.run(main("--replay" in sys.argv, "--record" in sys.argv)))
