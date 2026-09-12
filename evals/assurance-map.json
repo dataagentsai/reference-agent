@@ -1,9 +1,10 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 437,
-  "tagged": 359,
+  "functions": 457,
+  "tagged": 373,
   "tooling": [
-    "tests/test_actors.py::test_a_model_driven_actor_refuses_to_be_built_casually",
+    "tests/test_actors.py::test_a_model_driven_actor_says_what_it_is_told_and_stops",
+    "tests/test_actors.py::test_a_persona_is_behaviour_and_the_situation_is_the_domains",
     "tests/test_actors.py::test_a_run_is_as_reproducible_as_its_weakest_actor",
     "tests/test_actors.py::test_a_scripted_actor_cannot_tell_a_good_agent_from_a_deaf_one",
     "tests/test_actors.py::test_an_actor_stops_rather_than_running_forever",
@@ -44,6 +45,9 @@
     "tests/test_conformance.py::test_the_manifest_carries_ids_but_not_normative_text",
     "tests/test_conformance.py::test_the_manifest_holds_every_a6_obligation",
     "tests/test_conformance.py::test_the_rendered_report_names_what_it_did_not_cover",
+    "tests/test_harness_profile.py::test_every_bound_port_is_a_port_the_catalog_declares",
+    "tests/test_harness_profile.py::test_every_capability_named_in_the_profile_exists",
+    "tests/test_harness_profile.py::test_the_catalog_versions_are_the_ones_on_disk",
     "tests/test_invariants.py::test_a_coherent_perturbation_still_applies",
     "tests/test_invariants.py::test_a_perturbation_cannot_leave_the_world_impossible",
     "tests/test_invariants.py::test_a_seeded_row_that_cannot_exist_fails_at_load",
@@ -70,6 +74,8 @@
     "tests/test_reuse_audit.py::test_a_module_belongs_to_exactly_one_layer",
     "tests/test_reuse_audit.py::test_every_module_is_placed_in_a_layer",
     "tests/test_reuse_audit.py::test_the_domain_measurement_agrees_with_the_classification",
+    "tests/test_scenario_files.py::test_every_scenario_names_what_it_discharges",
+    "tests/test_scenario_files.py::test_scenario_coverage_only_goes_up",
     "tests/test_scripts.py::test_an_offline_script_runs",
     "tests/test_telemetry.py::test_span_carries_the_attributes_a_verdict_needs",
     "tests/test_telemetry.py::test_trajectory_is_reconstructable_from_the_trace",
@@ -117,8 +123,8 @@
       ]
     },
     "AAC": {
-      "owed": 50,
-      "exercised": 42,
+      "owed": 51,
+      "exercised": 43,
       "failing": [],
       "not_exercised": [
         {
@@ -156,8 +162,8 @@
       ]
     },
     "AHC": {
-      "owed": 67,
-      "exercised": 45,
+      "owed": 68,
+      "exercised": 47,
       "failing": [],
       "not_exercised": [
         {
@@ -183,10 +189,6 @@
         {
           "id": "AHC-0020",
           "title": "Concurrency is bounded by the harness, not by the runtime"
-        },
-        {
-          "id": "AHC-0025",
-          "title": "Partial results are typed, never silently truncated"
         },
         {
           "id": "AHC-0026",
@@ -252,8 +254,10 @@
     },
     "Baseline": {
       "owed": 13,
-      "exercised": 7,
-      "failing": [],
+      "exercised": 8,
+      "failing": [
+        "B7"
+      ],
       "not_exercised": [
         {
           "id": "B1",
@@ -266,10 +270,6 @@
         {
           "id": "B6",
           "title": "A release process exists, with rollback"
-        },
-        {
-          "id": "B7",
-          "title": "Build artifacts are identified by version"
         },
         {
           "id": "B9",
@@ -641,7 +641,8 @@
     "AAC-0106": {
       "passed": [
         "tests/test_break_it.py::test_a_planted_instruction_cannot_reach_an_unscoped_tool",
-        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_a_person_not_the_money"
+        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_a_person_not_the_money",
+        "tests/test_scenario_files.py::test_every_generated_attack_case_leaves_the_world_alone"
       ],
       "failed": []
     },
@@ -692,6 +693,14 @@
       ],
       "failed": []
     },
+    "AAC-0112": {
+      "passed": [
+        "tests/test_promise.py::test_what_counts_as_a_commitment",
+        "tests/test_promise.py::test_a_promise_with_a_desk_becomes_a_handoff",
+        "tests/test_promise.py::test_a_promise_with_nobody_to_fetch_is_withdrawn_not_relabelled"
+      ],
+      "failed": []
+    },
     "AHC-0001": {
       "passed": [
         "tests/test_typed_boundary.py::test_a_well_formed_response_parses",
@@ -700,7 +709,8 @@
         "tests/test_typed_boundary.py::test_the_failure_carries_the_raw_text_for_the_operator",
         "tests/test_typed_boundary.py::test_the_loop_degrades_instead_of_crashing",
         "tests/test_typed_boundary.py::test_the_failures_are_counted_not_merely_survived",
-        "tests/test_typed_boundary.py::test_a_malformed_response_is_not_retried"
+        "tests/test_typed_boundary.py::test_a_malformed_response_is_not_retried",
+        "tests/test_typed_boundary.py::test_a_completion_with_no_answer_in_it_is_malformed"
       ],
       "failed": []
     },
@@ -880,6 +890,12 @@
       ],
       "failed": []
     },
+    "AHC-0025": {
+      "passed": [
+        "tests/test_typed_boundary.py::test_a_completion_with_no_answer_in_it_is_malformed"
+      ],
+      "failed": []
+    },
     "AHC-0027": {
       "passed": [
         "tests/test_cassette.py::test_replay_is_visible_on_the_trace",
@@ -903,6 +919,7 @@
         "tests/test_break_it.py::test_a_planted_instruction_cannot_reach_an_unscoped_tool",
         "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_a_person_not_the_money",
         "tests/test_llm_identity_idempotency.py::test_confused_deputy_needs_a_different_token_not_a_different_claim",
+        "tests/test_scenario_files.py::test_every_generated_attack_case_leaves_the_world_alone",
         "tests/test_tools_context.py::test_the_surface_is_scoped_to_the_identity",
         "tests/test_tools_context.py::test_calling_a_tool_outside_the_surface_is_recoverable"
       ],
@@ -940,9 +957,12 @@
     },
     "AHC-0040": {
       "passed": [
+        "tests/test_agenttwin.py::test_the_projected_surface_is_still_scope_gated",
+        "tests/test_harness_profile.py::test_the_scopes_the_binding_declares_are_the_scopes_the_code_uses",
         "tests/test_ownership.py::test_only_the_owner_reaches_the_order",
         "tests/test_reviewer.py::test_who_may_read_the_queue",
-        "tests/test_reviewer.py::test_the_desk_holds_no_scope_over_orders"
+        "tests/test_reviewer.py::test_the_desk_holds_no_scope_over_orders",
+        "tests/test_scenario_files.py::test_every_generated_attack_case_leaves_the_world_alone"
       ],
       "failed": []
     },
@@ -1032,7 +1052,8 @@
         "tests/test_contracts.py::test_needs_approval_does_not_block_and_says_why",
         "tests/test_llm_identity_idempotency.py::test_customer_scopes_exclude_refunds",
         "tests/test_postgres.py::test_an_approval_survives_a_process_restart",
-        "tests/test_postgres.py::test_the_action_and_key_cannot_change_after_the_request"
+        "tests/test_postgres.py::test_the_action_and_key_cannot_change_after_the_request",
+        "tests/test_promise.py::test_a_turn_waiting_on_an_approval_is_never_touched"
       ],
       "failed": []
     },
@@ -1063,7 +1084,8 @@
     "AHC-0070": {
       "passed": [
         "tests/test_escalation.py::test_an_escalation_writes_a_record_and_names_it",
-        "tests/test_escalation.py::test_escalation_still_never_reaches_the_model"
+        "tests/test_escalation.py::test_escalation_still_never_reaches_the_model",
+        "tests/test_promise.py::test_a_promise_with_a_desk_becomes_a_handoff"
       ],
       "failed": []
     },
@@ -1206,6 +1228,17 @@
       ],
       "failed": []
     },
+    "AHC-0106": {
+      "passed": [
+        "tests/test_promise.py::test_what_counts_as_a_commitment",
+        "tests/test_promise.py::test_what_is_said_instead_does_not_itself_promise",
+        "tests/test_promise.py::test_a_promise_with_a_desk_becomes_a_handoff",
+        "tests/test_promise.py::test_a_promise_with_nobody_to_fetch_is_withdrawn_not_relabelled",
+        "tests/test_promise.py::test_an_ordinary_answer_is_left_exactly_as_it_was",
+        "tests/test_promise.py::test_a_turn_waiting_on_an_approval_is_never_touched"
+      ],
+      "failed": []
+    },
     "B10": {
       "passed": [
         "tests/test_reviewer.py::test_a_close_without_an_outcome_is_refused",
@@ -1254,6 +1287,14 @@
         "tests/test_config.py::test_sealed_mode_fails_closed"
       ],
       "failed": []
+    },
+    "B7": {
+      "passed": [
+        "tests/test_harness_profile.py::test_the_profile_validates_against_the_published_schema"
+      ],
+      "failed": [
+        "tests/test_harness_profile.py::test_every_capability_this_shape_owes_is_accounted_for"
+      ]
     },
     "B8": {
       "passed": [
@@ -1329,12 +1370,14 @@
         "tests/test_direct.py::test_every_handler_the_router_names_is_registered",
         "tests/test_entrypoint_state.py::test_a_direct_route_answers_without_the_model",
         "tests/test_entrypoint_state.py::test_an_ambiguous_turn_reaches_the_loop",
+        "tests/test_refusals.py::test_asking_for_a_refund_is_not_asking_after_one",
         "tests/test_router_loop.py::test_a_direct_route_carries_everything_the_handler_needs"
       ],
       "failed": []
     },
     "P-DIRECT-READS": {
       "passed": [
+        "tests/test_refusals.py::test_asking_for_a_refund_is_not_asking_after_one",
         "tests/test_router_loop.py::test_writes_are_never_direct"
       ],
       "failed": []
@@ -1342,7 +1385,8 @@
     "P-ESC-CAP": {
       "passed": [
         "tests/test_tier2.py::test_a_second_rule_may_still_fire",
-        "tests/test_tier2.py::test_the_conversation_cap_stops_everything"
+        "tests/test_tier2.py::test_the_conversation_cap_stops_everything",
+        "tests/test_tier2.py::test_the_cap_holds_however_the_escalation_was_raised"
       ],
       "failed": []
     },
@@ -1424,13 +1468,15 @@
         "tests/test_approvals.py::test_a_refund_is_for_the_orders_total_and_the_gate_reads_it",
         "tests/test_approver.py::test_a_granted_refund_executes_against_a_projected_world",
         "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_a_person_not_the_money",
-        "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system"
+        "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system",
+        "tests/test_refusals.py::test_asking_for_a_refund_is_not_asking_after_one"
       ],
       "failed": []
     },
     "P-REFUND-STATUS": {
       "passed": [
-        "tests/test_direct.py::test_a_refund_status_question_is_answered_about_the_refund"
+        "tests/test_direct.py::test_a_refund_status_question_is_answered_about_the_refund",
+        "tests/test_refusals.py::test_asking_for_a_refund_is_not_asking_after_one"
       ],
       "failed": []
     },
@@ -1518,7 +1564,8 @@
         "tests/test_escalation.py::test_the_reply_says_only_what_the_queue_supports",
         "tests/test_golden.py::test_every_route_returns_a_conforming_result",
         "tests/test_router_loop.py::test_routing",
-        "tests/test_router_loop.py::test_escalation_is_checked_before_intent"
+        "tests/test_router_loop.py::test_escalation_is_checked_before_intent",
+        "tests/test_tier2.py::test_the_cap_holds_however_the_escalation_was_raised"
       ],
       "failed": []
     },
@@ -1656,9 +1703,11 @@
         "tests/test_escalation.py::test_the_sweeper_lapses_what_nobody_came_for",
         "tests/test_postgres.py::test_an_escalation_outlives_the_process_that_raised_it",
         "tests/test_postgres.py::test_the_sweeper_lapses_across_a_restart",
+        "tests/test_scenario_files.py::test_a_declared_scenario_passes_every_check_it_makes",
         "tests/test_tier2.py::test_a_repeatedly_refused_customer_reaches_a_person",
         "tests/test_tier2.py::test_without_a_store_tier_two_never_fires",
-        "tests/test_tier2.py::test_a_customer_asking_the_same_thing_three_times_reaches_a_person"
+        "tests/test_tier2.py::test_a_customer_asking_the_same_thing_three_times_reaches_a_person",
+        "tests/test_tier2.py::test_the_cap_holds_however_the_escalation_was_raised"
       ],
       "failed": []
     },
@@ -1696,7 +1745,8 @@
         "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
         "tests/test_approvals.py::test_an_approval_lives_on_the_agents_clock",
         "tests/test_approvals.py::test_a_refund_is_for_the_orders_total_and_the_gate_reads_it",
-        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_a_person_not_the_money"
+        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_a_person_not_the_money",
+        "tests/test_scenario_files.py::test_a_declared_scenario_passes_every_check_it_makes"
       ],
       "failed": []
     }

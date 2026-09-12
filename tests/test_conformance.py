@@ -60,8 +60,11 @@ def test_the_manifest_holds_every_a6_obligation() -> None:
 
     49 → 50 on 2026-09-12: AAC-0111, written because this agent's authentication
     was tested and required by nothing (G0.6).
+
+    50 → 51 on 2026-09-12: AAC-0112, written because a reader watching a run
+    asked why the agent promised to check something and never came back (F-035).
     """
-    assert len(load()) == 50
+    assert len(load()) == 51
 
 
 # --------------------------------------------------------------------------- #

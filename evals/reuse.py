@@ -75,6 +75,7 @@ PARAMETERISED = {
     "approvals/policy.py",  # the threshold, the TTL, the states a refund is owed in
     "config/__init__.py",  # this deployment's models, budgets, endpoints
     "escalation/rules.py",  # the Tier 2 rule set and the facts it reads
+    "entrypoint/promise.py",  # the gate is universal; the phrase table is English and this voice
     "policy/__init__.py",  # the engine is universal; the claim patterns are this domain's
     "router/__init__.py",  # the engine is universal; the intents and refusals are not
     "telemetry/contract.py",  # the span contract: mechanism, with this agent's span names in it
@@ -96,7 +97,7 @@ LAYERS = {"mechanism": MECHANISM, "parameterised": PARAMETERISED, "per-agent": P
 
 PREDICTION = """Written 2026-09-12, before a second agent exists.
 
-Of 52 modules: 41 mechanism, 6 parameterised, 5 per-agent. By executable lines
+Of 53 modules: 41 mechanism, 7 parameterised, 5 per-agent. By executable lines
 the mechanism share is larger still, because the per-agent modules are small.
 
 **The prediction, for G2.6 to measure.** A second agent in another domain, built

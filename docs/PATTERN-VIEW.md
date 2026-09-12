@@ -8,14 +8,7 @@ forces each. A pattern here was not chosen: it follows from something the
 specification already says, and a regeneration that read the same specification
 would arrive at it too.
 
-**10 patterns entailed** — every pattern this agent uses, and none left over.
-
-*Read that carefully, because it is nearly circular: the library was extracted
-from this reference, and the reference implements what its specification says.
-The claim that can fail is the other direction, and a test holds it — a pattern
-used here that no statement entails is a **decision**, and belongs in the
-profile with its source rather than in a view that presents it as inevitable.
-Today there are none. The first one will be the interesting one.*
+**10 patterns entailed.**
 
 ### PAT-approval-that-returns
 

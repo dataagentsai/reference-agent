@@ -32,7 +32,7 @@ distinction this page exists to keep visible.
 - `esc:tool-unavailable` — the-model-fails-twice
 - `esc:turns-exceeded` — a-long-conversation-fetches-a-person
 - `ext:approval_queue` — nobody-comes, refund-needs-a-person, the-reviewer-says-no
-- `ext:escalation_desk` — a-lost-parcel-goes-to-a-person, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, while-a-person-holds-it
+- `ext:escalation_desk` — a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, while-a-person-holds-it
 - `ext:order_system` — a-stranger-learns-nothing, stale-read-then-refused, the-window-closes-while-they-talk
 - `fact:consecutive_failed` — the-model-fails-twice
 - `fact:refusals` — refused-twice-reaches-a-person
@@ -40,7 +40,7 @@ distinction this page exists to keep visible.
 - `fact:termination` — the-model-fails-twice
 - `fact:turn_count` — a-long-conversation-fetches-a-person
 - `op:cancel_order` — stale-read-then-refused
-- `op:escalate` — a-long-conversation-fetches-a-person, a-lost-parcel-goes-to-a-person, asking-three-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, the-model-fails-twice, while-a-person-holds-it
+- `op:escalate` — a-long-conversation-fetches-a-person, a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, asking-three-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, the-model-fails-twice, while-a-person-holds-it
 - `op:get_order` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, planted-instructions, the-provider-throttles
 - `op:issue_refund` — refund-needs-a-person
 - `op:open_return_request` — the-window-closes-while-they-talk
@@ -74,9 +74,12 @@ Statements from the catalogs rather than this agent's own specification.
 
 - `AAC-0106`
 - `AAC-0110`
+- `AAC-0112`
 - `AHC-0005`
 - `AHC-0021`
 - `AHC-0024`
 - `AHC-0034`
 - `AHC-0040`
 - `AHC-0057`
+- `AHC-0070`
+- `AHC-0106`

@@ -1141,6 +1141,83 @@ which is the ratchet working: `loop/screen.py` (the positions) and
 
 ---
 
+## F-035 · A promise is a completed answer, so the agent can say "let me check" and never come back
+
+**Found** 2026-09-12, by a reader looking at the run view and asking why the
+agent replied *"Let me check on that for you"* and never came back to the
+customer. That text is the scripted model's stand-in, so the first answer was
+"it is a fixture" — which was true about the string and wrong about the
+behaviour it revealed.
+
+**Severity** High, and invisible to every guard here. Proven directly: a model
+that returns `"Let me check that for you."` and calls nothing produces
+
+    result   : Completed
+    reply    : Let me check that for you.
+    term     : goal_reached
+    effects  : []
+
+`goal_reached`, with no effect, no pending approval and no escalation. The turn
+is over. Nothing is scheduled, nobody is waiting on a queue, and no later event
+will produce the answer the customer was just promised. The customer waits
+forever for a system that believes it has finished.
+
+**Why nothing caught it.** The guards here check the past, not the future. The
+truthfulness screen compares claims against tool results, and *"let me look that
+up for you"* is in its own table as **"no claim at all"** — correctly, because it
+asserts nothing that could be false. `AHC-0042`'s no-progress condition watches
+the loop for repetition; this loop did not repeat, it stopped on the first step.
+The step budget was never reached. Every instrument agreed the run went well.
+
+The shape of the mistake: **the loop treats "text and no tool calls" as the goal
+being reached**, and that is right for an answer and wrong for a promise. The
+model's own words decide which one it was, and nothing reads them for the
+difference.
+
+**Not the same as abstention.** `AHC-0063` already says abstention is a harness
+outcome rather than a phrasing choice — "I do not know" must be a typed result,
+not a sentence. This is its mirror: **"I will" must also be typed**, and a
+forward-looking commitment with nothing behind it is not a terminal state. The
+agent has a real vocabulary for work that continues — `NeedsApproval` carries an
+approval id, `Escalated` carries a ticket id, and both say what will bring the
+answer back. A promise carries neither and is filed as done.
+
+**Fixed — 2026-09-12, spec first.** `AHC-0106` states the capability and
+`AAC-0112` the obligation that it is verified. `entrypoint/promise.py` runs after
+Tier 2 — the first point where the question is answerable — and a `Completed`
+whose words commit is either handed to a person, with the reference that proves
+it, or has the sentence withdrawn.
+
+**Two halves, both needed.** The result type does the structural work:
+`Completed` already means nothing is pending and nothing is open, so it is the
+exact set of turns that can hold an empty promise. The phrase table is a
+classifier and is the weak half — it will miss a wording nobody wrote down. The
+type alone over-fires, because most completed answers are honest prose; the
+wording alone fires on `RAISED_REPLY`, which opens "Let me pass you to a
+colleague" and is the truest sentence here, because the reference follows it.
+
+**Found on the way.** The same shape was already in the code on a second path:
+with no desk wired, a run that exhausted its budget said *"let me pass you to a
+colleague"* and nothing was passed. `F-024` had fixed that for an escalation the
+customer *asked* for and not for one a condition raised.
+
+**And a correction to this finding's own premise.** Writing the test, the
+expectation was that `REFUND_WAIT_REPLY` would trip the new rule. It does not:
+*"I have sent this to a colleague to authorise. Nothing has been refunded yet"*
+is written in the past tense, reports what was done and what was not, and
+commits to nothing. The discipline this gate enforces had already been applied
+by hand, once, where somebody was paying attention. The gate is the half that
+does not depend on that happening again.
+
+**What it cost elsewhere.** A test fixture that said "Let me look that up." on
+every turn now fetched a person in three tests about something else — and one of
+them, a gap test asserting that a merely frustrated customer is never escalated,
+started passing for the wrong reason. The fixture says something finished
+instead. A rule that changes what your fixtures mean is a rule that was doing
+nothing before.
+
+---
+
 ## F-034 · The escalation cap counted rules, so a customer could have any number of references
 
 **Found** 2026-09-12, by a **live** twelve-turn run: the desk reported three

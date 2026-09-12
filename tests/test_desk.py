@@ -57,8 +57,15 @@ def who() -> Identity:
 
 def patient() -> ScriptedClient:
     """The agent never reaches the model on an escalated turn, so these exist
-    only for the turns after a handoff has been given back."""
-    return ScriptedClient([ModelResponse(text="Let me look that up.")] * 6)
+    only for the turns after a handoff has been given back.
+
+    It used to say *"Let me look that up."* — an unbacked promise, which
+    AHC-0106 now escalates. That made every test using this fixture fetch a
+    person for a reason none of them was about, and one of them (the frustrated
+    customer below) started passing for the wrong reason. The filler says
+    something true and finished instead, so each test measures what it claims to.
+    """
+    return ScriptedClient([ModelResponse(text="I am sorry about that.")] * 6)
 
 
 async def conversation(desk, *, said=None, turns: int = 3, step_s: int = MINUTE):

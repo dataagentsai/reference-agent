@@ -237,6 +237,5 @@ x_untested:
   - AHC-0006   # spans carry the run id across the hops
   - AHC-0010   # `Agent.handle` is the entrypoint scenarios drive
   - AHC-0020   # the fan-out limiter is bounded by the harness
-  - AHC-0025   # a truncated result is typed and flagged
   - AHC-0026   # the run id spans the unit of work
   - AHC-0036   # every tool declares an argument contract, validated at dispatch

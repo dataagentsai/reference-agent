@@ -180,6 +180,12 @@ CONTRACT: dict[str, SpanSpec] = {
         required=frozenset({"agent.flow.count"}), optional=frozenset({"agent.flow.peak"})
     ),
     "agent.flow.throttled": SpanSpec(required=frozenset({"agent.flow.delay_s"})),
+    # AHC-0106. Emitted only when a completed reply promised something nothing
+    # was doing — so a rate here is the rate at which the model writes cheques
+    # this agent cannot cash, and `kind` says which cheque.
+    "agent.promise.unbacked": SpanSpec(
+        required=frozenset({"agent.promise.kind", "agent.promise.rules_version"})
+    ),
     "agent.breaker": SpanSpec(required=frozenset({"agent.breaker.state"})),
     "agent.llm.retry": SpanSpec(required=frozenset({"agent.retry.attempt", "agent.retry.reason"})),
 }

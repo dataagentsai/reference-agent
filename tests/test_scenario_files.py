@@ -144,7 +144,21 @@ def asks_for_a_refund() -> ScriptedClient:
     return ScriptedClient([plan, *[patience] * 6])
 
 
+def promises_and_does_nothing() -> ScriptedClient:
+    """The defect, as a model: it commits to work and calls no tool.
+
+    Deliberately the most ordinary thing a helpful model says. The point of
+    AHC-0106 is that this is not a rare adversarial output — it is the default
+    register of customer service, and it was passing every instrument here.
+    """
+    promise = ModelResponse(
+        text="Let me check on that for you.", usage=Usage(input_tokens=5, output_tokens=2)
+    )
+    return ScriptedClient([promise] * 6)
+
+
 SCRIPTS = {
+    "a-promise-nobody-is-keeping": promises_and_does_nothing,
     "refund-needs-a-person": asks_for_a_refund,
     "nobody-comes": asks_for_a_refund,
     "stale-read-then-refused": wants_to_cancel,

@@ -55,7 +55,7 @@ from support_agent.contracts import (
     new_run_id,
 )
 from support_agent.cost import Meter
-from support_agent.entrypoint import direct
+from support_agent.entrypoint import direct, promise
 from support_agent.entrypoint.handoff import Handoff, HandoffDesk, NoDesk
 from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
 from support_agent.entrypoint.persist import TurnPersister
@@ -178,6 +178,7 @@ class Agent:
             if escalated is not None:
                 result = escalated
 
+            result = await promise.honest(result, self.desk, conversation, identity, run_id)
             result = _screened(result, identity, self.policy_rules)
             return result, await self._persist(run_id, conversation.recording(result))
 
