@@ -940,6 +940,30 @@ at the composition root. `retry_after_of` moved into the provider adapter and
 
 ---
 
+## R-STYLE and R-FRAUD refused nobody
+
+**Extraction nonconformance, closed 2026-09-12 (G0.5), from the AOAS `refuses`
+list.** Six statements were declared; three were routed. A delivery date was
+never meant to be routed — it is refused where one could be *invented*, by the
+reply guardrail, because no phrasing of the question is the problem, and that is
+now said where the rules live. Style advice and fraud adjudication were enforced
+by nothing at all.
+
+Both are anchored on the **asking**, never on the noun: "what size should I
+order" is refused and "the fit was wrong, I want to return it" is a return;
+"can you confirm this was fraud" is refused and "I was charged twice" is a
+question this agent answers. Five of the sixteen table rows are customers who
+must be *served*, because the failure mode here is not missing a refusal — it is
+a rule that matches a word and refuses the people it exists to help, which is
+exactly what the escalate rule was rewritten for.
+
+Each refusal now carries the **id of the statement it enforces**, as escalations
+do, so "which rule refuses most, and is it right to" is answerable from a trace
+rather than from prose. A blocked reply carries its guardrail's name in the same
+field (F-026). A test fails if a declared refusal is enforced by nothing.
+
+---
+
 ## The address a customer gives now reaches the order
 
 **Extraction nonconformance, closed 2026-09-12 (G0.5), from AOAS

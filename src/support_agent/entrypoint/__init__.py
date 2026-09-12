@@ -209,7 +209,11 @@ class Agent:
         """Four routes, and only one of them reaches the model."""
         match decision:
             case Refuse():
-                return Refused(reply=router.refusal_text(decision), reason=decision.reason)
+                return Refused(
+                    reply=router.refusal_text(decision),
+                    reason=decision.reason,
+                    rule_id=decision.rule_id,
+                )
             case Escalate():
                 return await self.desk.raise_requested(decision, conversation, identity, run_id)
             case Direct():
@@ -295,7 +299,7 @@ def _screened(result: TurnResult, identity: Identity) -> TurnResult:
         # refused — so the result is a refusal. It used to stay `Completed`
         # with a `REFUSED` termination, which a caller branching on the type
         # read as a success (F-026, AHC-0017).
-        return Refused(reply=pol.SAFE_REPLY, reason=verdict.rule)
+        return Refused(reply=pol.SAFE_REPLY, reason=verdict.reason, rule_id=verdict.rule)
     return result.model_copy(update={"reply": pol.SAFE_REPLY})
 
 

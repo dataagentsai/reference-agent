@@ -56,6 +56,10 @@ class Refuse(_Frozen):
     kind: Literal["refuse"] = "refuse"
     reason: str
     alternative: str | None = None
+    rule_id: str = ""
+    """Which rule refused, not just why in prose — the AOAS `refuses` id. Same
+    argument as `Escalate.rule_id`: *"which rule refuses most often, and is it
+    right to"* cannot be asked of a sentence."""
 
 
 class Escalate(_Frozen):
@@ -108,6 +112,9 @@ class Refused(_Frozen):
     kind: Literal["refused"] = "refused"
     reply: str
     reason: str
+    rule_id: str = ""
+    """The rule that refused: an AOAS `refuses` id on the router's path, a
+    guardrail's name when a reply was blocked (F-026)."""
     termination: TerminationReason = TerminationReason.REFUSED
 
 

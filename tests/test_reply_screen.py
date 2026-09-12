@@ -28,7 +28,7 @@ from support_agent.tools import connect
 WORLD = Path(__file__).parent.parent / "worlds" / "clothing.yaml"
 CUSTOMER = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
 DISCOUNTING = router.Rules(
-    refuse=(("take 20% off instead", re.compile(r"\bdiscount\b", re.I)),),
+    refuse=(("R-DISCOUNT", "take 20% off instead", re.compile(r"\bdiscount\b", re.I)),),
 )
 
 
@@ -101,4 +101,4 @@ async def test_a_blocked_reply_is_typed_as_what_it_now_is(
     assert type(result).__name__ == expected, result
     assert result.reply == pol.SAFE_REPLY
     if isinstance(result, Refused):
-        assert result.reason == "no_discount_offer", "which rule refused it, not just that one did"
+        assert result.rule_id == "no_discount_offer", "which rule refused it, not just that one did"

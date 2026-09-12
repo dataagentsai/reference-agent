@@ -35,22 +35,58 @@ class Rules:
     AAC-0101 gates routing changes like model changes."""
 
     version: str = "v1"
-    refuse: tuple[tuple[str, re.Pattern[str]], ...] = field(
+    refuse: tuple[tuple[str, str, re.Pattern[str]], ...] = field(
         default_factory=lambda: (
             (
+                "R-DISCOUNT",
                 "discount negotiation is not something I can do",
                 re.compile(r"\b(discount|coupon|voucher|price match|cheaper)\b", re.I),
             ),
             (
+                "R-OTHER-CUSTOMER",
                 "I cannot discuss another customer's order",
                 re.compile(r"\b(someone else'?s|my friend'?s|another customer)\b", re.I),
             ),
             (
+                "R-ACCOUNT",
                 "account and payment changes are not something I can do",
                 re.compile(r"\b(delete my account|change my (card|payment))\b", re.I),
             ),
+            (
+                "R-STYLE",
+                "I cannot give style or fit advice",
+                # Anchored on *asking for the advice*, never on the nouns: "the
+                # fit was wrong, I want to return it" is a return, and the
+                # escalate rule above is here because that lesson cost a defect.
+                re.compile(
+                    r"\b(?:what|which)\s+size\b"
+                    r"|\bsize\s+(?:up|down)\b"
+                    r"|\b(?:will|would|does|do)\s+(?:it|this|that|they|these)\s+"
+                    r"(?:fit|suit|look)\b"
+                    r"|\bshould\s+i\s+(?:get|buy|order|choose|pick)\b"
+                    r"|\b(?:style|fashion|fit|sizing)\s+advice\b"
+                    r"|\bwhat\s+(?:do\s+you\s+think|would\s+you\s+recommend)\b",
+                    re.I,
+                ),
+            ),
+            (
+                "R-FRAUD",
+                "I cannot judge whether something is fraud",
+                # Adjudication, which is what the spec refuses — not a report.
+                # "my card was charged twice" is a question this agent answers.
+                re.compile(
+                    r"\b(?:is|was|isn'?t|wasn'?t)\s+(?:this|that|it|the|my)\s*"
+                    r"(?:\w+\s+){0,2}(?:fraud|fraudulent|scam|stolen)\b"
+                    r"|\b(?:do|can)\s+you\s+think\s+.{0,30}\bfraud\b"
+                    r"|\b(?:confirm|decide|determine|tell\s+me)\b.{0,30}\bfraud\b",
+                    re.I,
+                ),
+            ),
         )
     )
+    """The AOAS `refuses` list, each with the id it enforces. R-DELIVERY-DATE is
+    not here: a delivery date is refused where one could be *invented*, by the
+    reply guardrail, because no phrasing of the question is the problem."""
     escalate: tuple[tuple[str, str, re.Pattern[str]], ...] = field(
         default_factory=lambda: (
             (
@@ -142,9 +178,13 @@ def route(text: str, *, rules: Rules | None = None) -> Route:
 
 
 def _decide(text: str, rules: Rules) -> Route:
-    for reason, pattern in rules.refuse:
+    for rule_id, reason, pattern in rules.refuse:
         if pattern.search(text):
-            return Refuse(reason=reason, alternative="I can help with orders, returns and refunds.")
+            return Refuse(
+                reason=reason,
+                alternative="I can help with orders, returns and refunds.",
+                rule_id=rule_id,
+            )
 
     for rule_id, reason, pattern in rules.escalate:
         if pattern.search(text):
