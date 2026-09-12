@@ -1,0 +1,33 @@
+# The customer hesitates, and the return window closes while they are talking.
+#
+# The rule this agent argues about most, and until the world's clock moved it was
+# the one no simulation could reach: every scenario ran against a frozen world, so
+# `days_since_delivery` was whatever the fixture said and a boundary could only be
+# crossed by seeding a different number.
+#
+# Here it is crossed *during* the conversation. AB-10003 is 5 days past delivery
+# and the window is 30. Time advances **after** each turn, so the customer asks at
+# day 5, hesitates at day 18, and asks again at day 31 — the first ask outside the
+# window. What matters is that the answer changes when the world does, rather than
+# being remembered from the first turn.
+apiVersion: awd-scenario/v0
+scenario: the return window closes while the customer is still deciding
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  A return that is allowed on the first ask and refused on the last, because the
+  world moved underneath it and the agent read the world rather than its memory.
+discharges: [P-RETURN, op:open_return_request, ext:order_system]
+max_turns: 3
+step_days: 13
+
+actor:
+  says:
+    - can I return AB-10003
+    - I am still thinking about it
+    - alright, I want to return AB-10003 now
+
+expect:
+  - {row: order, id: AB-10003, field: days_since_delivery, equals: 44}
+  - {effect: open_return_request, times: 0}
+  - {reply: never_says, text: return is open}

@@ -51,6 +51,23 @@ def model_for(stem: str) -> ScriptedClient:
     return script() if script is not None else ScriptedClient([])
 
 
+def tries_the_return_late() -> ScriptedClient:
+    """Hesitates, then asks — by which time the world has moved on. The model
+    tries the return on the last turn and the order system refuses it."""
+    wait = ModelResponse(
+        text="Of course, take your time.", usage=Usage(input_tokens=5, output_tokens=2)
+    )
+    attempt = ModelResponse(
+        tool_calls=(ToolCall(id="r1", name="open_return_request", arguments={"id": "AB-10003"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    explain = ModelResponse(
+        text="I am sorry — that order is past its return window now.",
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    return ScriptedClient([wait, wait, attempt, explain, explain])
+
+
 def answers_plainly() -> ScriptedClient:
     """One ordinary answer. The first attempt at it is throttled, so the client
     that survives to produce this is the one under test."""
@@ -104,6 +121,7 @@ SCRIPTS = {
     "stale-read-then-refused": wants_to_cancel,
     "nobody-picks-up-the-escalation": asks_for_a_human,
     "the-provider-throttles": answers_plainly,
+    "the-window-closes-while-they-talk": tries_the_return_late,
 }
 """Scenarios that need the loop, and the reasoning the suite supplies for them.
 Anything absent gets an empty script, so reaching the model at all raises."""
@@ -140,7 +158,7 @@ def test_every_scenario_names_what_it_discharges() -> None:
         assert load_scenario(path).discharges, f"{path.name} discharges nothing"
 
 
-COVERED_AT_LEAST = 17
+COVERED_AT_LEAST = 19
 """What scenarios reached when this ratchet was set, 2026-09-12 — 17 of 55. It turns one
 way: a statement that has been demonstrated end to end does not stop being
 demonstrated because somebody deleted the scenario that did it."""
