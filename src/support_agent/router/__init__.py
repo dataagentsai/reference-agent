@@ -61,7 +61,13 @@ class Rules:
                 re.compile(
                     r"\b(?:what|which)\s+size\b"
                     r"|\bsize\s+(?:up|down)\b"
-                    r"|\b(?:will|would|does|do)\s+(?:it|this|that|they|these)\s+"
+                    # The subject may be a noun, not only a pronoun. This read
+                    # `(it|this|that|they|these)` and so missed "does this jacket
+                    # suit me" and "will the medium fit" — the two commonest ways
+                    # anybody asks (F-038). Still anchored on the question word,
+                    # so "the fit was wrong, I want to return it" is untouched:
+                    # it opens with no will/would/does/do.
+                    r"|\b(?:will|would|does|do)\s+(?:\w+\s+){1,3}"
                     r"(?:fit|suit|look)\b"
                     r"|\bshould\s+i\s+(?:get|buy|order|choose|pick)\b"
                     r"|\b(?:style|fashion|fit|sizing)\s+advice\b"
@@ -223,13 +229,21 @@ def _decide(text: str, rules: Rules) -> Route:
     if handler is None:
         return Agentic(goal=text.strip(), candidate_intents=matched)
 
-    # Direct only when everything the handler needs is already present. A
-    # deterministic path that has to ask a question is not deterministic.
-    found = ORDER_ID.search(text)
-    if found is None:
+    # Direct only when everything the handler needs is already present, and
+    # present once. A deterministic path that has to ask a question is not
+    # deterministic — and one that has to *choose* is worse, because it does not
+    # ask, it picks.
+    #
+    # `P-DIRECT` says one intent and one order. Only the first half was checked:
+    # this read the first id in the turn and ignored the rest, so "where is my
+    # order AB-10003 and what about AB-10004 and AB-10005" was answered about
+    # AB-10003 with nothing said about the other two (F-037). Several orders is
+    # the same ambiguity as several intents and takes the same path.
+    found = {match.group(1) for match in ORDER_ID.finditer(text)}
+    if len(found) != 1:
         return Agentic(goal=text.strip(), candidate_intents=matched)
 
-    return Direct(intent=intent, handler=handler, args={"order_id": found.group(1)})
+    return Direct(intent=intent, handler=handler, args={"order_id": found.pop()})
 
 
 def _reason_of(decision: Route) -> str:

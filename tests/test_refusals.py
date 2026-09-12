@@ -25,6 +25,9 @@ CASES = [
     ("whether it will fit", "will this fit me?", "R-STYLE"),
     ("sizing up or down", "should I size up?", "R-STYLE"),
     ("asked outright for style advice", "I need some style advice", "R-STYLE"),
+    # F-038: the subject is a noun, which the pronoun-only pattern missed.
+    ("does this garment suit me", "does this jacket suit me?", "R-STYLE"),
+    ("will a named size fit", "will the medium fit?", "R-STYLE"),
     ("is this fraud", "is this transaction fraud?", "R-FRAUD"),
     ("asked to confirm fraud", "can you confirm this was fraud on my card?", "R-FRAUD"),
     ("was it stolen", "was that parcel stolen?", "R-FRAUD"),

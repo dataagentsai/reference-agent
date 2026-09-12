@@ -23,6 +23,32 @@ def test_every_handler_the_router_names_is_registered(intent: Intent, name: str)
     assert name in direct.HANDLERS, f"the router routes {intent} to {name!r}, which is missing"
 
 
+# (what the customer said, whether the deterministic path may take it)
+# F-037: only the "one intent" half of `P-DIRECT` was checked. The turn naming
+# three orders matched one intent, carried an order id, and was answered about
+# the first of them with nothing said about the other two.
+SUBJECTS = [
+    ("one order", "where is my order AB-10003", True),
+    ("the same order twice", "where is AB-10003, I mean AB-10003", True),
+    ("two orders", "where is my order AB-10003 and what about AB-10004", False),
+    ("three orders", "where are AB-10003, AB-10004 and AB-10005", False),
+    ("no order at all", "where is my order", False),
+]
+
+
+@pytest.mark.discharges("P-DIRECT")
+@pytest.mark.parametrize(("name", "said", "deterministic"), SUBJECTS, ids=[c[0] for c in SUBJECTS])
+def test_the_deterministic_path_needs_one_intent_and_one_order(
+    name: str, said: str, deterministic: bool
+) -> None:
+    """A path that has to *choose* which order was meant is not deterministic —
+    and it does not choose out loud, it picks the first one. The repeated id is
+    the case worth keeping: the same order named twice is still one order, so the
+    rule counts subjects and not matches."""
+    decision = router.route(said)
+    assert isinstance(decision, Direct) is deterministic, decision
+
+
 @pytest.mark.discharges("AHC-0017")
 async def test_an_unregistered_handler_is_a_typed_failure_not_a_crash() -> None:
     decision = Direct(intent=Intent.ORDER_STATUS, handler="nonexistent", args={"order_id": "X"})

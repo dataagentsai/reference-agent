@@ -1141,6 +1141,118 @@ which is the ratchet working: `loop/screen.py` (the positions) and
 
 ---
 
+## F-038 · The style rule missed the two commonest ways anybody asks
+
+**Found** 2026-09-12, writing the scenario for `R-STYLE`. The scenario said
+*"does this jacket suit me, and will the medium fit"* — which is what a person
+asks — and the agent sent it to the loop.
+
+**Severity** Medium. The rule existed, was tested, and did not fire on the
+question it was written for.
+
+The pattern anchored the subject as a pronoun:
+
+    (?:will|would|does|do)\s+(?:it|this|that|they|these)\s+(?:fit|suit|look)
+
+So *"will this fit"* was caught and *"will the medium fit"* was not. The four
+cases in the test table all happened to use pronouns, which is the shape of this
+mistake: the rule was tested against the sentences its author had in mind while
+writing it.
+
+**Fixed — 2026-09-12.** The subject may be one to three words, noun or pronoun.
+The anchor stays on the question word, which is what keeps the served near-misses
+served: *"the fit was wrong, I want to return AB-10003"* opens with no
+*will/would/does/do* and is a return, as it was before. Both new phrasings joined
+the table beside them.
+
+**Worth keeping.** A refusal rule's test table is written by the person who wrote
+the rule, in the same sitting, out of the same mental model — so it tends to
+confirm the rule rather than probe it. The scenario found this because it was
+written from the customer's side, days later, by somebody asking *what would a
+person actually type*.
+
+---
+
+## F-037 · The deterministic path answered a three-order question about one order
+
+**Found** 2026-09-12, writing the scenario that was supposed to demonstrate the
+step budget. The scenario asked *"where is my order AB-10003 and what about
+AB-10004 and AB-10005"* expecting a long trajectory, and got a direct answer with
+no model call at all.
+
+**Severity** Medium, and it is the failure mode of every deterministic-first
+shortcut: it is *right* about the question it decided to answer.
+
+`P-DIRECT` says the deterministic path is taken when the turn names **one intent
+and carries an order id**, and that anything ambiguous goes to the loop. The code
+checked the first half — `len(matched) != 1` — and then did this:
+
+    found = ORDER_ID.search(text)
+
+`search`, so the first id in the turn. Three orders named, one answered, nothing
+said about the other two, and the reply was perfectly truthful about the one it
+picked. A customer asking about three parcels is told about one and has no way to
+know the question was narrowed.
+
+**Several subjects is the same ambiguity as several intents.** That is the whole
+correction: the rule was read as being about *intent* ambiguity, and ambiguity
+about *which row* is identical in kind. A path that has to choose which order was
+meant is not deterministic — and it does not ask, it picks.
+
+**Fixed — 2026-09-12, from the statement first.** `P-DIRECT` now says *exactly
+one intent and exactly one order*, naming the half that was silently dropped.
+The router counts distinct ids (`finditer` into a set, so the same order named
+twice is still one order) and sends anything else to the loop. The table-driven
+test covers one order, the same order twice, two, three, and none.
+
+**Why no test caught it.** Every test of this path supplied a turn with one id,
+because that is what the path is for. The scenario found it by asking a question
+nobody had thought to ask, which is the argument for scenarios that is hard to
+make in the abstract: they are written from the customer's side, and a customer
+does not know where the seams are.
+
+---
+
+## F-036 · `after_turns` was declared, documented, and read by nothing
+
+**Found** 2026-09-12, writing a scenario in which the reviewer arrives after the
+approval window has closed.
+
+**Severity** High for the instrument. Every scenario that said *the reviewer
+comes after two turns* got a reviewer who came immediately, and the fact that no
+scenario's checks changed is precisely the problem: the field was inert, so
+nothing it should have affected was affected.
+
+`ApproverFile.after_turns` and `DeskFile.after_turns` have been in
+`awd-scenario/v0` since the format existed, each with a default and a docstring.
+Both runners — the suite and the `Subject` contract — built their offstage actor
+from `(decides, by)` and dropped the third field on the floor. `Approver.delay_s`
+existed the whole time, with a docstring saying *"set beyond the approval's TTL
+to model the reviewer who answers after the window closed"*, and nothing could
+set it from a scenario.
+
+**The consequence was a statement no scenario could reach.** `P-APPROVAL-TTL` —
+*a grant older than its validity fails closed rather than executing* — is about a
+reviewer who is late, and lateness was unexpressible. The approval window has a
+24-hour validity and every simulated reviewer answered within the first second of
+it.
+
+**Fixed — 2026-09-12.** The `Subject` contract's reviewer and colleague take
+`delay_s` as a third argument, the suite derives it as `(after_turns - 1)` turns'
+worth of `step_seconds` — one means the first review pass, they were already at
+their desk — and the scenario `the-reviewer-comes-too-late` drives a grant past
+the window and asserts the queue refuses it.
+
+**The shape to remember.** This is the fourth time a declared field has been
+dropped between the format and the runner: the loader lost `advances`,
+`advances_when`, `untrusted` and `pii` the same way (each cost a field), and each
+time the symptom was not an error but a scenario that quietly tested less than it
+said. A field that no test reads is a field that is not there, and the format's
+own docstrings are the most convincing possible evidence that somebody thought it
+was.
+
+---
+
 ## F-035 · A promise is a completed answer, so the agent can say "let me check" and never come back
 
 **Found** 2026-09-12, by a reader looking at the run view and asking why the

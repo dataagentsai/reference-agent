@@ -1,0 +1,37 @@
+# The reviewer answers after the grant window closed.
+#
+# A third outcome, distinct from yes and from no, and the one most likely to be
+# mishandled: the decision is refused by the queue rather than executed, so the
+# money does not move on an authority that has expired.
+#
+# This scenario could not be written until `after_turns` was read by anything
+# (F-036). It sat in the format, documented, and every runner dropped it — so a
+# reviewer told to come later came immediately, and the window could never close
+# on anybody.
+apiVersion: awd-scenario/v0
+scenario: the reviewer answers after the grant has expired
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  A grant older than its validity fails closed rather than executing. The
+  reviewer eventually says yes, and by then the authority is gone.
+discharges: [P-APPROVAL-TTL, P-APPROVAL-QUEUE, op:request_refund, AHC-0057, ext:approval_queue]
+max_turns: 4
+step_seconds: 43200      # twelve hours a turn, so a 24h window can close
+
+actor:
+  says:
+    - please refund my order AB-10003
+    - any update?
+    - still waiting
+    - hello?
+
+approver:
+  decides: grant
+  after_turns: 4          # three turns' worth of delay — 36 hours, past the 24h validity
+
+expect:
+  - {decided: refused}
+  - {effect: issue_refund, times: 0}
+  - {world: unchanged}
+  - {reply: never_says, text: has been refunded}

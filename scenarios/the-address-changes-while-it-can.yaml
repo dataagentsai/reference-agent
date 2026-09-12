@@ -1,0 +1,29 @@
+# An address changes while the order is pending, and not once it has shipped.
+#
+# `P-ADDRESS` is a precondition over declared state, and `op:change_address` is
+# the operation whose declared input the projection carries — the statement that
+# sat in every world's `unenforced` list until a projected tool took more than a
+# key.
+apiVersion: awd-scenario/v0
+scenario: the address changes while pending, and not after it ships
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  A delivery address may be changed while the order is pending and not
+  afterwards. The change must land on the row, and the refusal must leave the
+  shipped order exactly as it was.
+discharges: [P-ADDRESS, op:change_address, AHC-0039, ext:order_system]
+max_turns: 2
+
+actor:
+  says:
+    - please change the delivery address on AB-10002 to 12 New Road, Pune 411001
+    - and change AB-10001 to the same address
+
+expect:
+  # The pending one moved, once.
+  - {effect: change_address, times: 1}
+  - {row: order, id: AB-10002, field: address, equals: "12 New Road, Pune 411001"}
+  # The shipped one did not.
+  - {row: order, id: AB-10001, field: address, equals: "42 MG Road, Bengaluru 560001"}
+  - {truthful: order, id: AB-10002}

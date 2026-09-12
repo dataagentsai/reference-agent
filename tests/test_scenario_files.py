@@ -157,8 +157,70 @@ def promises_and_does_nothing() -> ScriptedClient:
     return ScriptedClient([promise] * 6)
 
 
+def reads_five_orders() -> ScriptedClient:
+    """A model that keeps reading and never concludes — twelve steps of tool
+    calls, which is exactly the bound. It asks about orders that exist, so
+    nothing here is an error path: the run is well-formed and still gets
+    nowhere, which is the case a step ceiling is for."""
+    orders = ["AB-10003", "AB-10004", "AB-10005", "AB-10001", "AB-10002"]
+    reads = [
+        ModelResponse(
+            tool_calls=(ToolCall(id=f"r{i}", name="get_order", arguments={"id": order}),),
+            usage=Usage(input_tokens=5, output_tokens=2),
+        )
+        for i in range(4)
+        for order in orders
+    ]
+    return ScriptedClient(reads)
+
+
+def changes_two_addresses() -> ScriptedClient:
+    """Changes the pending order's address, then tries the shipped one."""
+    new = "12 New Road, Pune 411001"
+    first = ModelResponse(
+        tool_calls=(
+            ToolCall(id="a1", name="change_address", arguments={"id": "AB-10002", "address": new}),
+        ),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    done = ModelResponse(
+        text="I have changed the address on AB-10002.",
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    second = ModelResponse(
+        tool_calls=(
+            ToolCall(id="a2", name="change_address", arguments={"id": "AB-10001", "address": new}),
+        ),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    refused = ModelResponse(
+        text="AB-10001 has already shipped, so its address cannot be changed now.",
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    return ScriptedClient([first, done, second, refused, refused, refused])
+
+
+def invents_a_delivery_date() -> ScriptedClient:
+    """The model does exactly what `R-DELIVERY-DATE` forbids, in the plainest
+    words. Nothing in the world holds a delivery date, so every part of this
+    sentence after the comma came from the model."""
+    return ScriptedClient(
+        [
+            ModelResponse(
+                text="Your jacket will arrive on 15 March.",
+                usage=Usage(input_tokens=5, output_tokens=3),
+            )
+        ]
+        * 4
+    )
+
+
 SCRIPTS = {
+    "it-will-not-invent-a-delivery-date": invents_a_delivery_date,
     "a-promise-nobody-is-keeping": promises_and_does_nothing,
+    "twelve-steps-and-then-a-person": reads_five_orders,
+    "the-address-changes-while-it-can": changes_two_addresses,
+    "the-reviewer-comes-too-late": asks_for_a_refund,
     "refund-needs-a-person": asks_for_a_refund,
     "nobody-comes": asks_for_a_refund,
     "stale-read-then-refused": wants_to_cancel,

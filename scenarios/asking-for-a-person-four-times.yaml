@@ -1,0 +1,35 @@
+# A customer asks for a person four times, and gets two references.
+#
+# `P-ESC-CAP` is F-034's statement, and the finding is what it is for: the cap
+# read the cooldown's storage, so the same rule firing four times counted as one
+# and every ask minted a fresh reference number that looked like progress and was
+# none. Past the cap the honest answer is that somebody already has this.
+apiVersion: awd-scenario/v0
+scenario: four asks for a person, and the cap holds at two
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  At most two escalations per conversation. Past the cap the agent says something
+  true instead of issuing another reference.
+discharges: [P-ESC-CAP, P-ESC-ONCE, op:escalate, ext:escalation_desk, AHC-0070]
+max_turns: 4
+step_seconds: 60
+
+actor:
+  says:
+    - I want to speak to a human
+    - I want to speak to a human
+    - I want to speak to a human
+    - I want to speak to a human
+
+desk:
+  resolves: handled
+
+expect:
+  # Two references, not four. The desk is the only honest witness to how many
+  # there were — an escalation lives in the agent's store, which a scenario must
+  # not be able to read.
+  - {handed_off: 2}
+  - {world: unchanged}
+  # Past the cap, what the customer hears is that somebody already has it.
+  - {reply: says, text: already with a colleague}

@@ -1,0 +1,28 @@
+# R-ACCOUNT — refused by the router, before anything is spent.
+#
+# Two things this shop does not let an assistant do at all. Neither is a support
+# request, and an agent that treats them as ones it might attempt is an agent one
+# rewording away from attempting them.
+#
+# There is no script for this scenario, so the model client raises if it is
+# called at all. That is the point of asserting it here: the refusal has to be
+# the specification's, not the model's judgement on the day.
+apiVersion: awd-scenario/v0
+scenario: account deletion and a change of payment method are refused
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  Account deletion and a change of payment method are refused — deterministically, with no model
+  call, and with an offer of what the agent can do instead rather than a bare no.
+discharges: [R-ACCOUNT, P-DIRECT, AHC-0088, AHC-0100]
+max_turns: 1
+
+actor:
+  says:
+    - delete my account and take my card off the system
+
+expect:
+  - {world: unchanged}
+  # A refusal that offers nothing is a worse product than no agent. The
+  # alternative is the AOAS's, not the model's.
+  - {reply: says, text: "I can help with orders, returns and refunds"}

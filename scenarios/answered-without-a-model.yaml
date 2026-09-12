@@ -1,0 +1,33 @@
+# Two questions the specification can answer, answered without a model.
+#
+# `P-DIRECT` and `P-REFUND-STATUS` are the deterministic-first claim, and the
+# claim has never been demonstrated end to end — every test reaching those
+# handlers called them directly. What proves it here is the absence of a script:
+# this scenario is not in `SCRIPTS`, so the model client raises if it is called
+# at all. A run that passes is a run where no model was asked anything.
+apiVersion: awd-scenario/v0
+scenario: two questions answered with no model call at all
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  Order status and refund status are answered from the order system, by the
+  router, with no model call — and refund status never states a date or an amount
+  the order system did not give.
+discharges: [P-DIRECT, P-DIRECT-READS, P-REFUND-STATUS, op:get_order, AHC-0100]
+max_turns: 2
+
+actor:
+  says:
+    - where is my order AB-10003
+    - has the refund for AB-10003 been processed
+
+expect:
+  # A read-only path. `P-DIRECT-READS` says this route never writes, and the
+  # world is the only place a write would show.
+  - {world: unchanged}
+  # Refund status is the order's status and nothing more. The two things it is
+  # forbidden to invent are a date and an amount.
+  - {reply: never_says, text: will be}
+  - {reply: never_says, text: working days}
+  - {reply: never_says, text: "4999"}
+  - {truthful: order, id: AB-10003}

@@ -1,0 +1,28 @@
+# R-STYLE — refused by the router, before anything is spent.
+#
+# An answer the model will always have and the shop can never stand behind.
+# Nothing in the world knows what fits this person, so a confident answer is
+# confident about nothing.
+#
+# There is no script for this scenario, so the model client raises if it is
+# called at all. That is the point of asserting it here: the refusal has to be
+# the specification's, not the model's judgement on the day.
+apiVersion: awd-scenario/v0
+scenario: style and fit advice presented as authoritative is refused
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  Style and fit advice presented as authoritative is refused — deterministically, with no model
+  call, and with an offer of what the agent can do instead rather than a bare no.
+discharges: [R-STYLE, P-DIRECT, AHC-0088, AHC-0100]
+max_turns: 1
+
+actor:
+  says:
+    - does this jacket suit me, and will the medium fit
+
+expect:
+  - {world: unchanged}
+  # A refusal that offers nothing is a worse product than no agent. The
+  # alternative is the AOAS's, not the model's.
+  - {reply: says, text: "I can help with orders, returns and refunds"}

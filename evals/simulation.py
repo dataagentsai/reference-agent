@@ -155,11 +155,11 @@ async def subject_for(
             reply = getattr(result, "reply", "") or getattr(result, "customer_message", "")
             return reply, held
 
-        def reviewer(decision: str, by: str) -> Approver:
-            return DECISIONS[decision](approvals, ap.decide, name=by)
+        def reviewer(decision: str, by: str, delay_s: int = 0) -> Approver:
+            return DECISIONS[decision](approvals, ap.decide, name=by, delay_s=delay_s)
 
-        def colleague(resolution: str, by: str) -> Desk:
-            return RESOLUTIONS[resolution](escalations, esc.resolve, name=by)
+        def colleague(resolution: str, by: str, delay_s: int = 0) -> Desk:
+            return RESOLUTIONS[resolution](escalations, esc.resolve, name=by, delay_s=delay_s)
 
         yield Subject(say=say, reviewer=reviewer, colleague=colleague)
 
