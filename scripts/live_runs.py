@@ -29,7 +29,7 @@ from datetime import UTC, datetime
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from agenttwin import Live, load, load_scenario, perturbed, provider_faults, run_file, timeline_for
-from evals.simulation import subject_for
+from evals.simulation import subject_for, voice_of
 
 from support_agent.config import Settings, resolve
 from support_agent.cost import Meter
@@ -40,7 +40,7 @@ SCENARIOS = sorted((ROOT / "scenarios").glob("*.yaml"))
 DEST = ROOT / "docs" / "SIMULATION-REPORT.md"
 
 
-async def once(path: pathlib.Path, settings: Settings) -> tuple[list, str, float]:
+async def once(path: pathlib.Path, settings: Settings) -> tuple[list, tuple, float, str]:
     """One run of one scenario against the real provider."""
     scenario = load_scenario(path)
     live = Live.start(load(path.parent / scenario.world))
@@ -65,8 +65,15 @@ async def once(path: pathlib.Path, settings: Settings) -> tuple[list, str, float
         config=config,
         meters=meters,
     ) as subject:
-        record, outcomes = await run_file(path, subject=subject, live=live, timeline=timeline)
-    return list(outcomes), record.reply, float(sum(m.spend for m in meters))
+        record, outcomes = await run_file(
+            path, subject=subject, live=live, timeline=timeline, voice=voice_of(client)
+        )
+    return (
+        list(outcomes),
+        record.transcript,
+        float(sum(m.spend for m in meters)),
+        record.determinism_class,
+    )
 
 
 async def main(runs: int) -> int:
@@ -79,15 +86,18 @@ async def main(runs: int) -> int:
     failures: dict[str, list[str]] = defaultdict(list)
     spend: dict[str, float] = defaultdict(float)
     crashed: dict[str, str] = {}
+    unscripted: dict[str, tuple] = {}
 
     for path in SCENARIOS:
         for attempt in range(runs):
             try:
-                outcomes, reply, cost = await once(path, settings)
+                outcomes, transcript, cost, determinism = await once(path, settings)
             except Exception as exc:  # noqa: BLE001 — a crash is a result too
                 crashed[path.stem] = f"{type(exc).__name__}: {exc}"
                 break
             spend[path.stem] += cost
+            if determinism == "model_driven":
+                unscripted[f"{path.stem} · run {attempt + 1}"] = transcript
             for outcome in outcomes:
                 results[path.stem][outcome.check].append(outcome.passed)
                 if not outcome.passed:
@@ -99,7 +109,9 @@ async def main(runs: int) -> int:
                 f"{sum(o.passed for o in outcomes)}/{len(outcomes)} checks"
             )
 
-    DEST.write_text(render(results, failures, spend, crashed, runs, settings))
+    DEST.write_text(
+        render(results, failures, spend, crashed, runs, settings) + _unscripted(unscripted)
+    )
     total = sum(spend.values())
     print(f"\n{DEST}  {len(SCENARIOS)} scenarios × {runs} runs, ${total:.4f}")
     return 0
@@ -142,6 +154,31 @@ def render(results, failures, spend, crashed, runs, settings) -> str:
         )
 
     return "\n".join(lines + _per_check(results) + _crashed(crashed) + _failures(failures))
+
+
+def _unscripted(conversations) -> str:
+    """What a model-driven customer actually said.
+
+    A run nobody can reproduce is worth something only if a reader can see what
+    happened in it. For a scripted scenario the transcript is the scenario file;
+    for this one it is the entire finding.
+    """
+    if not conversations:
+        return ""
+    lines = [
+        "",
+        "## Unscripted conversations",
+        "",
+        "Played by a model under a declared persona, and **not reproducible** — these",
+        "are here to be read, never to be regressed against.",
+        "",
+    ]
+    for name, turns in conversations.items():
+        lines += [f"### {name}", ""]
+        for said, heard in turns:
+            lines += [f"- **customer** {said}", f"  - **agent** {heard}"]
+        lines.append("")
+    return "\n".join(lines)
 
 
 def _per_check(results) -> list[str]:

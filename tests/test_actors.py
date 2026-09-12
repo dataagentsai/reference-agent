@@ -88,11 +88,35 @@ def test_a_run_is_as_reproducible_as_its_weakest_actor(
 
 
 @pytest.mark.tooling
-def test_a_model_driven_actor_refuses_to_be_built_casually() -> None:
-    """It trades replay for realism. The seam is declared so the cost is
-    visible; building it by accident is how a regression suite stops being one."""
-    with pytest.raises(NotImplementedError, match="trades replay for realism"):
-        ModelActor()
+async def test_a_model_driven_actor_says_what_it_is_told_and_stops() -> None:
+    """Built 2026-09-12, and the guard moved rather than disappearing: it is the
+    *run record* that refuses to let a reader assume reproducibility, and the
+    scenario runner that refuses to build one without a voice. Building it by
+    accident is still how a regression suite stops being one — which is why the
+    offline suite skips model-driven scenarios by kind rather than by name."""
+
+    async def voice(brief: str, heard: str) -> str:
+        return f"({brief[:6]}) {heard or 'opening'}"
+
+    actor = ModelActor("be brief", voice, max_turns=2)
+    assert actor.determinism is Determinism.MODEL_DRIVEN
+    assert await actor.next("") == "(be bri) opening"
+    assert await actor.next("anything else?") == "(be bri) anything else?"
+    assert await actor.next("still there?") is None, "the turn budget is the actor's too"
+
+
+@pytest.mark.tooling
+def test_a_persona_is_behaviour_and_the_situation_is_the_domains() -> None:
+    """The split that lets one persona serve two domains: the catalogue says how
+    the difficulty arrives, the scenario says what the customer wants."""
+    from agenttwin import PERSONAS, brief_for
+
+    brief = brief_for("forgets-the-identifier", "You bought a jacket and it does not fit.")
+    assert PERSONAS["forgets-the-identifier"] in brief
+    assert "jacket" in brief
+    assert "only what you would" in brief.lower(), "the model is told to speak, not to narrate"
+    with pytest.raises(KeyError, match="no persona"):
+        brief_for("cheerful", "anything")
 
 
 # --------------------------------------------------------------------------- #

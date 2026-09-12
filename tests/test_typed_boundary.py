@@ -258,3 +258,45 @@ async def test_a_malformed_response_is_not_retried(server) -> None:
         )
 
     assert llm.calls == 1, f"called the provider {llm.calls} times for one unreadable answer"
+
+
+EMPTY = [
+    ("nothing at all, budget spent", "", "length", 2048),
+    ("nothing at all, stopped normally", "", "stop", 40),
+    ("whitespace is nothing", "   \n  ", "stop", 12),
+]
+
+
+@pytest.mark.discharges("AHC-0001", "AHC-0025")
+@pytest.mark.parametrize(("name", "content", "reason", "spent"), EMPTY, ids=[e[0] for e in EMPTY])
+def test_a_completion_with_no_answer_in_it_is_malformed(
+    name: str, content: str, reason: str, spent: int
+) -> None:
+    """F-031. A reasoning model spends the output budget thinking and returns
+    empty content when it runs out — billed, and with nothing in it.
+
+    It used to become `ModelResponse(text="")`, which the loop reads as *the
+    model chose to answer and had nothing to say*: the customer gets an empty
+    reply and the run records success. It is a malformed completion and takes
+    the declared path, where it is counted and never retried.
+    """
+    from support_agent.llm import _from_wire
+
+    class Message:
+        tool_calls: list = []
+
+    class Choice:
+        message = Message()
+        finish_reason = reason
+
+    class Usage:
+        prompt_tokens, completion_tokens, total_tokens = 10, spent, 10 + spent
+
+    class Raw:
+        choices = [Choice()]
+        model = "openai/gpt-oss-120b"
+        usage = Usage()
+
+    Message.content = content  # type: ignore[attr-defined]
+    with pytest.raises(ModelMalformed, match="neither text nor a tool call"):
+        _from_wire(Raw())

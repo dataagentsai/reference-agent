@@ -30,7 +30,11 @@ from evals.simulation import subject_for
 from support_agent.contracts import ModelResponse, ToolCall, Usage
 from support_agent.llm import ScriptedClient
 
-SCENARIOS = sorted((Path(__file__).parent.parent / "scenarios").glob("*.yaml"))
+ALL = sorted((Path(__file__).parent.parent / "scenarios").glob("*.yaml"))
+SCENARIOS = [p for p in ALL if load_scenario(p).actor.kind != "model"]
+"""The scenarios this suite can run offline. A model-driven customer needs a
+provider and cannot be replayed, so it belongs to the live report and never to a
+regression suite — `Unrunnable` says so rather than the suite quietly skipping."""
 ORDER = "AB-10003"
 
 
@@ -152,7 +156,7 @@ async def test_a_declared_scenario_passes_every_check_it_makes(path: Path) -> No
 def test_every_scenario_names_what_it_discharges() -> None:
     """A scenario tied to no statement is a scenario nobody can find again when
     the statement changes — and the Assurance Map cannot count it."""
-    for path in SCENARIOS:
+    for path in ALL:
         assert load_scenario(path).discharges, f"{path.name} discharges nothing"
 
 

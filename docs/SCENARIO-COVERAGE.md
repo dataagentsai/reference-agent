@@ -15,16 +15,16 @@ distinction this page exists to keep visible.
 - `P-ESC-LAPSE` — nobody-picks-up-the-escalation
 - `P-ESC-TOLD` — nobody-picks-up-the-escalation
 - `P-ESC-TTL` — nobody-picks-up-the-escalation
-- `P-OWNERSHIP` — a-stranger-learns-nothing
+- `P-OWNERSHIP` — a-customer-who-forgets-the-number, a-stranger-learns-nothing
 - `P-REFUND` — refund-needs-a-person
-- `P-RETURN` — the-window-closes-while-they-talk
+- `P-RETURN` — a-customer-who-forgets-the-number, the-window-closes-while-they-talk
 - `R-DISCOUNT` — a-discount-is-refused
 - `R-OTHER-CUSTOMER` — a-stranger-learns-nothing
 - `ext:escalation_desk` — nobody-picks-up-the-escalation
 - `ext:order_system` — a-stranger-learns-nothing, stale-read-then-refused, the-window-closes-while-they-talk
 - `op:cancel_order` — stale-read-then-refused
 - `op:escalate` — nobody-picks-up-the-escalation
-- `op:get_order` — a-stranger-learns-nothing, the-provider-throttles
+- `op:get_order` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, the-provider-throttles
 - `op:issue_refund` — refund-needs-a-person
 - `op:open_return_request` — the-window-closes-while-they-talk
 - `op:request_refund` — nobody-comes, refund-needs-a-person

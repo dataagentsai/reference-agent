@@ -21,7 +21,7 @@ contract is three callables and this module is the only thing that changes.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 
@@ -37,6 +37,7 @@ from support_agent.contracts import (
     Clock,
     Identity,
     LLMClient,
+    Message,
     ModelMalformed,
     ModelRequest,
     ModelResponse,
@@ -163,4 +164,36 @@ async def subject_for(
         yield Subject(say=say, reviewer=reviewer, colleague=colleague)
 
 
-__all__ = ["subject_for"]
+def voice_of(client: LLMClient) -> Callable[[str, str], Awaitable[str]]:
+    """A customer played by a model — the far side of AgentTwin's actor seam.
+
+    Here rather than there for the same reason everything else is: that package
+    cannot see a provider adapter, and one that imported this stack would
+    simulate this stack. It is given a brief and what it last heard, and returns
+    what the customer types.
+
+    The customer's model is **not** the agent's model in any meaningful sense —
+    it happens to be the same client here because there is only one provider
+    configured, and a report that used the agent's own model to judge it would
+    be worth nothing. It is used to *speak*, never to grade.
+    """
+
+    async def speak(brief: str, heard: str) -> str:
+        opening = "Open the conversation — say what you want, in your own words."
+        messages = (
+            Message(role="system", content=brief, provenance="operator"),
+            Message(role="user", content=heard or opening, provenance="user"),
+        )
+        # Generous on purpose. A reasoning model spends this budget thinking
+        # before it writes anything, and a small one returns empty content after
+        # paying for it — which is F-031 from the other side: the first version
+        # of this asked for 120 tokens and got silence, three runs in a row, and
+        # every check passed because a conversation that never happened cannot
+        # say anything wrong.
+        answer = await client.complete(ModelRequest(messages=messages, max_tokens=2048))
+        return answer.text
+
+    return speak
+
+
+__all__ = ["subject_for", "voice_of"]

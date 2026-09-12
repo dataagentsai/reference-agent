@@ -187,6 +187,23 @@ def _from_wire(raw: object) -> ModelResponse:
             )
         calls.append(ToolCall(id=call.id, name=call.function.name, arguments=arguments))
     usage = getattr(raw, "usage")  # noqa: B009 — untrusted shape
+    spent = getattr(usage, "completion_tokens", 0) or 0
+    if not (message.content or "").strip() and not calls:
+        # Nothing usable came back, and it was paid for (F-031). A reasoning
+        # model spends the output budget on reasoning and returns empty content
+        # when the budget runs out, which reaches the customer as an empty reply
+        # and the run as a success. It is a *malformed* completion, not an
+        # answer: the same class as unparseable tool arguments, and it takes the
+        # same declared path.
+        raise ModelMalformed(
+            f"the model returned neither text nor a tool call after {spent} output tokens"
+            + (
+                " — the output budget was spent before an answer began"
+                if choice.finish_reason == "length"
+                else ""
+            ),
+            raw=str(message.content or ""),
+        )
     return ModelResponse(
         text=message.content or "",
         tool_calls=tuple(calls),

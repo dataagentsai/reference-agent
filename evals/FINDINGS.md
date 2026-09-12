@@ -1141,6 +1141,83 @@ which is the ratchet working: `loop/screen.py` (the positions) and
 
 ---
 
+## F-032 · A customer who cannot find their order number has nowhere to go
+
+**Found** 2026-09-12, by the first **model-driven** customer — a persona that
+does not have the order number to hand, which is the commonest awkward customer
+there is.
+
+**Severity** Medium, and invisible to every check that exists: the agent does
+nothing wrong. It refuses to act without an identifier, never invents an order,
+never claims anything untrue. All three assertions pass. And the conversation
+reads like this, for four turns:
+
+> **customer** I bought a jacket about a week ago and it doesn't fit. I'd like
+> to return it, but I can't find the order number — can you help?
+> **agent** …Could you please provide the order ID…
+> **customer** I'm sorry, I can't locate the order number right now — could you
+> look it up another way?
+> **agent** I'm sorry, but I can only open a return when I have the specific
+> order number…
+> **customer** …Is there another way you can look it up for me?
+> **agent** I'm sorry, but I can't retrieve an order without the order number…
+
+**Two gaps, and the second is worse.**
+
+**The specification has no way to find a customer's orders.** Every operation in
+the AOAS takes an `order_id`, and the session already identifies the customer
+whose orders they are — `P-OWNERSHIP` exists precisely because the system knows
+which orders are theirs. So the one thing that would rescue this conversation is
+a read the specification never declared, and the agent is behaving correctly by
+refusing: it has no such tool. **A decision, not a defect** — but an agent that
+cannot serve an authenticated customer who mislaid a reference is not finished.
+
+**Nothing noticed.** The customer asked four times and got the same wall.
+`repeated-intent` exists for exactly this and did not fire, because the later
+messages carry no classifiable intent — *"can you look it up another way"* is
+not a return request — so the chain of same-intent turns never reached three.
+This is the dissatisfaction gap (GAPS §7) arriving in a sharper form: the
+customer is visibly stuck, the agent is visibly repeating itself, and the
+condition that would fetch a person is written against a signal neither of them
+produces.
+
+**Not fixed.** The first half is a domain decision about what this agent may
+read; the second is the catalog gap already registered. Recorded here with the
+transcript because that is the deliverable — `docs/SIMULATION-REPORT.md` keeps
+the unscripted conversations, and this is what one is for.
+
+---
+
+## F-031 · An empty completion was treated as an answer
+
+**Found** 2026-09-12, while building the model-driven customer: the voice
+returned `''` three runs in a row and every check passed, because a conversation
+that never happened cannot say anything wrong.
+
+**Severity** High. It reaches the customer as silence, and the run as a success.
+
+`openai/gpt-oss-120b` is a reasoning model: it spends the output budget thinking
+before it writes, and when the budget runs out it returns **empty content with
+the tokens billed**. The typed boundary turned that into
+`ModelResponse(text="")`, which the loop reads as *the model chose to answer and
+had nothing to say* — so the reply screen passes an empty string, the turn
+completes, and the customer is shown nothing.
+
+**Fixed — 2026-09-12, from AHC-0001.** A completion carrying neither text nor a
+tool call is `ModelMalformed` — the same class as unparseable tool arguments,
+taking the same declared path, counted and never retried. The message says how
+many output tokens were spent and, when the provider says `finish_reason:
+length`, that the budget ran out before an answer began, because that is the
+difference between *the model is broken* and *your budget is too small for this
+model*.
+
+The first version of the customer's voice asked for 120 tokens. That is the
+lesson twice over: the defect was found by the harness hitting it, and the
+harness had hit it because **a reasoning model needs room to think before it
+says anything at all**.
+
+---
+
 ## F-030 · The deterministic refund route answered precisely the wrong utterances
 
 **Found** 2026-09-12, by the **first live run against a real model** — the first

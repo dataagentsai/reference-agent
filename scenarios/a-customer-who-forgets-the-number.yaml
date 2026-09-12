@@ -1,0 +1,34 @@
+# A customer who does not have their order number, played by a model.
+#
+# Every other scenario here scripts what the customer says, which means every
+# other scenario is a customer who says the right thing in the right order — the
+# one customer support never gets. This one is played by a model under a persona,
+# so the difficulty arrives the way it does in life: as a missing identifier
+# rather than as a bad mood.
+#
+# **This run cannot be replayed**, and the record says so. It is not a regression
+# case and must never be treated as one: what it is for is the question a
+# scripted suite cannot ask — what happens when the conversation does not go the
+# way the author imagined.
+apiVersion: awd-scenario/v0
+scenario: a customer who cannot find their order number
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  The customer wants to return something and does not have the order number to
+  hand. Whatever the agent does, it must not invent an order, act on the wrong
+  one, or claim something it has not done.
+discharges: [P-RETURN, P-OWNERSHIP, op:get_order, AAC-0110]
+max_turns: 4
+
+actor:
+  kind: model
+  persona: forgets-the-identifier
+  situation: >-
+    You bought a jacket about a week ago and it does not fit. You want to send it
+    back. You cannot find the order number anywhere.
+
+expect:
+  - {truthful: order, id: AB-10003}
+  - {reply: never_says, text: has been returned}
+  - {reply: never_says, text: I have processed}
