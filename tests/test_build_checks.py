@@ -67,6 +67,7 @@ REALISATION = re.compile(
 )
 
 
+@pytest.mark.discharges("B13")
 def test_only_the_composition_root_constructs_a_realisation() -> None:
     """A store, client or transport is constructed only where it is defined —
     the package receives its collaborators, it never fetches them. Tests and
@@ -89,3 +90,55 @@ def test_only_the_composition_root_constructs_a_realisation() -> None:
                 offences.append(f"{path.relative_to(ROOT)}:{node.lineno} constructs {name}")
     assert defined, "the realisation pattern matched nothing — the check has gone quiet"
     assert offences == [], "\n".join(offences)
+
+
+@pytest.mark.discharges("B13")
+def test_every_collaborator_the_root_takes_is_an_interface() -> None:
+    """B13's first half, which the check above does not cover: a port typed as a
+    concrete class is a deployment nobody can swap for a simulated world, a
+    recording or a durable store.
+
+    The exceptions are named rather than tolerated. `Meter` is a concrete class
+    behind a factory because a meter is made per unit of work and its
+    construction is where an unpriced model fails (AHC-0101); the rest of the
+    signature is configuration — versioned data, not somebody else's machinery.
+    """
+    import inspect
+    import typing
+
+    from support_agent import entrypoint as ep
+    from support_agent.contracts import protocols
+
+    ports = {
+        name
+        for name, obj in vars(protocols).items()
+        if inspect.isclass(obj)
+        and typing.get_type_hints(obj, include_extras=True) is not None
+        and getattr(obj, "_is_protocol", False)
+    }
+    configuration = {  # versioned data this agent owns, not a collaborator
+        "capacity",
+        "config",
+        "system_prompt",
+        "history_chars",
+        "rules",
+        "policy_rules",
+        "tier_2",
+    }
+    factories = {"metering"}  # made per unit of work
+
+    import re
+
+    ports |= {"DeliveryLog"}  # declared beside its module rather than in contracts
+    concrete = []
+    for name, parameter in inspect.signature(ep.build).parameters.items():
+        if name in configuration or name in factories:
+            continue
+        # Tokens, never substrings: `InMemoryCheckpointStore` contains
+        # `CheckpointStore`, so a containment test passes the exact thing this
+        # is looking for.
+        named = set(re.findall(r"[A-Za-z_][A-Za-z_0-9]*", str(parameter.annotation)))
+        if not named & ports:
+            concrete.append(f"{name}: {parameter.annotation}")
+
+    assert concrete == [], "the root takes a concrete collaborator:\n" + "\n".join(concrete)
