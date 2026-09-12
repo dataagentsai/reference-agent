@@ -1,0 +1,231 @@
+# The reference agent's harness profile — its binding, in the catalog's own format.
+#
+# This is the "binding spec" the family's charter calls ABS, and it turned out
+# not to need inventing: AHC already publishes a profile format, and a binding is
+# exactly what it holds — which ports are filled by what, which of the catalog's
+# decisions this system answered and how, which numbers it chose, and which
+# capabilities it knowingly does not meet.
+#
+#   npm --prefix ../ai-harness-catalog run lint    # validates shape and references
+#
+# Every answer below is read from the code, not aspired to. Where the profile and
+# the Assurance Map disagree, the map wins: it is generated from tests that ran.
+apiVersion: harness-profile/v1
+
+subject:
+  name: support-agent
+  version: "0.1.0"
+  repository: https://github.com/dataagentsai/reference-agent
+  description: >-
+    Customer support for a clothing retailer. A deterministic router answers what
+    it can without a model; the rest goes to a bounded loop over an MCP tool
+    surface projected from a declared world. Refunds above a limit need a person,
+    and every irreversible effect crosses a gate the model cannot talk through.
+  archetypes: [A6]
+
+catalog:
+  ahc: "0.3.0"
+  aac: "0.13.0"
+
+# ---------------------------------------------------------------- decisions
+# The eleven decisions the catalog keys on the capabilities this shape owes.
+# `source: chosen` means somebody argued it here; `golden-path` means the
+# catalog's own resolution was taken as-is and is recorded rather than assumed.
+decisions:
+  AHC-0001/parse_failure:
+    value: fail-typed
+    source: chosen
+    note: >-
+      ModelMalformed is its own type, never retried: the same prompt to the same
+      model produced something unreadable, so a retry mostly buys a second bill.
+      The no-retry rule is asserted so it cannot drift (F-015).
+  AHC-0001/boundary_position:
+    value: harness
+    source: golden-path
+    note: >-
+      One parse site, and an import contract makes a second one impossible rather
+      than discouraged — only `llm` may import a provider SDK.
+  AHC-0001/raw_retention:
+    value: operator-only
+    source: chosen
+    note: >-
+      The raw text rides on the typed failure for whoever is paged, and never
+      into the customer's reply. Retaining nothing makes a malformed-output
+      report unanswerable; retaining it in the reply is the leak.
+  AHC-0004/choke_point:
+    value: in-process
+    source: chosen
+    note: No gateway in this deployment; the in-process seam is where cost, retries and the breaker live.
+  AHC-0004/sdk_containment:
+    value: import-contract
+    source: chosen
+    note: lint-imports fails the build when any module but `llm` imports the provider SDK.
+  AHC-0004/interface_shape:
+    value: own-interface
+    source: chosen
+    note: >-
+      `LLMClient` is this system's shape, not the provider's, which is what let a
+      recording, a script and a resilience decorator stand in the same slot.
+  AHC-0009/allow_list_scope:
+    value: global
+    source: golden-path
+    note: One tenant, one list, checked at startup so a typo fails the process rather than a turn.
+  AHC-0009/withdrawn_model:
+    value: fail-at-build
+    source: chosen
+    note: >-
+      A model with no price is a configuration fault raised where the run is
+      configured, not three calls in (AHC-0101).
+  AHC-0019/redaction_point:
+    value: before-export
+    source: chosen
+    note: One redaction function, on the capture path, so no unredacted copy is written anywhere.
+  AHC-0019/reversibility:
+    value: irreversible
+    source: chosen
+    note: >-
+      Card numbers, emails, phones and key-shaped strings are replaced, not
+      tokenised. Reversible redaction is a second secret to hold.
+  AHC-0019/eval_path:
+    value: same-path
+    source: chosen
+    note: The eval path exports through the same tracer, so it redacts by construction rather than by remembering to.
+
+# --------------------------------------------------------------- thresholds
+# Every number the catalog refuses to publish. These are this agent's, and the
+# AOAS states the ones that are also promises to the customer.
+thresholds:
+  max_steps_per_task: 12
+  max_output_tokens: 4096
+  max_cost_usd_per_task: 0.50
+  max_tool_result_characters: 8000
+  max_history_characters: 32000
+  max_concurrent_reads: 4
+  oscillation_repeat_threshold: 3
+  approval_validity_hours: 24
+  escalation_queued_ttl_minutes: 30
+  escalations_per_conversation: 2
+  refund_without_a_person_inr: 10000
+
+# ----------------------------------------------------------------- bindings
+# The whole of the stack choice. `x_could_be` is not part of the format: it is
+# this repository's own column for G3's stack matrix, recorded while walking the
+# ports rather than by walking them twice, and it says who *else* could supply
+# this port. `in-house` here is a deliberate position — a framework owns L4, L1
+# and L10, which are the layers the catalogs exist to expose.
+bindings:
+  model:        { approach: in-house,    adapter: openai-compatible-client, x_could_be: [framework, gateway] }
+  tool_runtime: { approach: open-source, adapter: mcp-client, x_could_be: [framework] }
+  state:        { approach: open-source, adapter: postgres-checkpoints, x_could_be: [framework, cloud-native] }
+  approval:     { approach: in-house,    adapter: postgres-approval-queue, x_could_be: [platform] }
+  telemetry:    { approach: open-source, adapter: otlp-tracing, x_could_be: [platform] }
+  policy:       { approach: in-house,    adapter: positioned-rule-lists, x_could_be: [gateway, open-source] }
+  identity:     { approach: open-source, adapter: signed-token-at-the-edge, x_could_be: [gateway, cloud-native] }
+  secrets:      { approach: in-house,    adapter: environment-settings, x_could_be: [cloud-native] }
+  cost_ledger:  { approach: in-house,    adapter: per-task-meter, x_could_be: [gateway, platform] }
+  config:       { approach: open-source, adapter: typed-settings, x_could_be: [cloud-native] }
+  recorder:     { approach: in-house,    adapter: json-cassettes, x_could_be: [open-source] }
+  trigger:      { approach: in-house,    adapter: delivery-log, x_could_be: [cloud-native] }
+  eval_task:    { approach: in-house,    adapter: scenario-runner, x_could_be: [platform, open-source] }
+
+# ------------------------------------------------------------ accepted gaps
+# Knowingly not met, owned and dated. Not "untested" — see x_untested below,
+# which is a different claim and a weaker one.
+accepted_gaps:
+  - capability: AHC-0015
+    reason: The agent does not stream; a completion and abort contract has nothing to govern.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0071
+    reason: >-
+      One loop, no graph. There are no nodes to give typed edges to, and building
+      a topology in order to satisfy a capability about topologies is the failure
+      mode this catalog warns about.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0072
+    reason: No graph, so there is no topology to inspect as data.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0073
+    reason: >-
+      No graph. The trajectory is checkpointed per turn (AHC-0044) and an approval
+      resumes from it, which is the part of this that a single loop owes.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0098
+    reason: >-
+      One class of traffic, one entry point. A priority scheme needs a second
+      class to separate this one from.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0092
+    reason: >-
+      Residency is declared absent in the AOAS rather than left out, and there is
+      one provider endpoint, so there is no region choice to pin or record.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0028
+    reason: >-
+      No grader runs in the loop. Judgement with no scenario suite to score it
+      against is an opinion that costs a model call, so this is sequenced with
+      AgentTwin's scenarios rather than built first (TODO G0.11).
+    owner: reference-agent
+    review: "2026-11-01"
+  - capability: AHC-0029
+    reason: >-
+      A production turn cannot yet become a dataset row without a translation
+      step, which is what makes online evaluation automatable. Owed with the
+      same work as AHC-0028.
+    owner: reference-agent
+    review: "2026-11-01"
+  - capability: AHC-0031
+    reason: >-
+      No metrics are emitted at all — only spans — so every aggregate question is
+      answered by aggregating traces, which is the wrong instrument. TODO G0.11.
+    owner: reference-agent
+    review: "2026-11-01"
+  - capability: AHC-0095
+    reason: >-
+      Policy evaluation has no budget and no timeout path. All five positions are
+      now reached (F-027); a rule that hangs still takes the turn with it.
+    owner: reference-agent
+    review: "2026-11-01"
+  - capability: AHC-0075
+    reason: >-
+      The budget is a per-task ceiling checked as spend accumulates, not an
+      allocation divided between the steps ahead of it.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0090
+    reason: >-
+      No segment labels are attached at the boundary, so evaluation cannot be
+      sliced by customer segment. Nothing in the AOAS names a segment yet.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0032
+    reason: >-
+      Prompt, model and policy are versioned and diffable, and no release process
+      restores them together, because this agent is not deployed.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0033
+    reason: >-
+      No deployment, so there is no artifact serving traffic to compare with the
+      one that was assessed. The Build Manifest is the half of this that exists.
+    owner: reference-agent
+    review: "2026-12-01"
+
+# `x_` is the format's extension point. These are not accepted gaps: each is
+# believed met and **no test names it**, which the Assurance Map reports and this
+# records. A capability claimed without evidence is exactly what that map exists
+# to prevent, so they are listed rather than quietly counted as met.
+x_untested:
+  - AHC-0002   # context assembly is one function, and it is inspectable
+  - AHC-0004   # the choke point exists; the import contract is tested, the claim is not tagged
+  - AHC-0006   # spans carry the run id across the hops
+  - AHC-0010   # `Agent.handle` is the entrypoint scenarios drive
+  - AHC-0020   # the fan-out limiter is bounded by the harness
+  - AHC-0025   # a truncated result is typed and flagged
+  - AHC-0026   # the run id spans the unit of work
+  - AHC-0036   # every tool declares an argument contract, validated at dispatch

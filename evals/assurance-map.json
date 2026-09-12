@@ -1,7 +1,7 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 427,
-  "tagged": 353,
+  "functions": 437,
+  "tagged": 359,
   "tooling": [
     "tests/test_actors.py::test_a_model_driven_actor_refuses_to_be_built_casually",
     "tests/test_actors.py::test_a_run_is_as_reproducible_as_its_weakest_actor",
@@ -27,6 +27,7 @@
     "tests/test_assurance_map.py::test_an_unknown_statement_is_refused",
     "tests/test_assurance_map.py::test_the_unit_is_the_function_and_the_remainders_are_both_directions",
     "tests/test_break_it.py::test_a_scenario_whose_fault_never_fired_is_reported",
+    "tests/test_build_checks.py::test_every_collaborator_the_root_takes_is_an_interface",
     "tests/test_build_checks.py::test_only_the_composition_root_constructs_a_realisation",
     "tests/test_build_checks.py::test_the_build_check_passes",
     "tests/test_build_checks.py::test_the_ratchet_holds",
@@ -64,6 +65,11 @@
     "tests/test_omission.py::test_the_other_three_oracles_pass_an_agent_that_did_nothing",
     "tests/test_omission.py::test_the_predicate_reads_as_prose_in_a_scenario",
     "tests/test_omission.py::test_which_states_create_a_debt",
+    "tests/test_pattern_view.py::test_every_entailment_names_the_statement_that_forces_it",
+    "tests/test_pattern_view.py::test_the_view_names_only_patterns_that_exist",
+    "tests/test_reuse_audit.py::test_a_module_belongs_to_exactly_one_layer",
+    "tests/test_reuse_audit.py::test_every_module_is_placed_in_a_layer",
+    "tests/test_reuse_audit.py::test_the_domain_measurement_agrees_with_the_classification",
     "tests/test_scripts.py::test_an_offline_script_runs",
     "tests/test_telemetry.py::test_span_carries_the_attributes_a_verdict_needs",
     "tests/test_telemetry.py::test_trajectory_is_reconstructable_from_the_trace",
@@ -151,7 +157,7 @@
     },
     "AHC": {
       "owed": 67,
-      "exercised": 44,
+      "exercised": 45,
       "failing": [],
       "not_exercised": [
         {
@@ -235,10 +241,6 @@
           "title": "The processing region is pinned and recorded per call"
         },
         {
-          "id": "AHC-0093",
-          "title": "Policies compose in a declared order"
-        },
-        {
           "id": "AHC-0095",
           "title": "Policy evaluation has its own budget and a declared timeout path"
         },
@@ -249,8 +251,8 @@
       ]
     },
     "Baseline": {
-      "owed": 12,
-      "exercised": 6,
+      "owed": 13,
+      "exercised": 7,
       "failing": [],
       "not_exercised": [
         {
@@ -547,7 +549,8 @@
     },
     "AAC-0091": {
       "passed": [
-        "tests/test_policy.py::test_a_rule_that_raises_blocks_the_traffic"
+        "tests/test_policy.py::test_a_rule_that_raises_blocks_the_traffic",
+        "tests/test_policy_positions.py::test_a_rule_at_every_position_is_reached"
       ],
       "failed": []
     },
@@ -1081,11 +1084,20 @@
       ],
       "failed": []
     },
+    "AHC-0093": {
+      "passed": [
+        "tests/test_policy_positions.py::test_a_rule_at_every_position_is_reached",
+        "tests/test_policy_positions.py::test_a_blocked_call_is_answered_so_the_model_can_choose_again",
+        "tests/test_policy_positions.py::test_a_blocked_result_never_enters_context"
+      ],
+      "failed": []
+    },
     "AHC-0094": {
       "passed": [
         "tests/test_policy.py::test_first_block_wins_and_later_rules_do_not_run",
         "tests/test_policy.py::test_an_empty_rule_set_allows",
         "tests/test_policy.py::test_a_false_claim_never_reaches_the_customer",
+        "tests/test_policy_positions.py::test_a_rule_at_every_position_is_reached",
         "tests/test_release_gates.py::test_policy_screens_the_whole_reply_and_can_still_block_it",
         "tests/test_reply_screen.py::test_no_route_reaches_the_customer_unscreened",
         "tests/test_reply_screen.py::test_a_blocked_reply_is_typed_as_what_it_now_is"
@@ -1211,6 +1223,14 @@
         "tests/test_tools_context.py::test_a_missing_template_variable_is_an_error",
         "tests/test_typed_boundary.py::test_a_malformed_response_becomes_a_typed_failure",
         "tests/test_typed_boundary.py::test_malformed_is_not_unavailable"
+      ],
+      "failed": []
+    },
+    "B13": {
+      "passed": [
+        "tests/test_build_checks.py::test_only_the_composition_root_constructs_a_realisation",
+        "tests/test_build_checks.py::test_every_collaborator_the_root_takes_is_an_interface",
+        "tests/test_pattern_view.py::test_every_pattern_this_agent_uses_is_entailed_by_its_specification"
       ],
       "failed": []
     },
