@@ -67,6 +67,7 @@ def calls(order_id: str) -> ModelResponse:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0101")
 def test_an_unknown_model_raises_rather_than_pricing_at_zero() -> None:
     """A missing price that prices at zero is a ceiling that never fires — the
     failure is silent, unbounded, and first visible on an invoice."""
@@ -74,6 +75,7 @@ def test_an_unknown_model_raises_rather_than_pricing_at_zero() -> None:
         price_of("some-model-nobody-priced")
 
 
+@pytest.mark.discharges("AHC-0101")
 def test_every_approved_model_has_a_price() -> None:
     """The allowlist and the price map must not drift apart."""
     from support_agent.config import Settings
@@ -90,11 +92,13 @@ COST_CASES = [
 ]
 
 
+@pytest.mark.discharges("AHC-0101")
 @pytest.mark.parametrize(("name", "usage", "expected"), COST_CASES, ids=[c[0] for c in COST_CASES])
 def test_cost_of_a_call(name: str, usage: Usage, expected: Decimal) -> None:
     assert cost_of(usage, FLAT["m"]) == expected
 
 
+@pytest.mark.discharges("AHC-0101")
 def test_money_is_decimal_not_float() -> None:
     """Money accumulating in binary floating point drifts, and a budget
     comparison wrong in the last place is a budget that fires late."""
@@ -105,11 +109,13 @@ def test_money_is_decimal_not_float() -> None:
     assert isinstance(meter.spend, Decimal)
 
 
+@pytest.mark.discharges("AHC-0101")
 def test_cached_input_is_billed_at_its_own_rate_where_one_exists() -> None:
     price = Price(Decimal("1.00"), Decimal("2.00"), cached_input_per_mtok=Decimal("0.10"))
     assert cost_of(Usage(cached_input_tokens=1_000_000), price) == Decimal("0.10")
 
 
+@pytest.mark.discharges("AHC-0101")
 def test_cached_input_falls_back_to_the_input_rate() -> None:
     assert cost_of(Usage(cached_input_tokens=1_000_000), FLAT["m"]) == Decimal("1.00")
 
@@ -119,6 +125,7 @@ def test_cached_input_falls_back_to_the_input_rate() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0101")
 def test_the_meter_resolves_its_price_at_construction() -> None:
     """An unknown model fails when the run is set up, not three calls in."""
     with pytest.raises(UnknownPrice):
@@ -231,6 +238,7 @@ async def test_spend_and_tenant_are_on_the_trace(server, exporter) -> None:
     assert attrs[tel.COST_USD] > 0
 
 
+@pytest.mark.discharges("AHC-0101")
 def test_the_default_price_map_is_dated_and_flagged() -> None:
     """These figures are an input to a budget, not a quotation. If the map grows
     silently this test is the reminder that it must be verified."""
@@ -300,6 +308,7 @@ async def test_the_cost_ceiling_is_reachable_from_the_entrypoint(
     assert getattr(result, "termination", None) == ends_on, result
 
 
+@pytest.mark.discharges("AHC-0101")
 def test_an_unpriced_model_fails_at_build_not_mid_conversation() -> None:
     from support_agent import entrypoint as ep
     from support_agent.state import InMemoryCheckpointStore
