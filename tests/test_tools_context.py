@@ -159,7 +159,13 @@ async def test_a_retry_under_the_same_key_does_not_refund_twice(server) -> None:
         assert first.structured == second.structured
 
 
+@pytest.mark.discharges("AHC-0074", "AAC-0047")
 async def test_a_later_iteration_is_a_genuine_second_execution(server) -> None:
+    """The key answers *is this the same call*, and a fresh key is honestly a
+    second one. Whether it is the same *request* is the domain's question, and
+    the system that owns the record answers it — see
+    `test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system`.
+    This stub server allows everything, which is what isolates the ledger."""
     async with open_client(server) as client:
         who = customer(ident.CUSTOMER_SCOPES | {ident.SCOPE_REFUNDS_WRITE})
         await client.call("issue_refund", {"order_id": "O-1"}, who, key(1, 0))

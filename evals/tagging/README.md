@@ -32,6 +32,24 @@ test's assertions were tautological; several credited obligations to code the
 agent never runs. A tag that names the wrong statement reads as coverage and
 verifies nothing.
 
+## What G0.6 did with it (2026-09-12)
+
+Every headline below is now a statement, and the tests that verified nothing
+cite it. Untagged **126 → 69**; AOAS 24/33 → **49/54** (the denominator grew by
+twenty as prose became statements), AHC 29/60 → **37/64**, AAC 41/49 → **42/50**.
+
+| Gap | Where it went |
+|---|---|
+| Authentication has no spec | **AAC-0111** (a request acts only as the identity its credential proves) and **AHC-0099** (that identity comes from a credential the caller cannot author) |
+| Deterministic routing has no statement | **AHC-0100** (a request the specification can answer without the model is answered without it), and the AOAS says which requests those are and that the path never writes — `P-DIRECT`, `P-DIRECT-READS` |
+| The escalation and approval rules have no citable ids | The AOAS states them as id'd lines carrying their own parameters: `P-APPROVER`, `P-APPROVAL-TTL/-FINAL/-WAIT/-QUEUE`, `P-ESC-ONCE/-CAP/-TTL/-LAPSE/-TOLD/-OWNS/-QUEUE/-OUTCOME` |
+| Cost arithmetic is unspecified | **AHC-0101** — priced from a dated table, an unpriced model is an error, money is decimal |
+| Operational stores are unspecified | **AHC-0102** — written whole or not at all, and every substrate declares whether it survives the process |
+
+All three conflicts are settled: cancel authority (AHC-0057 amended), wait
+estimates (the AOAS permits a measured one), and the key against the domain
+identity (different questions, both answered, each with its own test).
+
 ## What the untagged remainder says, in one line each
 
 - **Authentication has no spec.** Identity from a verified token and never the

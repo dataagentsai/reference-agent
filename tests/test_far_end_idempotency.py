@@ -16,10 +16,12 @@ from mcp.client import Client
 
 from support_agent import identity as ident
 from support_agent.contracts import IdempotencyKey, Identity, RunId
-from support_agent.tools import MCPTransport
+from support_agent.idempotency import InMemoryLedger
+from support_agent.tools import MCPTransport, connect
 
 WORLD = Path(__file__).parent.parent / "worlds" / "clothing.yaml"
 CUSTOMER = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
+RETURNABLE = "AB-10003"
 
 
 def key(iteration: int) -> IdempotencyKey:
@@ -51,3 +53,26 @@ async def test_the_far_end_recognises_a_retried_write(
     assert world.count("open_return_request") == landed
     if landed == 1:
         assert answers[0].structured == answers[1].structured, "a repeat gets the same answer"
+
+
+@pytest.mark.discharges("op:issue_refund", "P-REFUND", "AHC-0074", "AAC-0047")
+async def test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system() -> None:
+    """The key and the domain answer different questions, and both are answered.
+
+    A harness key asks *is this the same call*: a fresh key is honestly a second
+    call, and the ledger lets it through — which is right, and is what
+    `test_a_later_iteration_is_a_genuine_second_execution` pins. The AOAS's
+    `identity: order_id` asks *is this the same request*, and the system that
+    owns the record answers it: `status != refunded` refuses the second refund
+    however new the key is. A harness holding only the key would pay twice for
+    two genuine attempts.
+    """
+    live = Live.start(load(WORLD))
+    who = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES | {ident.SCOPE_REFUNDS_WRITE})
+    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+        first = await tools.call("issue_refund", {"id": RETURNABLE}, who, key(0))
+        second = await tools.call("issue_refund", {"id": RETURNABLE}, who, key(1))
+
+    assert first.structured["allowed"] is True, first.structured
+    assert second.structured["allowed"] is False, "a fresh key bought a second refund"
+    assert live.count("issue_refund") == 1
