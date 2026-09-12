@@ -55,3 +55,42 @@ def test_every_declared_refusal_is_enforced_somewhere() -> None:
     declared = {"R-DISCOUNT", "R-OTHER-CUSTOMER", "R-ACCOUNT", "R-STYLE", "R-FRAUD"}
     routed = {rule_id for rule_id, _, _ in router.Rules().refuse}
     assert declared - routed == set(), "declared in the AOAS, enforced by nothing"
+
+
+# (name, what the customer says, the route it must take, the intent if direct)
+REFUND_UTTERANCES = [
+    ("asking for money back is a request", "please refund my order AB-10003", "agentic", None),
+    ("so is wanting money back", "I want my money back for AB-10003", "agentic", None),
+    ("asking where it is is a status question",
+     "where is my refund for AB-10003", "direct", "refund_status"),
+    ("so is asking whether it happened",
+     "has my refund been processed for AB-10003", "direct", "refund_status"),
+    ("and asking for the status outright",
+     "refund status for AB-10003", "direct", "refund_status"),
+    ("an order status question is still one",
+     "where is my order AB-10003", "direct", "order_status"),
+]  # fmt: skip
+
+
+@pytest.mark.discharges("P-REFUND-STATUS", "P-REFUND", "P-DIRECT", "P-DIRECT-READS")
+@pytest.mark.parametrize(
+    ("name", "text", "route", "intent"), REFUND_UTTERANCES, ids=[u[0] for u in REFUND_UTTERANCES]
+)
+def test_asking_for_a_refund_is_not_asking_after_one(
+    name: str, text: str, route: str, intent: str | None
+) -> None:
+    """F-030, found by the first live run against a real model.
+
+    `\\brefund\\b` matched *"please refund my order"*, so a request for money back
+    was answered with its status — true, useless, and not what was asked. The
+    same pattern made *"where is my refund"* match two intents and go to the
+    loop, so the one utterance the deterministic route exists for was the one it
+    missed. It answered precisely the wrong set.
+
+    Third time this shape has appeared here: the escalate rule matched the noun
+    *agent*, and R-STYLE would have matched *fit*. **Anchor on the asking.**
+    """
+    decision = router.route(text)
+    assert decision.kind == route, f"{text!r} took the {decision.kind} route"
+    if intent is not None:
+        assert decision.intent.value == intent

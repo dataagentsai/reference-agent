@@ -32,6 +32,7 @@ from support_agent import entrypoint as ep
 from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent.binding import SCOPES
+from support_agent.config import RunConfig
 from support_agent.contracts import (
     Clock,
     Identity,
@@ -94,6 +95,7 @@ async def subject_for(
     clock: Clock | None = None,
     wrap: object = None,
     provider_faults: tuple[tuple[int, str, float | None], ...] = (),
+    config: RunConfig | None = None,
 ) -> AsyncIterator[Subject]:
     """Wire this agent against a live world and hand back what a scenario drives.
 
@@ -121,6 +123,7 @@ async def subject_for(
             approvals=approvals,
             escalations=escalations,
             clock=clock,
+            config=config,
         )
 
         async def say(

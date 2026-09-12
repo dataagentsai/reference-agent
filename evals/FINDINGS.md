@@ -1141,6 +1141,48 @@ which is the ratchet working: `loop/screen.py` (the positions) and
 
 ---
 
+## F-030 · The deterministic refund route answered precisely the wrong utterances
+
+**Found** 2026-09-12, by the **first live run against a real model** — the first
+thing in this programme that asked whether the agent *decides* correctly rather
+than whether it is wired correctly.
+
+**Severity** High. It reaches the customer, on the commonest thing they say.
+
+A customer wrote *"please refund my order AB-10003"* and the agent replied:
+
+> *"There is no refund on order AB-10003."*
+
+True, useless, and an answer to a question nobody asked. The intent pattern was
+the bare noun `\brefund\b`, so a **request for money back** matched the
+**refund-status** route and was answered deterministically, without ever
+reaching the tool that raises the request.
+
+The mirror half is worse. *"Where is my refund for AB-10003"* — the one
+utterance `P-REFUND-STATUS` exists for — matched *both* refund status and order
+status, and two matches means ambiguity, so it went to the loop. **The
+deterministic route answered exactly the utterances it should not and missed the
+ones it should.**
+
+**Why no test caught it.** Every existing test reached the refund path by
+scripting the tool call, which bypasses the router entirely. The scripted model
+made the routing question unaskable, and the live model asked it on the first
+run — which is the argument for live runs in one sentence.
+
+**Fixed — 2026-09-12, from `P-REFUND-STATUS` and `P-DIRECT`.** Anchored on the
+*asking*: a where/when/what question about a refund, a refund followed by
+status-or-update words, "been refunded", or "refund status" outright. Order
+status no longer matches when the subject is a refund. Six utterances are pinned
+in a table.
+
+**Third time this shape has appeared here**, and that is the finding worth
+keeping: the escalate rule matched the noun *agent* and escalated *"the delivery
+agent left it at the wrong door"*; R-STYLE would have matched *fit* and refused
+*"the fit was wrong, I want to return it"*. **A rule that matches the noun
+catches the customers it exists to serve.** Anchor on the asking.
+
+---
+
 ## F-029 · The simulated agent was wired differently from the deployed one
 
 **Found** 2026-09-12, by the first scenario that asked the model provider to

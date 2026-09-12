@@ -136,12 +136,33 @@ class Rules:
             (Intent.CANCEL_ORDER, re.compile(r"\bcancel\b", re.I)),
             (Intent.RETURN_REQUEST, re.compile(r"\breturn\b", re.I)),
             (Intent.EXCHANGE_REQUEST, re.compile(r"\b(exchange|swap|different size)\b", re.I)),
-            (Intent.REFUND_STATUS, re.compile(r"\brefund\b", re.I)),
+            (
+                Intent.REFUND_STATUS,
+                # Anchored on *asking about* a refund, never on the noun. The
+                # bare word matched "please refund my order", so a request for
+                # money back was answered with its status — true, useless, and
+                # not what was asked (F-030). Third time this shape of defect
+                # has appeared: the escalate rule and R-STYLE both learned it.
+                re.compile(
+                    r"\b(where|when|what|how)\b[^.?!]{0,30}\brefunds?\b"
+                    r"|\brefunds?\b[^.?!]{0,24}\b(status|update|yet|processed|arrived?|coming)\b"
+                    r"|\b(been|was|is)\s+refunded\b"
+                    r"|\brefund\s+status\b",
+                    re.I,
+                ),
+            ),
             (Intent.ADDRESS_CHANGE, re.compile(r"\b(change|update).{0,20}address\b", re.I)),
             (Intent.DAMAGED_ITEM, re.compile(r"\b(damaged|broken|missing|torn)\b", re.I)),
             (
                 Intent.ORDER_STATUS,
-                re.compile(r"\b(where is|status|track|delivered|arriv)\w*\b", re.I),
+                # Not when the subject is a refund: "where is my refund" is a
+                # question about money, and matching both intents made it
+                # ambiguous — so the one utterance P-REFUND-STATUS exists for
+                # went to the loop (F-030).
+                re.compile(
+                    r"^(?!.*\brefunds?\b).*\b(where is|status|track|delivered|arriv)\w*\b",
+                    re.I | re.S,
+                ),
             ),
             (Intent.POLICY_QUESTION, re.compile(r"\b(policy|how long|window|allowed)\b", re.I)),
         )
