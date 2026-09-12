@@ -50,7 +50,12 @@ from support_agent.resilience import ResilientLLM
 from support_agent.state import Conversation, InMemoryCheckpointStore
 from support_agent.tools import connect
 
-DECISIONS = {"grant": Approver.grants, "refuse": Approver.denies, "never": Approver.silent}
+DECISIONS = {
+    "grant": Approver.grants,
+    "refuse": Approver.denies,
+    "never": Approver.silent,
+    "grant-twice": Approver.grants_twice,
+}
 RESOLUTIONS = {"handled": Desk.answers, "never": Desk.never_comes}
 
 

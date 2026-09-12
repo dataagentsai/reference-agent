@@ -217,6 +217,8 @@ def invents_a_delivery_date() -> ScriptedClient:
 
 SCRIPTS = {
     "it-will-not-invent-a-delivery-date": invents_a_delivery_date,
+    "a-rule-does-not-take-it-from-a-person": asks_for_a_refund,
+    "the-reviewer-approves-it-twice": asks_for_a_refund,
     "a-promise-nobody-is-keeping": promises_and_does_nothing,
     "twelve-steps-and-then-a-person": reads_five_orders,
     "the-address-changes-while-it-can": changes_two_addresses,
@@ -277,7 +279,7 @@ def test_every_scenario_names_what_it_discharges() -> None:
         assert load_scenario(path).discharges, f"{path.name} discharges nothing"
 
 
-COVERED_AT_LEAST = 36
+COVERED_AT_LEAST = 51
 """What scenarios reached when this ratchet was set, 2026-09-12 — 17 of 55. It turns one
 way: a statement that has been demonstrated end to end does not stop being
 demonstrated because somebody deleted the scenario that did it."""
@@ -298,6 +300,33 @@ def test_scenario_coverage_only_goes_up() -> None:
         f"scenario coverage fell to {reached} from {COVERED_AT_LEAST} — "
         "a statement stopped being demonstrated end to end"
     )
+
+
+@pytest.mark.tooling
+def test_every_unreached_statement_says_why_it_cannot_be_reached() -> None:
+    """The unreached list must not become a place work goes to be forgotten.
+
+    Four statements are genuinely out of a scenario's reach — they are the
+    binding's numbers, and a scenario deliberately has no view of the binding,
+    which is exactly what makes the same scenarios runnable against a
+    regenerated agent on a different stack. Each of those carries a written
+    reason and a note of where it *is* demonstrated.
+
+    Anything else unreached is work, and this fails until somebody either writes
+    the scenario or writes down why there will never be one.
+    """
+    from evals.scenario_coverage import UNREACHABLE, coverage
+
+    report = coverage()
+    unexplained = [s for s in report["unreached"] if s not in UNREACHABLE]
+    assert unexplained == [], (
+        "unreached by any scenario and no reason recorded — write the scenario, "
+        f"or add it to UNREACHABLE with why: {unexplained}"
+    )
+    # And the other direction: an excuse for a statement that is now reached is
+    # an excuse that has outlived its truth.
+    stale = [s for s in UNREACHABLE if s in report["reached"]]
+    assert stale == [], f"listed as unreachable and reached by a scenario: {stale}"
 
 
 GENERATED = [p for p in ALL if load_scenario(p).generate is not None]

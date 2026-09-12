@@ -33,6 +33,46 @@ def reached(directory: Path = SCENARIOS) -> dict[str, list[str]]:
     return out
 
 
+UNREACHABLE = {
+    "Q-COST": (
+        "A ceiling of USD 0.50 per task. A scripted model costs nothing, so an "
+        "offline scenario cannot approach it, and a scenario that lowered the "
+        "ceiling to reach it would be demonstrating a bound nobody deployed. "
+        "Demonstrated in the live runs, where the meter reads real usage and the "
+        "report carries cost per scenario."
+    ),
+    "Q-MODEL": (
+        "Which models are reachable is resolved configuration, checked when the "
+        "configuration resolves and not during a conversation. A scenario drives "
+        "the agent through its contract and has no view of what it was built "
+        "with — by design: the binding is not the scenario's business."
+    ),
+    "Q-OUTPUT": (
+        "A ceiling on tokens the provider is asked for, carried on every request "
+        "and enforced by the provider. Observable in what the harness sends and "
+        "not in anything the customer can say or the world can show, which is "
+        "the whole surface a scenario has."
+    ),
+    "Q-TOOL-RESULT": (
+        "A bound on how much of a tool result enters context. Reaching it needs a "
+        "system that returns more than eight thousand characters, and this world "
+        "has no such row — the honest way to demonstrate it is a perturbation "
+        "that pads a read, which the format does not yet have."
+    ),
+}
+"""Statements a scenario cannot reach, and why — each with where it *is*
+demonstrated instead.
+
+This exists so the unreached list stops being read as a to-do. Four of these are
+the binding's numbers, and a scenario deliberately has no view of the binding: it
+drives the agent through its contract, which is exactly what makes the same
+scenarios runnable against a regenerated agent on a different stack.
+
+**A statement that is unreached and unexplained is a failing test**, so this
+table cannot quietly grow to cover a scenario nobody got round to writing.
+"""
+
+
 def coverage(directory: Path = SCENARIOS) -> dict:
     owed = {s.id: s.title for s in statements.load().owed("AOAS")}
     hit = reached(directory)
@@ -61,8 +101,23 @@ def render(report: dict) -> str:
     ]
     for statement, scenarios in hit.items():
         lines.append(f"- `{statement}` — {', '.join(scenarios)}")
-    lines += ["", f"## Reached by no scenario — {len(missing)}", ""]
-    lines += [f"- `{s}` {owed[s]}" for s in missing]
+    owed_work = [s for s in missing if s not in UNREACHABLE]
+    lines += ["", f"## Reached by no scenario — {len(owed_work)}", ""]
+    lines += [f"- `{s}` {owed[s]}" for s in owed_work] or [
+        "Nothing. Every statement a scenario can reach is reached by one."
+    ]
+
+    explained = [s for s in missing if s in UNREACHABLE]
+    if explained:
+        lines += ["", f"## Not reachable by a scenario — {len(explained)}", ""]
+        lines += [
+            "Each is demonstrated by something else, and the reason is here rather",
+            "than in somebody's memory. A statement that is unreached and *unexplained*",
+            "fails the suite, so this list cannot absorb work nobody got round to.",
+            "",
+        ]
+        for s in explained:
+            lines += [f"- **`{s}`** {owed[s]}", f"  {UNREACHABLE[s]}", ""]
     if report["elsewhere"]:
         lines += [
             "",

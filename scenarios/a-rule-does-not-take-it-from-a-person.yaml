@@ -1,0 +1,45 @@
+# P-ESC-TIER1 — a Tier 2 rule never takes a conversation a person already has.
+#
+# Tier 2 reads how the turn *went* — did the loop give up, did the tools answer,
+# is this the third time they have asked — and every one of those facts is true
+# of a conversation that is waiting on an approval. So the rule most likely to
+# fire is the one that would fire while a reviewer is halfway through deciding,
+# and fetching a second person to look at a decision the first is still making
+# is worse than doing nothing.
+#
+# What holds it is structural rather than a check inside the rule: an outstanding
+# approval is a gate, and a gated turn returns before Tier 2 is ever evaluated.
+# The scenario asks the same thing four times with nobody reviewing, which is the
+# state `repeated-intent` exists for, and no person is fetched.
+apiVersion: awd-scenario/v0
+scenario: asking four times while an approval is pending fetches nobody
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  While a decision is pending the conversation continues and no rule replaces it.
+  The customer repeats themselves into the condition a Tier 2 rule is written for,
+  and the approval keeps the conversation.
+discharges: [P-ESC-TIER1, P-APPROVAL-WAIT, P-APPROVAL-QUEUE, op:request_refund, AHC-0057]
+max_turns: 4
+step_seconds: 60
+
+actor:
+  says:
+    - please refund my order AB-10003
+    - please refund my order AB-10003
+    - please refund my order AB-10003
+    - please refund my order AB-10003
+
+approver:
+  decides: never
+
+desk:
+  resolves: handled
+
+expect:
+  # Nobody was fetched, and the reviewer still has it.
+  - {handed_off: 0}
+  - {decided: waiting}
+  - {effect: issue_refund, times: 0}
+  - {world: unchanged}
+  - {reply: never_says, text: has been refunded}

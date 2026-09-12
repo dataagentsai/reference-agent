@@ -1,0 +1,39 @@
+# P-APPROVAL-FINAL — a decision is final, so the money moves once.
+#
+# Two people in a queue both picking up the same item, or one person clicking
+# approve twice on a page that did not visibly change. Neither is exotic; both
+# are what an approval queue looks like on a busy afternoon.
+#
+# What makes this the approval statement worth demonstrating end to end is what
+# it costs when it does not hold. A grant that can be re-granted is a grant that
+# can be *executed* twice, and the effect behind this particular gate is money
+# leaving the business. The stored idempotency key is the other half of the same
+# defence — it was captured when the request was made, not regenerated at
+# execution — and this scenario is the one that would notice if either half went.
+apiVersion: awd-scenario/v0
+scenario: the reviewer approves it twice and one refund happens
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  A decided approval cannot be decided again. The reviewer grants, then grants
+  the same thing a second time, and the queue refuses the second while the world
+  shows exactly one refund.
+discharges: [P-APPROVAL-FINAL, P-APPROVAL-QUEUE, P-REFUND, op:issue_refund, op:request_refund, AHC-0057, ext:approval_queue]
+max_turns: 3
+step_seconds: 60
+
+actor:
+  says:
+    - please refund my order AB-10003
+    - any update?
+    - thank you
+
+approver:
+  decides: grant-twice
+
+expect:
+  # The second attempt was refused by the queue, not by luck.
+  - {decided: refused}
+  # And the one thing that actually matters: the money moved once.
+  - {effect: issue_refund, times: 1}
+  - {row: order, id: AB-10003, field: status, equals: refunded}
