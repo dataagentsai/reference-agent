@@ -30,6 +30,16 @@ SCRIPTS = [
         ["scripts/code_path.py", "{out}"],
         "functions",
     ),
+    (
+        "build_manifest — every input to a generation is pinned",
+        ["scripts/build_manifest.py"],
+        "inputs pinned",
+    ),
+    (
+        "scenario_coverage — which statements a conversation has exercised",
+        ["scripts/scenario_coverage.py"],
+        "statements reached",
+    ),
 ]
 
 
