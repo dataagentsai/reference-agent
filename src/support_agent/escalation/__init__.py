@@ -38,6 +38,7 @@ from support_agent.escalation.store import (
     InMemoryEscalationStore,
 )
 from support_agent.escalation.wording import (
+    CAPPED_REPLY,
     CLOSED_REPLY,
     LAPSED_REPLY,
     NO_DESK_REPLY,
@@ -57,6 +58,7 @@ from support_agent.escalation.workflow import (
 )
 
 __all__ = [
+    "CAPPED_REPLY",
     "CLOSED_REPLY",
     "DEFAULT_TTL_S",
     "QUEUED_REPLY",

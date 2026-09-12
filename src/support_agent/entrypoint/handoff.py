@@ -121,7 +121,17 @@ class HandoffDesk:
     async def raise_requested(
         self, decision: Escalate, conversation: Conversation, identity: Identity, run_id: RunId
     ) -> TurnResult:
-        """Write the record, then say something true about it."""
+        """Write the record, then say something true about it — unless this
+        conversation has had its share.
+
+        `P-ESC-CAP` caps a *conversation*, and the cap lived only in the Tier 2
+        evaluator: a customer who kept asking for a person got a new reference
+        every time they asked, for as long as they asked (F-034). Past the cap
+        the honest answer is that somebody already has this, not another number
+        that looks like progress.
+        """
+        if conversation.escalations_raised >= t2.MAX_PER_CONVERSATION:
+            return Completed(reply=esc.CAPPED_REPLY)
         raised = await esc.raise_for(
             self.store,
             conversation_id=conversation.conversation_id,

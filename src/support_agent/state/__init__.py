@@ -121,6 +121,14 @@ class Conversation(BaseModel):
     The cooldown, in storage terms. A Tier 2 condition does not stop holding
     because an escalation lapsed, so without this the same rule would raise,
     lapse and raise again for as long as the customer kept talking."""
+    escalations_raised: int = 0
+    """How many references this conversation has been given.
+
+    Deliberately **not** `len(escalated_rules)`, which is what the cap used to
+    read: that counts *rules* and the cap is about *escalations* (F-034). One
+    counter answering two statements meant a customer who asked for a person
+    four times got four references, because it was the same rule every time —
+    `P-ESC-ONCE` is the per-rule cooldown above, and this is `P-ESC-CAP`."""
     pending_approval_id: str | None = None
     """Set when a turn ended in `NeedsApproval`. The next turn resumes from here
     rather than starting again — which is what "the approval returns, it does not
@@ -162,10 +170,15 @@ class Conversation(BaseModel):
         # An escalation always has a record to point at — the type requires one.
         if isinstance(result, Escalated):
             fired = updated.escalated_rules
+            raised = updated.escalations_raised + 1
             if result.rule_id and result.rule_id not in fired:
                 fired = (*fired, result.rule_id)
             return updated.model_copy(
-                update={"pending_escalation_id": result.ticket_id, "escalated_rules": fired}
+                update={
+                    "pending_escalation_id": result.ticket_id,
+                    "escalated_rules": fired,
+                    "escalations_raised": raised,
+                }
             )
         return updated
 

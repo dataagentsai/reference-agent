@@ -1141,6 +1141,39 @@ which is the ratchet working: `loop/screen.py` (the positions) and
 
 ---
 
+## F-034 · The escalation cap counted rules, so a customer could have any number of references
+
+**Found** 2026-09-12, by a **live** twelve-turn run: the desk reported three
+handoffs in a conversation whose declared cap is two.
+
+**Severity** Medium, and it reaches the customer as a stream of reference
+numbers that each look like progress and are none.
+
+Two statements had been folded into one counter:
+
+- **`P-ESC-CAP`** — at most two escalations per conversation; past that, say
+  something true instead of issuing another reference.
+- **`P-ESC-ONCE`** — each *rule* fires once per conversation, whatever happens
+  to what it raised.
+
+The cap read `len(conversation.escalated_rules)`, which is the *cooldown's*
+storage — the set of rules that have fired. So four escalations raised by the
+same rule counted as **one**, and a customer who kept asking for a person was
+handed a fresh reference every time they asked. The Tier 1 path made it worse by
+not consulting the cap at all: an escalation decided from the turn's own words
+went straight past it.
+
+**Fixed — 2026-09-12, from `P-ESC-CAP` and `P-ESC-ONCE` read as the two
+statements they are.** `escalations_raised` counts references; `escalated_rules`
+stays the per-rule cooldown; the cap is checked on both tiers, and past it the
+agent says that somebody already has this rather than minting another number.
+
+**One counter cannot answer two statements**, and the tell was that the spec had
+two ids for it long before the code had two fields. Worth remembering when a
+statement gains an id and the implementation does not notice.
+
+---
+
 ## F-033 · The agent and the people offstage were running on different clocks
 
 **Found** 2026-09-12, writing a twelve-turn escalation scenario: the desk

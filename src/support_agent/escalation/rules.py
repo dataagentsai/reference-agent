@@ -234,7 +234,7 @@ def facts_of(conversation: Conversation) -> Facts:
         consecutive_failed=failed,
         refusals=sum(1 for n in recent if n.result == "refused"),
         repeated_intent=repeated,
-        escalations=len(conversation.escalated_rules),
+        escalations=conversation.escalations_raised,
         already_fired=frozenset(conversation.escalated_rules),
     )
 

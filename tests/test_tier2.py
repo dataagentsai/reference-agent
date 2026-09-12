@@ -14,6 +14,8 @@ forever.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel
@@ -365,3 +367,36 @@ async def test_a_customer_asking_the_same_thing_three_times_reaches_a_person(ser
     assert isinstance(third, Escalated), third
     assert third.rule_id == "repeated-intent"
     assert conversation.escalated_rules == ("repeated-intent",)
+
+
+@pytest.mark.discharges("P-ESC-CAP", "esc:asked-for-human", "op:escalate")
+async def test_the_cap_holds_however_the_escalation_was_raised(server) -> None:
+    """F-034, found by a live twelve-turn run: three handoffs in a conversation
+    whose cap is two.
+
+    The cap lived in the Tier 2 evaluator, and a Tier 1 escalation — decided from
+    the turn's own words — went straight past it. So a customer who kept asking
+    for a person got a new reference every time they asked, each one reading like
+    progress and none of it being any.
+    """
+    store = esc.InMemoryEscalationStore()
+    async with connect(server, ledger=InMemoryLedger()) as tools:
+        agent = agent_with(tools, escalations=store)
+        conversation = None
+        results = []
+        for _ in range(4):
+            # Resolved between turns, so the next ask is not merely held by the
+            # one before it — the cap is the thing under test, not the hold.
+            result, conversation = await agent.handle(
+                "I want to speak to a human", identity=customer(), conversation=conversation
+            )
+            results.append(result)
+            for open_one in await store.pending():
+                await esc.resolve(
+                    store, open_one.id, outcome="resolved", by="desk-1", now=int(time.time())
+                )
+
+    raised = [r for r in results if isinstance(r, Escalated)]
+    assert len(raised) == 2, f"the cap is 2 and {len(raised)} references were issued"
+    assert all(r.kind == "completed" for r in results[2:]), results[2:]
+    assert esc.CAPPED_REPLY in results[-1].reply

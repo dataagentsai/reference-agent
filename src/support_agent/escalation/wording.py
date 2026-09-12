@@ -42,6 +42,15 @@ the conversation to — and "let me pass you to a colleague" would be a claimed
 action with no record behind it (F-024). The offer is to stay with the request."""
 
 
+CAPPED_REPLY = (
+    "This is already with a colleague, and raising it again would not move it "
+    "any faster. Tell me what you need in the meantime and I will do what I can."
+)
+"""Past the cap. Another reference number would read as progress and be none —
+`P-ESC-CAP` asks for something true instead, and the true thing is that somebody
+already has it."""
+
+
 LAPSED_REPLY = (
     "Nobody has picked up {ticket} yet, so I am back with you in the meantime. "
     "Tell me what you need and I will do what I can."
@@ -65,6 +74,7 @@ def humanise(seconds: int) -> str:
 __all__ = [
     "CLOSED_REPLY",
     "NO_DESK_REPLY",
+    "CAPPED_REPLY",
     "LAPSED_REPLY",
     "QUEUED_REPLY",
     "RAISED_REPLY",
