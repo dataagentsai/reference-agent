@@ -1063,6 +1063,35 @@ cover it, and "failed" there is undefined; recorded rather than guessed at.
 
 ---
 
+## F-027 · Three of the five policy positions are declared and never called
+
+**Found** 2026-09-12, by asking whether the checks are a configurable list.
+
+**Severity** Medium, and of the silent kind.
+
+`Position` declares five places a rule may run — `PRE_MODEL`, `POST_MODEL`,
+`PRE_TOOL`, `POST_TOOL`, `REPLY`. `DEFAULT_RULES` populates two of them, and
+`enforce` is called from exactly two sites: `loop._answer` (`POST_MODEL`) and
+`entrypoint._screened` (`REPLY`). Nothing calls it before a model request,
+before a tool call, or after one.
+
+So a rule set carrying `{Position.PRE_TOOL: (my_check,)}` is accepted, is
+versioned, appears in configuration, and **never runs**. No test fails, because
+no test asserts that a configured position is reached. That is worse than the
+position not existing: an absent seam is a feature request, and a declared seam
+that silently drops what it is handed is a control somebody will believe in.
+
+The checks that *would* live at `PRE_TOOL` do exist — argument validation
+against the declared schema, and the scope check — but they are written into
+`GatedTools` as straight-line code. So the question is not only "wire the empty
+positions" but "which of these are policy, composed in a declared order, and
+which are the tool boundary's own business". AHC-0093 (*policies compose in a
+declared order*) and AHC-0095 (*policy evaluation has its own budget and a
+declared timeout path*) are both unexercised here, and both are about exactly
+this.
+
+---
+
 ## F-026 · A blocked reply is returned as a completion, not a refusal
 
 **Found** 2026-09-11, G0.1. **Severity** Low.
