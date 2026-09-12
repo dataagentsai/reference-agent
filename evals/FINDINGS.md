@@ -940,6 +940,23 @@ at the composition root. `retry_after_of` moved into the provider adapter and
 
 ---
 
+## The address a customer gives now reaches the order
+
+**Extraction nonconformance, closed 2026-09-12 (G0.5), from AOAS
+`change_address.input: [order_id, address]` and `effect: {address: $address}`.**
+
+A projected tool took its entity's key and nothing else, so an effect written
+from an input could not be applied: the operation accepted an order, changed
+nothing, and AgentTwin reported the statement as `unenforced` — which is the
+only reason it was visible at all. A tool now carries whatever inputs the
+operation declares, typed from the entity's field of the same name, and the
+stand-in writes what it was given. Both reference worlds' orders have an
+address, and both worlds' unenforced lists are now **empty** — pinned by a test,
+so the next statement no world can check has to be argued for rather than
+discovered in a run that read as if it held.
+
+---
+
 ## F-023 · The tool-result bound does not reach structured results
 
 **Found** 2026-09-11, G0.1. **Severity** Medium.

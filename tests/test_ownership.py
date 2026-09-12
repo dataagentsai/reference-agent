@@ -36,7 +36,7 @@ OPERATIONS = [
     ("get_order", "AB-10003", {"id": "AB-10003"}),
     ("cancel_order", "AB-10002", {"id": "AB-10002"}),
     ("open_return_request", "AB-10003", {"id": "AB-10003"}),
-    ("change_address", "AB-10002", {"id": "AB-10002"}),
+    ("change_address", "AB-10002", {"id": "AB-10002", "address": "12 New Road, Pune"}),
 ]
 CASES = [
     (f"{who} {op}", op, order, args, customer_id, customer_id == OWNER)
@@ -69,7 +69,7 @@ async def test_only_the_owner_reaches_the_order(
     async with connect(project(world), ledger=InMemoryLedger()) as tools:
         result = await tools.call(operation, arguments, caller(customer_id), key)
         # What the owner is told about an order that does not exist at all.
-        absent = await tools.call(operation, {"id": "AB-00000"}, caller(OWNER), key)
+        absent = await tools.call(operation, {**arguments, "id": "AB-00000"}, caller(OWNER), key)
 
     if owns:
         assert not result.is_error, result.text

@@ -85,8 +85,15 @@ async def test_the_golden_set(case: dict) -> None:
         final_sale=row["final_sale"],
     )
 
+    # An address change takes the address: the operation the spec declares takes
+    # one, and a stand-in that ignored it changed nothing (extraction, F-014's
+    # sibling).
+    given = {
+        "order_id": ORDER,
+        **({"address": "12 New Road, Pune"} if case["action"] == "change_address" else {}),
+    }
     async with connect(evalworld.build(world), ledger=InMemoryLedger()) as tools:
-        result = await tools.call(case["action"], {"order_id": ORDER}, privileged(), key())
+        result = await tools.call(case["action"], given, privileged(), key())
 
     assert not result.is_error, result.text
     allowed = result.structured["allowed"]

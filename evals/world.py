@@ -163,7 +163,7 @@ def build(world: World) -> MCPServer:
             META_REQUIRED_SCOPE: ident.SCOPE_ORDERS_WRITE,
         }
     )
-    def change_address(order_id: str) -> Outcome:
+    def change_address(order_id: str, address: str) -> Outcome:
         """Change the delivery address. Only while the order is still pending."""
         row = _known(order_id)
         if row is None:
@@ -176,6 +176,7 @@ def build(world: World) -> MCPServer:
                 order_id=order_id,
                 status=status.value,
             )
+        row["address"] = address
         world.effects.append(("change_address", order_id))
         return Outcome(
             allowed=True, reason="address updated", order_id=order_id, status=status.value

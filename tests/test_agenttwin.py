@@ -42,6 +42,9 @@ WORLD = Path(__file__).parent.parent / "worlds" / "clothing.yaml"
 GOLDEN = Path(__file__).parent.parent / "evals" / "golden" / "eligibility.jsonl"
 CASES = [json.loads(line) for line in GOLDEN.read_text().splitlines() if line.strip()]
 ORDER = "AB-10001"
+ADDRESS = "change_address"
+NEW_ADDRESS = "12 New Road, Pune"
+PENDING = "AB-10002"  # the one order whose address may still be changed
 
 
 @pytest.fixture(autouse=True)
@@ -228,7 +231,8 @@ async def test_the_projection_agrees_with_the_hand_written_world(case: dict) -> 
     row = case["row"]
     live = live_with(row["status"], row["days_since_delivery"], row["final_sale"])
     async with connect(project(live), ledger=InMemoryLedger()) as tools:
-        projected = await tools.call(case["action"], {"id": ORDER}, privileged(), key())
+        arguments = {"id": ORDER, **({"address": NEW_ADDRESS} if case["action"] == ADDRESS else {})}
+        projected = await tools.call(case["action"], arguments, privileged(), key())
 
     hand = handwritten.World()
     hand.seed(
@@ -238,7 +242,11 @@ async def test_the_projection_agrees_with_the_hand_written_world(case: dict) -> 
         final_sale=row["final_sale"],
     )
     async with connect(handwritten.build(hand), ledger=InMemoryLedger()) as tools:
-        written = await tools.call(case["action"], {"order_id": ORDER}, privileged(), key())
+        given = {
+            "order_id": ORDER,
+            **({"address": NEW_ADDRESS} if case["action"] == ADDRESS else {}),
+        }
+        written = await tools.call(case["action"], given, privileged(), key())
 
     assert projected.structured["allowed"] is written.structured["allowed"]
     assert projected.structured["allowed"] is case["expected_allowed"]
@@ -433,3 +441,36 @@ async def test_the_second_world_also_widened_cancellation() -> None:
 
     assert result.structured["allowed"] is True
     assert live.count("cancel_order") == 1
+
+
+WORLDS = [("clothing", WORLD), ("electronics", WORLD.parent / "electronics.yaml")]
+
+
+@pytest.mark.discharges("P-ADDRESS", "op:change_address", "ext:order_system")
+async def test_a_change_of_address_changes_the_address() -> None:
+    """The operation took an order and changed nothing: the spec declares an
+    `address` input and writes `{address: $address}`, and a stand-in that carried
+    only the key could not apply it — so the world listed the statement as
+    unenforced and the customer's new address went nowhere."""
+    live = Live.start(load(WORLD))
+    before = live.get("order", PENDING)["address"]
+
+    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+        result = await tools.call(
+            "change_address", {"id": PENDING, "address": NEW_ADDRESS}, privileged(), key()
+        )
+
+    assert result.structured["allowed"] is True, result.structured
+    assert live.get("order", PENDING)["address"] == NEW_ADDRESS != before
+    assert ("change_address", PENDING) in live.effects
+
+
+@pytest.mark.tooling
+@pytest.mark.parametrize(("name", "path"), WORLDS, ids=[w[0] for w in WORLDS])
+def test_every_statement_of_the_spec_is_enforced_by_the_world(name: str, path) -> None:
+    """A statement no stand-in can check is reported, never dropped — and this
+    agent now has none. It had two: ownership (F-016) and the address written
+    from an input (this change). The assertion is the ratchet: a new statement
+    the world cannot enforce has to be seen and argued for, not discovered later
+    in a run that read as if it held."""
+    assert [(u.operation, u.reason) for u in load(path).unenforced] == []
