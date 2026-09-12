@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from agenttwin import Live, load, load_scenario, run_file
+from agenttwin import Live, load, load_scenario, perturbed, run_file, timeline_for
 from evals.simulation import subject_for
 
 from support_agent.contracts import ModelResponse, ToolCall, Usage
@@ -24,6 +24,35 @@ from support_agent.llm import ScriptedClient
 
 SCENARIOS = sorted((Path(__file__).parent.parent / "scenarios").glob("*.yaml"))
 ORDER = "AB-10003"
+
+
+def model_for(scenario) -> ScriptedClient:
+    """The scripted model this scenario needs.
+
+    Scripting the model here is the honest limit of this slice: a scenario
+    declares what the *customer* says and what must be true, and the agent's own
+    reasoning is still fixed by the suite. Live runs against a real model are
+    what replace this, and they are scored as pass rates rather than pass/fail.
+    """
+    if "cancel" in scenario.objective.lower():
+        return wants_to_cancel()
+    return asks_for_a_refund()
+
+
+def wants_to_cancel() -> ScriptedClient:
+    look = ModelResponse(
+        tool_calls=(ToolCall(id="c1", name="get_order", arguments={"id": "AB-10002"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    act = ModelResponse(
+        tool_calls=(ToolCall(id="c2", name="cancel_order", arguments={"id": "AB-10002"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    claim = ModelResponse(
+        text="That order was still pending, so I have cancelled it.",
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    return ScriptedClient([look, act, claim, claim, claim])
 
 
 def asks_for_a_refund() -> ScriptedClient:
@@ -44,8 +73,11 @@ async def test_a_declared_scenario_passes_every_check_it_makes(path: Path) -> No
     scenario = load_scenario(path)
     live = Live.start(load(path.parent / scenario.world))
 
-    async with subject_for(live, llm=asks_for_a_refund()) as subject:
-        record, outcomes = await run_file(path, subject=subject, live=live)
+    timeline = timeline_for(scenario)
+    wrap = perturbed(live, timeline) if scenario.perturbations else None
+
+    async with subject_for(live, llm=model_for(scenario), wrap=wrap) as subject:
+        record, outcomes = await run_file(path, subject=subject, live=live, timeline=timeline)
 
     failed = [f"{o.check} — {o.detail}" for o in outcomes if not o.passed]
     assert failed == [], f"{scenario.scenario}:\n  " + "\n  ".join(failed)

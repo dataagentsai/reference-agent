@@ -42,13 +42,19 @@ RESOLUTIONS = {"handled": Desk.answers, "never": Desk.never_comes}
 
 @asynccontextmanager
 async def subject_for(
-    live: Live, *, llm: LLMClient, clock: Clock | None = None
+    live: Live, *, llm: LLMClient, clock: Clock | None = None, wrap: object = None
 ) -> AsyncIterator[Subject]:
-    """Wire this agent against a live world and hand back what a scenario drives."""
+    """Wire this agent against a live world and hand back what a scenario drives.
+
+    `wrap` is the scenario's faults, and it is **opaque here on purpose**: a
+    perturbation happens to the system the agent depends on, so the world owns
+    it and this side neither interprets it nor knows it is there. Forwarded
+    to the projection and never inspected."""
     approvals = ap.InMemoryApprovalStore()
     escalations = esc.InMemoryEscalationStore()
 
-    async with connect(project(live, scopes=SCOPES), ledger=InMemoryLedger()) as tools:
+    projected = project(live, scopes=SCOPES, wrap=wrap)  # type: ignore[arg-type]
+    async with connect(projected, ledger=InMemoryLedger()) as tools:
         agent = ep.build(
             llm=llm,
             tools=tools,
