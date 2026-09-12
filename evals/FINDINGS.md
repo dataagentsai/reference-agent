@@ -1090,6 +1090,55 @@ declared order*) and AHC-0095 (*policy evaluation has its own budget and a
 declared timeout path*) are both unexercised here, and both are about exactly
 this.
 
+**Fixed — 2026-09-12 (G0.11's first slice), from AHC-0093 and AHC-0094.** All
+five positions are reached, and **what a block means differs by position** —
+which is the design, not an inconsistency:
+
+| Position | A block |
+|---|---|
+| `PRE_MODEL` | ends the turn as `Refused` — the last refusal that costs nothing |
+| `POST_MODEL` | ends the turn as `Refused` |
+| `PRE_TOOL` | answers the model instead of calling: the action did not happen, and it may choose again (AAC-0051) |
+| `POST_TOOL` | replaces what came back — the effect happened and this cannot undo it, only refuse to carry it |
+| `REPLY` | the customer sees the safe reply |
+
+Looking for the seam found **two more places it was cut**, both worse than the
+one reported:
+
+- **The composition root could not configure rules at all.** `policy_rules` was
+  a parameter of `loop.run` and `Agent` never passed it, so the only rules that
+  could ever run anywhere were the built-in ones. `ep.build(policy_rules=...)`
+  now reaches every position.
+- **The reply screen read the defaults whatever it was given** — so a deployment
+  that added a reply rule was screened by the rules it had not configured.
+
+The tool-boundary question is answered rather than dodged: schema validation and
+the scope check stay in `GatedTools`, because they are the boundary's own
+contract and every caller owes them; `PRE_TOOL` is for what this agent decides.
+
+The loop grew past the module ceiling on the way and the ratchet refused it,
+which is the ratchet working: `loop/screen.py` (the positions) and
+`loop/dispatch.py` (running the planned calls) came out of it, and the loop is
+374 lines.
+
+---
+
+## F-028 - A guardrail block inside the loop is returned as a completion
+
+**Found** 2026-09-12, by the test written for F-027.
+
+**Severity** Medium. F-026's sibling, and the reason to drive every position
+through the front door in a test: that fix converted a blocked reply at the
+entrypoint and never reached `loop._stopped`, where a rule firing inside the
+loop still produced `Completed(termination=REFUSED)`. A caller branching on the
+type read a refusal as a success — the same defect, one layer down, surviving
+its own fix.
+
+**Fixed — 2026-09-12, from AHC-0017.** A stop is typed by what stopped it: a
+guardrail block is `Refused` and carries the rule that caused it. The other
+stops — a budget spent, a ceiling reached, a loop going in circles — stay
+completions, because those are degradations and not refusals.
+
 ---
 
 ## F-026 · A blocked reply is returned as a completion, not a refusal
