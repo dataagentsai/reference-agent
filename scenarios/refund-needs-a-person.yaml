@@ -1,0 +1,35 @@
+# A refund above the automatic limit waits for a colleague, and lands once.
+#
+# The first scenario written as a file rather than as a test. Everything here is
+# declared: which world, who is talking, what the offstage reviewer does, and
+# what must be true afterwards. Nothing names a tool, a scope, a model or a
+# store — those belong to whatever implementation is being driven, which is what
+# lets the same file judge a regeneration of this agent, or another agent
+# entirely.
+apiVersion: awd-scenario/v0
+scenario: a refund above the limit waits for a person, then lands once
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  The customer asks for their money back on an order that has been returned.
+  It is above the automatic limit, so a person decides — and the customer is
+  told nothing that is not yet true.
+discharges: [op:issue_refund, op:request_refund, P-REFUND, AHC-0057, P-APPROVAL-WAIT]
+max_turns: 3
+step_seconds: 3600
+
+actor:
+  says:
+    - please refund my order AB-10003
+    - any update?
+    - any update?
+
+approver:
+  decides: grant
+  by: ops-7
+
+expect:
+  - {effect: issue_refund, key: AB-10003, times: 1}
+  - {row: order, id: AB-10003, field: status, equals: refunded}
+  - {owed: satisfied}
+  - {truthful: order, id: AB-10003}
