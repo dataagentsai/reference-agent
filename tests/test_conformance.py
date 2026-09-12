@@ -57,8 +57,11 @@ def test_the_manifest_holds_every_a6_obligation() -> None:
     It had been hand-maintained and had drifted by six, which is why
     `scripts/sync_obligations.py` now exists. The count stays pinned so the next
     drift is a failing test rather than a quietly shrinking denominator.
+
+    49 → 50 on 2026-09-12: AAC-0111, written because this agent's authentication
+    was tested and required by nothing (G0.6).
     """
-    assert len(load()) == 49
+    assert len(load()) == 50
 
 
 # --------------------------------------------------------------------------- #

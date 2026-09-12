@@ -95,6 +95,7 @@ async def test_model_call_emits_a_span_with_usage() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0099")
 def test_round_trip_yields_the_customer_and_scopes() -> None:
     who = ident.verify(ident.mint("C-1042", secret=SECRET), secret=SECRET)
     assert who.customer_id == "C-1042"
@@ -108,6 +109,7 @@ REJECTION_CASES = [
 ]
 
 
+@pytest.mark.discharges("AHC-0099", "AAC-0111")
 @pytest.mark.parametrize(("name", "mangle"), REJECTION_CASES, ids=[c[0] for c in REJECTION_CASES])
 def test_bad_tokens_produce_no_identity_at_all(name: str, mangle) -> None:
     token, secret = mangle(ident.mint("C-1042", secret=SECRET))
@@ -115,12 +117,14 @@ def test_bad_tokens_produce_no_identity_at_all(name: str, mangle) -> None:
         ident.verify(token, secret=secret)
 
 
+@pytest.mark.discharges("AHC-0099", "AAC-0111")
 def test_expired_token_is_refused() -> None:
     token = ident.mint("C-1042", secret=SECRET, ttl_s=60, now=1_000_000)
     with pytest.raises(ident.InvalidSession):
         ident.verify(token, secret=SECRET, now=1_000_061)
 
 
+@pytest.mark.discharges("AHC-0099")
 def test_a_short_secret_is_a_configuration_fault_not_a_warning() -> None:
     """RFC 7518 §3.2. Enforced, and it takes the process down at startup rather
     than failing one customer quietly at runtime."""
@@ -138,6 +142,7 @@ def test_customer_scopes_exclude_refunds() -> None:
         ident.require(who, ident.SCOPE_REFUNDS_WRITE)
 
 
+@pytest.mark.discharges("AHC-0099", "AAC-0111", "AHC-0034")
 def test_confused_deputy_needs_a_different_token_not_a_different_claim() -> None:
     """T-AD-01. Whatever the model believes about who it is talking to, the
     identity it can act as is the one the token carries."""

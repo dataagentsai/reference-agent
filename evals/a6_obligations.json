@@ -2,8 +2,8 @@
   "source": "github.com/dataagentsai/ai-assurance-catalog",
   "archetype": "A6",
   "note": "Identifiers and metadata only. The normative `statement` of each obligation is deliberately NOT copied \u2014 cite, don't restate.",
-  "catalog_version": "0.12.0",
-  "generated": "2026-09-03",
+  "catalog_version": "0.13.0",
+  "generated": "2026-09-12",
   "obligations": [
     {
       "id": "AAC-0001",
@@ -707,6 +707,20 @@
         "M1",
         "M5",
         "M3"
+      ]
+    },
+    {
+      "id": "AAC-0111",
+      "title": "A request acts only as the identity its credential proves",
+      "dimension": "security",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2"
+      ],
+      "mechanisms": [
+        "M1",
+        "M7"
       ]
     }
   ],

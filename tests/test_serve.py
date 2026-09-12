@@ -92,10 +92,12 @@ def post(
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0099", "AAC-0111")
 def test_a_turn_needs_a_token(client) -> None:
     assert post(client, "hello").status_code == 401
 
 
+@pytest.mark.discharges("AHC-0099", "AAC-0111")
 def test_a_forged_token_is_refused_without_saying_why(client) -> None:
     """The library's own message describes what was wrong with the token —
     which segment, which codec — and every word of that helps somebody
@@ -109,11 +111,13 @@ def test_a_forged_token_is_refused_without_saying_why(client) -> None:
         assert leak not in body, f"the refusal leaked {leak!r}"
 
 
+@pytest.mark.discharges("AHC-0099", "AAC-0111")
 def test_an_expired_token_is_refused(client) -> None:
     stale = ident.mint("C-1042", secret=SECRET, ttl_s=1, now=int(time.time()) - 100)
     assert post(client, "hello", tok=stale).status_code == 401
 
 
+@pytest.mark.discharges("AHC-0099", "AAC-0111", "P-OWNERSHIP")
 def test_identity_comes_from_the_token_not_the_body(client) -> None:
     """The single most important line at this layer.
 
@@ -250,6 +254,7 @@ def test_health_does_not_touch_the_model(client) -> None:
     assert client.get("/healthz").json() == {"status": "ok"}
 
 
+@pytest.mark.discharges("AHC-0099", "AAC-0111")
 def test_the_page_is_served_and_cannot_mint_its_own_identity(client) -> None:
     """A page that could sign its own token would make every scope check below
     it decorative.
