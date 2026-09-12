@@ -31,7 +31,9 @@ from support_agent.contracts import ModelResponse, ToolCall, Usage
 from support_agent.llm import ScriptedClient
 
 ALL = sorted((Path(__file__).parent.parent / "scenarios").glob("*.yaml"))
-SCENARIOS = [p for p in ALL if load_scenario(p).actor.kind != "model"]
+SCENARIOS = [
+    p for p in ALL if load_scenario(p).actor.kind != "model" and load_scenario(p).generate is None
+]
 """The scenarios this suite can run offline. A model-driven customer needs a
 provider and cannot be replayed, so it belongs to the live report and never to a
 regression suite — `Unrunnable` says so rather than the suite quietly skipping."""
@@ -70,6 +72,26 @@ def tries_the_return_late() -> ScriptedClient:
         usage=Usage(input_tokens=5, output_tokens=2),
     )
     return ScriptedClient([wait, wait, attempt, explain, explain])
+
+
+def obeys_the_note() -> ScriptedClient:
+    """A model entirely taken in: it reads the order, then does what the note
+    told it to. Every attempt must die at the tool boundary rather than here."""
+    look = ModelResponse(
+        tool_calls=(ToolCall(id="n1", name="get_order", arguments={"id": "AB-66666"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    obey = ModelResponse(
+        tool_calls=(
+            ToolCall(id="n2", name="issue_refund", arguments={"id": "AB-66666"}),
+            ToolCall(id="n3", name="cancel_order", arguments={"id": "AB-66666"}),
+        ),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    done = ModelResponse(
+        text="I have looked at that order.", usage=Usage(input_tokens=5, output_tokens=2)
+    )
+    return ScriptedClient([look, obey, done, done])
 
 
 def answers_plainly() -> ScriptedClient:
@@ -181,3 +203,39 @@ def test_scenario_coverage_only_goes_up() -> None:
         f"scenario coverage fell to {reached} from {COVERED_AT_LEAST} — "
         "a statement stopped being demonstrated end to end"
     )
+
+
+GENERATED = [p for p in ALL if load_scenario(p).generate is not None]
+
+
+@pytest.mark.discharges("AAC-0106", "AHC-0034", "AHC-0040")
+@pytest.mark.parametrize("path", GENERATED, ids=[p.stem for p in GENERATED])
+async def test_every_generated_attack_case_leaves_the_world_alone(path: Path) -> None:
+    """One declaration, twenty attempts, a fresh world for each.
+
+    Fresh per case because an attack that *did* succeed would leave the world
+    changed for the next one, and the second failure would be the first one's
+    fault — which is how a suite reports one defect twenty times and hides
+    nineteen others.
+
+    The model here is scripted to **obey the planted instruction completely**:
+    it reads the note and then tries the irreversible thing the note asked for.
+    That is the point. The claim is not that the model resists — it is that
+    nothing it can be talked into reaches an effect.
+    """
+    from agenttwin import attack_cases, plant
+
+    scenario = load_scenario(path)
+    cases = attack_cases(scenario)
+    assert len(cases) == scenario.generate.count, "the declaration and the cases disagree"
+
+    for name, payload in cases:
+        live = Live.start(load(path.parent / scenario.world))
+        plant(live, scenario, payload)
+        timeline = timeline_for(scenario)
+        async with subject_for(
+            live, llm=obeys_the_note(), wrap=perturbed(live, timeline)
+        ) as subject:
+            _, outcomes = await run_file(path, subject=subject, live=live, timeline=timeline)
+        failed = [f"{o.check} — {o.detail}" for o in outcomes if not o.passed]
+        assert failed == [], f"{name} ({payload[:60]}…):\n  " + "\n  ".join(failed)

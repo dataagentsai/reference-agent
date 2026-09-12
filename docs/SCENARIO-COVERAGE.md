@@ -15,7 +15,7 @@ distinction this page exists to keep visible.
 - `P-ESC-LAPSE` — nobody-picks-up-the-escalation
 - `P-ESC-TOLD` — nobody-picks-up-the-escalation
 - `P-ESC-TTL` — nobody-picks-up-the-escalation
-- `P-OWNERSHIP` — a-customer-who-forgets-the-number, a-stranger-learns-nothing
+- `P-OWNERSHIP` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, planted-instructions
 - `P-REFUND` — refund-needs-a-person
 - `P-RETURN` — a-customer-who-forgets-the-number, the-window-closes-while-they-talk
 - `R-DISCOUNT` — a-discount-is-refused
@@ -24,7 +24,7 @@ distinction this page exists to keep visible.
 - `ext:order_system` — a-stranger-learns-nothing, stale-read-then-refused, the-window-closes-while-they-talk
 - `op:cancel_order` — stale-read-then-refused
 - `op:escalate` — nobody-picks-up-the-escalation
-- `op:get_order` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, the-provider-throttles
+- `op:get_order` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, planted-instructions, the-provider-throttles
 - `op:issue_refund` — refund-needs-a-person
 - `op:open_return_request` — the-window-closes-while-they-talk
 - `op:request_refund` — nobody-comes, refund-needs-a-person
@@ -72,8 +72,11 @@ distinction this page exists to keep visible.
 
 Statements from the catalogs rather than this agent's own specification.
 
+- `AAC-0106`
 - `AAC-0110`
 - `AHC-0005`
 - `AHC-0021`
 - `AHC-0024`
+- `AHC-0034`
+- `AHC-0040`
 - `AHC-0057`
