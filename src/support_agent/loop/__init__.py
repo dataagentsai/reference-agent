@@ -32,9 +32,8 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from functools import partial
 
 from opentelemetry.trace import Span
 
@@ -57,6 +56,7 @@ from support_agent.contracts import (
     ModelResponse,
     ModelUnavailable,
     NeedsApproval,
+    Refused,
     RunId,
     TerminationReason,
     ToolCall,
@@ -69,6 +69,8 @@ from support_agent.contracts import (
     new_run_id,
 )
 from support_agent.cost import Meter
+from support_agent.loop.dispatch import dispatch
+from support_agent.loop.screen import Screen
 
 
 @dataclass
@@ -158,6 +160,7 @@ async def run(
             oscillation_threshold=oscillation_threshold,
             fan_out=fan_out,
             messages=[*history, ctx.user_message(goal)],
+            screen=Screen(identity=identity, rules=policy_rules, span=run_span),
         )
         for step in range(budgets.max_steps):
             ended = await this.step(step)
@@ -190,6 +193,7 @@ class _Run:
     oscillation_threshold: int
     fan_out: int
     messages: list[Message]
+    screen: Screen
     seen_results: list[ToolResult] = field(default_factory=list)
 
     async def step(self, step: int) -> Ended | None:
@@ -224,6 +228,14 @@ class _Run:
         step_span.set_attribute(tel.CONTEXT_CHARS, built.chars)
         step_span.set_attribute(tel.CONTEXT_EXCHANGES, built.exchanges)
         step_span.set_attribute(tel.CONTEXT_TRIMMED, built.trimmed)
+        # Before the call is paid for. The last position where refusing costs
+        # nothing (F-027: declared, and until now never reached).
+        verdict = self.screen.at(
+            pol.Position.PRE_MODEL, tuple(self.seen_results), text=_latest_user_text(self.messages)
+        )
+        if verdict.blocked:
+            return self._stop(TerminationReason.REFUSED, pol.SAFE_REPLY, verdict.rule)
+
         request = ModelRequest(
             messages=built.messages,
             tools=ctx.model_tools(self.registry),
@@ -271,7 +283,7 @@ class _Run:
         )
         if verdict.blocked:
             self.span.set_attribute("agent.policy.blocked_by", verdict.rule)
-            return self._stop(TerminationReason.REFUSED, pol.SAFE_REPLY)
+            return self._stop(TerminationReason.REFUSED, pol.SAFE_REPLY, verdict.rule)
         return _completed(self.span, self.trace, response.text)
 
     def _plan(
@@ -299,9 +311,13 @@ class _Run:
         result. The loop does not know which action it was; the signal carries
         what the customer is told.
         """
+        # Screened before anything runs, so a refused call costs nothing and the
+        # ones beside it are unaffected.
+        refused = self.screen.permitted(planned, tuple(self.seen_results))
+        allowed = [pair for pair in planned if pair[0].id not in refused]
         try:
-            results = await _dispatch(
-                self.tools, planned, self.identity, self.local_tools, self.registry, self.fan_out
+            results = await dispatch(
+                self.tools, allowed, self.identity, self.local_tools, self.registry, self.fan_out
             )
         except ApprovalRequested as raised:
             self.trace.termination = TerminationReason.AWAITING_APPROVAL
@@ -315,84 +331,25 @@ class _Run:
             )
             return waiting, self.trace
 
-        for (call, _), result in zip(planned, results, strict=True):
+        answered = dict(zip([c.id for c, _ in allowed], results, strict=True))
+        for call, _ in planned:
+            result = refused.get(call.id) or self.screen.admitted(
+                call, answered[call.id], tuple(self.seen_results)
+            )
             self.seen_results.append(result)
             self.messages.append(ctx.tool_message(result, tool_call_id=call.id))
         return None
 
-    def _stop(self, reason: TerminationReason, message: str) -> Ended:
-        return _stopped(self.span, self.trace, reason, message)
+    def _stop(self, reason: TerminationReason, message: str, rule_id: str = "") -> Ended:
+        return _stopped(self.span, self.trace, reason, message, rule_id)
 
 
-async def _dispatch(
-    tools: ToolClient,
-    planned: list[tuple[ToolCall, IdempotencyKey]],
-    identity: Identity,
-    local_tools: Mapping[str, LocalTool],
-    registry: ToolRegistry,
-    fan_out: int,
-) -> list[ToolResult]:
-    """Reads concurrently, everything else in the order the model asked.
-
-    A read that fails costs a retry. A write that fails halfway through a
-    parallel batch costs a reconciliation, in an order that depended on
-    scheduling — and a compensating path is far easier to reason about when the
-    writes happened one at a time.
-    """
-    from support_agent.contracts import SideEffectClass
-
-    def is_read(call: ToolCall) -> bool:
-        spec = registry.get(call.name)
-        return spec is not None and spec.side_effect is SideEffectClass.READ
-
-    if len(planned) > 1 and all(is_read(call) for call, _ in planned):
-        thunks: list[Callable[[], Awaitable[ToolResult]]] = [
-            partial(_invoke, tools, call, identity, key, local_tools) for call, key in planned
-        ]
-        return await flw.gather_bounded(thunks, limit=fan_out)
-
-    return [await _invoke(tools, call, identity, key, local_tools) for call, key in planned]
-
-
-async def _invoke(
-    tools: ToolClient,
-    call: ToolCall,
-    identity: Identity,
-    key: IdempotencyKey,
-    local_tools: Mapping[str, LocalTool],
-) -> ToolResult:
-    """Every failure is reported back to the model rather than raised.
-
-    A tool that does not exist, or arguments that do not validate, are things the
-    model can correct on the next step — AAC-0051 and AAC-0052 are about recovery,
-    not about crashing. What must never be swallowed is an *effect*, and there is
-    none here: nothing ran.
-    """
-    from support_agent.contracts import ToolResult, UnknownTool
-
-    local = local_tools.get(call.name)
-    if local is not None:
-        with tel.span("agent.tool.local", **{tel.GEN_AI_TOOL_NAME: call.name}):
-            return await local.handler(call.arguments)
-
-    try:
-        return await tools.call(call.name, call.arguments, identity, key)
-    except UnknownTool as exc:
-        return ToolResult(
-            name=call.name,
-            text=f"no such tool; available: {', '.join(exc.available)}",
-            is_error=True,
-            error_channel="protocol",
-        )
-    except ToolUnavailable as exc:
-        return ToolResult(name=call.name, text=str(exc), is_error=True, error_channel="protocol")
-    except Exception as exc:  # schema validation and anything else recoverable
-        return ToolResult(
-            name=call.name,
-            text=f"invalid call: {exc}",
-            is_error=True,
-            error_channel="execution",
-        )
+def _latest_user_text(messages: list[Message]) -> str:
+    """What the customer last said — what a `PRE_MODEL` rule is about."""
+    for message in reversed(messages):
+        if message.role == "user":
+            return message.content
+    return ""
 
 
 def _completed(span: Span, trace: Trace, text: str) -> Ended:
@@ -401,9 +358,21 @@ def _completed(span: Span, trace: Trace, text: str) -> Ended:
     return Completed(reply=text), trace
 
 
-def _stopped(span: Span, trace: Trace, reason: TerminationReason, message: str) -> Ended:
+def _stopped(
+    span: Span, trace: Trace, reason: TerminationReason, message: str, rule_id: str = ""
+) -> Ended:
+    """A stop, typed by what stopped it.
+
+    A guardrail block is a **refusal** and says so (F-028, F-026's sibling: that
+    fix reached the entrypoint's reply screen and not the loop's own stop, so a
+    rule firing inside the loop still surfaced as a success). The other stops —
+    a budget spent, a ceiling reached, a loop going in circles — are
+    degradations: the turn did what it could and hands on.
+    """
     trace.termination = reason
     span.set_attribute(tel.TERMINATION, reason.value)
+    if reason is TerminationReason.REFUSED:
+        return Refused(reply=message, reason=reason.value, rule_id=rule_id), trace
     return Completed(reply=message, termination=reason), trace
 
 

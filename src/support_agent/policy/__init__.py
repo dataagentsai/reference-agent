@@ -34,10 +34,27 @@ from support_agent.contracts import Identity, ToolResult
 
 
 class Position(StrEnum):
+    """Where a rule runs. **Every one of these is reached** — a rule configured
+    at any position runs at that position, which was not true until F-027: three
+    of the five were declared, accepted rules, and called nothing.
+
+    What a block *means* differs by position, and the difference is the design:
+    before a model call or a reply, blocking ends the turn, because there is no
+    lesser thing to do. Around a tool call it does not — the model is told and
+    may choose again, which is what AAC-0051 asks for.
+    """
+
     PRE_MODEL = "pre_model"
+    """Before the request is sent. The last place to stop work that should not
+    be paid for; the reply is the refusal."""
     POST_MODEL = "post_model"
     PRE_TOOL = "pre_tool"
+    """Between the decision to call a tool and the call. Blocking returns an
+    error result to the model rather than ending the turn — the action did not
+    happen, and that is a fact the model can act on."""
     POST_TOOL = "post_tool"
+    """After a result, before it enters context. Blocking replaces the result;
+    it cannot un-happen the effect, and it does not pretend to."""
     REPLY = "reply"
     """What the customer is about to read, on every route — not only the one
     where the model wrote it (F-020)."""
@@ -57,6 +74,10 @@ class Context:
     """Everything the tools returned this turn. This is what makes a grounding
     check possible at all: a claim can be compared against what actually
     happened rather than against a rubric."""
+    result: ToolResult | None = None
+    """At `POST_TOOL`, the one result just returned — distinct from the turn's
+    accumulation above, because a rule about *this* result should not have to
+    find it in a list."""
 
 
 @dataclass(frozen=True)
@@ -326,6 +347,14 @@ def enforce(ctx: Context, rules: Sequence[Rule] | None = None) -> Verdict:
         return ALLOW
 
 
+BLOCKED_CALL = "blocked before it ran: {reason}"
+"""What the model is told when a `PRE_TOOL` rule stops a call. It names the
+reason, because a model that cannot tell a refusal from an outage retries."""
+
+BLOCKED_RESULT = "withheld by {rule}"
+"""What replaces a result a `POST_TOOL` rule refuses to let into context."""
+
+
 SAFE_REPLY = "I am not able to confirm that. Let me pass you to a colleague who can help."
 """What the customer sees when a reply is blocked.
 
@@ -335,6 +364,8 @@ it says nothing false, and it moves the person forward.
 
 
 __all__ = [
+    "BLOCKED_CALL",
+    "BLOCKED_RESULT",
     "Rule",
     "ALLOW",
     "DEFAULT_RULES",

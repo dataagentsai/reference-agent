@@ -20,7 +20,7 @@ and **only one of them reaches the model**:
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from functools import partial
 from typing import assert_never
@@ -96,6 +96,11 @@ class Agent:
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     budgets: Budgets = field(default_factory=Budgets)
     rules: router.Rules = field(default_factory=router.Rules)
+    policy_rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None = None
+    """The guardrails, per position. `None` uses the defaults. Until F-027 this
+    could not be set from here at all: the loop took the parameter and the
+    composition root never passed it, so the only rules that could ever run were
+    the built-in ones."""
     capacity: esc.Capacity | None = None
     """What the desk can actually absorb. `None` means unmeasured, and the agent
     then promises a reference and no time — which is true, where "a few minutes"
@@ -173,7 +178,7 @@ class Agent:
             if escalated is not None:
                 result = escalated
 
-            result = _screened(result, identity)
+            result = _screened(result, identity, self.policy_rules)
             return result, await self._persist(run_id, conversation.recording(result))
 
     async def _gates(
@@ -229,6 +234,7 @@ class Agent:
                     run_id=run_id,
                     history=conversation.messages[:-1],
                     local_tools=self.pending.offer(identity, run_id, self.tools),
+                    policy_rules=self.policy_rules,
                     meter=self.metering() if self.metering is not None else None,
                 )
                 return result
@@ -280,13 +286,24 @@ class Agent:
         return self.clock() if self.clock is not None else int(time.time())
 
 
-def _screened(result: TurnResult, identity: Identity) -> TurnResult:
+def _screened(
+    result: TurnResult,
+    identity: Identity,
+    rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None = None,
+) -> TurnResult:
     """Every reply passes the reply guardrails before the customer reads it —
     whichever route produced it (F-020). One point, so the next template edit on
     any route is screened without anyone remembering to screen it. The verdict
-    and the rule that fired are on the `agent.policy` span `enforce` opens."""
+    and the rule that fired are on the `agent.policy` span `enforce` opens.
+
+    The agent's **configured** rules, not only the built-in ones: this read the
+    defaults whatever it was given, so a deployment that added a reply rule was
+    screened by the rules it had not configured (F-027)."""
     text = result.customer_message if isinstance(result, Failed) else result.reply
-    verdict = pol.enforce(pol.Context(position=pol.Position.REPLY, identity=identity, text=text))
+    verdict = pol.enforce(
+        pol.Context(position=pol.Position.REPLY, identity=identity, text=text),
+        None if rules is None else rules.get(pol.Position.REPLY),
+    )
     if not verdict.blocked:
         return result
     # The words are replaced; what the turn *did* is not. An escalation that was
@@ -317,6 +334,7 @@ def build(
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
     history_chars: int = 32_000,
     rules: router.Rules | None = None,
+    policy_rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None = None,
     tier_2: t2.RuleSet | None = None,
     metering: Callable[[], Meter] | None = None,
 ) -> Agent:
@@ -345,6 +363,7 @@ def build(
         system_prompt=system_prompt,
         budgets=config.budgets if config else Budgets(),
         rules=rules or router.Rules(),
+        policy_rules=policy_rules,
         tier_2=tier_2,
         metering=metering,
     )
