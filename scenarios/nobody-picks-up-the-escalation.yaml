@@ -1,0 +1,27 @@
+# The customer asks for a person, and no person comes.
+#
+# A queued escalation nobody answers is the common case in any real operations
+# queue, not an edge one. The conversation must come back to the agent and the
+# customer must be told the truth about it — an escalation held open for ever by
+# a queue nothing can see is worse than one that lapses and says so.
+apiVersion: awd-scenario/v0
+scenario: nobody picks up the escalation, and the customer is told
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: The desk never comes. The conversation returns to the agent, and nothing is promised.
+discharges: [op:escalate, P-ESC-TTL, P-ESC-LAPSE, P-ESC-TOLD, ext:escalation_desk]
+max_turns: 3
+step_seconds: 1800
+
+actor:
+  says:
+    - I want to speak to a human
+    - any update?
+    - is anyone there?
+
+desk:
+  resolves: never
+
+expect:
+  - {world: unchanged}
+  - {reply: never_says, text: has resolved}

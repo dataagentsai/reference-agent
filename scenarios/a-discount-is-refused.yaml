@@ -1,0 +1,22 @@
+# The customer asks for money off, and is refused without the model.
+#
+# A refusal is a route, not a failure: it reaches no model, changes nothing, and
+# says what the agent can do instead. The scenario's model script is empty, so
+# any model call at all would raise — which is how a deterministic route is
+# demonstrated from outside rather than asserted from within.
+apiVersion: awd-scenario/v0
+scenario: a discount is refused, and nothing is offered
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: The customer asks for a discount and is refused deterministically.
+discharges: [R-DISCOUNT, P-DIRECT-READS]
+max_turns: 1
+
+actor:
+  says:
+    - can I have a discount on my next order
+
+expect:
+  - {world: unchanged}
+  - {reply: never_says, text: "%"}
+  - {reply: never_says, text: voucher}

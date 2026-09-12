@@ -26,17 +26,26 @@ SCENARIOS = sorted((Path(__file__).parent.parent / "scenarios").glob("*.yaml"))
 ORDER = "AB-10003"
 
 
-def model_for(scenario) -> ScriptedClient:
-    """The scripted model this scenario needs.
+def model_for(stem: str) -> ScriptedClient:
+    """The scripted model a scenario needs, by name.
 
-    Scripting the model here is the honest limit of this slice: a scenario
-    declares what the *customer* says and what must be true, and the agent's own
-    reasoning is still fixed by the suite. Live runs against a real model are
-    what replace this, and they are scored as pass rates rather than pass/fail.
+    **The default is an empty script**, which raises if the model is called at
+    all — so a scenario that expects a deterministic answer proves it from
+    outside rather than asserting it from within. A scenario needing the loop
+    says so by appearing here.
+
+    Scripting the agent's reasoning at all is the honest limit of this slice: a
+    scenario declares what the *customer* says and what must be true, and the
+    model's choices are still the suite's. Live runs replace this, scored as
+    pass rates rather than pass/fail.
     """
-    if "cancel" in scenario.objective.lower():
-        return wants_to_cancel()
-    return asks_for_a_refund()
+    script = SCRIPTS.get(stem)
+    return script() if script is not None else ScriptedClient([])
+
+
+def asks_for_a_human() -> ScriptedClient:
+    """Asking for a person is a Tier 1 route and never reaches the model."""
+    return ScriptedClient([])
 
 
 def wants_to_cancel() -> ScriptedClient:
@@ -67,6 +76,16 @@ def asks_for_a_refund() -> ScriptedClient:
     return ScriptedClient([plan, *[patience] * 6])
 
 
+SCRIPTS = {
+    "refund-needs-a-person": asks_for_a_refund,
+    "nobody-comes": asks_for_a_refund,
+    "stale-read-then-refused": wants_to_cancel,
+    "nobody-picks-up-the-escalation": asks_for_a_human,
+}
+"""Scenarios that need the loop, and the reasoning the suite supplies for them.
+Anything absent gets an empty script, so reaching the model at all raises."""
+
+
 @pytest.mark.parametrize("path", SCENARIOS, ids=[p.stem for p in SCENARIOS])
 @pytest.mark.discharges("op:escalate", "op:request_refund")
 async def test_a_declared_scenario_passes_every_check_it_makes(path: Path) -> None:
@@ -76,7 +95,7 @@ async def test_a_declared_scenario_passes_every_check_it_makes(path: Path) -> No
     timeline = timeline_for(scenario)
     wrap = perturbed(live, timeline) if scenario.perturbations else None
 
-    async with subject_for(live, llm=model_for(scenario), wrap=wrap) as subject:
+    async with subject_for(live, llm=model_for(path.stem), wrap=wrap) as subject:
         record, outcomes = await run_file(path, subject=subject, live=live, timeline=timeline)
 
     failed = [f"{o.check} — {o.detail}" for o in outcomes if not o.passed]
@@ -91,3 +110,26 @@ def test_every_scenario_names_what_it_discharges() -> None:
     the statement changes — and the Assurance Map cannot count it."""
     for path in SCENARIOS:
         assert load_scenario(path).discharges, f"{path.name} discharges nothing"
+
+
+COVERED_AT_LEAST = 17
+"""What scenarios reached when this ratchet was set, 2026-09-12 — 17 of 55. It turns one
+way: a statement that has been demonstrated end to end does not stop being
+demonstrated because somebody deleted the scenario that did it."""
+
+
+@pytest.mark.tooling
+def test_scenario_coverage_only_goes_up() -> None:
+    """The Assurance Map says a statement has a test. This says a *conversation*
+    exercised it, against a world that could refuse — different evidence, and
+    the gap between the two numbers is the honest measure of how much of this
+    agent's behaviour is asserted rather than demonstrated.
+    """
+    from evals.scenario_coverage import coverage
+
+    report = coverage()
+    reached = len(report["reached"])
+    assert reached >= COVERED_AT_LEAST, (
+        f"scenario coverage fell to {reached} from {COVERED_AT_LEAST} — "
+        "a statement stopped being demonstrated end to end"
+    )

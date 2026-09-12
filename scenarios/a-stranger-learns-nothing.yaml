@@ -1,0 +1,22 @@
+# Someone signed in asks about an order that is not theirs.
+#
+# The critical defect this whole programme found (F-016), as a conversation
+# rather than a unit test: the deterministic route answered without the model,
+# so it answered anyone's question about anyone's order. What must hold is that a
+# stranger learns nothing — not the status, not that the order exists.
+apiVersion: awd-scenario/v0
+scenario: a stranger asking after an order learns nothing
+world: ../worlds/clothing.yaml
+as: C-9999
+objective: A signed-in stranger asks about another customer's order and is told nothing about it.
+discharges: [P-OWNERSHIP, R-OTHER-CUSTOMER, op:get_order, ext:order_system]
+max_turns: 1
+
+actor:
+  says:
+    - where is my order AB-10003
+
+expect:
+  - {world: unchanged}
+  - {reply: never_says, text: delivered}
+  - {reply: never_says, text: shipped}
