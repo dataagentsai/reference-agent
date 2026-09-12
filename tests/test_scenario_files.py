@@ -16,7 +16,15 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from agenttwin import Live, load, load_scenario, perturbed, run_file, timeline_for
+from agenttwin import (
+    Live,
+    load,
+    load_scenario,
+    perturbed,
+    provider_faults,
+    run_file,
+    timeline_for,
+)
 from evals.simulation import subject_for
 
 from support_agent.contracts import ModelResponse, ToolCall, Usage
@@ -41,6 +49,20 @@ def model_for(stem: str) -> ScriptedClient:
     """
     script = SCRIPTS.get(stem)
     return script() if script is not None else ScriptedClient([])
+
+
+def answers_plainly() -> ScriptedClient:
+    """One ordinary answer. The first attempt at it is throttled, so the client
+    that survives to produce this is the one under test."""
+    return ScriptedClient(
+        [
+            ModelResponse(
+                text="Yes — you can return it within thirty days of delivery.",
+                usage=Usage(input_tokens=5, output_tokens=2),
+            )
+        ]
+        * 3
+    )
 
 
 def asks_for_a_human() -> ScriptedClient:
@@ -81,6 +103,7 @@ SCRIPTS = {
     "nobody-comes": asks_for_a_refund,
     "stale-read-then-refused": wants_to_cancel,
     "nobody-picks-up-the-escalation": asks_for_a_human,
+    "the-provider-throttles": answers_plainly,
 }
 """Scenarios that need the loop, and the reasoning the suite supplies for them.
 Anything absent gets an empty script, so reaching the model at all raises."""
@@ -95,7 +118,12 @@ async def test_a_declared_scenario_passes_every_check_it_makes(path: Path) -> No
     timeline = timeline_for(scenario)
     wrap = perturbed(live, timeline) if scenario.perturbations else None
 
-    async with subject_for(live, llm=model_for(path.stem), wrap=wrap) as subject:
+    async with subject_for(
+        live,
+        llm=model_for(path.stem),
+        wrap=wrap,
+        provider_faults=provider_faults(scenario),
+    ) as subject:
         record, outcomes = await run_file(path, subject=subject, live=live, timeline=timeline)
 
     failed = [f"{o.check} — {o.detail}" for o in outcomes if not o.passed]

@@ -23,7 +23,7 @@ distinction this page exists to keep visible.
 - `ext:order_system` — a-stranger-learns-nothing, stale-read-then-refused
 - `op:cancel_order` — stale-read-then-refused
 - `op:escalate` — nobody-picks-up-the-escalation
-- `op:get_order` — a-stranger-learns-nothing
+- `op:get_order` — a-stranger-learns-nothing, the-provider-throttles
 - `op:issue_refund` — refund-needs-a-person
 - `op:request_refund` — nobody-comes, refund-needs-a-person
 
@@ -73,4 +73,7 @@ distinction this page exists to keep visible.
 Statements from the catalogs rather than this agent's own specification.
 
 - `AAC-0110`
+- `AHC-0005`
+- `AHC-0021`
+- `AHC-0024`
 - `AHC-0057`

@@ -1,0 +1,35 @@
+# The provider rate-limits mid-conversation, and the customer never learns of it.
+#
+# F-022 was that retry, throttling and the circuit breaker existed and were never
+# called. They are wired now — and were still only ever exercised by unit tests,
+# which is the weaker evidence: what matters is that a customer asking an
+# ordinary question during a rate limit gets an ordinary answer, late.
+#
+# The provider is an external system this agent depends on, so a world must be
+# able to misbehave as it. The scenario says *what* goes wrong; which exception
+# that is here is the binding's business.
+apiVersion: awd-scenario/v0
+scenario: the provider throttles, and the customer still gets an answer
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  A rate limit lands on the first model call. The throttle is waited out, the
+  conversation completes, and nothing about the provider reaches the customer.
+discharges: [AHC-0021, AHC-0005, AHC-0024, op:get_order]
+max_turns: 1
+
+actor:
+  says:
+    - can I return something I bought last week
+
+perturbations:
+  - kind: provider_throttled
+    at_call: 1
+    retry_after: 0.01
+
+expect:
+  - {reply: says, text: thirty days}
+  - {world: unchanged}
+  - {reply: never_says, text: rate limit}
+  - {reply: never_says, text: provider}
+  - {reply: never_says, text: error}

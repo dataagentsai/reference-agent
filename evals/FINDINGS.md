@@ -1141,6 +1141,40 @@ which is the ratchet working: `loop/screen.py` (the positions) and
 
 ---
 
+## F-029 · The simulated agent was wired differently from the deployed one
+
+**Found** 2026-09-12, by the first scenario that asked the model provider to
+misbehave.
+
+**Severity** High, and of the kind that invalidates other evidence rather than
+causing an incident.
+
+The deployment wraps its provider in `ResilientLLM` — the retry, the shared
+throttle and the circuit breaker, which exist because of F-022. The simulation
+adapter built the agent without it. Every scenario run so far therefore drove an
+agent that **degrades where the real one waits**, and nothing said so, because
+until a scenario perturbed the provider the difference could not be observed.
+
+It surfaced as a *passing* test, which is the dangerous direction. The throttle
+scenario asserted only what the customer must never be told — no mention of a
+rate limit, a provider or an error — and the degradation reply satisfies all
+three. It passed while proving nothing. Adding one positive assertion, *the
+answer still arrives*, turned it into the failure that named the cause:
+
+> the reply says 'thirty days' — I am having trouble answering right now.
+
+**Fixed — 2026-09-12.** The adapter composes the provider the way the deployment
+does. The general lesson is larger than the fix: **a simulation that composes the
+agent differently from production is simulating a different agent**, and the
+scenario suite cannot see the difference — it drives whatever it is handed. Two
+cheap habits follow, and both are cheaper than this was: a scenario asserting
+only negatives can pass on a degradation path, so **assert that the right thing
+happened, not only that the wrong thing did not**; and the composition used by
+the simulation is itself part of the binding, which is where it will be recorded
+when the two are reconciled.
+
+---
+
 ## F-028 · A guardrail block inside the loop is returned as a completion
 
 **Found** 2026-09-12, by the test written for F-027.

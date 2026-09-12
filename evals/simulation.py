@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 
 from agenttwin import Approver, Desk, Live, Subject, project
 
@@ -31,8 +32,18 @@ from support_agent import entrypoint as ep
 from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent.binding import SCOPES
-from support_agent.contracts import Clock, Identity, LLMClient
+from support_agent.contracts import (
+    Clock,
+    Identity,
+    LLMClient,
+    ModelMalformed,
+    ModelRequest,
+    ModelResponse,
+    ModelThrottled,
+    ModelUnavailable,
+)
 from support_agent.idempotency import InMemoryLedger
+from support_agent.resilience import ResilientLLM
 from support_agent.state import Conversation, InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -40,9 +51,49 @@ DECISIONS = {"grant": Approver.grants, "refuse": Approver.denies, "never": Appro
 RESOLUTIONS = {"handled": Desk.answers, "never": Desk.never_comes}
 
 
+@dataclass
+class FaultyProvider:
+    """A model client that misbehaves on the calls a scenario named.
+
+    **The provider is an external system the agent depends on**, and a world that
+    could perturb every system except that one left the dependency most likely to
+    fail outside the simulation. The scenario declares a *kind*; this maps it onto
+    the exception this agent's adapter raises — the same division as scope names,
+    where the world says what goes wrong and the binding says what it is called
+    here.
+    """
+
+    inner: LLMClient
+    faults: dict[int, tuple[str, float | None]]
+    calls: int = 0
+    fired: list[int] = field(default_factory=list)
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        self.calls += 1
+        fault = self.faults.get(self.calls)
+        if fault is None:
+            return await self.inner.complete(request)
+        kind, retry_after = fault
+        self.fired.append(self.calls)
+        if kind == "provider_throttled":
+            raise ModelThrottled("the provider is rate limiting", retry_after=retry_after)
+        if kind == "provider_unavailable":
+            raise ModelUnavailable("the provider could not be reached")
+        raise ModelMalformed("the provider returned something unreadable", raw="{not json")
+
+    @property
+    def unfired(self) -> tuple[int, ...]:
+        return tuple(call for call in self.faults if call not in self.fired)
+
+
 @asynccontextmanager
 async def subject_for(
-    live: Live, *, llm: LLMClient, clock: Clock | None = None, wrap: object = None
+    live: Live,
+    *,
+    llm: LLMClient,
+    clock: Clock | None = None,
+    wrap: object = None,
+    provider_faults: tuple[tuple[int, str, float | None], ...] = (),
 ) -> AsyncIterator[Subject]:
     """Wire this agent against a live world and hand back what a scenario drives.
 
@@ -52,6 +103,14 @@ async def subject_for(
     to the projection and never inspected."""
     approvals = ap.InMemoryApprovalStore()
     escalations = esc.InMemoryEscalationStore()
+    if provider_faults:
+        llm = FaultyProvider(llm, {call: (kind, after) for call, kind, after in provider_faults})
+    # Wrapped exactly as the deployment wraps it (F-029). A simulation that
+    # composes the agent differently from production is simulating a different
+    # agent, and the difference is invisible until a scenario asks the provider
+    # to misbehave — at which point the *harness* degrades and reads as the
+    # agent degrading.
+    llm = ResilientLLM(llm)
 
     projected = project(live, scopes=SCOPES, wrap=wrap)  # type: ignore[arg-type]
     async with connect(projected, ledger=InMemoryLedger()) as tools:
