@@ -40,6 +40,11 @@ SCRIPTS = [
         ["scripts/scenario_coverage.py"],
         "statements reached",
     ),
+    (
+        "concern_view — everything the specs say about one quality",
+        ["scripts/concern_view.py"],
+        "statements across",
+    ),
 ]
 
 

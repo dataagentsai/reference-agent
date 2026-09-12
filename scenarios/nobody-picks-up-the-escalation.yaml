@@ -9,6 +9,7 @@ scenario: nobody picks up the escalation, and the customer is told
 world: ../worlds/clothing.yaml
 as: C-1042
 objective: The desk never comes. The conversation returns to the agent, and nothing is promised.
+concern: interaction-capability
 discharges: [op:escalate, esc:asked-for-human, P-ESC-TTL, P-ESC-LAPSE, P-ESC-TOLD, ext:escalation_desk]
 max_turns: 3
 step_seconds: 1800

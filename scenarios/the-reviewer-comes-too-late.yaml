@@ -15,6 +15,7 @@ as: C-1042
 objective: >-
   A grant older than its validity fails closed rather than executing. The
   reviewer eventually says yes, and by then the authority is gone.
+concern: safety
 discharges: [P-APPROVAL-TTL, P-APPROVAL-QUEUE, op:request_refund, AHC-0057, ext:approval_queue]
 max_turns: 4
 step_seconds: 43200      # twelve hours a turn, so a 24h window can close

@@ -13,6 +13,7 @@ objective: >-
   Order status and refund status are answered from the order system, by the
   router, with no model call — and refund status never states a date or an amount
   the order system did not give.
+concern: cost
 discharges: [P-DIRECT, P-DIRECT-READS, P-REFUND-STATUS, op:get_order, AHC-0100]
 max_turns: 2
 

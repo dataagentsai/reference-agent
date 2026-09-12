@@ -80,6 +80,37 @@ class Vocabulary:
         return [s for s in self.statements.values() if s.family == fam and s.owed]
 
 
+# The concern of a derived id. The four families below are not authored
+# statements — they are read off the operations, escalation rules, facts and
+# external contracts a spec declares — so their concern is derived the way
+# `phase` is, from what kind of thing they are, rather than tagged on each.
+#
+# The reasoning, since each is a judgement:
+#
+# * an **operation** is filed by what it can do to the world. An irreversible
+#   one is a safety statement — it is where the operational constraint lives —
+#   and a read or a reversible write is functional suitability.
+# * an **escalation rule** is oversight, which the assurance catalog's own
+#   crosswalk places under safety: fetching a person is an interlock.
+# * a **fact** exists so a rule can be reproduced from a trace. Nothing the
+#   customer experiences depends on it directly; what depends on it is anybody's
+#   ability to explain a decision afterwards.
+# * an **external contract** is the one place this family reaches
+#   `compatibility` honestly: it is a statement about working with a system
+#   somebody else owns and versions.
+DERIVED_CONCERN = {
+    "esc": ("safety", "operational constraint"),
+    "fact": ("maintainability", "analysability"),
+    "ext": ("compatibility", "interoperability"),
+}
+
+
+def _operation_concern(side_effect: str) -> tuple[str, str]:
+    if side_effect == "irreversible":
+        return ("safety", "operational constraint")
+    return ("functional-suitability", "functional correctness")
+
+
 def _aoas_statements(doc: dict) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     policies = doc.get("policies", {})
@@ -111,10 +142,20 @@ def _aoas_statements(doc: dict) -> list[tuple[str, str]]:
     return out
 
 
+def aoas_document(world: Path = WORLD) -> dict:
+    """This agent's AOAS, resolved through the world that cites it.
+
+    The world names the spec and its version; the spec may extend another by
+    merge patch. Going through the world rather than reading a path means a
+    generated view and a running scenario are looking at the same document.
+    """
+    return load_spec(resolve_spec(world))
+
+
 def load(world: Path = WORLD) -> Vocabulary:
     vocab = Vocabulary()
 
-    doc = load_spec(resolve_spec(world))
+    doc = aoas_document(world)
     claim = doc.get("conformance", {})
     shapes = set(claim.get("archetypes", []))
     excluded = {x["id"] for c in ("aac", "ahc") for x in claim.get(c, {}).get("excluded", [])}

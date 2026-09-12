@@ -14,6 +14,7 @@ objective: >-
   The step budget is enforced by the harness, and a trajectory that exhausts it
   fetches a person rather than answering. Nothing the model asked for may have
   landed on the world.
+concern: cost
 discharges: [Q-STEPS, esc:loop-exhausted, AHC-0041, AHC-0042, AAC-0055, ext:escalation_desk]
 max_turns: 1
 

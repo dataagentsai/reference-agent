@@ -11,6 +11,7 @@ as: C-1042
 objective: >-
   The model is unreachable twice. Nothing is claimed, nothing changes, and a
   person ends up holding the conversation.
+concern: reliability
 discharges: [esc:tool-unavailable, fact:consecutive_failed, fact:termination, op:escalate]
 max_turns: 3
 step_seconds: 600

@@ -15,6 +15,7 @@ as: C-1042
 objective: >-
   A rate limit lands on the first model call. The throttle is waited out, the
   conversation completes, and nothing about the provider reaches the customer.
+concern: reliability
 discharges: [AHC-0021, AHC-0005, AHC-0024, op:get_order]
 max_turns: 1
 

@@ -18,6 +18,7 @@ objective: >-
   A decided approval cannot be decided again. The reviewer grants, then grants
   the same thing a second time, and the queue refuses the second while the world
   shows exactly one refund.
+concern: safety
 discharges: [P-APPROVAL-FINAL, P-APPROVAL-QUEUE, P-REFUND, op:issue_refund, op:request_refund, AHC-0057, ext:approval_queue]
 max_turns: 3
 step_seconds: 60
