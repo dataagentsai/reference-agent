@@ -149,6 +149,7 @@ def test_urgency_is_per_rule_not_per_escalation() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("P-ESC-ONCE")
 def test_a_rule_fires_once_per_conversation() -> None:
     fired = t2.Facts(
         consecutive_failed=3, escalations=1, already_fired=frozenset({"tool-unavailable"})
@@ -156,6 +157,7 @@ def test_a_rule_fires_once_per_conversation() -> None:
     assert t2.evaluate(fired) is None, "the condition still holds; the rule has had its turn"
 
 
+@pytest.mark.discharges("P-ESC-ONCE", "P-ESC-CAP")
 def test_a_second_rule_may_still_fire() -> None:
     """The cooldown is per rule, not a gag. A conversation whose tools failed and
     which then ran very long has two different things worth telling a person."""
@@ -169,6 +171,7 @@ def test_a_second_rule_may_still_fire() -> None:
     assert matched is not None and matched.id == "turns-exceeded"
 
 
+@pytest.mark.discharges("P-ESC-CAP")
 def test_the_conversation_cap_stops_everything() -> None:
     """Past the cap the agent stops promising. A third reference number for one
     unresolved problem helps nobody and makes the queue read as three customers."""
@@ -212,6 +215,7 @@ async def test_a_repeatedly_refused_customer_reaches_a_person(server) -> None:
     assert conversation.escalated_rules == ("second-refusal",)
 
 
+@pytest.mark.discharges("P-ESC-ONCE", "P-ESC-TTL")
 async def test_the_same_rule_does_not_raise_again_after_it_lapses(server) -> None:
     """The loop the cooldown exists to prevent.
 
@@ -287,6 +291,7 @@ async def test_without_a_store_tier_two_never_fires(server) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("fact:turn_count", "fact:repeated_intent")
 async def test_a_turn_is_recorded_as_facts_not_prose(server) -> None:
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = agent_with(tools, escalations=esc.InMemoryEscalationStore())

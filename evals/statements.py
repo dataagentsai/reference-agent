@@ -8,8 +8,14 @@ from five places, told apart by their shape:
 | `AAC-0047` | assurance catalog — what must be TRUE | `evals/a6_obligations.json` |
 | `AHC-0074` | harness catalog — what must EXIST | the sibling `ai-harness-catalog` checkout |
 | `B5` | the Baseline profile | the sibling `clean-ai-engineering/BASELINE.md` |
-| `P-CANCEL`, `R-STYLE`, `Q-COST` | this agent's AOAS — policies, refusals, properties | its spec |
-| `op:…`, `esc:…`, `ext:…` | AOAS operations, escalation rules, external contracts | its spec |
+| `P-CANCEL`, `R-STYLE`, `Q-COST` | this agent's AOAS — policies, refusals | its spec |
+| `op:…`, `esc:…`, `fact:…`, `ext:…` | its operations, rules, facts, contracts | its spec |
+
+A policy id may be a key of `policies` or one of the id'd lines under its
+`approval` and `escalation` blocks. Those lines were prose with no ids until
+2026-09-12, which is why the largest cluster of untagged tests in the G0.1 audit
+was the escalation and approval rules: every one was verified, and none of them
+could be named.
 
 **An unknown id fails collection**, before a single test runs. A tag that names
 nothing is worse than no tag: it reads as coverage and verifies nothing.
@@ -76,9 +82,16 @@ class Vocabulary:
 
 def _aoas_statements(doc: dict) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
-    for key, p in doc.get("policies", {}).items():
+    policies = doc.get("policies", {})
+    for key, p in policies.items():
         if key.startswith("P-"):
             out.append((key, p["rule"]))
+    # The approval and escalation blocks state their rules as id'd lines. They
+    # were prose with no ids, so no test could name them and the map read them
+    # as unverified — the largest untagged cluster the G0.1 audit found.
+    for block in ("approval", "escalation"):
+        for statement in policies.get(block, {}).get("statements", []):
+            out.append((statement["id"], statement["rule"]))
     for r in doc["purpose"].get("refuses", []):
         out.append((r["id"], f"refuses {r['what']}"))
     for q in doc.get("required", {}).get("properties", []):
@@ -89,6 +102,10 @@ def _aoas_statements(doc: dict) -> list[tuple[str, str]]:
     for rule in (*esc.get("on_request", []), *esc.get("on_condition", [])):
         when = rule["when"] if isinstance(rule["when"], str) else f"{rule['when']['field']}"
         out.append((f"esc:{rule['id']}", f"escalate when {when}"))
+    # A fact is a statement too: this spec requires the harness to maintain it,
+    # and `derived` says what computes it.
+    for name, f in doc.get("facts", {}).items():
+        out.append((f"fact:{name}", f.get("derived", name)))
     for name in doc.get("external", {}):
         out.append((f"ext:{name}", f"external contract with {name}"))
     return out

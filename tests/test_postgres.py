@@ -234,6 +234,7 @@ async def test_a_decision_is_terminal_across_processes(pool) -> None:
         await other.close()
 
 
+@pytest.mark.discharges("P-APPROVAL-QUEUE")
 async def test_the_pending_queue_is_what_a_reviewer_sees(pool) -> None:
     from support_agent.state.postgres import PostgresApprovalStore
 
@@ -363,6 +364,7 @@ async def test_an_escalation_outlives_the_process_that_raised_it(pool) -> None:
     assert found.created_at == T0, "epoch seconds survive the round trip as integers"
 
 
+@pytest.mark.discharges("P-ESC-QUEUE")
 async def test_the_queue_a_reviewer_reads_is_ordered_and_open_only(pool) -> None:
     from support_agent import escalation as esc
     from support_agent.contracts import EscalationOutcome
@@ -379,6 +381,7 @@ async def test_the_queue_a_reviewer_reads_is_ordered_and_open_only(pool) -> None
     assert [e.id for e in await store.pending()] == [first.id, third.id], "oldest first, open only"
 
 
+@pytest.mark.discharges("P-ESC-OWNS")
 async def test_open_for_finds_the_conversations_live_escalation(pool) -> None:
     """The hot path: every turn of an escalated conversation asks whether one is
     open. Keyed by conversation because that is the handle the agent holds."""
@@ -389,6 +392,7 @@ async def test_open_for_finds_the_conversations_live_escalation(pool) -> None:
     assert await store.open_for("cnv_nothing") is None
 
 
+@pytest.mark.discharges("P-ESC-OUTCOME")
 async def test_only_the_closing_fields_are_updatable(pool) -> None:
     """Why it fired is fixed at raise time. A store that let `rule_id` change
     afterwards would let the analysis blame the wrong rule — the same reasoning
@@ -414,6 +418,7 @@ async def test_only_the_closing_fields_are_updatable(pool) -> None:
     assert stored.state is EscalationState.RESOLVED, "the closing fields did change"
 
 
+@pytest.mark.discharges("P-ESC-OUTCOME")
 async def test_the_outcome_survives_and_is_sliceable_by_rule(pool) -> None:
     """The row the over-escalation rate is computed from. If this does not
     round-trip, the number cannot be computed at all."""
@@ -439,6 +444,7 @@ async def test_the_outcome_survives_and_is_sliceable_by_rule(pool) -> None:
     assert closed.resolved_at == T0 + 60
 
 
+@pytest.mark.discharges("P-ESC-OUTCOME")
 async def test_the_database_refuses_an_outcome_the_model_does_not_know(pool) -> None:
     """Belt and braces, the same shape as `refunds.idempotency_key UNIQUE`: the
     application coerces at the boundary, and the constraint makes the bad row

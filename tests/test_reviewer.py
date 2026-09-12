@@ -106,6 +106,7 @@ def test_the_401_body_says_nothing_useful_to_a_prober(client) -> None:
     assert res.json() == {"detail": "the session token is not valid"}
 
 
+@pytest.mark.discharges("P-ESC-OWNS")
 async def test_a_reader_cannot_close_anything(client, store) -> None:
     """Read and review are separate scopes, so a read-only desk session is a real
     thing rather than a comment in the docs."""
@@ -140,6 +141,7 @@ async def test_the_queue_shows_what_a_reviewer_needs(client, store) -> None:
     assert "rules_version" not in one, "for the analysis, not for a person"
 
 
+@pytest.mark.discharges("P-ESC-QUEUE")
 async def test_a_resolved_escalation_leaves_the_queue(client, store) -> None:
     row = await queued(store)
     client.post(
@@ -164,6 +166,7 @@ OUTCOMES = [
 ]
 
 
+@pytest.mark.discharges("P-ESC-OUTCOME")
 @pytest.mark.parametrize(("name", "outcome"), OUTCOMES, ids=[c[0] for c in OUTCOMES])
 async def test_every_outcome_reaches_the_row(client, store, name: str, outcome: str) -> None:
     row = await queued(store)
@@ -182,6 +185,7 @@ async def test_every_outcome_reaches_the_row(client, store, name: str, outcome: 
     assert closed.outcome_note == name
 
 
+@pytest.mark.discharges("P-ESC-OUTCOME")
 async def test_the_over_escalation_label_is_sliceable_by_rule(client, store) -> None:
     """The whole reason `rule_id` is on the row rather than only a prose reason.
 
@@ -199,6 +203,7 @@ async def test_the_over_escalation_label_is_sliceable_by_rule(client, store) -> 
     assert (closed.rule_id, closed.outcome.value) == ("lost-in-transit", "agent_could_have")
 
 
+@pytest.mark.discharges("P-ESC-OUTCOME")
 async def test_closing_twice_is_refused_rather_than_overwritten(client, store) -> None:
     """An outcome that can be rewritten is one that can be rewritten *after*
     somebody reads the dashboard."""

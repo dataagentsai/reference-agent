@@ -85,7 +85,7 @@ def test_which_refunds_need_a_human(name: str, order: dict, needs: bool) -> None
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AAC-0056", "AAC-0005", "AHC-0057")
+@pytest.mark.discharges("AAC-0056", "AAC-0005", "AHC-0057", "P-APPROVER")
 async def test_nobody_approves_their_own_request() -> None:
     """The confused deputy of the human path, and the control against "your
     colleague already approved this" — the claim would have to be true in the
@@ -96,6 +96,7 @@ async def test_nobody_approves_their_own_request() -> None:
         await ap.decide(store, approval.id, granted=True, by="C-1042", now=T0 + HOUR)
 
 
+@pytest.mark.discharges("P-APPROVAL-FINAL")
 async def test_a_decision_is_terminal() -> None:
     """A grant that can be re-granted is a grant that can be executed twice."""
     store = ap.InMemoryApprovalStore()
@@ -105,7 +106,7 @@ async def test_a_decision_is_terminal() -> None:
         await ap.decide(store, approval.id, granted=False, by="ops-7", now=T0 + HOUR)
 
 
-@pytest.mark.discharges("AHC-0057", "AAC-0078")
+@pytest.mark.discharges("AHC-0057", "AAC-0078", "P-APPROVAL-TTL")
 async def test_an_expired_request_cannot_be_decided() -> None:
     store = ap.InMemoryApprovalStore()
     approval = await pending_refund(store)
@@ -118,6 +119,7 @@ async def test_deciding_an_unknown_approval_is_an_error() -> None:
         await ap.decide(ap.InMemoryApprovalStore(), "apr_nope", granted=True, by="ops-7", now=T0)
 
 
+@pytest.mark.discharges("P-APPROVAL-QUEUE")
 async def test_the_queue_shows_only_undecided_items() -> None:
     """P8 — the surface a reviewer sees."""
     store = ap.InMemoryApprovalStore()
@@ -315,6 +317,7 @@ def wants_refund(order_id: str = "AB-1", **stated: object):
     "P-REFUND",
     "op:request_refund",
     "ext:approval_queue",
+    "P-APPROVAL-WAIT",
 )
 async def test_a_large_refund_waits_and_then_completes_across_turns(server) -> None:
     """The whole gate, through the drivable surface.
@@ -357,7 +360,7 @@ async def test_a_large_refund_waits_and_then_completes_across_turns(server) -> N
     assert conversation.pending_approval_id is None
 
 
-@pytest.mark.discharges("AHC-0057", "ext:approval_queue")
+@pytest.mark.discharges("AHC-0057", "ext:approval_queue", "P-APPROVAL-WAIT")
 async def test_a_pending_approval_short_circuits_the_next_turn(server) -> None:
     from support_agent.contracts import Completed, NeedsApproval
     from support_agent.state import InMemoryCheckpointStore

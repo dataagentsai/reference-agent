@@ -147,6 +147,7 @@ async def test_a_handled_escalation_returns_the_customer_to_the_agent() -> None:
     assert closed.outcome is not None and closed.outcome.value == "resolved"
 
 
+@pytest.mark.discharges("P-ESC-OUTCOME")
 async def test_the_over_escalation_label_reaches_the_row() -> None:
     """The number that makes over-escalation measurable rather than arguable.
 
@@ -165,6 +166,7 @@ async def test_the_over_escalation_label_reaches_the_row() -> None:
     assert closed.rule_id == "asked-for-human", "sliceable by the rule that raised it"
 
 
+@pytest.mark.discharges("P-ESC-OWNS")
 async def test_a_desk_cannot_close_its_own_customers_escalation() -> None:
     """The confused deputy of the human path, on the escalation record.
 
@@ -180,6 +182,7 @@ async def test_a_desk_cannot_close_its_own_customers_escalation() -> None:
     assert len(still_open) == 1, "a refused close must not quietly resolve it"
 
 
+@pytest.mark.discharges("P-ESC-TTL", "P-ESC-LAPSE")
 async def test_nobody_comes_and_the_queue_says_so() -> None:
     """Nothing happens, which is correct — and the point is that nothing happens
     *quietly*. The escalation is still sitting there after the customer has given

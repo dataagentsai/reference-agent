@@ -165,6 +165,7 @@ async def test_an_escalation_writes_a_record_and_names_it(server) -> None:
     assert (await store.pending()) == (raised,)
 
 
+@pytest.mark.discharges("AAC-0110", "op:escalate")
 async def test_without_a_store_the_handover_is_refused_not_claimed(server) -> None:
     """F-024, and AOAS `escalate.on_refusal`. An agent with nowhere to write
     cannot hand the conversation to anybody — so it says so and stays with the
@@ -207,7 +208,7 @@ FOLLOW_UPS = [
 
 
 @pytest.mark.parametrize(("name", "text"), FOLLOW_UPS, ids=[c[0] for c in FOLLOW_UPS])
-@pytest.mark.discharges("op:escalate")
+@pytest.mark.discharges("op:escalate", "P-ESC-OWNS")
 async def test_the_agent_does_not_answer_over_a_live_handoff(server, name: str, text: str) -> None:
     """It used to. The customer was told a colleague would take over and the
     next message was served by the agent as though nothing had happened."""
@@ -338,6 +339,7 @@ def test_a_conversation_carries_the_flag_across_encoding() -> None:
     assert Conversation.decode(conversation.encode()).pending_escalation_id == "E-DEADBEEF"
 
 
+@pytest.mark.discharges("esc:asked-for-human")
 def test_the_router_carries_the_rule_id_into_the_decision() -> None:
     assert Escalate(reason="x").rule_id == "", "default stays empty for hand-built decisions"
     assert router.route("transfer me").tier == 1
@@ -395,6 +397,7 @@ WAITS = [
 @pytest.mark.parametrize(
     ("name", "per_hour", "depth", "expected"), WAITS, ids=[c[0] for c in WAITS]
 )
+@pytest.mark.discharges("P-ESC-TOLD")
 def test_the_estimate_comes_from_depth_and_throughput(
     name: str, per_hour, depth: int, expected
 ) -> None:
@@ -444,6 +447,7 @@ async def test_the_sweeper_lapses_what_nobody_came_for(server) -> None:
     assert [e.id for e in await store.pending()] == [fresh.id]
 
 
+@pytest.mark.discharges("P-ESC-TTL")
 async def test_sweeping_twice_lapses_nothing_the_second_time() -> None:
     """It runs on a timer, so it runs against a queue it has already swept."""
     store = esc.InMemoryEscalationStore()
