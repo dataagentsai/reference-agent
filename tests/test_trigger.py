@@ -105,6 +105,7 @@ async def test_different_deliveries_do_not_collide() -> None:
     assert await log.state_of("msg-2") is trg.State.SETTLED
 
 
+@pytest.mark.discharges("AHC-0053")
 async def test_an_unidentified_delivery_runs_unguarded() -> None:
     """`None` means the caller did not identify the delivery. Inventing an id
     here would produce a guard that can never fire and a green report with it."""
@@ -155,6 +156,7 @@ async def test_a_redelivered_message_does_not_cancel_twice() -> None:
     assert [e for e in world.effects if e[0] == "cancel_order"] == [("cancel_order", PENDING)]
 
 
+@pytest.mark.discharges("AHC-0053")
 async def test_without_a_delivery_id_the_second_run_acts_again() -> None:
     """The defect, pinned. Not a bug in the guard — a bug in *not using* it.
 

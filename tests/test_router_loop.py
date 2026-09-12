@@ -149,6 +149,7 @@ def test_the_route_and_its_reason_are_on_the_trace(exporter) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0017")
 async def test_a_plain_answer_terminates_immediately(server) -> None:
     async with open_tools(server) as tools:
         result, trace = await agent_loop.run(
@@ -163,6 +164,7 @@ async def test_a_plain_answer_terminates_immediately(server) -> None:
     assert trace.termination is TerminationReason.GOAL_REACHED
 
 
+@pytest.mark.discharges("AHC-0017", "op:get_order")
 async def test_a_tool_call_then_an_answer(server) -> None:
     async with open_tools(server) as tools:
         result, trace = await agent_loop.run(

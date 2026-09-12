@@ -140,6 +140,7 @@ async def test_invalid_arguments_are_rejected_before_dispatch(server) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("op:get_order", "AHC-0017")
 async def test_a_read_succeeds_and_returns_structured_content(server) -> None:
     async with open_client(server) as client:
         result = await client.call("get_order", {"order_id": "O-1"}, customer(), key())
@@ -240,6 +241,7 @@ def test_there_are_no_exemptions_from_fencing() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0013")
 def test_the_system_prompt_is_first_and_unchanged() -> None:
     """A stable prefix: any byte that moves invalidates every cached token after."""
     assembled = ctx.assemble(system="You are support.", history=[ctx.user_message("hi")])
@@ -265,12 +267,14 @@ def test_a_missing_template_variable_is_an_error() -> None:
         ctx.render("Hello {{ name }}")
 
 
+@pytest.mark.discharges("AHC-0011")
 def test_user_turns_are_untrusted_but_not_fenced() -> None:
     m = ctx.user_message("where is my order")
     assert m.provenance == "user"
     assert not m.content.startswith("<<<untrusted")
 
 
+@pytest.mark.discharges("AHC-0013")
 def test_assemble_accepts_prebuilt_messages() -> None:
     out = ctx.assemble(system="s", history=[Message(role="user", content="hi")])
     assert len(out) == 2

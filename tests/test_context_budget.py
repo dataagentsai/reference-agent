@@ -94,6 +94,7 @@ def test_the_ends_are_what_survive() -> None:
     assert kept[-1].content.startswith("turn 19")
 
 
+@pytest.mark.discharges("AHC-0103")
 def test_a_tool_call_is_never_separated_from_its_answer() -> None:
     """The failure `assemble` already paid for once, at a layer that would have
     persisted the broken transcript rather than merely sending it."""
@@ -125,6 +126,7 @@ def test_a_tool_call_is_never_separated_from_its_answer() -> None:
     )
 
 
+@pytest.mark.discharges("AHC-0103")
 def test_an_already_broken_history_is_refused_rather_than_stored() -> None:
     """The guard runs even when nothing was trimmed. A transcript that arrives
     orphaned should not be written down as though it were fine."""
@@ -191,6 +193,7 @@ async def test_the_caller_holds_what_the_store_holds(server) -> None:
     assert stored.turn_count == conversation.turn_count == 10, "the count outlives the transcript"
 
 
+@pytest.mark.discharges("AHC-0012")
 async def test_bounding_does_not_touch_what_rules_read(server) -> None:
     """`recent`, `turn_count` and `escalated_rules` are facts, not transcript.
 
@@ -244,6 +247,7 @@ def test_a_call_with_room_reports_no_trimming() -> None:
     assert built.trimmed == 0
 
 
+@pytest.mark.discharges("AHC-0013")
 def test_assemble_still_returns_only_the_transcript() -> None:
     """The older call site is untouched — the stats are additive, not a new
     contract every caller has to learn."""
@@ -270,6 +274,7 @@ async def test_the_step_span_carries_how_full_the_call_was(server, exporter) -> 
     assert step.attributes[tel.CONTEXT_TRIMMED] == 0
 
 
+@pytest.mark.discharges("AHC-0012", "AHC-0067")
 async def test_the_turn_span_carries_what_was_actually_stored(server, exporter) -> None:
     """A different question from what the model was sent, and one that was
     nobody's for a long time."""

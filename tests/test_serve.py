@@ -224,6 +224,7 @@ def test_a_repeated_delivery_is_answered_not_repeated(client) -> None:
     assert second.json()["status"] == "already handled"
 
 
+@pytest.mark.discharges("AHC-0053")
 def test_without_an_idempotency_key_the_turn_runs_unguarded(client) -> None:
     """Stated rather than defaulted. Inventing an id here would produce a guard
     that can never fire, and a green result to go with it."""

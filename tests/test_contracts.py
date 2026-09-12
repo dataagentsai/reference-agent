@@ -97,6 +97,7 @@ ROUTE_CASES = [
 ]
 
 
+@pytest.mark.discharges("AHC-0017")
 @pytest.mark.parametrize(("kind", "route"), ROUTE_CASES, ids=[c[0] for c in ROUTE_CASES])
 def test_route_round_trips_through_its_discriminator(kind: str, route: Route) -> None:
     restored = ROUTE_ADAPTER.validate_python(ROUTE_ADAPTER.dump_python(route))
@@ -156,12 +157,14 @@ def test_turn_result_round_trips(kind: str, result: TurnResult) -> None:
     assert restored.kind == kind
 
 
+@pytest.mark.discharges("AHC-0017", "AHC-0057")
 def test_needs_approval_does_not_block_and_says_why() -> None:
     """L14's question is what the system does while it waits: it returns."""
     r = NeedsApproval(approval_id="a", action="issue_refund", reason="over threshold", reply="ok")
     assert r.termination is TerminationReason.AWAITING_APPROVAL
 
 
+@pytest.mark.discharges("AHC-0017")
 def test_failure_separates_customer_message_from_operator_detail() -> None:
     f = Failed(customer_message="Something went wrong.", detail="psycopg: connection refused")
     assert "psycopg" not in f.customer_message
@@ -172,6 +175,7 @@ def test_failure_separates_customer_message_from_operator_detail() -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0035")
 def test_identity_token_is_not_in_its_repr() -> None:
     ident = Identity(customer_id="C-1", scopes=frozenset({"orders:read"}), token="secret-value")
     assert "secret-value" not in repr(ident)

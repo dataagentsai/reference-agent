@@ -151,6 +151,7 @@ async def test_provider_failure_returns_a_typed_result(server) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("fact:turn_count", "AHC-0044")
 async def test_the_turn_is_recorded_on_the_conversation(server) -> None:
     async with open_tools(server) as tools:
         _, conversation = await agent_with(tools).handle(
@@ -173,6 +174,7 @@ async def test_operator_detail_never_reaches_the_conversation(server) -> None:
     assert result.detail not in conversation.messages[-1].content
 
 
+@pytest.mark.discharges("AHC-0044")
 async def test_history_carries_into_the_next_turn(server) -> None:
     llm = ScriptedClient([says("first"), says("second")])
     async with open_tools(server) as tools:

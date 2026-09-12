@@ -328,6 +328,7 @@ async def test_the_raise_span_carries_the_rule_it_fired(server, exporter) -> Non
     assert raised.attributes[tel.ESCALATION_ID].startswith("E-")
 
 
+@pytest.mark.discharges("P-ESC-OWNS", "AHC-0044")
 def test_a_conversation_carries_the_flag_across_encoding() -> None:
     """It has to survive the store, or it is not state — it is a local variable
     that happens to be named after one."""

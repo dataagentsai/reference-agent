@@ -153,6 +153,7 @@ def test_malformed_is_not_unavailable() -> None:
     assert not issubclass(ModelUnavailable, ModelMalformed)
 
 
+@pytest.mark.discharges("AHC-0001", "AHC-0017")
 def test_the_failure_carries_the_raw_text_for_the_operator() -> None:
     """AHC-0001's `raw_retention` tension, resolved toward explicability.
 

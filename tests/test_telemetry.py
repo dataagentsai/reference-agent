@@ -49,10 +49,12 @@ def test_redaction_replaces_sensitive_spans(name: str, raw: str, marker: str) ->
     ],
     ids=["short number", "prose"],
 )
+@pytest.mark.discharges("AHC-0019")
 def test_redaction_leaves_ordinary_text_alone(name: str, raw: str) -> None:
     assert tel.redact(raw) == raw
 
 
+@pytest.mark.discharges("AHC-0019")
 def test_redaction_bounds_length() -> None:
     out = tel.redact("x" * 9000, limit=100)
     assert len(out) < 200

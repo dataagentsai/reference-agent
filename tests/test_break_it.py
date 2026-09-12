@@ -392,6 +392,7 @@ def _long_history(turns: int):
 @given(
     turns=st.integers(min_value=1, max_value=25), budget=st.integers(min_value=200, max_value=6000)
 )
+@pytest.mark.discharges("AHC-0103")
 async def test_trimming_never_orphans_a_tool_call(turns: int, budget: int) -> None:
     """An assistant turn claiming a call whose answer was trimmed away is a
     transcript no provider accepts — the same 400 the first live call produced.

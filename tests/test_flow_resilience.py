@@ -38,6 +38,7 @@ def customer(extra: frozenset[str] = frozenset()) -> Identity:
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.discharges("AHC-0104")
 async def test_results_come_back_in_the_order_they_were_asked_for() -> None:
     """Not a nicety. Tool results are matched to calls by position, so a
     scheduler returning them as they finish attaches each answer to the wrong
@@ -51,6 +52,7 @@ async def test_results_come_back_in_the_order_they_were_asked_for() -> None:
     assert out == [0, 1, 2, 3, 4]
 
 
+@pytest.mark.discharges("AHC-0097")
 async def test_concurrency_is_actually_bounded() -> None:
     limiter = flw.Limiter(limit=2)
 
@@ -61,10 +63,12 @@ async def test_concurrency_is_actually_bounded() -> None:
     assert limiter.peak <= 2
 
 
+@pytest.mark.discharges("AHC-0097")
 async def test_an_empty_batch_is_not_an_error() -> None:
     assert await flw.gather_bounded([]) == []
 
 
+@pytest.mark.discharges("AHC-0097")
 def test_a_zero_limit_is_refused() -> None:
     with pytest.raises(ValueError, match="at least 1"):
         flw.Limiter(limit=0)
@@ -321,6 +325,7 @@ def batch(name: str, *ids: str) -> ModelResponse:
     )
 
 
+@pytest.mark.discharges("AHC-0097", "AHC-0104")
 async def test_parallel_reads_interleave(server) -> None:
     async with connect(server, ledger=InMemoryLedger()) as tools:
         await agent_loop.run(
@@ -336,6 +341,7 @@ async def test_parallel_reads_interleave(server) -> None:
     assert events[:3] == [("start", "A-1"), ("start", "A-2"), ("start", "A-3")]
 
 
+@pytest.mark.discharges("AHC-0104")
 async def test_writes_run_one_at_a_time_in_the_order_asked(server) -> None:
     """A write that fails halfway through a parallel batch costs a
     reconciliation in an order that depended on scheduling."""
@@ -359,6 +365,7 @@ async def test_writes_run_one_at_a_time_in_the_order_asked(server) -> None:
     ]
 
 
+@pytest.mark.discharges("AHC-0104")
 async def test_results_stay_matched_to_their_calls(server) -> None:
     async with connect(server, ledger=InMemoryLedger()) as tools:
         _, trace = await agent_loop.run(
