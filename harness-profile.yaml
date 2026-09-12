@@ -76,6 +76,22 @@ decisions:
     note: >-
       A model with no price is a configuration fault raised where the run is
       configured, not three calls in (AHC-0101).
+  AHC-0057/irreversible_scope:
+    value: authority-by-whose
+    source: chosen
+    note: >-
+      Not every irreversible action needs a person here, and the line is not
+      reversibility — it is whose authority the effect needs. Moving money out
+      of the business is the business's decision and `issue_refund` is gated.
+      Cancelling your own unshipped order is yours, and `P-OWNERSHIP` already
+      establishes that only the owner reaches it, so the person whose order it
+      is has authorised it by asking. A gate there would queue the commonest
+      request behind a human with nothing to add, which is the failure the
+      capability's own resolution names. The authority sits in the AOAS as
+      conditions over declared state and is checked where the action executes,
+      so the agent never decides at the time which kind it is looking at.
+      Decided 2026-09-12.
+
   AHC-0019/redaction_point:
     value: before-export
     source: chosen
