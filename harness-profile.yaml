@@ -115,7 +115,18 @@ thresholds:
 # and L10, which are the layers the catalogs exist to expose.
 bindings:
   model:        { approach: in-house,    adapter: openai-compatible-client, x_could_be: [framework, gateway] }
-  tool_runtime: { approach: open-source, adapter: mcp-client, x_could_be: [framework] }
+  tool_runtime:
+    approach: open-source
+    adapter: mcp-client
+    x_could_be: [framework]
+    # The authority each operation requires. Which operations are privileged is
+    # the AOAS's business; what the privilege is *called* is this binding's, and
+    # it lived in the worlds' `x_binding` until this file existed to hold it.
+    x_scopes:
+      cancel_order: orders:write
+      open_return_request: returns:write
+      change_address: orders:write
+      issue_refund: refunds:write
   state:        { approach: open-source, adapter: postgres-checkpoints, x_could_be: [framework, cloud-native] }
   approval:     { approach: in-house,    adapter: postgres-approval-queue, x_could_be: [platform] }
   telemetry:    { approach: open-source, adapter: otlp-tracing, x_could_be: [platform] }

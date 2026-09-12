@@ -135,6 +135,7 @@ layers = [
     "entrypoint",
     "router | loop",
     "context | tools | approvals | escalation",
+    "binding",
     "llm | state | policy | cost | idempotency | trigger | resilience | flow | identity | cassette",
     "config | telemetry | ui",
     "conformance | contracts",

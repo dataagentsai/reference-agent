@@ -21,6 +21,7 @@ from support_agent import entrypoint as ep
 from support_agent import identity as ident
 from support_agent import policy as pol
 from support_agent import telemetry as tel
+from support_agent.binding import SCOPES
 from support_agent.contracts import (
     Completed,
     IdempotencyKey,
@@ -237,7 +238,7 @@ async def test_a_planted_instruction_cannot_reach_an_unscoped_tool() -> None:
     world = live()
     before = world.snapshot()
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world, scopes=SCOPES), ledger=InMemoryLedger()) as tools:
         result, _ = await agent_for(
             tools,
             calls("get_order", id=HOSTILE),

@@ -80,6 +80,15 @@ def test_every_capability_this_shape_owes_is_accounted_for(profile: dict) -> Non
     )
 
 
+@pytest.mark.discharges("AHC-0040")
+def test_the_scopes_the_binding_declares_are_the_scopes_the_code_uses(profile: dict) -> None:
+    """One rule, two places it has to be written — the profile a reviewer reads
+    and the map the projection is handed. A check is what keeps that honest."""
+    from support_agent.binding import SCOPES
+
+    assert profile["bindings"]["tool_runtime"]["x_scopes"] == SCOPES
+
+
 @needs_catalog
 @pytest.mark.tooling
 def test_the_catalog_versions_are_the_ones_on_disk(profile: dict) -> None:

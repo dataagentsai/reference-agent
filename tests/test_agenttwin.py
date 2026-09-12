@@ -23,6 +23,7 @@ from evals import world as handwritten
 from support_agent import entrypoint as ep
 from support_agent import identity as ident
 from support_agent import telemetry as tel
+from support_agent.binding import SCOPES
 from support_agent.config import Settings, resolve
 from support_agent.contracts import (
     Completed,
@@ -191,11 +192,15 @@ async def test_projected_tools_satisfy_the_agent_s_own_registry_rules() -> None:
     assert {t.name for t in registry.irreversible} >= {"cancel_order", "issue_refund"}
 
 
-@pytest.mark.discharges("AHC-0034")
+@pytest.mark.discharges("AHC-0034", "AHC-0040")
 async def test_the_projected_surface_is_still_scope_gated() -> None:
+    """The scope names come from the **binding**, not the world: which operations
+    are privileged is the specification's business, what the privilege is called
+    belongs to whatever issues credentials. A world projected with none is
+    ungated, which is a legitimate thing to simulate and never a default here."""
     live = Live.start(load(WORLD))
     plain = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
-    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live, scopes=SCOPES), ledger=InMemoryLedger()) as tools:
         assert (await tools.list_tools(plain)).get("issue_refund") is None
         assert (await tools.list_tools(privileged())).get("issue_refund") is not None
 

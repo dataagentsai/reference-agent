@@ -71,6 +71,7 @@ one is this shop's."""
 
 PARAMETERISED = {
     "approvals/__init__.py",  # re-exports the universal workflow *and* this shop's refund tool
+    "binding.py",  # the shape is universal; the scope names are this deployment's
     "approvals/policy.py",  # the threshold, the TTL, the states a refund is owed in
     "config/__init__.py",  # this deployment's models, budgets, endpoints
     "escalation/rules.py",  # the Tier 2 rule set and the facts it reads

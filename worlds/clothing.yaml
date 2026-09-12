@@ -61,16 +61,6 @@ systems:
         description: Issue a refund. Requires the elevated scope a granted approval mints.
         refusal: this order has already been refunded
 
-    # Realisation, outside the format (the `x_` prefix). Moves to the binding
-    # spec with TODO 1.4; carried here until then so nothing changes behaviour.
-    x_binding:
-      transport: mcp
-      scopes:
-        cancel_order: orders:write
-        open_return_request: returns:write
-        change_address: orders:write
-        issue_refund: refunds:write
-
 records:
   customer:
     - {id: C-1042, email: basant@example.com}
