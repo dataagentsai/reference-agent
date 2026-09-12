@@ -1,0 +1,32 @@
+# Nobody asked for a human. The agent refused twice, and that is the signal.
+#
+# Tier 2 is the whole distinction: Tier 1 answers *what did they say*, Tier 2
+# answers *how is this going*. A customer refused twice has had a correct
+# conversation and a bad one, and only the second kind of rule can tell.
+apiVersion: awd-scenario/v0
+scenario: a customer refused twice is handed to a person without asking
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  Two refusals in a row, no request for a human, and a person ends up holding
+  the conversation — with a reference the customer can quote.
+discharges: [esc:second-refusal, fact:refusals, op:escalate, ext:escalation_desk, P-ESC-OUTCOME]
+max_turns: 3
+# Ten minutes a turn: a colleague has to arrive before the escalation lapses at
+# thirty, and the default of an hour means they never do.
+step_seconds: 600
+
+actor:
+  says:
+    - can I have a discount on this order
+    - what about a voucher then
+    - fine, what can you do
+
+desk:
+  resolves: handled
+  by: desk-3
+
+expect:
+  - {handed_off: 1}
+  - {world: unchanged}
+  - {reply: never_says, text: discount}

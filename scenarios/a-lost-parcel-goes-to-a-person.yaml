@@ -1,0 +1,25 @@
+# Reported lost in transit — a Tier 1 rule, decided from the turn's own words.
+#
+# There is nothing the agent can do about a parcel the carrier has lost, and
+# nothing in the world that records it. The specification's answer is a person,
+# and the point of the scenario is that it happens without a model call.
+apiVersion: awd-scenario/v0
+scenario: an item reported lost in transit reaches a person
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: The customer reports a parcel lost in transit and a person takes it.
+discharges: [esc:lost-in-transit, op:escalate, ext:escalation_desk]
+max_turns: 1
+# Ten minutes a turn, so the desk arrives inside the thirty-minute window.
+step_seconds: 600
+
+actor:
+  says:
+    - the courier says my parcel is lost in transit
+
+desk:
+  resolves: handled
+
+expect:
+  - {handed_off: 1}
+  - {world: unchanged}

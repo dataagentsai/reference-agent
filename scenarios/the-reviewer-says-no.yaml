@@ -1,0 +1,33 @@
+# The reviewer refuses, and the customer is told something true about it.
+#
+# Every test of this path until now decided by calling the queue directly, with
+# `granted=True`, at a moment of the test's choosing. That reviewer does not
+# exist. This one says no, and what matters is that no money moves and the
+# customer is not left believing it might.
+apiVersion: awd-scenario/v0
+scenario: the reviewer refuses, and nothing is refunded
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: A refund above the limit is refused by a person, and the customer is told.
+discharges: [op:request_refund, AHC-0057, ext:approval_queue, P-APPROVER, P-APPROVAL-WAIT]
+max_turns: 3
+
+actor:
+  says:
+    - please refund my order AB-10003
+    - any update?
+    - and now?
+
+approver:
+  decides: refuse
+  by: ops-7
+
+expect:
+  - {decided: denied}
+  - {effect: issue_refund, times: 0}
+  - {world: unchanged}
+  # Not a `reply` check. The agent's honest sentence here is *"Nothing has been
+  # refunded yet"*, which contains "has been refunded" — a substring match on
+  # prose cannot tell a claim from its negation, and flagged the correct answer.
+  # What this scenario means is checked against the world instead.
+  - {truthful: order, id: AB-10003}

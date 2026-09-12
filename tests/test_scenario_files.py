@@ -146,6 +146,9 @@ SCRIPTS = {
     "nobody-picks-up-the-escalation": asks_for_a_human,
     "the-provider-throttles": answers_plainly,
     "the-window-closes-while-they-talk": tries_the_return_late,
+    "refused-twice-reaches-a-person": asks_for_a_human,
+    "a-lost-parcel-goes-to-a-person": asks_for_a_human,
+    "the-reviewer-says-no": asks_for_a_refund,
 }
 """Scenarios that need the loop, and the reasoning the suite supplies for them.
 Anything absent gets an empty script, so reaching the model at all raises."""
@@ -182,7 +185,7 @@ def test_every_scenario_names_what_it_discharges() -> None:
         assert load_scenario(path).discharges, f"{path.name} discharges nothing"
 
 
-COVERED_AT_LEAST = 21
+COVERED_AT_LEAST = 26
 """What scenarios reached when this ratchet was set, 2026-09-12 — 17 of 55. It turns one
 way: a statement that has been demonstrated end to end does not stop being
 demonstrated because somebody deleted the scenario that did it."""
