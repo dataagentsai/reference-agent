@@ -354,6 +354,7 @@ CAPACITY = [
 ]
 
 
+@pytest.mark.discharges("esc:asked-for-human", "op:escalate")
 @pytest.mark.parametrize(
     ("name", "capacity", "depth", "expected"), CAPACITY, ids=[c[0] for c in CAPACITY]
 )
@@ -362,7 +363,13 @@ async def test_the_reply_says_only_what_the_queue_supports(
 ) -> None:
     """The defect this closes: "let me pass you to a colleague" with nothing
     behind it, from a system whose own prompt forbids promising what no tool has
-    confirmed."""
+    confirmed.
+
+    Both halves are the same rule, settled 2026-09-12: the AOAS permits a wait
+    **only** where one is measured — queue depth over observed throughput — and
+    forbids one otherwise. Saying nothing when the throughput is unknown is not
+    an exception to the rule; it is the rule.
+    """
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = ep.build(
             llm=ScriptedClient([]),
