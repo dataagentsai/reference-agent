@@ -75,6 +75,15 @@ class Escalation(BaseModel):
     that decided, so the decision can be found in the trace."""
     customer_id: str
 
+    context: str = ""
+    """What the person picking this up is handed — AHC-0070, assembled from the
+    structured record (AHC-0108) rather than summarised from the transcript.
+
+    Assembled, so nothing in it is a paraphrase and nothing was lost to a
+    reduction. Empty is legitimate and means the conversation had no facts worth
+    handing over yet, which is different from the summariser having produced
+    nothing."""
+
     tier: int = 1
     """Which class of rule fired. 1 = the customer asked, or a hard policy class.
     2 and 3 exist in the design and have nothing to set them yet."""

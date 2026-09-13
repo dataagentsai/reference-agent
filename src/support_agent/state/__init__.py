@@ -35,6 +35,7 @@ from support_agent.contracts import (
     RunId,
     TurnResult,
 )
+from support_agent.state.facts import Facts
 
 RECENT_TURNS = 12
 """How many turn outcomes are kept.
@@ -129,6 +130,12 @@ class Conversation(BaseModel):
     counter answering two statements meant a customer who asked for a person
     four times got four references, because it was the same rule every time —
     `P-ESC-ONCE` is the per-rule cooldown above, and this is `P-ESC-CAP`."""
+    facts: Facts = Facts()
+    """AHC-0108 — what this work is about, written as it happens.
+
+    Beside `messages` rather than derived from them: everything here was put
+    there by the harness at the moment it did something, so it survives a
+    reduction of the transcript and cannot inherit the model's phrasing."""
     pending_approval_id: str | None = None
     """Set when a turn ended in `NeedsApproval`. The next turn resumes from here
     rather than starting again — which is what "the approval returns, it does not

@@ -140,6 +140,11 @@ class HandoffDesk:
             reason=decision.reason,
             rule_id=decision.rule_id,
             rules_version=self.rules_version,
+            # What the colleague is handed: assembled from the record, never
+            # summarised from the transcript (AHC-0108, AHC-0070). An escalation
+            # that made the customer repeat everything is the moment an
+            # assistant becomes worse than no assistant.
+            context=conversation.facts.as_handoff(),
             tier=decision.tier,
             now=self.now(),
         )
@@ -172,6 +177,7 @@ class HandoffDesk:
             run_id=run_id,
             customer_id=identity.customer_id,
             reason=rule.reason,
+            context=conversation.facts.as_handoff(),
             rule_id=rule.id,
             rules_version=(self.tier_2 or t2.RuleSet()).version,
             tier=2,

@@ -84,6 +84,13 @@ class Trace:
     usage: Usage = field(default_factory=Usage)
     spend_usd: float = 0.0
     tool_calls: list[tuple[str, str]] = field(default_factory=list)
+    effects: list[tuple[str, str]] = field(default_factory=list)
+    """`(operation, record)` for every write the far system confirmed — AHC-0108.
+
+    Separate from `tool_calls`, which is what was *attempted*: a refused
+    cancellation and a successful one are the same entry there, and the
+    difference is the only part anybody handing this conversation over cares
+    about."""
     termination: TerminationReason = TerminationReason.GOAL_REACHED
 
     def signature_counts(self) -> Counter[tuple[str, str]]:
@@ -336,6 +343,10 @@ class _Run:
             )
             if not result.is_error and freshness.reads(self.registry, call.name):
                 self.fresh.saw(freshness.key_of(call.arguments), self.now(), result.structured)
+            if not result.is_error and not freshness.reads(self.registry, call.name):
+                # Confirmed by the far system, not claimed by the model. This is
+                # the fact half of AHC-0108's fact-versus-claim distinction.
+                self.trace.effects.append((call.name, freshness.key_of(call.arguments)))
             self.seen_results.append(result)
             self.messages.append(ctx.tool_message(result, tool_call_id=call.id))
         return None

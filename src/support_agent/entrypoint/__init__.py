@@ -60,7 +60,7 @@ from support_agent.entrypoint.handoff import Handoff, HandoffDesk, NoDesk
 from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
 from support_agent.entrypoint.persist import TurnPersister
 from support_agent.escalation import rules as t2
-from support_agent.state import Conversation, TurnNote
+from support_agent.state import Conversation, TurnNote, facts
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a customer support agent for a clothing retailer. "
@@ -168,8 +168,13 @@ class Agent:
                 return held, await self._persist(run_id, conversation)
 
             decision = router.route(text, rules=self.rules)
-            conversation = conversation.with_messages(ctx.user_message(text))
-            result = await self._dispatch(decision, conversation, identity, run_id)
+            # The customer's own words, not the model's reading of them
+            # (AHC-0108). Recorded before anything runs, so a turn that fails
+            # still leaves a record of what was being attempted.
+            conversation = conversation.model_copy(
+                update={"facts": conversation.facts.asking(text)}
+            ).with_messages(ctx.user_message(text))
+            result, landed = await self._dispatch(decision, conversation, identity, run_id)
             conversation = conversation.with_turn(TurnNote.of(decision, result))
 
             # Tier 2, after the work rather than before it. Every rule here asks
@@ -182,6 +187,9 @@ class Agent:
             if escalated is not None:
                 result = escalated
 
+            conversation = conversation.model_copy(
+                update={"facts": facts.after(conversation.facts, result, landed)}
+            )
             result = await promise.honest(result, self.desk, conversation, identity, run_id)
             result = _screened(result, identity, self.policy_rules)
             return result, await self._persist(run_id, conversation.recording(result))
@@ -215,21 +223,28 @@ class Agent:
 
     async def _dispatch(
         self, decision: Route, conversation: Conversation, identity: Identity, run_id: RunId
-    ) -> TurnResult:
-        """Four routes, and only one of them reaches the model."""
+    ) -> tuple[TurnResult, tuple[tuple[str, str], ...]]:
+        """Four routes, and only one of them reaches the model.
+
+        Returns the effects the far system confirmed as well as the result,
+        because only this function ever sees them and the record they go into
+        (AHC-0108) is the caller's. Three of the four routes confirm nothing:
+        two never act, and the deterministic one never writes (`P-DIRECT-READS`).
+        """
         match decision:
             case Refuse():
                 return Refused(
                     reply=router.refusal_text(decision),
                     reason=decision.reason,
                     rule_id=decision.rule_id,
-                )
+                ), ()
             case Escalate():
-                return await self.desk.raise_requested(decision, conversation, identity, run_id)
+                held = await self.desk.raise_requested(decision, conversation, identity, run_id)
+                return held, ()
             case Direct():
-                return await direct.answer(decision, identity, run_id, self.tools)
+                return await direct.answer(decision, identity, run_id, self.tools), ()
             case Agentic():
-                result, _ = await agent_loop.run(
+                result, trace = await agent_loop.run(
                     decision.goal,
                     identity=identity,
                     llm=self.llm,
@@ -244,7 +259,7 @@ class Agent:
                     now=self._now,
                     fresh_for_s=self.fresh_for_s,
                 )
-                return result
+                return result, tuple(trace.effects)
             case _:
                 assert_never(decision)
 

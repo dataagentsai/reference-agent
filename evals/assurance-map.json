@@ -1,7 +1,7 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 466,
-  "tagged": 381,
+  "functions": 472,
+  "tagged": 387,
   "tooling": [
     "tests/test_actors.py::test_a_model_driven_actor_says_what_it_is_told_and_stops",
     "tests/test_actors.py::test_a_persona_is_behaviour_and_the_situation_is_the_domains",
@@ -163,8 +163,8 @@
       ]
     },
     "AHC": {
-      "owed": 69,
-      "exercised": 48,
+      "owed": 70,
+      "exercised": 49,
       "failing": [],
       "not_exercised": [
         {
@@ -515,6 +515,12 @@
     "AAC-0060": {
       "passed": [
         "tests/test_router_loop.py::test_the_trajectory_is_reconstructable_from_the_trace"
+      ],
+      "failed": []
+    },
+    "AAC-0062": {
+      "passed": [
+        "tests/test_facts.py::test_the_record_is_written_from_what_happened_not_what_was_said"
       ],
       "failed": []
     },
@@ -1059,6 +1065,7 @@
         "tests/test_approver.py::test_a_reviewer_cannot_approve_their_own_customer_s_request",
         "tests/test_approver.py::test_a_slow_reviewer_is_still_waiting_when_the_customer_follows_up",
         "tests/test_contracts.py::test_needs_approval_does_not_block_and_says_why",
+        "tests/test_facts.py::test_a_pending_approval_is_in_the_record_before_anybody_reads_it",
         "tests/test_llm_identity_idempotency.py::test_customer_scopes_exclude_refunds",
         "tests/test_postgres.py::test_an_approval_survives_a_process_restart",
         "tests/test_postgres.py::test_the_action_and_key_cannot_change_after_the_request",
@@ -1094,6 +1101,8 @@
       "passed": [
         "tests/test_escalation.py::test_an_escalation_writes_a_record_and_names_it",
         "tests/test_escalation.py::test_escalation_still_never_reaches_the_model",
+        "tests/test_facts.py::test_the_handoff_is_assembled_rather_than_summarised",
+        "tests/test_facts.py::test_the_colleague_is_handed_the_record_not_the_transcript",
         "tests/test_promise.py::test_a_promise_with_a_desk_becomes_a_handoff"
       ],
       "failed": []
@@ -1257,6 +1266,17 @@
         "tests/test_freshness.py::test_a_cancellation_planned_on_an_old_read_reads_again_first",
         "tests/test_freshness.py::test_the_row_is_read_again_before_the_action_lands",
         "tests/test_freshness.py::test_a_row_that_moved_underneath_the_run_stops_the_action"
+      ],
+      "failed": []
+    },
+    "AHC-0108": {
+      "passed": [
+        "tests/test_facts.py::test_what_the_record_holds",
+        "tests/test_facts.py::test_the_handoff_is_assembled_rather_than_summarised",
+        "tests/test_facts.py::test_an_empty_record_says_so_rather_than_saying_nothing",
+        "tests/test_facts.py::test_the_record_is_written_from_what_happened_not_what_was_said",
+        "tests/test_facts.py::test_the_colleague_is_handed_the_record_not_the_transcript",
+        "tests/test_facts.py::test_a_pending_approval_is_in_the_record_before_anybody_reads_it"
       ],
       "failed": []
     },
@@ -1725,6 +1745,7 @@
         "tests/test_escalation.py::test_nobody_came_so_the_conversation_is_handed_back",
         "tests/test_escalation.py::test_the_reply_says_only_what_the_queue_supports",
         "tests/test_escalation.py::test_the_sweeper_lapses_what_nobody_came_for",
+        "tests/test_facts.py::test_the_colleague_is_handed_the_record_not_the_transcript",
         "tests/test_postgres.py::test_an_escalation_outlives_the_process_that_raised_it",
         "tests/test_postgres.py::test_the_sweeper_lapses_across_a_restart",
         "tests/test_scenario_files.py::test_a_declared_scenario_passes_every_check_it_makes",
