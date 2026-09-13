@@ -136,4 +136,94 @@ def modules() -> set[str]:
     return {str(p.relative_to(SRC)) for p in SRC.rglob("*.py") if "__pycache__" not in str(p)}
 
 
-__all__ = ["LAYERS", "PREDICTION", "classify", "modules"]
+__all__ = ["LAYERS", "PREDICTION", "SEAMS", "classify", "modules", "seams"]
+
+
+# seam -> (where the variation lives, the pattern holding it, what a second
+# agent changes). G0.10's second half: the classification above says *how much*
+# is reusable, and this says *through what*. A seam with no pattern is a seam
+# where a second agent edits shared code, which is the thing the classification
+# cannot see — `router/__init__.py` and `escalation/rules.py` both read as
+# parameterised, and only one of them has somewhere for the parameters to go.
+SEAMS = {
+    "which requests skip the model": (
+        "router.Rules",
+        "versioned rule set",
+        "its own intents, refusals and escalation triggers, as data with a version",
+    ),
+    "what the deterministic path answers": (
+        "entrypoint/direct.HANDLERS",
+        "registry keyed by name",
+        "its own handlers; the router names one and the registry resolves it",
+    ),
+    "when a person must decide": (
+        "approvals.Policy",
+        "versioned rule set",
+        "the threshold, the validity window, and which states owe a refund",
+    ),
+    "when the conversation has earned a person": (
+        "escalation.rules.RuleSet",
+        "versioned rule set",
+        "its own conditions over the same declared facts",
+    ),
+    "what the customer is told about the desk": (
+        "escalation/wording.py",
+        "template rendering",
+        "every string, in its own voice",
+    ),
+    "what a claim is checked against": (
+        "policy.CLAIM_PATTERNS",
+        "versioned rule set",
+        "the claims its domain makes, and what in a tool result supports them",
+    ),
+    "which tools exist and what they do": (
+        "the world, projected",
+        "projection from the specification",
+        "nothing — a second world is a second YAML file and no code at all",
+    ),
+    "what authority an operation needs": (
+        "binding.SCOPES",
+        "map in the composition root",
+        "the scope names its credential issuer uses",
+    ),
+    "how long a read stays usable": (
+        "binding.FRESH_FOR_S",
+        "value in the composition root",
+        "the window its own concurrent writers make necessary",
+    ),
+    "where state is kept": (
+        "CheckpointStore, ApprovalStore, EscalationStore",
+        "protocol with a null object",
+        "nothing — it wires Postgres or memory, and the null objects answer honestly",
+    ),
+    "which model, at what price": (
+        "config.RunConfig",
+        "resolved configuration",
+        "its own models and price table; an unpriced call fails at startup",
+    ),
+    "what the model is told it is": (
+        "DEFAULT_SYSTEM_PROMPT",
+        "value in the composition root",
+        "its own prompt, passed to build rather than edited in place",
+    ),
+}
+"""Twelve seams, and the point is the third column.
+
+Nine of the twelve are held by three patterns — a **versioned rule set**, a
+**protocol with a null object**, and a **projection from the specification** —
+and the rest are a value or a map handed to the composition root. Nothing here
+is held by inheritance, and nothing by a plugin system: the variation is data or
+it is a port, and both are things a build can check.
+
+**The one to watch is `policy.CLAIM_PATTERNS`.** It reads as a versioned rule
+set like the others and is the only one whose values encode a *domain's* claims
+rather than a deployment's numbers — a hotel agent's claims are not a shop's
+claims with different thresholds, they are different sentences about different
+things. That is where the parameterised layer is most likely to fail contact
+with a second domain, and it is the prediction G2.6 should test first.
+"""
+
+
+def seams() -> dict[str, tuple[str, str, str]]:
+    """The variation points, and what holds each one."""
+    return dict(SEAMS)

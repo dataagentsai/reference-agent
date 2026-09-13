@@ -72,3 +72,30 @@ def test_the_domain_measurement_agrees_with_the_classification() -> None:
             loud.append(f"{name}: {len(hits)} lines name an entity, and it is called mechanism")
 
     assert loud == [], "\n".join(loud)
+
+
+@pytest.mark.tooling
+def test_every_seam_names_something_that_exists() -> None:
+    """G0.10's second half, kept honest.
+
+    The classification says *how much* code a second agent keeps. The seam map
+    says *through what* it varies — and a seam naming a symbol that has been
+    renamed is a map of an architecture that no longer exists, which is worse
+    than no map, because somebody will build against it.
+
+    Checked by search rather than by import: some of these are a value in the
+    composition root and some are a protocol, and what matters is that the name
+    appears where the map says the variation lives.
+    """
+    from evals.reuse import SRC, seams
+
+    source = "\n".join(p.read_text() for p in SRC.rglob("*.py"))
+    missing = []
+    for seam, (where, _pattern, _changes) in seams().items():
+        # The last segment is the symbol; the rest is where it lives.
+        symbols = [part.strip() for part in where.split(",")]
+        for symbol in symbols:
+            name = symbol.split(".")[-1].replace("/", ".").removesuffix(".py")
+            if name not in source and not name.endswith("projected"):
+                missing.append(f"{seam}: {symbol}")
+    assert missing == [], f"the seam map names things that do not exist: {missing}"
