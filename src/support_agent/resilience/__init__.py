@@ -48,10 +48,13 @@ from support_agent.contracts import (
     ModelThrottled,
     ModelUnavailable,
 )
+from support_agent.contracts.failures import AgentFailure, Fault
 
 
-class Retryable(Exception):
+class Retryable(AgentFailure):
     """Marker for a failure worth trying again. Everything else is not."""
+
+    fault = Fault.UNREACHABLE
 
 
 @dataclass(frozen=True)
@@ -305,13 +308,15 @@ class Compensation:
     note: str
 
 
-class NoCompensation(Exception):
+class NoCompensation(AgentFailure):
     """This action cannot be undone.
 
     Raised rather than returning `None`, because a caller that treats "no
     compensation" as "nothing to do" has silently decided an irreversible action
     was reversible.
     """
+
+    fault = Fault.MISCONFIGURED
 
 
 COMPENSATIONS: Mapping[str, Compensation] = {

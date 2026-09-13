@@ -20,15 +20,19 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from support_agent.contracts.failures import AgentFailure, Fault
+
 ResolutionMode = Literal["mock", "replay", "real", "shadow"]
 
 
-class UnapprovedModel(Exception):
+class UnapprovedModel(AgentFailure):
     """AAC-0094 — only approved models are reachable.
 
     An allowlist that is checked at startup rather than at call time, so a typo
     in an environment variable fails the process instead of failing a customer.
     """
+
+    fault = Fault.MISCONFIGURED
 
 
 class Budgets(BaseModel):

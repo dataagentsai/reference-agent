@@ -1,7 +1,7 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 472,
-  "tagged": 387,
+  "functions": 473,
+  "tagged": 388,
   "tooling": [
     "tests/test_actors.py::test_a_model_driven_actor_says_what_it_is_told_and_stops",
     "tests/test_actors.py::test_a_persona_is_behaviour_and_the_situation_is_the_domains",
@@ -29,6 +29,7 @@
     "tests/test_assurance_map.py::test_the_unit_is_the_function_and_the_remainders_are_both_directions",
     "tests/test_break_it.py::test_a_scenario_whose_fault_never_fired_is_reported",
     "tests/test_build_checks.py::test_every_collaborator_the_root_takes_is_an_interface",
+    "tests/test_build_checks.py::test_every_failure_this_package_declares_says_what_kind_it_is",
     "tests/test_build_checks.py::test_only_the_composition_root_constructs_a_realisation",
     "tests/test_build_checks.py::test_the_build_check_passes",
     "tests/test_build_checks.py::test_the_ratchet_holds",
@@ -163,8 +164,8 @@
       ]
     },
     "AHC": {
-      "owed": 70,
-      "exercised": 49,
+      "owed": 72,
+      "exercised": 50,
       "failing": [],
       "not_exercised": [
         {
@@ -250,6 +251,10 @@
         {
           "id": "AHC-0098",
           "title": "Admission is by declared priority class"
+        },
+        {
+          "id": "AHC-0109",
+          "title": "A summary carries the least trusted provenance of what it summarised"
         }
       ]
     },
@@ -1277,6 +1282,12 @@
         "tests/test_facts.py::test_the_record_is_written_from_what_happened_not_what_was_said",
         "tests/test_facts.py::test_the_colleague_is_handed_the_record_not_the_transcript",
         "tests/test_facts.py::test_a_pending_approval_is_in_the_record_before_anybody_reads_it"
+      ],
+      "failed": []
+    },
+    "AHC-0110": {
+      "passed": [
+        "tests/test_build_checks.py::test_every_failure_this_package_declares_says_what_kind_it_is"
       ],
       "failed": []
     },

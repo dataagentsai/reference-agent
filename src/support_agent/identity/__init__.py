@@ -17,6 +17,7 @@ import time
 import jwt
 
 from support_agent.contracts import Identity
+from support_agent.contracts.failures import AgentFailure, Fault
 
 ALGORITHM = "HS256"
 ISSUER = "support-agent"
@@ -62,12 +63,14 @@ at startup instead of failing one customer quietly at runtime.
 """
 
 
-class InvalidSession(Exception):
+class InvalidSession(AgentFailure):
     """The token is absent, expired, tampered with, or issued by someone else.
 
     One exception for all of these on purpose: distinguishing them for the caller
     tells an attacker which half of the guess was right.
     """
+
+    fault = Fault.REFUSED
 
 
 def _check_secret(secret: str) -> None:

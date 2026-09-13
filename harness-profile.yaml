@@ -76,6 +76,19 @@ decisions:
     note: >-
       A model with no price is a configuration fault raised where the run is
       configured, not three calls in (AHC-0101).
+  AHC-0109/summary_provenance:
+    value: no-summariser
+    source: chosen
+    note: >-
+      There is no summariser. `context.assembled` orders for cache friendliness
+      and then drops whole exchanges from the middle, so every unit in the window
+      is text that entered with its own label and kept it. The alternative was
+      argued and rejected on the capability's own grounds: a model-written
+      summary of a window containing fenced material is untrusted output, and
+      getting that wrong launders a planted instruction into the system's own
+      voice. Trimming loses the earliest exchange instead, which is a worse
+      product and a smaller hole.
+
   AHC-0057/irreversible_scope:
     value: authority-by-whose
     source: chosen
@@ -159,6 +172,17 @@ bindings:
 # Knowingly not met, owned and dated. Not "untested" — see x_untested below,
 # which is a different claim and a weaker one.
 accepted_gaps:
+  - capability: AHC-0109
+    reason: >-
+      Met vacuously and deliberately: this agent reduces context by dropping
+      whole exchanges, never by summarising, so it produces no new text for a
+      provenance label to be lost across. That is the capability's own third
+      decision taken as written — discarding is the reduction with no laundering
+      surface, and is the right default until measurement says otherwise. If a
+      summariser is ever added here, this entry is the thing that has to change
+      with it, which is why it is recorded rather than left to be noticed.
+    owner: reference-agent
+    review: "2026-12-01"
   - capability: AHC-0015
     reason: The agent does not stream; a completion and abort contract has nothing to govern.
     owner: reference-agent

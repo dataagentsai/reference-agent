@@ -13,6 +13,7 @@ takes the worst offenders apart. Tooling — these test the build, not the agent
 from __future__ import annotations
 
 import ast
+import importlib
 import re
 import subprocess
 import sys
@@ -143,3 +144,57 @@ def test_every_collaborator_the_root_takes_is_an_interface() -> None:
             concrete.append(f"{name}: {parameter.annotation}")
 
     assert concrete == [], "the root takes a concrete collaborator:\n" + "\n".join(concrete)
+
+
+@pytest.mark.discharges("AHC-0110")
+def test_every_failure_this_package_declares_says_what_kind_it_is() -> None:
+    """AHC-0110's third decision, made true rather than intended.
+
+    Fourteen exception types across ten modules, each named well for where it
+    lives and no two named the same way. The set was unusable from above: a
+    caller's handler is a chain of `isinstance` checks against a list somebody
+    assembled by reading the code, wrong the moment a module adds a fifteenth —
+    and silently, because the new one falls through to whatever the last branch
+    does.
+
+    So the fifteenth cannot be added without a kind. Convention plus review
+    would be free and would decay: the person adding it has not read the first
+    fourteen, which is the whole reason they are inconsistent today.
+
+    `ApprovalRequested` is exempt and says so in its own source: it is control
+    flow rather than a failure — the loop catches it and returns a typed
+    `NeedsApproval` — and giving it a failure kind would file a human being
+    asked to decide something under the same heading as a provider timing out.
+    """
+    import inspect
+    import pkgutil
+
+    import support_agent
+    from support_agent.contracts.failures import AgentFailure
+
+    # Control flow that happens to be spelled as an exception. Each is caught by
+    # the layer directly above the one that raises it and turned into a typed
+    # result; none ever reaches a caller as a failure, and giving them a failure
+    # kind would file "a person is being asked to decide" under the same heading
+    # as a provider timing out.
+    control_flow = {
+        "ApprovalRequested",  # the loop catches it and returns NeedsApproval
+        "RefundRequested",  # the same signal, carrying this shop's wording
+        "_Retry",  # inside the retry wrapper, never leaves it
+        "_NotYours",  # the HTTP edge turns it into a 404, never a 5xx
+    }
+    undeclared: list[str] = []
+    for module in pkgutil.walk_packages(support_agent.__path__, "support_agent."):
+        imported = importlib.import_module(module.name)
+        for name, obj in vars(imported).items():
+            if not inspect.isclass(obj) or not issubclass(obj, BaseException):
+                continue
+            if obj.__module__ != module.name or name in control_flow:
+                continue
+            if not issubclass(obj, AgentFailure):
+                undeclared.append(f"{module.name}.{name}")
+
+    assert undeclared == [], (
+        "these failures carry no kind from the shared vocabulary — a caller "
+        f"cannot decide whether trying again is sensible: {sorted(undeclared)}"
+    )

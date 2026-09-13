@@ -11,6 +11,7 @@ from support_agent.contracts import (
     EscalationState,
     EscalationStore,
 )
+from support_agent.contracts.failures import AgentFailure, Fault
 
 DEFAULT_TTL_S = 30 * 60
 """How long a queued escalation waits before it lapses.
@@ -99,8 +100,10 @@ async def raise_for(
     return escalation
 
 
-class EscalationError(Exception):
+class EscalationError(AgentFailure):
     """This escalation cannot be closed that way."""
+
+    fault = Fault.REFUSED
 
 
 async def resolve(

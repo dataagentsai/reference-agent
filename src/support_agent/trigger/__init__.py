@@ -59,9 +59,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
+from support_agent.contracts.failures import AgentFailure, Fault
 
-class TriggerRefused(Exception):
+
+class TriggerRefused(AgentFailure):
     """This delivery must not start a run."""
+
+    fault = Fault.REFUSED
 
 
 class DuplicateDelivery(TriggerRefused):

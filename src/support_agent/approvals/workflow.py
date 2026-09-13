@@ -16,10 +16,13 @@ from support_agent.contracts import (
     Unbindable,
     bind_arguments,
 )
+from support_agent.contracts.failures import AgentFailure, Fault
 
 
-class ApprovalError(Exception):
+class ApprovalError(AgentFailure):
     """Something about this decision is not allowed."""
+
+    fault = Fault.REFUSED
 
 
 async def request(

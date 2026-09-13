@@ -33,6 +33,7 @@ MECHANISM = {
     "contracts/ids.py",
     "contracts/model.py",
     "contracts/protocols.py",
+    "contracts/failures.py",
     "contracts/results.py",
     "contracts/tools.py",
     "cost/__init__.py",
@@ -100,7 +101,7 @@ LAYERS = {"mechanism": MECHANISM, "parameterised": PARAMETERISED, "per-agent": P
 
 PREDICTION = """Written 2026-09-12, before a second agent exists.
 
-Of 56 modules: 44 mechanism, 7 parameterised, 5 per-agent. By executable lines
+Of 57 modules: 45 mechanism, 7 parameterised, 5 per-agent. By executable lines
 the mechanism share is larger still, because the per-agent modules are small.
 
 **The prediction, for G2.6 to measure.** A second agent in another domain, built

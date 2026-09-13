@@ -68,6 +68,7 @@ from support_agent.contracts import (
     NeedsApproval,
     Refused,
 )
+from support_agent.contracts.failures import AgentFailure, Fault
 from support_agent.entrypoint import Agent
 from support_agent.state import Conversation
 from support_agent.ui import CHAT_PAGE
@@ -80,7 +81,7 @@ MAX_BODY = 8 * 1024
 and both are cheaper to refuse than to parse."""
 
 
-class BadRequest(Exception):
+class BadRequest(AgentFailure):
     """A refusal, split into what the caller is told and what is recorded.
 
     `detail` goes back over HTTP. `internal` never does. The split exists
@@ -94,6 +95,8 @@ class BadRequest(Exception):
         self.detail = detail
         self.internal = internal
         super().__init__(detail)
+
+    fault = Fault.REFUSED
 
 
 @dataclass(frozen=True)

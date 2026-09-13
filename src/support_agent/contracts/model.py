@@ -16,6 +16,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from support_agent.contracts.failures import AgentFailure, Fault
+
 
 class ToolCall(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -98,11 +100,13 @@ class ModelResponse(BaseModel):
         return len(self.tool_calls) > 0
 
 
-class ModelUnavailable(Exception):
+class ModelUnavailable(AgentFailure):
     """The provider could not be reached, or refused, after the adapter's own
     retries. Callers translate this into a declared degradation path (AAC-0009);
     it never reaches the customer as a stack trace.
     """
+
+    fault = Fault.UNREACHABLE
 
 
 class ModelThrottled(ModelUnavailable):
@@ -115,7 +119,7 @@ class ModelThrottled(ModelUnavailable):
         self.retry_after = retry_after
 
 
-class ModelMalformed(Exception):
+class ModelMalformed(AgentFailure):
     """The provider answered and the answer could not be read.
 
     A different condition from `ModelUnavailable` and deliberately its own type.
@@ -141,3 +145,5 @@ class ModelMalformed(Exception):
         self.reason = reason
         self.raw = raw
         super().__init__(reason)
+
+    fault = Fault.MALFORMED

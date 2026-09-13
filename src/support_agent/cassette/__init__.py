@@ -42,6 +42,7 @@ from pathlib import Path
 
 from support_agent import telemetry as tel
 from support_agent.contracts import LLMClient, ModelRequest, ModelResponse, ModelUnavailable
+from support_agent.contracts.failures import AgentFailure, Fault
 
 FORMAT_VERSION = 2
 
@@ -51,13 +52,15 @@ class Match(StrEnum):
     BY_REQUEST = "by_request"
 
 
-class CassetteMiss(Exception):
+class CassetteMiss(AgentFailure):
     """Nothing recorded answers this request.
 
     Raised rather than falling through to the provider. A replay that reaches
     the network is not a replay — it is an offline suite that silently costs
     money and stops being reproducible on the day it matters.
     """
+
+    fault = Fault.MISCONFIGURED
 
 
 @dataclass(frozen=True)

@@ -25,17 +25,20 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from support_agent.contracts import Usage
+from support_agent.contracts.failures import AgentFailure, Fault
 
 MTOK = Decimal(1_000_000)
 
 
-class UnknownPrice(Exception):
+class UnknownPrice(AgentFailure):
     """No price for this model.
 
     Raised rather than defaulted to zero. A missing price that prices at zero is
     a ceiling that never fires — the failure is silent, unbounded and only
     visible on an invoice.
     """
+
+    fault = Fault.MISCONFIGURED
 
 
 @dataclass(frozen=True)

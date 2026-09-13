@@ -42,6 +42,7 @@ from support_agent.contracts import (
     ToolUnavailable,
     UnknownTool,
 )
+from support_agent.contracts.failures import AgentFailure, Fault
 
 SESSION_META = "aoas/session"
 """Where the caller's verified session travels in a call's `_meta`, so the
@@ -61,8 +62,10 @@ TRUNCATION_MARK = " …[truncated from {total} characters]"
 """Said to the model, so a cut result reads as cut rather than as complete."""
 
 
-class ToolRejected(Exception):
+class ToolRejected(AgentFailure):
     """A tool the server advertised that we refuse to expose to the model."""
+
+    fault = Fault.MISCONFIGURED
 
 
 def _spec_from(tool: Any) -> ToolSpec:

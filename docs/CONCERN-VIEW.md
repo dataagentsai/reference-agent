@@ -16,10 +16,10 @@ behind the specs, because it is made of them.
 |---|---|---|---|---|
 | **functional-suitability** | 14 | 8 | 14 | 1 |
 | **safety** | 16 | 3 | 4 | 2 |
-| **security** | 5 | 13 | 8 | 2 |
+| **security** | 5 | 14 | 8 | 2 |
 | **reliability** | 6 | 12 | 6 | 2 |
 | **cost** | 3 | 9 | 6 | 2 |
-| **maintainability** | 6 | 18 | 9 | 0 |
+| **maintainability** | 6 | 19 | 9 | 0 |
 | **performance-efficiency** | 1 | 6 | 0 | 0 |
 | **compatibility** | 3 | 0 | 0 | 0 |
 | **interaction-capability** | 1 | 0 | 0 | 1 |
@@ -117,7 +117,7 @@ behind the specs, because it is made of them.
 - `the-reviewer-comes-too-late` the reviewer answers after the grant has expired
 
 
-## security — 28
+## security — 29
 
 **AOAS**
 
@@ -142,6 +142,7 @@ behind the specs, because it is made of them.
 - `AHC-0093` Policies compose in a declared order *(resistance)*
 - `AHC-0094` Output-side enforcement is its own point, with its own semantics *(resistance)*
 - `AHC-0099` The identity a run acts as is established from a credential the caller cannot author *(authenticity)*
+- `AHC-0109` A summary carries the least trusted provenance of what it summarised *(resistance)*
 
 **AAC**
 
@@ -236,7 +237,7 @@ behind the specs, because it is made of them.
 - `twelve-steps-and-then-a-person` the loop spends its twelve steps and hands over
 
 
-## maintainability — 33
+## maintainability — 34
 
 **AOAS**
 
@@ -267,6 +268,7 @@ behind the specs, because it is made of them.
 - `AHC-0072` The topology is data, inspectable without executing it *(analysability)*
 - `AHC-0090` Segment labels are attached at the boundary, not derived later *(analysability)*
 - `AHC-0105` A recorded interaction replays only against the request that produced it, and a miss fails the run *(testability)*
+- `AHC-0110` Every failure declares what kind of failure it is, from one vocabulary *(analysability)*
 
 **AAC**
 

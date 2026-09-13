@@ -13,6 +13,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from support_agent.contracts.domain import SideEffectClass
+from support_agent.contracts.failures import AgentFailure, Fault
 
 
 class ToolSpec(BaseModel):
@@ -115,13 +116,15 @@ class ToolRegistry(BaseModel):
         return next((t for t in self.tools if t.side_effect is SideEffectClass.READ), None)
 
 
-class ToolUnavailable(Exception):
+class ToolUnavailable(AgentFailure):
     """The tool server could not be reached. Distinct from a tool that ran and
     failed, which is a `ToolResult` with `is_error` set — that one the model
     can act on."""
 
+    fault = Fault.UNREACHABLE
 
-class UnknownTool(Exception):
+
+class UnknownTool(AgentFailure):
     """The model asked for a tool that is not in the registry for this identity.
 
     Recoverable: the loop reports it back so the model can choose again
@@ -133,8 +136,10 @@ class UnknownTool(Exception):
         self.available = available
         super().__init__(f"unknown tool {name!r}")
 
+    fault = Fault.MISCONFIGURED
 
-class MissingIdempotencyKey(Exception):
+
+class MissingIdempotencyKey(AgentFailure):
     """Raised when a non-READ tool is invoked without a key.
 
     Should be unreachable: `ToolClient.call` takes the key as a required
@@ -142,6 +147,8 @@ class MissingIdempotencyKey(Exception):
     doing it. This exists to make the failure loud if that ever stops being
     true.
     """
+
+    fault = Fault.MISCONFIGURED
 
 
 class ApprovalRequested(Exception):  # noqa: N818 — control flow, not a failure
@@ -204,8 +211,10 @@ class LocalTool:
     handler: Callable[[dict[str, object]], Awaitable[ToolResult]]
 
 
-class Unbindable(Exception):
+class Unbindable(AgentFailure):
     """These arguments cannot be fitted to that tool's declared schema."""
+
+    fault = Fault.REFUSED
 
 
 def bind_arguments(spec: ToolSpec, args: dict[str, object]) -> dict[str, object]:
