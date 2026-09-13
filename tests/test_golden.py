@@ -83,6 +83,7 @@ async def test_the_golden_set(case: dict) -> None:
         OrderStatus(row["status"]),
         days_since_delivery=row["days_since_delivery"],
         final_sale=row["final_sale"],
+        total=row["total"],
     )
 
     # An address change takes the address: the operation the spec declares takes
@@ -113,11 +114,24 @@ def test_the_golden_set_is_frozen_and_covers_its_boundaries() -> None:
     better*: 13 of the 29 described an order that cannot exist, and the pairwise
     sampler spent its budget on reachable combinations instead. This assertion
     is what forced the change to be noticed and justified rather than absorbed.
+
+    26 → 35 when the loader began carrying `authority.agent_when`. The spec had
+    declared "above ₹10,000 needs a person" since it was written; nothing read
+    it, so `total` was varied by nothing, `issue_refund` had no condition to
+    generate from, and the threshold had never once been evaluated as true. The
+    scenario kill matrix found it as a branch no scenario reaches. Nine of the
+    new cases are refunds, two of them sitting either side of the money bound.
     """
-    assert len(CASES) == 26
+    assert len(CASES) == 35
     boundaries = {c["boundary"] for c in CASES if c["boundary"]}
     assert "days_since_delivery exactly on its limit" in boundaries
     assert "days_since_delivery one past its limit" in boundaries
+    # The bound on *who may decide*, which is a different question from whether
+    # the action is possible at all — and the one that had no case on either side.
+    assert "total exactly on its limit" in boundaries
+    assert "total one past its limit" in boundaries
+    over = next(c for c in CASES if c["boundary"] == "total one past its limit")
+    assert over["expected_allowed"] is True and over["expected_agent_alone"] is False
     # Derived from the condition, not typed in. A world declaring a different
     # window moves both without anyone editing this file.
     on_limit = next(c for c in CASES if c["boundary"] and "exactly" in c["boundary"])

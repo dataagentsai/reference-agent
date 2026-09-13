@@ -88,7 +88,11 @@ def dimensions(world: World, actions: dict[str, Action]) -> tuple[str, dict[str,
     entity = next(iter(actions.values())).entity
     fields: dict[str, list[Condition]] = {}
     for action in actions.values():
-        for condition in action.allowed_when:
+        # `agent_when` alongside `allowed_when`: a bound on who may decide makes
+        # its field worth varying exactly as a bound on what is possible does.
+        # Until it was read, `total` was varied by nothing and the refund
+        # threshold had no case on either side of it.
+        for condition in (*action.allowed_when, *action.agent_when):
             fields.setdefault(condition.field, []).append(condition)
 
     status_field = next(
@@ -108,7 +112,7 @@ def boundaries(actions: dict[str, Action], space: dict[str, list]) -> list[dict]
     """
     cases = []
     for name, action in actions.items():
-        for condition in action.allowed_when:
+        for condition in (*action.allowed_when, *action.agent_when):
             if condition.at_most is None:
                 continue
             for value, why in (
@@ -117,7 +121,7 @@ def boundaries(actions: dict[str, Action], space: dict[str, list]) -> list[dict]
             ):
                 row = {f: vs[0] for f, vs in space.items()}
                 row[condition.field] = value
-                for other in action.allowed_when:
+                for other in (*action.allowed_when, *action.agent_when):
                     if other.equals:
                         row[other.field] = other.equals[0]
                 cases.append({"action": name, "row": row, "boundary": why})
@@ -136,7 +140,7 @@ def generate(world: World, system: str = "ecom", *, constrained: bool = True) ->
     actions = {
         name: action
         for name, action in world.systems[system].actions.items()
-        if action.allowed_when  # a rule with no condition has nothing to vary
+        if action.allowed_when or action.agent_when  # something to vary
     }
     entity, space = dimensions(world, actions)
     fields = sorted(space)
@@ -152,7 +156,8 @@ def generate(world: World, system: str = "ecom", *, constrained: bool = True) ->
         seen.add(key)
         if constrained and spec.violations(row):
             return
-        allowed, _ = actions[action_name].evaluate(row)
+        action = actions[action_name]
+        allowed, _ = action.evaluate(row)
         cases.append(
             {
                 "id": f"golden-{len(cases):03d}",
@@ -160,6 +165,11 @@ def generate(world: World, system: str = "ecom", *, constrained: bool = True) ->
                 "entity": entity,
                 "row": {f: row[f] for f in fields},
                 "expected_allowed": allowed,
+                # Possible and permitted-to-the-agent are different questions,
+                # and only the first had an answer here. An operation the world
+                # allows, that is not owed, and that the agent may not authorise
+                # alone is the ordinary shape of anything involving money.
+                "expected_agent_alone": allowed and all(c.holds(row) for c in action.agent_when),
                 "boundary": boundary,
             }
         )

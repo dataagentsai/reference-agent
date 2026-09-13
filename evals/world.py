@@ -67,11 +67,16 @@ class World:
         *,
         days_since_delivery: int = 0,
         final_sale: bool = False,
+        total: int = 4999,
     ) -> None:
         self.orders[order_id] = {
             "status": status.value,
             "days_since_delivery": days_since_delivery,
             "final_sale": final_sale,
+            # The refund gate compares against this and never against a number
+            # anybody stated (F-014). A row without one cannot be asked the
+            # question, which is how the threshold went untested.
+            "total": total,
         }
 
     def status_of(self, order_id: str) -> OrderStatus | None:
@@ -189,9 +194,32 @@ def build(world: World) -> MCPServer:
         }
     )
     def issue_refund(order_id: str) -> Outcome:
-        """Issue a refund. Requires the elevated scope a granted approval mints."""
+        """Issue a refund. Requires the elevated scope a granted approval mints.
+
+        `identity: order_id` in the spec — an order is refunded at most once —
+        and this implemented neither that nor the effect: it appended an effect,
+        answered yes, and left the row exactly as it found it. Nothing noticed
+        while the golden set had no refund case in it.
+        """
+        row = _known(order_id)
+        if row is None:
+            raise ValueError(f"no order {order_id}")
+        status = OrderStatus(row["status"])
+        if status is OrderStatus.REFUNDED:
+            return Outcome(
+                allowed=False,
+                reason="this order has already been refunded",
+                order_id=order_id,
+                status=status.value,
+            )
+        row["status"] = OrderStatus.REFUNDED.value
         world.effects.append(("issue_refund", order_id))
-        return Outcome(allowed=True, reason="refunded", order_id=order_id, status="refunded")
+        return Outcome(
+            allowed=True,
+            reason="refunded",
+            order_id=order_id,
+            status=OrderStatus.REFUNDED.value,
+        )
 
     return srv
 
