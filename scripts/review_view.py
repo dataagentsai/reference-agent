@@ -41,7 +41,7 @@ from scripts.review_html import render  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "support_agent"
-DEST = ROOT / "docs" / "ARCHITECTURE-REVIEW.html"
+DEST = ROOT / "docs" / ".preview" / "ARCHITECTURE-REVIEW.html"
 
 e = html.escape
 
@@ -425,5 +425,6 @@ def gather() -> dict:
 
 
 if __name__ == "__main__":
+    DEST.parent.mkdir(parents=True, exist_ok=True)
     DEST.write_text(render(gather()))
     print(f"{DEST}")

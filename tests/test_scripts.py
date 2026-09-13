@@ -50,6 +50,11 @@ SCRIPTS = [
         ["scripts/review_view.py"],
         "ARCHITECTURE-REVIEW.html",
     ),
+    (
+        "single_page — the four parts assemble into one file",
+        ["scripts/single_page.py", "--fast"],
+        "SUPPORT-AGENT.html",
+    ),
 ]
 
 

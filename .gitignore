@@ -7,3 +7,8 @@ __pycache__/
 
 # Runtime checkpoints from scripts/run_server.py. Local state, never source.
 .state/
+
+# Single-part previews from review_view.py and run_view.py. There is one page,
+# docs/SUPPORT-AGENT.html, and scripts/single_page.py builds it; these are for
+# iterating on one part without paying for the rest.
+docs/.preview/

@@ -604,8 +604,8 @@ def _paths(d: dict) -> str:
             "every statement about one quality, from all six specs",
         ),
         (
-            "/Users/ishaan/reference-agent/docs/RUN-VIEW.html",
-            "29 scenarios, step by step, with payloads",
+            "/Users/ishaan/reference-agent/docs/SUPPORT-AGENT.html",
+            "the one page \u2014 this review is part two, the 29 scenario runs are part three",
         ),
         (
             "/Users/ishaan/reference-agent/docs/SCENARIO-COVERAGE.md",

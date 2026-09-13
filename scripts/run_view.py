@@ -70,7 +70,7 @@ from support_agent.state import InMemoryCheckpointStore  # noqa: E402
 from support_agent.tools import connect  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DEST = ROOT / "docs" / "RUN-VIEW.html"
+DEST = ROOT / "docs" / ".preview" / "RUN-VIEW.html"
 SRC = ROOT / "src" / "support_agent"
 
 
@@ -456,6 +456,7 @@ async def main(only: str | None, live_model: bool) -> int:
             runs.append(await capture(name, live_model))
         except Exception as exc:  # noqa: BLE001 — one bad scenario must not lose the rest
             print(f"  skipped {name}: {type(exc).__name__}: {exc}", file=sys.stderr)
+    DEST.parent.mkdir(parents=True, exist_ok=True)
     DEST.write_text(render(runs, live_model=live_model))
     steps = sum(len(r.events) for r in runs)
     print(f"{DEST}  {len(runs)} scenarios, {steps} steps")
