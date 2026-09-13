@@ -11,14 +11,18 @@ as: C-1042
 objective: The desk never comes. The conversation returns to the agent, and nothing is promised.
 concern: interaction-capability
 discharges: [op:escalate, esc:asked-for-human, P-ESC-TTL, P-ESC-LAPSE, P-ESC-TOLD, ext:escalation_desk]
-max_turns: 3
+# Two turns, and the second is the lapse: the TTL is 30 minutes and so is a
+# step, so the escalation raised on turn 1 has expired by the time the customer
+# asks again. It ran to three turns until the check below was added, and the
+# third turn was reaching a scripted model with nothing left to say — so what
+# the customer last read was a degradation, not the handover being tested.
+max_turns: 2
 step_seconds: 1800
 
 actor:
   says:
     - I want to speak to a human
     - any update?
-    - is anyone there?
 
 desk:
   resolves: never
@@ -26,3 +30,9 @@ desk:
 expect:
   - {world: unchanged}
   - {reply: never_says, text: has resolved}
+  # The positive, and the reason this scenario exists. Without it the two checks
+  # above hold just as well when the lapse never fires and the customer waits
+  # for ever on "that is still with a colleague" — verified by disabling the
+  # lapse, at which point this file still passed and three unit tests did not.
+  # P-ESC-TOLD is a claim about what the customer *reads*, so it has to be read.
+  - {reply: says, text: Nobody has picked up}
