@@ -186,6 +186,10 @@ CONTRACT: dict[str, SpanSpec] = {
     "agent.promise.unbacked": SpanSpec(
         required=frozenset({"agent.promise.kind", "agent.promise.rules_version"})
     ),
+    # AHC-0107. Emitted only when an irreversible action was about to run on a
+    # belief older than its window, so a rate here says how often the world
+    # moves faster than the conversation.
+    "agent.freshness.refresh": SpanSpec(required=frozenset({"agent.freshness.rows"})),
     "agent.breaker": SpanSpec(required=frozenset({"agent.breaker.state"})),
     "agent.llm.retry": SpanSpec(required=frozenset({"agent.retry.attempt", "agent.retry.reason"})),
 }

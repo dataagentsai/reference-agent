@@ -1,0 +1,241 @@
+"""AHC-0107 — what the run believes about a row, and when it last checked.
+
+The world has other writers. `concurrent_writers: [warehouse, carrier]` is in
+the order's own declaration, which is the specification saying out loud that a
+read of `status` is a claim about the past. The gap between that read and the
+action taken on it is exactly as long as the model took to think, and a
+cancellation planned against *pending* arrives at a row that shipped while the
+customer was answering a question.
+
+**Why this is not the far system's job.** The order system does enforce its own
+preconditions, and it does refuse the stale write — that is `stale-read-then-
+refused`, and it passes. What it cannot do is stop the agent having already
+composed a reply from the stale value. Both sentences trace to the same lookup:
+the customer is told the order has not shipped by an agent that is
+simultaneously being refused permission to cancel it. AAC-0113 asks for both
+halves for that reason, and only the caller can hold the second.
+
+**What it does, and deliberately does not do.** It answers one question — *is
+what this run believes about this row still inside the window the specification
+gave it* — and the loop acts on the answer by re-reading rather than by
+deciding. Nothing here knows what a refund is, and nothing here decides whether
+an action should happen: that is authority, and it is elsewhere.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from opentelemetry.trace import Span
+
+from support_agent import telemetry as tel
+from support_agent.context import tool_message
+from support_agent.contracts import (
+    IdempotencyKey,
+    Identity,
+    Message,
+    RunId,
+    SideEffectClass,
+    ToolCall,
+    ToolClient,
+    ToolRegistry,
+    ToolResult,
+)
+
+
+@dataclass
+class Freshness:
+    """When each row this run has read was last read, and whether that will do.
+
+    Keyed by the identifier the tools use, because that is the only thing a call
+    and a result have in common at this layer. The loop sees `get_order` return a
+    row and `cancel_order` take an id; it does not see an entity, and giving it
+    one would mean teaching the loop this domain's shape.
+    """
+
+    window_s: int | None = None
+    """How long a read stays usable. `None` disables the whole mechanism, which
+    is the honest default for a binding that declared no window: a system with
+    one writer has nothing to go stale."""
+
+    read_at: dict[str, int] = field(default_factory=dict)
+    value: dict[str, object] = field(default_factory=dict)
+    """What the row held when it was last read. Kept because *when* is only half
+    the question: a re-read that agrees with what was believed changes nothing
+    about the action that was planned, and stopping to ask the model about it
+    would be stopping for no reason."""
+
+    def saw(self, key: str, now: int, value: object = None) -> None:
+        """Record that this row was read at this moment, and what it said."""
+        if key:
+            self.read_at[key] = now
+            if value is not None:
+                self.value[key] = value
+
+    def stale(self, key: str, now: int) -> bool:
+        """Whether acting on this row would be acting on an old belief.
+
+        A row this run has never read is **not** stale: it has no belief to be
+        old, and the far system's preconditions are what govern an action taken
+        blind. Re-reading it here would be inventing a lookup the run never
+        needed, and would make every first action cost two calls.
+        """
+        if self.window_s is None or not key:
+            return False
+        seen = self.read_at.get(key)
+        return seen is not None and now - seen > self.window_s
+
+
+def key_of(arguments: dict[str, object]) -> str:
+    """The row an argument list is about.
+
+    Both spellings, because the projected tools take the entity's own key name
+    (`id`) and the harness-local refund tool takes `order_id` — a difference
+    that belongs to the two surfaces and not to this. A call naming no row is
+    not about a row, and answers `""`.
+    """
+    for name in ("id", "order_id"):
+        value = arguments.get(name)
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
+HELD = (
+    "not run: what this run knew about that record was older than the "
+    "specification allows an irreversible action to rely on, so it has been read "
+    "again. The current values are in the result that follows."
+)
+"""What the model is told about the call that did not happen.
+
+An error, because the call did not do what it asked — and a message that says
+why and what to do next, because the alternative is a request of the model's own
+vanishing without explanation, which teaches it nothing except that tools are
+unreliable.
+"""
+
+
+@dataclass(frozen=True)
+class Refreshed:
+    """What a refresh produced, ready for the transcript.
+
+    Messages and results rather than a decision, because the caller's only job
+    is to put them where they go. Empty means nothing was stale, or everything
+    stale turned out to be right — in both cases the step proceeds as planned.
+    """
+
+    messages: list[Message] = field(default_factory=list)
+    results: list[ToolResult] = field(default_factory=list)
+
+
+async def refresh(
+    planned: list[tuple[ToolCall, IdempotencyKey]],
+    *,
+    fresh: Freshness,
+    registry: ToolRegistry,
+    tools: ToolClient,
+    identity: Identity,
+    run_id: RunId,
+    iteration: int,
+    now: int,
+    span: Span,
+) -> Refreshed:
+    """Read again every row a stale irreversible action would have acted on.
+
+    Returns each read as the call that was made and the result it produced —
+    both, because a result without its call is an orphan and the assembler
+    refuses one (AHC-0103). The call is real: the harness made it. Putting it in
+    the transcript is not a fiction about the model, it is the record saying
+    what happened in the order it happened.
+
+    Returns nothing when nothing was stale; an empty list means
+    nothing was stale and the step proceeds as planned. The caller abandons the
+    whole step when anything comes back, and that is deliberate: the calls in a
+    step were planned together against one picture of the world, and running the
+    rest of them against a picture that has just been shown to be wrong is the
+    same mistake in smaller pieces.
+    """
+    rows = {
+        key_of(call.arguments)
+        for call, _ in planned
+        if _is(registry, call.name, SideEffectClass.IRREVERSIBLE)
+        and fresh.stale(key_of(call.arguments), now)
+    }
+    if not rows:
+        return Refreshed()
+
+    reader = registry.first_read()
+    if reader is None:
+        # Nothing to re-read with. Saying so is better than proceeding as though
+        # the belief were fresh, and better than failing the run: the far
+        # system's own preconditions still govern what actually lands.
+        span.set_attribute(tel.FRESHNESS_UNCHECKABLE, True)
+        return Refreshed()
+
+    out: list[tuple[ToolCall, ToolResult]] = []
+    with tel.span("agent.freshness.refresh", **{tel.FRESHNESS_ROWS: len(rows)}):
+        for row in sorted(rows):
+            # `step=-1` says this read belongs to no step the model planned. It
+            # is the harness's own, and a key that pretended otherwise would put
+            # a call the model never made into the model's own numbering.
+            key = IdempotencyKey(run_id=run_id, step=-1, iteration=iteration)
+            call = ToolCall(id=f"fresh-{row}", name=reader.name, arguments={"id": row})
+            before = fresh.value.get(row)
+            result = await tools.call(reader.name, {"id": row}, identity, key)
+            if not result.is_error:
+                fresh.saw(row, now, result.structured)
+                if result.structured == before:
+                    # The belief was old and it was also right. Nothing the run
+                    # planned is wrong, so nothing is abandoned and the model is
+                    # not asked about a change that did not happen — it would
+                    # only be asked again on the next turn, and the turn after
+                    # that, because a model slower than the window makes every
+                    # belief stale by the time it acts. That livelock is what
+                    # this branch exists to prevent, and a test found it.
+                    continue
+            out.append((call, result))
+    return _transcript(planned, out)
+
+
+def _transcript(
+    planned: list[tuple[ToolCall, IdempotencyKey]], read: list[tuple[ToolCall, ToolResult]]
+) -> Refreshed:
+    """The exchange a refresh adds, in the order it happened.
+
+    Nothing stale and wrong means nothing to say: the step runs as planned.
+
+    Otherwise two things have to appear, and leaving out either one breaks the
+    transcript (AHC-0103), which is how both were found rather than shipped.
+    The model's own calls were already announced and are not going to run, so
+    each is answered with why — the alternative is a request of the model's own
+    vanishing without explanation, which teaches it nothing except that tools
+    are unreliable. And the harness's read is announced as the call it was,
+    because a result whose call is missing is the same orphan in the other
+    direction.
+    """
+    if not read:
+        return Refreshed()
+
+    out = Refreshed()
+    for call, _ in planned:
+        held = ToolResult(name=call.name, text=HELD, is_error=True, error_channel="execution")
+        out.results.append(held)
+        out.messages.append(tool_message(held, tool_call_id=call.id))
+    for call, result in read:
+        out.messages.append(Message(role="assistant", content="", tool_calls=(call,)))
+        out.results.append(result)
+        out.messages.append(tool_message(result, tool_call_id=call.id))
+    return out
+
+
+def _is(registry: ToolRegistry, tool: str, kind: SideEffectClass) -> bool:
+    spec = registry.get(tool)
+    return spec is not None and spec.side_effect is kind
+
+
+def reads(registry: ToolRegistry, tool: str) -> bool:
+    """Whether this tool only looks — so its result may set a belief's age."""
+    return _is(registry, tool, SideEffectClass.READ)
+
+
+__all__ = ["HELD", "Freshness", "Refreshed", "key_of", "reads", "refresh"]

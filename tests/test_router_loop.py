@@ -226,7 +226,7 @@ async def test_oscillation_is_caught_inside_the_budget(server) -> None:
 @pytest.mark.discharges("AAC-0109", "AHC-0042")
 async def test_argument_order_does_not_hide_an_oscillation(server) -> None:
     """A detector that thinks {"a":1,"b":2} differs from {"b":2,"a":1} never fires."""
-    from support_agent.loop import _signature
+    from support_agent.loop.plan import signature as _signature
 
     assert _signature("t", {"a": 1, "b": 2}) == _signature("t", {"b": 2, "a": 1})
 

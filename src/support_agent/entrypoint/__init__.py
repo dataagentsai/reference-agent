@@ -25,11 +25,11 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import assert_never
 
+from support_agent import binding, router
 from support_agent import context as ctx
 from support_agent import escalation as esc
 from support_agent import loop as agent_loop
 from support_agent import policy as pol
-from support_agent import router
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
 from support_agent.config import Budgets, RunConfig
@@ -97,6 +97,10 @@ class Agent:
     budgets: Budgets = field(default_factory=Budgets)
     rules: router.Rules = field(default_factory=router.Rules)
     policy_rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None = None
+    fresh_for_s: int | None = None
+    """How long a read of a row stays usable before an irreversible action may
+    rely on it (AHC-0107). The binding's number; `None` turns the mechanism off,
+    which is right for a deployment whose world has one writer."""
     """The guardrails, per position. `None` uses the defaults. Until F-027 this
     could not be set from here at all: the loop took the parameter and the
     composition root never passed it, so the only rules that could ever run were
@@ -237,6 +241,8 @@ class Agent:
                     local_tools=self.pending.offer(identity, run_id, self.tools),
                     policy_rules=self.policy_rules,
                     meter=self.metering() if self.metering is not None else None,
+                    now=self._now,
+                    fresh_for_s=self.fresh_for_s,
                 )
                 return result
             case _:
@@ -338,6 +344,7 @@ def build(
     policy_rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None = None,
     tier_2: t2.RuleSet | None = None,
     metering: Callable[[], Meter] | None = None,
+    fresh_for_s: int | None = binding.FRESH_FOR_S,
 ) -> Agent:
     """The composition root.
 
@@ -367,6 +374,7 @@ def build(
         policy_rules=policy_rules,
         tier_2=tier_2,
         metering=metering,
+        fresh_for_s=fresh_for_s,
     )
 
 

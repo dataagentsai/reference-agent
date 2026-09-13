@@ -102,6 +102,18 @@ class ToolRegistry(BaseModel):
     def irreversible(self) -> tuple[ToolSpec, ...]:
         return tuple(t for t in self.tools if t.side_effect is SideEffectClass.IRREVERSIBLE)
 
+    def first_read(self) -> ToolSpec | None:
+        """A tool that can look a row up again without changing it (AHC-0107).
+
+        The *first* one in the surface's own order, which is the spec's order.
+        A surface offering two ways to read the same row would make this a
+        choice, and a choice made here would be this module inventing policy —
+        so the order is the specification's to decide and this one only follows
+        it. A surface with no read at all answers `None`, and the caller says so
+        rather than pretending a belief is fresh.
+        """
+        return next((t for t in self.tools if t.side_effect is SideEffectClass.READ), None)
+
 
 class ToolUnavailable(Exception):
     """The tool server could not be reached. Distinct from a tool that ran and

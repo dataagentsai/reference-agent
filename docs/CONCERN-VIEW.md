@@ -14,7 +14,7 @@ behind the specs, because it is made of them.
 
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
-| **functional-suitability** | 14 | 6 | 13 | 1 |
+| **functional-suitability** | 14 | 7 | 14 | 1 |
 | **safety** | 16 | 3 | 4 | 2 |
 | **security** | 5 | 13 | 8 | 2 |
 | **reliability** | 6 | 12 | 6 | 2 |
@@ -25,7 +25,7 @@ behind the specs, because it is made of them.
 | **interaction-capability** | 1 | 0 | 0 | 1 |
 | **flexibility** | 0 | 1 | 0 | 0 |
 
-## functional-suitability — 34
+## functional-suitability — 36
 
 **AOAS**
 
@@ -52,6 +52,7 @@ behind the specs, because it is made of them.
 - `AHC-0037` Arguments are validated at dispatch, before the tool runs *(functional correctness)*
 - `AHC-0038` Tool results are bounded before they enter context *(functional appropriateness)*
 - `AHC-0106` A turn that commits to future work does not end as a completed answer *(functional completeness)*
+- `AHC-0107` A fact an irreversible action relies on is read inside its declared freshness window *(functional correctness)*
 
 **AAC**
 
@@ -68,6 +69,7 @@ behind the specs, because it is made of them.
 - `AAC-0109` Non-productive repetition is detected and broken
 - `AAC-0110` A claimed action is supported by that action's result
 - `AAC-0112` A completed outcome contains the answer
+- `AAC-0113` Action on a stale read
 
 **scenario**
 

@@ -1,7 +1,7 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 457,
-  "tagged": 373,
+  "functions": 466,
+  "tagged": 381,
   "tooling": [
     "tests/test_actors.py::test_a_model_driven_actor_says_what_it_is_told_and_stops",
     "tests/test_actors.py::test_a_persona_is_behaviour_and_the_situation_is_the_domains",
@@ -75,6 +75,7 @@
     "tests/test_reuse_audit.py::test_every_module_is_placed_in_a_layer",
     "tests/test_reuse_audit.py::test_the_domain_measurement_agrees_with_the_classification",
     "tests/test_scenario_files.py::test_every_scenario_names_what_it_discharges",
+    "tests/test_scenario_files.py::test_every_unreached_statement_says_why_it_cannot_be_reached",
     "tests/test_scenario_files.py::test_scenario_coverage_only_goes_up",
     "tests/test_scripts.py::test_an_offline_script_runs",
     "tests/test_telemetry.py::test_span_carries_the_attributes_a_verdict_needs",
@@ -123,8 +124,8 @@
       ]
     },
     "AAC": {
-      "owed": 51,
-      "exercised": 43,
+      "owed": 52,
+      "exercised": 44,
       "failing": [],
       "not_exercised": [
         {
@@ -162,8 +163,8 @@
       ]
     },
     "AHC": {
-      "owed": 68,
-      "exercised": 47,
+      "owed": 69,
+      "exercised": 48,
       "failing": [],
       "not_exercised": [
         {
@@ -698,6 +699,14 @@
         "tests/test_promise.py::test_what_counts_as_a_commitment",
         "tests/test_promise.py::test_a_promise_with_a_desk_becomes_a_handoff",
         "tests/test_promise.py::test_a_promise_with_nobody_to_fetch_is_withdrawn_not_relabelled"
+      ],
+      "failed": []
+    },
+    "AAC-0113": {
+      "passed": [
+        "tests/test_freshness.py::test_a_cancellation_planned_on_an_old_read_reads_again_first",
+        "tests/test_freshness.py::test_the_row_is_read_again_before_the_action_lands",
+        "tests/test_freshness.py::test_a_row_that_moved_underneath_the_run_stops_the_action"
       ],
       "failed": []
     },
@@ -1239,6 +1248,18 @@
       ],
       "failed": []
     },
+    "AHC-0107": {
+      "passed": [
+        "tests/test_freshness.py::test_when_a_belief_has_gone_out_of_date",
+        "tests/test_freshness.py::test_a_row_this_run_never_read_is_not_stale",
+        "tests/test_freshness.py::test_a_binding_that_declared_no_window_turns_the_mechanism_off",
+        "tests/test_freshness.py::test_which_tool_is_used_to_look_again",
+        "tests/test_freshness.py::test_a_cancellation_planned_on_an_old_read_reads_again_first",
+        "tests/test_freshness.py::test_the_row_is_read_again_before_the_action_lands",
+        "tests/test_freshness.py::test_a_row_that_moved_underneath_the_run_stops_the_action"
+      ],
+      "failed": []
+    },
     "B10": {
       "passed": [
         "tests/test_reviewer.py::test_a_close_without_an_outcome_is_refused",
@@ -1368,6 +1389,7 @@
       "passed": [
         "tests/test_contracts.py::test_only_the_agentic_route_reaches_the_model",
         "tests/test_direct.py::test_every_handler_the_router_names_is_registered",
+        "tests/test_direct.py::test_the_deterministic_path_needs_one_intent_and_one_order",
         "tests/test_entrypoint_state.py::test_a_direct_route_answers_without_the_model",
         "tests/test_entrypoint_state.py::test_an_ambiguous_turn_reaches_the_loop",
         "tests/test_refusals.py::test_asking_for_a_refund_is_not_asking_after_one",
@@ -1674,6 +1696,8 @@
         "tests/test_agenttwin.py::test_the_same_scenario_on_a_cancellable_order_does_change_the_world",
         "tests/test_break_it.py::test_the_world_re_checks_under_a_stale_read",
         "tests/test_break_it.py::test_a_planted_instruction_cannot_bypass_the_eligibility_rule",
+        "tests/test_freshness.py::test_a_cancellation_planned_on_an_old_read_reads_again_first",
+        "tests/test_freshness.py::test_a_row_that_moved_underneath_the_run_stops_the_action",
         "tests/test_golden.py::test_the_golden_set",
         "tests/test_golden.py::test_a_refusal_changes_nothing_in_the_world",
         "tests/test_ownership.py::test_only_the_owner_reaches_the_order"

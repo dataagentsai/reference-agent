@@ -2,8 +2,8 @@
   "source": "github.com/dataagentsai/ai-assurance-catalog",
   "archetype": "A6",
   "note": "Identifiers and metadata only. The normative `statement` of each obligation is deliberately NOT copied \u2014 cite, don't restate.",
-  "catalog_version": "0.14.0",
-  "generated": "2026-09-12",
+  "catalog_version": "0.15.0",
+  "generated": "2026-09-13",
   "obligations": [
     {
       "id": "AAC-0001",
@@ -727,6 +727,21 @@
       "id": "AAC-0112",
       "title": "A completed outcome contains the answer",
       "dimension": "correctness",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S3"
+      ],
+      "mechanisms": [
+        "M1",
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0113",
+      "title": "Action on a stale read",
+      "dimension": "state",
       "level": "MUST",
       "gate": true,
       "stages": [

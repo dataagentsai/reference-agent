@@ -137,6 +137,18 @@ An attribute rather than a log line: a parse failure rate is a number that moves
 when a model is swapped, and one that only exists in logs is one nobody plots."""
 
 
+FRESHNESS_ROWS = "agent.freshness.rows"
+"""How many rows were read again because an irreversible action would otherwise
+have run on an old belief — AHC-0107. Worth a number rather than a flag: a rate
+that climbs says the world is moving faster than the conversation, which is a
+fact about the business and not about the agent."""
+
+FRESHNESS_UNCHECKABLE = "agent.freshness.uncheckable"
+"""Set when a belief was stale and the surface offered no way to read it again.
+Said out loud rather than passed over, because the alternative is a run that
+proceeded on an old value and left nothing to say so."""
+
+
 TERMINATION = "agent.termination.reason"
 
 

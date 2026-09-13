@@ -52,7 +52,7 @@ PATH = [
         "PHASE 4 — LOOP: the only path that reaches the model",
         [
             ("src/support_agent/loop/__init__.py", "run"),
-            ("src/support_agent/loop/__init__.py", "_signature"),
+            ("src/support_agent/loop/plan.py", "signature"),
         ],
     ),
     (

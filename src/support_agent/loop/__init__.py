@@ -30,9 +30,9 @@ whole task.
 
 from __future__ import annotations
 
-import json
+import time
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
 from opentelemetry.trace import Span
@@ -69,6 +69,7 @@ from support_agent.contracts import (
     new_run_id,
 )
 from support_agent.cost import Meter
+from support_agent.loop import freshness, plan
 from support_agent.loop.dispatch import dispatch
 from support_agent.loop.screen import Screen
 
@@ -87,15 +88,6 @@ class Trace:
 
     def signature_counts(self) -> Counter[tuple[str, str]]:
         return Counter(self.tool_calls)
-
-
-def _signature(name: str, arguments: dict[str, object]) -> tuple[str, str]:
-    """A call's identity for oscillation purposes: the tool and its arguments.
-
-    Sorted keys, because `{"a":1,"b":2}` and `{"b":2,"a":1}` are the same call
-    and a detector that thinks otherwise never fires.
-    """
-    return name, json.dumps(arguments, sort_keys=True, default=str)
 
 
 PASS_ON = "I have not been able to resolve this — let me pass you to a colleague."
@@ -122,6 +114,8 @@ async def run(
     local_tools: Mapping[str, LocalTool] | None = None,
     policy_rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None = None,
     fan_out: int = flw.DEFAULT_FAN_OUT,
+    now: Callable[[], int] | None = None,
+    fresh_for_s: int | None = None,
 ) -> Ended:
     """One task, step by step, until one of the terminations above.
 
@@ -156,8 +150,9 @@ async def run(
             system_prompt=system_prompt,
             budgets=budgets,
             meter=meter,
-            policy_rules=policy_rules,
             oscillation_threshold=oscillation_threshold,
+            now=now or (lambda: int(time.time())),
+            fresh=freshness.Freshness(window_s=fresh_for_s),
             fan_out=fan_out,
             messages=[*history, ctx.user_message(goal)],
             screen=Screen(identity=identity, rules=policy_rules, span=run_span),
@@ -189,8 +184,12 @@ class _Run:
     system_prompt: str
     budgets: Budgets
     meter: Meter | None
-    policy_rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None
     oscillation_threshold: int
+    now: Callable[[], int]
+    """The run's clock, injected like every other one here: a module that read
+    the wall clock itself would be untestable about time, which is the whole
+    subject of `fresh` (AHC L9, F-021)."""
+    fresh: freshness.Freshness
     fan_out: int
     messages: list[Message]
     screen: Screen
@@ -269,20 +268,10 @@ class _Run:
 
     def _answer(self, response: ModelResponse) -> Ended:
         """The model is done: its reply passes the output guardrail, or is replaced."""
-        rules = (
-            None if self.policy_rules is None else self.policy_rules.get(pol.Position.POST_MODEL)
-        )
-        verdict = pol.enforce(
-            pol.Context(
-                position=pol.Position.POST_MODEL,
-                identity=self.identity,
-                text=response.text,
-                tool_results=tuple(self.seen_results),
-            ),
-            rules,
+        verdict = self.screen.at(
+            pol.Position.POST_MODEL, tuple(self.seen_results), text=response.text
         )
         if verdict.blocked:
-            self.span.set_attribute("agent.policy.blocked_by", verdict.rule)
             return self._stop(TerminationReason.REFUSED, pol.SAFE_REPLY, verdict.rule)
         return _completed(self.span, self.trace, response.text)
 
@@ -294,9 +283,9 @@ class _Run:
         which key."""
         planned: list[tuple[ToolCall, IdempotencyKey]] = []
         for call in calls:
-            signature = _signature(call.name, call.arguments)
-            self.trace.tool_calls.append(signature)
-            if self.trace.signature_counts()[signature] >= self.oscillation_threshold:
+            made = plan.signature(call.name, call.arguments)
+            self.trace.tool_calls.append(made)
+            if plan.circling(self.trace.signature_counts(), made, self.oscillation_threshold):
                 return self._stop(TerminationReason.OSCILLATION_DETECTED, IN_CIRCLES)
             key = IdempotencyKey(
                 run_id=self.run_id, step=step, iteration=len(self.trace.tool_calls)
@@ -311,6 +300,15 @@ class _Run:
         result. The loop does not know which action it was; the signal carries
         what the customer is told.
         """
+        # AHC-0107, before the screen and before anything is dispatched: an
+        # irreversible action planned against a row this run last read outside
+        # its freshness window does not run. The row is read again instead, and
+        # what comes back enters context as a result the run must account for —
+        # so the model plans again against what is true, and every other control
+        # applies to that plan exactly as it applied to the first.
+        if await self._refresh(planned):
+            return None
+
         # Screened before anything runs, so a refused call costs nothing and the
         # ones beside it are unaffected.
         refused = self.screen.permitted(planned, tuple(self.seen_results))
@@ -336,9 +334,28 @@ class _Run:
             result = refused.get(call.id) or self.screen.admitted(
                 call, answered[call.id], tuple(self.seen_results)
             )
+            if not result.is_error and freshness.reads(self.registry, call.name):
+                self.fresh.saw(freshness.key_of(call.arguments), self.now(), result.structured)
             self.seen_results.append(result)
             self.messages.append(ctx.tool_message(result, tool_call_id=call.id))
         return None
+
+    async def _refresh(self, planned: list[tuple[ToolCall, IdempotencyKey]]) -> bool:
+        """Re-read the rows a stale irreversible action would have acted on."""
+        held = await freshness.refresh(
+            planned,
+            fresh=self.fresh,
+            registry=self.registry,
+            tools=self.tools,
+            identity=self.identity,
+            run_id=self.run_id,
+            iteration=len(self.trace.tool_calls),
+            now=self.now(),
+            span=self.span,
+        )
+        self.messages.extend(held.messages)
+        self.seen_results.extend(held.results)
+        return bool(held.messages)
 
     def _stop(self, reason: TerminationReason, message: str, rule_id: str = "") -> Ended:
         return _stopped(self.span, self.trace, reason, message, rule_id)

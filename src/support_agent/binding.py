@@ -27,4 +27,16 @@ SCOPES: dict[str, str] = {
 system answers about the caller's own rows and nothing else (P-OWNERSHIP)."""
 
 
-__all__ = ["SCOPES"]
+FRESH_FOR_S = 30
+"""How long a read of an order's status stays usable — AOAS `order.status`
+`fresh_for: 30s`, carried here because the *number* is the specification's and
+acting on it is the harness's (AHC-0107).
+
+It is a single number rather than a map because this agent has one entity whose
+row another system writes while a conversation is open. A second such entity
+would make this a map, and the shape of that map is the thing to get right then
+rather than now.
+"""
+
+
+__all__ = ["FRESH_FOR_S", "SCOPES"]

@@ -124,6 +124,7 @@ def test_every_collaborator_the_root_takes_is_an_interface() -> None:
         "rules",
         "policy_rules",
         "tier_2",
+        "fresh_for_s",  # AHC-0107's window: the binding's number, not machinery
     }
     factories = {"metering"}  # made per unit of work
 

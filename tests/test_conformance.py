@@ -63,8 +63,12 @@ def test_the_manifest_holds_every_a6_obligation() -> None:
 
     50 → 51 on 2026-09-12: AAC-0112, written because a reader watching a run
     asked why the agent promised to check something and never came back (F-035).
+
+    51 → 52 on 2026-09-13: AAC-0113, the gap the reference's own design doc
+    listed at 16 and nothing had built — acting on a read the world has moved
+    on from (G0.6).
     """
-    assert len(load()) == 51
+    assert len(load()) == 52
 
 
 # --------------------------------------------------------------------------- #
