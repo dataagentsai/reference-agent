@@ -45,6 +45,11 @@ SCRIPTS = [
         ["scripts/concern_view.py"],
         "statements across",
     ),
+    (
+        "review_view — the architecture, read off the code",
+        ["scripts/review_view.py"],
+        "ARCHITECTURE-REVIEW.html",
+    ),
 ]
 
 
