@@ -151,6 +151,7 @@ async def honest(
     promise = commits(result.reply)
     if not promise:
         return result
+    tel.counters.promises.add(1, {"kind": promise})
     with tel.span(
         "agent.promise.unbacked",
         **{"agent.promise.kind": promise, "agent.promise.rules_version": VERSION},

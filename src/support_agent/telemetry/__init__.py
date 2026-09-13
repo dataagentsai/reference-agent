@@ -32,6 +32,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import Span, StatusCode
 
+from support_agent.telemetry import counters
 from support_agent.telemetry.contract import (
     CONTRACT,
     SpanSpec,
@@ -208,6 +209,7 @@ __all__ = [
     "FRESHNESS_ROWS",
     "FRESHNESS_UNCHECKABLE",
     "MODEL_MALFORMED",
+    "counters",
     "RESOLUTION",
     "ROUTE_KIND",
     "ROUTE_REASON",

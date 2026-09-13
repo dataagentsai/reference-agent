@@ -52,6 +52,7 @@ async def request(
         created_at=now,
         expires_at=now + policy.ttl_s,
     )
+    tel.counters.approvals.add(1, {"outcome": "requested"})
     with tel.span(
         "agent.approval.request",
         **{"agent.approval.id": approval.id, "agent.approval.action": action},

@@ -69,7 +69,7 @@ from support_agent.contracts import (
     new_run_id,
 )
 from support_agent.cost import Meter
-from support_agent.loop import freshness, plan
+from support_agent.loop import freshness, plan, spend
 from support_agent.loop.dispatch import dispatch
 from support_agent.loop.screen import Screen
 
@@ -248,8 +248,9 @@ class _Run:
             max_tokens=self.budgets.max_output_tokens,
         )
         try:
-            return await self.llm.complete(request)
+            answered = await self.llm.complete(request)
         except ModelUnavailable as exc:
+            tel.counters.model_calls.add(1, {"outcome": "unavailable"})
             return _failed(self.span, self.trace, TROUBLE, str(exc))
         except ModelMalformed as exc:
             # AHC-0001's `parse_failure` decision: fail into a declared shape and
@@ -259,19 +260,20 @@ class _Run:
             # parse-failure rate in a log line is a number nobody ever plots.
             self.trace.malformed += 1
             self.span.set_attribute(tel.MODEL_MALFORMED, self.trace.malformed)
+            tel.counters.model_calls.add(1, {"outcome": "malformed"})
             return _failed(self.span, self.trace, TROUBLE, exc.reason)
+        tel.counters.model_calls.add(1, {"outcome": "answered"})
+        return answered
 
     def _account(self, response: ModelResponse) -> None:
         """Tokens always; money when a meter is wired."""
-        self.trace.usage = Usage(
-            input_tokens=self.trace.usage.input_tokens + response.usage.input_tokens,
-            output_tokens=self.trace.usage.output_tokens + response.usage.output_tokens,
+        self.trace.usage, spent, cost = spend.account(
+            self.trace.usage, response.usage, meter=self.meter
         )
-        if self.meter is not None:
-            call_cost = self.meter.record(response.usage)
-            self.trace.spend_usd = self.meter.as_usd()
-            self.span.set_attribute(tel.COST_CALL_USD, float(call_cost))
-            self.span.set_attribute(tel.COST_USD, self.trace.spend_usd)
+        if spent is not None:
+            self.trace.spend_usd = spent
+            self.span.set_attribute(tel.COST_CALL_USD, cost)
+            self.span.set_attribute(tel.COST_USD, spent)
 
     def _answer(self, response: ModelResponse) -> Ended:
         """The model is done: its reply passes the output guardrail, or is replaced."""

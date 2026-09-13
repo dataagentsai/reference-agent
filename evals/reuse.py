@@ -54,6 +54,7 @@ MECHANISM = {
     "loop/dispatch.py",
     "loop/freshness.py",
     "loop/plan.py",
+    "loop/spend.py",
     "loop/screen.py",
     "resilience/__init__.py",
     "reviewer/__init__.py",
@@ -62,6 +63,7 @@ MECHANISM = {
     "state/facts.py",
     "state/postgres.py",
     "telemetry/__init__.py",
+    "telemetry/counters.py",
     "telemetry/names.py",
     "telemetry/redaction.py",
     "tools/__init__.py",
@@ -101,7 +103,7 @@ LAYERS = {"mechanism": MECHANISM, "parameterised": PARAMETERISED, "per-agent": P
 
 PREDICTION = """Written 2026-09-12, before a second agent exists.
 
-Of 57 modules: 45 mechanism, 7 parameterised, 5 per-agent. By executable lines
+Of 59 modules: 47 mechanism, 7 parameterised, 5 per-agent. By executable lines
 the mechanism share is larger still, because the per-agent modules are small.
 
 **The prediction, for G2.6 to measure.** A second agent in another domain, built

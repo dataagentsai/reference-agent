@@ -61,6 +61,7 @@ from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingW
 from support_agent.entrypoint.persist import TurnPersister
 from support_agent.escalation import rules as t2
 from support_agent.state import Conversation, TurnNote, facts
+from support_agent.telemetry import counters
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a customer support agent for a clothing retailer. "
@@ -192,6 +193,7 @@ class Agent:
             )
             result = await promise.honest(result, self.desk, conversation, identity, run_id)
             result = _screened(result, identity, self.policy_rules)
+            counters.record_turn(result, decision)
             return result, await self._persist(run_id, conversation.recording(result))
 
     async def _gates(

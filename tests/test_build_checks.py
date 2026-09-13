@@ -198,3 +198,33 @@ def test_every_failure_this_package_declares_says_what_kind_it_is() -> None:
         "these failures carry no kind from the shared vocabulary — a caller "
         f"cannot decide whether trying again is sensible: {sorted(undeclared)}"
     )
+
+
+@pytest.mark.discharges("AHC-0018", "AAC-0011")
+def test_every_counter_declared_is_incremented_somewhere() -> None:
+    """A metric nobody writes to is a dashboard panel that reads zero forever.
+
+    Worse than a missing panel, because a flat line is read as *this never
+    happens* rather than as *nobody is counting*. The check is the same shape as
+    the span contract's: enumerate what the module declares, then find where the
+    package writes to it.
+
+    It is deliberately a search over source rather than a run, because the
+    interesting case is the counter that exists and is reached only on a path no
+    test drives — which a run would report as passing.
+    """
+    from support_agent.telemetry import counters as declared
+
+    root = Path(__file__).resolve().parents[1] / "src" / "support_agent"
+    source = "\n".join(p.read_text() for p in root.rglob("*.py") if p.name != "counters.py")
+    names = [n for n in declared.__all__ if n.islower() and n != "record_turn"]
+
+    # `record_turn` writes to three of them from inside the module itself, which
+    # the source search above cannot see because it excludes that file.
+    written_inside = {"turns", "refusals", "escalations"}
+    unwritten = [
+        name for name in names if name not in written_inside and f"counters.{name}." not in source
+    ]
+    assert unwritten == [], (
+        f"declared and never incremented — a panel that reads zero forever: {unwritten}"
+    )
