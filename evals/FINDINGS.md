@@ -1141,6 +1141,37 @@ which is the ratchet working: `loop/screen.py` (the positions) and
 
 ---
 
+## F-040 · The date branch of the evidence rule cannot decide anything
+
+**Found** 2026-09-14, trying to write the third of three scenarios for
+`no_ungrounded_entity` — one per claim type, because a scenario's reply checks
+read the last reply and one run can therefore decide one branch. The identifier
+and figure scenarios each fail when and only when their own branch is inverted.
+The date one passed with its branch inverted, which is the definition of a
+scenario that does not test what its name says.
+
+**Severity** Low, and worth writing down anyway. The rule checks identifiers,
+then dates, then figures. `MONEY` is `\b(\d[\d,]{2,})\b`, so on *"delivered on
+2026-03-15"* it matches **`2026`** — the year. Invert the date branch and the
+reply is still blocked, one rule later, because an ISO date's year is itself an
+ungrounded number. The date check therefore only ever *decides* an outcome when
+the year is grounded and the full date is not: evidence mentioning 2026
+somewhere, a reply inventing 2026-03-15.
+
+So the branch is not dead — it fires first, and it produces the better message,
+naming a date rather than a figure. It is **unobservable from outside**, which
+is a different thing and the reason no scenario can cover it honestly. The unit
+tests in `test_policy.py` cover it directly and are the right place for it.
+
+**Not fixed, and deliberately.** The fix would be to stop `MONEY` matching
+four-digit years, and that trade is bad in the direction that matters: a year is
+a plausible refund amount, and a guardrail that stops reading numbers in order
+to make a test observable has been weakened for the test's convenience. The
+scenario was deleted instead, and the kill matrix will keep reporting
+`policy/__init__.py:249` as unreached — correctly, and now with a reason.
+
+---
+
 ## F-039 · Every retry reached the far end wearing a new name
 
 **Found** 2026-09-13, from a reader asking whether the double-refund-on-retry

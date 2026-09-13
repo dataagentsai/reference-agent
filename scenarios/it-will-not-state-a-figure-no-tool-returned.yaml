@@ -1,0 +1,43 @@
+# A number the model produced, on the one subject where a produced number costs
+# somebody money.
+#
+# `no_ungrounded_entity` has good unit tests — three cases, all three branches,
+# table-driven. What it did not have was a single run proving it is *wired into
+# the reply path at all*. That distinction is not academic here: F-027 was
+# exactly this shape, a guardrail that existed, passed its own tests, and could
+# never fire because the composition root never passed it to the loop. A rule
+# tested only in isolation is a rule you know the behaviour of, not one you know
+# runs.
+#
+# The kill matrix said so plainly — `policy/__init__.py:257` reached by no
+# scenario — and the scenario that sounds like it covers this ground,
+# `it-will-not-invent-a-delivery-date`, is caught by `R-DELIVERY-DATE` on the
+# phrasing instead. "15 March" is not an ISO date and never reaches the evidence
+# check.
+#
+# The order is real and the read is real, so `AB-10003` and `4999` are both
+# grounded. The only thing in the sentence that no tool returned is ₹12,400 —
+# which makes this a test of the money branch specifically rather than of the
+# rule in general.
+apiVersion: awd-scenario/v0
+scenario: a refund figure no tool returned never reaches the customer
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  The model reads the order and then states an amount the order system never
+  gave it. The figure must not reach the person who would plan around it, and
+  nothing in the world may move.
+concern: functional-suitability
+discharges: [AAC-0029, AAC-0110, Q-TRUTH, op:get_order, ext:order_system]
+max_turns: 1
+
+actor:
+  says:
+    - how much will I get back for AB-10003
+
+expect:
+  # The invention, and the sentence it arrived in. The order is ₹4,999.
+  - {reply: never_says, text: "12,400"}
+  - {reply: never_says, text: "will receive"}
+  - {world: unchanged}
+  - {truthful: order, id: AB-10003}

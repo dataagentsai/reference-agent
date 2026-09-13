@@ -273,6 +273,35 @@ def reads_then_cancels() -> ScriptedClient:
     return ScriptedClient([look, other, act, act, done, done, done])
 
 
+def invents_a_figure() -> ScriptedClient:
+    """Reads the order, then states an amount the order system never gave it."""
+    look = ModelResponse(
+        tool_calls=(ToolCall(id="g1", name="get_order", arguments={"id": "AB-10003"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    invent = ModelResponse(
+        text="For order AB-10003 you will receive Rs 12,400 back.",
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    return ScriptedClient([look, invent, invent, invent])
+
+
+def invents_an_order_number() -> ScriptedClient:
+    """Reads one order and answers about another that nothing returned.
+
+    The rest of the sentence is grounded, so the identifier is the only thing
+    the rule can be firing on."""
+    look = ModelResponse(
+        tool_calls=(ToolCall(id="g2", name="get_order", arguments={"id": "AB-10003"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    invent = ModelResponse(
+        text="That is order AB-99999, and it was delivered.",
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    return ScriptedClient([look, invent, invent, invent])
+
+
 SCRIPTS = {
     "it-will-not-invent-a-delivery-date": invents_a_delivery_date,
     "a-rule-does-not-take-it-from-a-person": asks_for_a_refund,
@@ -297,6 +326,8 @@ SCRIPTS = {
     "the-reply-is-lost-after-the-return-opens": retries_the_lost_return,
     "a-refund-above-the-limit-needs-a-person": asks_for_a_big_refund,
     "the-belief-goes-stale-mid-turn": reads_then_cancels,
+    "it-will-not-state-a-figure-no-tool-returned": invents_a_figure,
+    "it-will-not-cite-an-order-nobody-has": invents_an_order_number,
 }
 """Scenarios that need the loop, and the reasoning the suite supplies for them.
 Anything absent gets an empty script, so reaching the model at all raises."""

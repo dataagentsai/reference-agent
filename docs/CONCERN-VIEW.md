@@ -14,7 +14,7 @@ behind the specs, because it is made of them.
 
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
-| **functional-suitability** | 14 | 8 | 14 | 1 |
+| **functional-suitability** | 14 | 8 | 14 | 3 |
 | **safety** | 16 | 3 | 4 | 3 |
 | **security** | 5 | 14 | 8 | 2 |
 | **reliability** | 6 | 12 | 6 | 4 |
@@ -25,7 +25,7 @@ behind the specs, because it is made of them.
 | **interaction-capability** | 1 | 0 | 0 | 1 |
 | **flexibility** | 0 | 1 | 0 | 0 |
 
-## functional-suitability — 37
+## functional-suitability — 39
 
 **AOAS**
 
@@ -75,6 +75,8 @@ behind the specs, because it is made of them.
 **scenario**
 
 - `a-promise-nobody-is-keeping` the agent promises to check and something has to be checking
+- `it-will-not-cite-an-order-nobody-has` an order number no tool returned never reaches the customer
+- `it-will-not-state-a-figure-no-tool-returned` a refund figure no tool returned never reaches the customer
 
 
 ## safety — 26
