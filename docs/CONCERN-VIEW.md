@@ -15,7 +15,7 @@ behind the specs, because it is made of them.
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
 | **functional-suitability** | 14 | 8 | 14 | 1 |
-| **safety** | 16 | 3 | 4 | 2 |
+| **safety** | 16 | 3 | 4 | 3 |
 | **security** | 5 | 14 | 8 | 2 |
 | **reliability** | 6 | 12 | 6 | 3 |
 | **cost** | 3 | 9 | 6 | 2 |
@@ -77,7 +77,7 @@ behind the specs, because it is made of them.
 - `a-promise-nobody-is-keeping` the agent promises to check and something has to be checking
 
 
-## safety — 25
+## safety — 26
 
 **AOAS**
 
@@ -113,6 +113,7 @@ behind the specs, because it is made of them.
 
 **scenario**
 
+- `a-refund-above-the-limit-needs-a-person` a refund above the limit is not the agent's to make
 - `the-reviewer-approves-it-twice` the reviewer approves it twice and one refund happens
 - `the-reviewer-comes-too-late` the reviewer answers after the grant has expired
 

@@ -235,6 +235,23 @@ def retries_the_lost_return() -> ScriptedClient:
     return ScriptedClient([attempt, again, settle, settle, settle])
 
 
+def asks_for_a_big_refund() -> ScriptedClient:
+    """The same request, against an order the agent may not decide alone.
+
+    Identical in shape to `asks_for_a_refund` and pointed at a different order,
+    which is the point: nothing about the *model's* behaviour distinguishes a
+    refund it may make from one it may not. The amount does, and the gate does.
+    """
+    plan = ModelResponse(
+        tool_calls=(ToolCall(id="b1", name="request_refund", arguments={"order_id": "AB-10008"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    patience = ModelResponse(
+        text="Let me check on that for you.", usage=Usage(input_tokens=5, output_tokens=2)
+    )
+    return ScriptedClient([plan, *[patience] * 6])
+
+
 SCRIPTS = {
     "it-will-not-invent-a-delivery-date": invents_a_delivery_date,
     "a-rule-does-not-take-it-from-a-person": asks_for_a_refund,
@@ -257,6 +274,7 @@ SCRIPTS = {
     "asking-three-times": answers_plainly,
     "while-a-person-holds-it": asks_for_a_human,
     "the-reply-is-lost-after-the-return-opens": retries_the_lost_return,
+    "a-refund-above-the-limit-needs-a-person": asks_for_a_big_refund,
 }
 """Scenarios that need the loop, and the reasoning the suite supplies for them.
 Anything absent gets an empty script, so reaching the model at all raises."""

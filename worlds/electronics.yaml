@@ -82,3 +82,11 @@ records:
     - {id: AB-10003, customer_id: C-1042, address: "5 Park Street, Kolkata 700016", total: 24000, status: delivered, days_since_delivery: 5, final_sale: false}
     - {id: AB-10004, customer_id: C-1042, address: "90 Anna Salai, Chennai 600002", total: 8999, status: delivered, days_since_delivery: 31, final_sale: false}
     - {id: AB-10005, customer_id: C-1042, address: "3 Sector 18, Noida 201301", total: 1499, status: delivered, days_since_delivery: 3, final_sale: true}
+    # Returned, and worth more than the agent may refund alone. It is here and
+    # not in clothing.yaml for a reason that is the spec's rather than a
+    # preference: a returned order is a standing debt under clothing's
+    # `owed_when`, so parking one there makes every scenario omit a refund it
+    # was owed. This store states no refund obligation once a return is
+    # received — `issue_refund.owed_when: null` — so the row crosses the money
+    # threshold without inventing a debt to do it.
+    - {id: AB-10008, customer_id: C-1042, address: "77 Park Lane, Pune 411001", total: 21999, status: returned, days_since_delivery: 6, final_sale: false}

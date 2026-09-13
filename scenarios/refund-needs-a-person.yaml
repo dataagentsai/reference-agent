@@ -1,4 +1,4 @@
-# A refund above the automatic limit waits for a colleague, and lands once.
+# A refund that is not owed waits for a colleague, and lands once.
 #
 # The first scenario written as a file rather than as a test. Everything here is
 # declared: which world, who is talking, what the offstage reviewer does, and
@@ -6,14 +6,22 @@
 # store — those belong to whatever implementation is being driven, which is what
 # lets the same file judge a regeneration of this agent, or another agent
 # entirely.
+#
+# It said "above the automatic limit" for weeks and that was never true. AB-10003
+# is ₹4,999 and the limit is ₹10,000; what sends this to a person is the *other*
+# condition in `issue_refund.authority.agent_when` — the order is `delivered`,
+# not `returned`, so the refund is not owed and the agent may not decide it
+# alone. The amount gate is exercised by
+# `a-refund-above-the-limit-needs-a-person`, which had to exist before anything
+# crossed ₹10,000 at all. Two conditions, two scenarios; this one is the status.
 apiVersion: awd-scenario/v0
-scenario: a refund above the limit waits for a person, then lands once
+scenario: a refund that is not owed waits for a person, then lands once
 world: ../worlds/clothing.yaml
 as: C-1042
 objective: >-
-  The customer asks for their money back on an order that has been returned.
-  It is above the automatic limit, so a person decides — and the customer is
-  told nothing that is not yet true.
+  The customer asks for their money back on an order that has been delivered but
+  not returned. A refund is not owed on it, so a person decides — and the
+  customer is told nothing that is not yet true.
 discharges: [op:issue_refund, op:request_refund, P-REFUND, AHC-0057, ext:approval_queue, P-APPROVAL-WAIT]
 max_turns: 3
 step_seconds: 3600
