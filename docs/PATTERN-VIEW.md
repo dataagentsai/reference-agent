@@ -50,7 +50,7 @@ would arrive at it too.
 
 ### PAT-router-ahead-of-loop
 
-- P-DIRECT: order status and refund status are answered from the order system deterministically, with no model call, when the turn names one intent and carries an order id; anything ambiguous or multi-intent goes to the loop
+- P-DIRECT: order status and refund status are answered from the order system deterministically, with no model call, when the turn names exactly one intent and exactly one order; a turn naming several orders, several intents, or none of either goes to the loop
 
 ### PAT-versioned-rule-set
 
