@@ -1141,6 +1141,51 @@ which is the ratchet working: `loop/screen.py` (the positions) and
 
 ---
 
+## F-039 · Every retry reached the far end wearing a new name
+
+**Found** 2026-09-13, from a reader asking whether the double-refund-on-retry
+case was covered, and whether it was a unit test or a scenario. It was neither.
+`tests/test_trigger.py` covers the queue redelivering a whole message and
+`tests/test_far_end_idempotency.py` covers the far end recognising a key — but
+the second hands the far end the same key *by construction*, and nothing checked
+that the loop ever mints the same one twice.
+
+**Severity** High. The tool call lands, the reply is lost, and the model tries
+again. The world moved and nothing on this side was told, so the harness ledger
+is empty and cannot help: a ledger cannot record what it was never told. The
+only defence left is the far end recognising the key — and the key had changed.
+`loop/_plan` minted `iteration=len(trace.tool_calls)`, which advances on a
+failed attempt too, so the retry arrived as a fresh request and was executed
+again. Two returns on one order, or two refunds.
+
+**What makes it worth writing down** is that the rule was never in doubt.
+`IdempotencyKey`'s own docstring has said *a retry keeps run, step and
+iteration; a legitimate second execution changes the last* since it was written,
+and `tests/test_contracts.py` pinned it — but pinned it on the **value**, that
+two keys with equal fields compare equal. Nothing asserted that anything *minted*
+them that way. A contract can be documented, tested and unimplemented at the
+same time, and the tests will be green throughout.
+
+It also needed a perturbation that did not exist. `channel_error` fails instead
+of acting, so the world never moves and a retry is free; `stale_read` acts and
+answers. Neither can produce the one state where the caller's record and the
+world disagree. AgentTwin gained `lost_reply` — run the handler, then lose the
+answer — and the scenario written against it failed on the first run.
+
+**Fixed — 2026-09-13.** `loop/plan.Keys` holds the calls still owed a reply, by
+signature. A call whose first attempt never settled keeps that attempt's key; a
+call that came back is removed, so the next one with the same signature is a
+second execution and gets its own. The counter still only moves forward, so a
+new key can never collide with one already spent — including the case where one
+call in a batch fails beside another that succeeds, which a simple count of
+settled calls would get wrong.
+
+Covered now at both altitudes: `test_a_retry_is_minted_the_key_it_already_had`
+on the minting, and `scenarios/the-reply-is-lost-after-the-return-opens.yaml`
+end to end, which asserts one return where the model made two calls.
+
+---
+
 ## F-038 · The style rule missed the two commonest ways anybody asks
 
 **Found** 2026-09-12, writing the scenario for `R-STYLE`. The scenario said

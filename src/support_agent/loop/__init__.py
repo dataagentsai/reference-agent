@@ -201,6 +201,7 @@ class _Run:
     messages: list[Message]
     screen: Screen
     seen_results: list[ToolResult] = field(default_factory=list)
+    keys: plan.Keys = field(default_factory=plan.Keys)
 
     async def step(self, step: int) -> Ended | None:
         """Ask, account, then answer or act. `None` means take another step."""
@@ -296,9 +297,8 @@ class _Run:
             self.trace.tool_calls.append(made)
             if plan.circling(self.trace.signature_counts(), made, self.oscillation_threshold):
                 return self._stop(TerminationReason.OSCILLATION_DETECTED, IN_CIRCLES)
-            key = IdempotencyKey(
-                run_id=self.run_id, step=step, iteration=len(self.trace.tool_calls)
-            )
+            iteration = len(self.trace.tool_calls)
+            key = self.keys.mint(made, run_id=self.run_id, step=step, iteration=iteration)
             planned.append((call, key))
         return planned
 
@@ -343,12 +343,13 @@ class _Run:
             result = refused.get(call.id) or self.screen.admitted(
                 call, answered[call.id], tuple(self.seen_results)
             )
-            if not result.is_error and freshness.reads(self.registry, call.name):
-                self.fresh.saw(freshness.key_of(call.arguments), self.now(), result.structured)
-            if not result.is_error and not freshness.reads(self.registry, call.name):
-                # Confirmed by the far system, not claimed by the model. This is
-                # the fact half of AHC-0108's fact-versus-claim distinction.
-                self.trace.effects.append((call.name, freshness.key_of(call.arguments)))
+            if not result.is_error:
+                self.keys.settled(plan.signature(call.name, call.arguments))
+                if freshness.reads(self.registry, call.name):
+                    self.fresh.saw(freshness.key_of(call.arguments), self.now(), result.structured)
+                else:
+                    # Confirmed by the far system, not claimed by the model — AHC-0108's fact half.
+                    self.trace.effects.append((call.name, freshness.key_of(call.arguments)))
             self.seen_results.append(result)
             self.messages.append(ctx.tool_message(result, tool_call_id=call.id))
         return None

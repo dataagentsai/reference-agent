@@ -26,6 +26,7 @@ from support_agent.contracts import (
     ToolSpec,
     TurnResult,
 )
+from support_agent.loop import plan
 
 RUN = RunId("run_abc")
 
@@ -62,6 +63,68 @@ def test_idempotency_key_identity(
 @pytest.mark.discharges("AHC-0074")
 def test_idempotency_key_is_stable_across_construction() -> None:
     assert key(3, 2).value == "run_abc:3:2"
+
+
+# --------------------------------------------------------------------------- #
+# F-039. Everything above tests that two keys *compare* the way the rule says.
+# Nothing tested that anything *mints* them that way, and nothing did: the
+# iteration came from `len(trace.tool_calls)`, which advances on a failed
+# attempt too, so a retry reached the far end wearing a new name and was
+# executed again. A contract can be pinned and unimplemented at the same time,
+# and this is what that looks like.
+# --------------------------------------------------------------------------- #
+
+RETURN = plan.signature("open_return_request", {"id": "AB-10003"})
+CANCEL = plan.signature("cancel_order", {"id": "AB-10002"})
+
+# (what happened, which call, the iteration the loop would offer) -> keys minted
+MINTING_CASES = [
+    (
+        "a retry of a call still owed a reply keeps its key",
+        [("mint", RETURN, 0), ("mint", RETURN, 1)],
+        ["run_abc:0:0", "run_abc:0:0"],
+    ),
+    (
+        "a call that came back does not lend its key to the next one",
+        [("mint", RETURN, 0), ("settle", RETURN, None), ("mint", RETURN, 1)],
+        ["run_abc:0:0", "run_abc:0:1"],
+    ),
+    (
+        "two different calls never share a key",
+        [("mint", RETURN, 0), ("mint", CANCEL, 1)],
+        ["run_abc:0:0", "run_abc:0:1"],
+    ),
+    (
+        # The case a settled-call *counter* would get wrong: compacting the
+        # count would hand the retry the key the cancel already spent.
+        "one failing beside one succeeding still separates them",
+        [
+            ("mint", RETURN, 0),
+            ("mint", CANCEL, 1),
+            ("settle", CANCEL, None),
+            ("mint", RETURN, 2),
+        ],
+        ["run_abc:0:0", "run_abc:0:1", "run_abc:0:0"],
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "events", "expected"), MINTING_CASES, ids=[c[0] for c in MINTING_CASES]
+)
+@pytest.mark.discharges("AAC-0047", "AHC-0074")
+def test_a_retry_is_minted_the_key_it_already_had(
+    name: str, events: list[tuple[str, tuple[str, str], int | None]], expected: list[str]
+) -> None:
+    keys = plan.Keys()
+    minted = []
+    for action, call, iteration in events:
+        if action == "settle":
+            keys.settled(call)
+        else:
+            assert iteration is not None
+            minted.append(keys.mint(call, run_id=RUN, step=0, iteration=iteration).value)
+    assert minted == expected
 
 
 # --------------------------------------------------------------------------- #

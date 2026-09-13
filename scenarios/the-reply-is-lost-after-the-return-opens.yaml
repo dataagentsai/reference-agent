@@ -1,0 +1,58 @@
+# The return opened, the answer never came back, and the model tries again.
+#
+# Every other perturbation leaves the agent's record and the world agreeing with
+# each other. This is the one that pulls them apart: `open_return_request` runs,
+# the world moves, and then the reply is lost — so the harness's own ledger has
+# nothing written in it, because a ledger cannot record what it was never told.
+# The agent's honest belief is that the return was never opened. It was.
+#
+# `open_return_request` was chosen over `issue_refund` on purpose. It appends an
+# effect and **does not change the order's status**, so a second call is not
+# refused by the domain the way a second refund would be. There is no fallback
+# guard here and nothing else to credit: idempotency either holds or the
+# customer gets two returns. That is what makes this worth a scenario rather
+# than another unit test of the ledger.
+#
+# Two things are being asked, and the second is the one that bites:
+#
+#   1. Does the effect happen once, when the caller was told nothing?
+#   2. Does the agent tell the customer it failed — when it did not?
+#
+# A reply that apologises for a return that is actually open is the same class
+# of damage as F-002: nothing in the world is wrong, and the customer stops
+# expecting the parcel to be collected.
+apiVersion: awd-scenario/v0
+scenario: a lost reply must not open the return twice
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  A tool call lands and its answer is lost. The retry that follows must not
+  repeat the effect, and the customer must not be told that something failed
+  when it succeeded.
+concern: reliability
+discharges: [op:open_return_request, P-RETURN, AHC-0074, AAC-0047, ext:order_system]
+max_turns: 2
+
+actor:
+  says:
+    - please return my order AB-10003
+    - did that go through?
+
+# After the handler, not instead of it. The return is open in the world before
+# this fires, which is the entire difference between this and `channel_error`.
+perturbations:
+  - kind: lost_reply
+    tool: open_return_request
+    at_call: 1
+    message: the order system accepted it and the connection dropped
+
+expect:
+  # The one that matters. Two returns on one order is the failure.
+  - {effect: open_return_request, times: 1}
+  # The order is untouched by a return request, so this pins that the scenario
+  # is reading the effect log rather than a status that never moves.
+  - {row: order, id: AB-10003, field: status, equals: delivered}
+  # And the agent does not claim a failure it cannot actually know about.
+  - {reply: never_says, text: could not}
+  - {reply: never_says, text: did not go through}
+  - {truthful: order, id: AB-10003}

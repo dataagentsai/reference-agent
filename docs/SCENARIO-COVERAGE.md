@@ -30,7 +30,7 @@ distinction this page exists to keep visible.
 - `P-OWNERSHIP` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, planted-instructions
 - `P-REFUND` — refund-needs-a-person, the-reviewer-approves-it-twice
 - `P-REFUND-STATUS` — answered-without-a-model
-- `P-RETURN` — a-customer-who-forgets-the-number, the-window-closes-while-they-talk
+- `P-RETURN` — a-customer-who-forgets-the-number, the-reply-is-lost-after-the-return-opens, the-window-closes-while-they-talk
 - `Q-STEPS` — twelve-steps-and-then-a-person
 - `R-ACCOUNT` — it-will-not-account-deletion
 - `R-DELIVERY-DATE` — it-will-not-invent-a-delivery-date
@@ -47,7 +47,7 @@ distinction this page exists to keep visible.
 - `esc:turns-exceeded` — a-long-conversation-fetches-a-person
 - `ext:approval_queue` — nobody-comes, refund-needs-a-person, the-reviewer-approves-it-twice, the-reviewer-comes-too-late, the-reviewer-says-no
 - `ext:escalation_desk` — a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, asking-for-a-person-four-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, twelve-steps-and-then-a-person, while-a-person-holds-it
-- `ext:order_system` — a-stranger-learns-nothing, stale-read-then-refused, the-address-changes-while-it-can, the-window-closes-while-they-talk
+- `ext:order_system` — a-stranger-learns-nothing, stale-read-then-refused, the-address-changes-while-it-can, the-reply-is-lost-after-the-return-opens, the-window-closes-while-they-talk
 - `fact:consecutive_failed` — the-model-fails-twice
 - `fact:refusals` — refused-twice-reaches-a-person
 - `fact:repeated_intent` — asking-three-times
@@ -58,7 +58,7 @@ distinction this page exists to keep visible.
 - `op:escalate` — a-long-conversation-fetches-a-person, a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, asking-for-a-person-four-times, asking-three-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, the-model-fails-twice, while-a-person-holds-it
 - `op:get_order` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, answered-without-a-model, planted-instructions, the-provider-throttles
 - `op:issue_refund` — refund-needs-a-person, the-reviewer-approves-it-twice
-- `op:open_return_request` — the-window-closes-while-they-talk
+- `op:open_return_request` — the-reply-is-lost-after-the-return-opens, the-window-closes-while-they-talk
 - `op:request_refund` — a-rule-does-not-take-it-from-a-person, nobody-comes, refund-needs-a-person, the-reviewer-approves-it-twice, the-reviewer-comes-too-late, the-reviewer-says-no
 
 ## Reached by no scenario — 0
@@ -88,6 +88,7 @@ fails the suite, so this list cannot absorb work nobody got round to.
 
 Statements from the catalogs rather than this agent's own specification.
 
+- `AAC-0047`
 - `AAC-0055`
 - `AAC-0106`
 - `AAC-0110`
@@ -102,6 +103,7 @@ Statements from the catalogs rather than this agent's own specification.
 - `AHC-0042`
 - `AHC-0057`
 - `AHC-0070`
+- `AHC-0074`
 - `AHC-0088`
 - `AHC-0094`
 - `AHC-0100`

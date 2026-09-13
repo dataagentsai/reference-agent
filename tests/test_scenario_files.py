@@ -215,6 +215,26 @@ def invents_a_delivery_date() -> ScriptedClient:
     )
 
 
+def retries_the_lost_return() -> ScriptedClient:
+    """Asks for the return, is told nothing, and tries the same thing again.
+
+    The retry is the realistic behaviour, not the defect: a model that gets an
+    error back and gives up would leave the customer with no answer at all. What
+    is being tested is whether the *second* attempt is allowed to land."""
+    attempt = ModelResponse(
+        tool_calls=(ToolCall(id="l1", name="open_return_request", arguments={"id": "AB-10003"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    again = ModelResponse(
+        tool_calls=(ToolCall(id="l2", name="open_return_request", arguments={"id": "AB-10003"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    settle = ModelResponse(
+        text="Your return for AB-10003 is open.", usage=Usage(input_tokens=5, output_tokens=2)
+    )
+    return ScriptedClient([attempt, again, settle, settle, settle])
+
+
 SCRIPTS = {
     "it-will-not-invent-a-delivery-date": invents_a_delivery_date,
     "a-rule-does-not-take-it-from-a-person": asks_for_a_refund,
@@ -236,6 +256,7 @@ SCRIPTS = {
     "a-long-conversation-fetches-a-person": answers_plainly,
     "asking-three-times": answers_plainly,
     "while-a-person-holds-it": asks_for_a_human,
+    "the-reply-is-lost-after-the-return-opens": retries_the_lost_return,
 }
 """Scenarios that need the loop, and the reasoning the suite supplies for them.
 Anything absent gets an empty script, so reaching the model at all raises."""
