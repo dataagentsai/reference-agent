@@ -15,6 +15,12 @@ from agenttwin import ChannelError, Live, Slow, StaleRead, Timeline, load, pertu
 from agenttwin.record import diff
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
+from hypothesis.stateful import (
+    Bundle,
+    RuleBasedStateMachine,
+    rule,
+    run_state_machine_as_test,
+)
 
 from support_agent import context as ctx
 from support_agent import entrypoint as ep
@@ -34,6 +40,7 @@ from support_agent.contracts import (
 )
 from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.loop import plan
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -416,3 +423,85 @@ def test_trimming_keeps_the_ends() -> None:
     body = [m for m in assembled if m.role == "user"]
     assert "q0 " in body[0].content
     assert "q11 " in body[-1].content
+
+
+# --------------------------------------------------------------------------- #
+# F-039, as a property rather than four examples.
+#
+# The table in `test_contracts.py` pins the four sequences somebody thought of.
+# This generates them. The defect was found by hand — a reader asked whether a
+# lost reply was covered, a scenario was written, and it failed — and the point
+# of writing it again this way is that none of that had to happen: the invariant
+# below is violated within a handful of examples by the implementation that
+# shipped, with no one suspecting anything.
+#
+# Not settling a call **is** the lost reply. The world moved, nothing on this
+# side was told, and the call is still owed an answer.
+# --------------------------------------------------------------------------- #
+
+WRITES = ["open_return_request", "cancel_order", "issue_refund", "change_address"]
+
+
+class KeyMinting(RuleBasedStateMachine):
+    """Plan, answer and lose calls in any order a run could produce.
+
+    The model kept here is deliberately dumber than the thing it checks: a map
+    of which calls are still owed a reply, and every key ever handed out. Two
+    properties fall out of that, and between them they are the whole contract.
+    """
+
+    calls = Bundle("calls")
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.keys = plan.Keys()
+        self.step = 0
+        self.iteration = 0
+        self.owed: dict[tuple[str, str], str] = {}
+        self.spent: set[str] = set()
+
+    @rule(target=calls, name=st.sampled_from(WRITES), order=st.integers(min_value=0, max_value=3))
+    def a_call_the_model_might_make(self, name: str, order: int) -> tuple[str, str]:
+        return plan.signature(name, {"id": f"AB-1000{order}"})
+
+    @rule(call=calls)
+    def the_model_plans_it(self, call: tuple[str, str]) -> None:
+        minted = self.keys.mint(
+            call, run_id=RunId("run_break"), step=self.step, iteration=self.iteration
+        )
+        self.iteration += 1
+        if call in self.owed:
+            # Still owed an answer, so this is a retry of it. The far end can
+            # only recognise it by the name it saw the first time.
+            assert minted.value == self.owed[call], (
+                f"retry of {call[0]} got a new key: {minted.value} != {self.owed[call]}"
+            )
+        else:
+            # Never asked for, or already answered. Either way a second
+            # execution, and it must not inherit a name already spent — that
+            # would have the far end dedupe an action somebody actually wanted.
+            assert minted.value not in self.spent, f"{call[0]} reused a spent key {minted.value}"
+            self.owed[call] = minted.value
+        self.spent.add(minted.value)
+
+    @rule(call=calls)
+    def it_comes_back(self, call: tuple[str, str]) -> None:
+        self.keys.settled(call)
+        self.owed.pop(call, None)
+
+    @rule()
+    def the_loop_takes_another_step(self) -> None:
+        self.step += 1
+
+
+@pytest.mark.discharges("AAC-0047", "AHC-0074")
+def test_a_retry_never_gets_a_new_name_however_the_run_unfolds() -> None:
+    """The property the four table cases are examples of.
+
+    Written after the fact, and worth having anyway: the sequence that breaks
+    the old implementation is two operations long, which is a fair measure of
+    how much thinking it would have taken to find it this way instead.
+    """
+    run_state_machine_as_test(
+        KeyMinting, settings=settings(max_examples=300, deadline=None, stateful_step_count=12)
+    )

@@ -196,7 +196,7 @@ class HandoffDesk:
         reference with no promise about time. The desk's state chooses."""
         if self.capacity is None:
             return esc.RAISED_REPLY.format(ticket=ticket)
-        if not self.capacity.open:
+        if not not self.capacity.open:
             return esc.CLOSED_REPLY.format(ticket=ticket)
         waiting = self.capacity.estimate_s(len(await self.store.pending()))
         if waiting is None:
