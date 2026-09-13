@@ -1,0 +1,71 @@
+# The agent read the row, the call took a minute, and it acted on what it knew.
+#
+# AHC-0107 is implemented and, until this file, was unreachable. Two facts made
+# it so, and neither is about the rule:
+#
+#   * `Freshness` is built inside `loop.run`, so it lives for one turn and
+#     remembers nothing of the last one.
+#   * The scenario clock moves on `tick()`, once per turn, and reading it never
+#     moves it (F-033).
+#
+# Between them, `now - read_at` inside a turn was always zero, and every belief
+# was always fresh. The mechanism could not fire, the nine branches in
+# `loop/freshness.py` were killed by no scenario, and the kill matrix said so
+# before anybody suspected it.
+#
+# `Slow` was supposed to be the answer — its own docstring calls it "a window
+# opener" — and it slept on the wall clock while the agent read the declared
+# one. It moves the declared clock now, which is the only clock that was ever
+# being measured against.
+#
+# So: the customer asks about two orders and wants one of them cancelled. The
+# agent reads AB-10002, then reads AB-10001 — and *that* call takes ninety
+# seconds against a thirty-second window. By the time the cancellation is
+# planned, what the run knows about AB-10002 is older than the specification
+# allows, and it must go and look again rather than act on what it remembered.
+#
+# The slow call is the second read rather than the first, and that is not a
+# detail. A perturbation fires before the call it delays, so a slow *first* read
+# is answered at the already-advanced moment and is therefore perfectly fresh —
+# which is the trap this scenario fell into on its first draft. What ages a
+# belief is time passing **after** it was formed.
+#
+# The faithful version of this is a slow *model* call: the freshness docstring
+# says outright that the gap "is exactly as long as the model took to think".
+# There is no provider fault for that yet, and a second tool call stands in.
+apiVersion: awd-scenario/v0
+scenario: a belief older than its window is re-read before it is acted on
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  A row read at the start of a turn and acted on at the end of it must not be
+  acted on from memory once the declared freshness window has passed. The agent
+  re-reads, and what comes back is what it acts on.
+concern: reliability
+discharges: [op:cancel_order, op:get_order, P-CANCEL, AAC-0113, ext:order_system]
+max_turns: 1
+
+# One turn, deliberately. Across two turns the freshness state is discarded and
+# the window is moot; the whole question is what happens *within* a run.
+actor:
+  says:
+    - where are my orders AB-10002 and AB-10001, and please cancel AB-10002
+
+# Ninety seconds against a thirty-second window. The number is declared rather
+# than slept: the suite pays nothing and the agent's clock moves.
+perturbations:
+  - kind: slow
+    tool: get_order
+    at_call: 2
+    seconds: 90
+
+expect:
+  # Three: the two the customer asked about, and one more because the run would
+  # otherwise have cancelled against a belief older than its window. Delete the
+  # freshness check and this is 2.
+  - {called: get_order, times: 3}
+  # And the cancellation still happens — the point is that it happens against a
+  # row that was looked at, not that caution costs the customer their request.
+  - {effect: cancel_order, times: 1}
+  - {row: order, id: AB-10002, field: status, equals: cancelled}
+  - {truthful: order, id: AB-10002}

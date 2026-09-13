@@ -128,8 +128,8 @@ async def _run_one(path: pathlib.Path) -> bool:
     scenario = load_scenario(path)
     live = Live.start(load(path.parent / scenario.world))
     timeline = timeline_for(scenario)
-    wrap = perturbed(live, timeline)
     clock = Clock(step_s=scenario.step_seconds)
+    wrap = perturbed(live, timeline, clock)
     async with subject_for(
         live,
         llm=model_for(path.stem),

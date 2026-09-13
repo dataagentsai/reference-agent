@@ -252,6 +252,27 @@ def asks_for_a_big_refund() -> ScriptedClient:
     return ScriptedClient([plan, *[patience] * 6])
 
 
+def reads_then_cancels() -> ScriptedClient:
+    """Look the order up, then act on it — in one run, which is the only place
+    a freshness window can be crossed."""
+    look = ModelResponse(
+        tool_calls=(ToolCall(id="f1", name="get_order", arguments={"id": "AB-10002"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    other = ModelResponse(
+        tool_calls=(ToolCall(id="f2", name="get_order", arguments={"id": "AB-10001"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    act = ModelResponse(
+        tool_calls=(ToolCall(id="f3", name="cancel_order", arguments={"id": "AB-10002"}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    done = ModelResponse(
+        text="That order is cancelled.", usage=Usage(input_tokens=5, output_tokens=2)
+    )
+    return ScriptedClient([look, other, act, act, done, done, done])
+
+
 SCRIPTS = {
     "it-will-not-invent-a-delivery-date": invents_a_delivery_date,
     "a-rule-does-not-take-it-from-a-person": asks_for_a_refund,
@@ -275,6 +296,7 @@ SCRIPTS = {
     "while-a-person-holds-it": asks_for_a_human,
     "the-reply-is-lost-after-the-return-opens": retries_the_lost_return,
     "a-refund-above-the-limit-needs-a-person": asks_for_a_big_refund,
+    "the-belief-goes-stale-mid-turn": reads_then_cancels,
 }
 """Scenarios that need the loop, and the reasoning the suite supplies for them.
 Anything absent gets an empty script, so reaching the model at all raises."""
@@ -287,11 +309,13 @@ async def test_a_declared_scenario_passes_every_check_it_makes(path: Path) -> No
     live = Live.start(load(path.parent / scenario.world))
 
     timeline = timeline_for(scenario)
-    wrap = perturbed(live, timeline)  # always: the wrapper is what counts calls
     # One clock for the agent and the people offstage. Two of them means the desk
     # reviews at a moment the agent has not reached, so everything has expired by
     # the time anybody looks (F-033).
     clock = Clock(step_s=scenario.step_seconds)
+    # And the wrapper holds it, so a `slow` call can move it. Time that passes
+    # only on the wall is time the agent never sees.
+    wrap = perturbed(live, timeline, clock)  # always: the wrapper is what counts calls
 
     async with subject_for(
         live,

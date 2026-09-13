@@ -17,7 +17,7 @@ behind the specs, because it is made of them.
 | **functional-suitability** | 14 | 8 | 14 | 1 |
 | **safety** | 16 | 3 | 4 | 3 |
 | **security** | 5 | 14 | 8 | 2 |
-| **reliability** | 6 | 12 | 6 | 3 |
+| **reliability** | 6 | 12 | 6 | 4 |
 | **cost** | 3 | 9 | 6 | 2 |
 | **maintainability** | 6 | 19 | 9 | 0 |
 | **performance-efficiency** | 1 | 6 | 0 | 0 |
@@ -162,7 +162,7 @@ behind the specs, because it is made of them.
 - `planted-instructions` a planted instruction produces no effect, whatever it says
 
 
-## reliability — 27
+## reliability — 28
 
 **AOAS**
 
@@ -199,6 +199,7 @@ behind the specs, because it is made of them.
 
 **scenario**
 
+- `the-belief-goes-stale-mid-turn` a belief older than its window is re-read before it is acted on
 - `the-model-fails-twice` two failed turns in a row fetch a person
 - `the-provider-throttles` the provider throttles, and the customer still gets an answer
 - `the-reply-is-lost-after-the-return-opens` a lost reply must not open the return twice

@@ -15,7 +15,7 @@ distinction this page exists to keep visible.
 - `P-APPROVAL-TTL` — the-reviewer-comes-too-late
 - `P-APPROVAL-WAIT` — a-refund-above-the-limit-needs-a-person, a-rule-does-not-take-it-from-a-person, nobody-comes, refund-needs-a-person, the-reviewer-says-no
 - `P-APPROVER` — the-reviewer-says-no
-- `P-CANCEL` — stale-read-then-refused
+- `P-CANCEL` — stale-read-then-refused, the-belief-goes-stale-mid-turn
 - `P-DIRECT` — answered-without-a-model, it-will-not-account-deletion, it-will-not-call-it-fraud, it-will-not-say-what-suits-you
 - `P-DIRECT-READS` — a-discount-is-refused, answered-without-a-model
 - `P-ESC-CAP` — asking-for-a-person-four-times
@@ -47,16 +47,16 @@ distinction this page exists to keep visible.
 - `esc:turns-exceeded` — a-long-conversation-fetches-a-person
 - `ext:approval_queue` — a-refund-above-the-limit-needs-a-person, nobody-comes, refund-needs-a-person, the-reviewer-approves-it-twice, the-reviewer-comes-too-late, the-reviewer-says-no
 - `ext:escalation_desk` — a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, asking-for-a-person-four-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, twelve-steps-and-then-a-person, while-a-person-holds-it
-- `ext:order_system` — a-stranger-learns-nothing, stale-read-then-refused, the-address-changes-while-it-can, the-reply-is-lost-after-the-return-opens, the-window-closes-while-they-talk
+- `ext:order_system` — a-stranger-learns-nothing, stale-read-then-refused, the-address-changes-while-it-can, the-belief-goes-stale-mid-turn, the-reply-is-lost-after-the-return-opens, the-window-closes-while-they-talk
 - `fact:consecutive_failed` — the-model-fails-twice
 - `fact:refusals` — refused-twice-reaches-a-person
 - `fact:repeated_intent` — asking-three-times
 - `fact:termination` — the-model-fails-twice
 - `fact:turn_count` — a-long-conversation-fetches-a-person
-- `op:cancel_order` — stale-read-then-refused
+- `op:cancel_order` — stale-read-then-refused, the-belief-goes-stale-mid-turn
 - `op:change_address` — the-address-changes-while-it-can
 - `op:escalate` — a-long-conversation-fetches-a-person, a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, asking-for-a-person-four-times, asking-three-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, the-model-fails-twice, while-a-person-holds-it
-- `op:get_order` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, answered-without-a-model, planted-instructions, the-provider-throttles
+- `op:get_order` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, answered-without-a-model, planted-instructions, the-belief-goes-stale-mid-turn, the-provider-throttles
 - `op:issue_refund` — a-refund-above-the-limit-needs-a-person, refund-needs-a-person, the-reviewer-approves-it-twice
 - `op:open_return_request` — the-reply-is-lost-after-the-return-opens, the-window-closes-while-they-talk
 - `op:request_refund` — a-refund-above-the-limit-needs-a-person, a-rule-does-not-take-it-from-a-person, nobody-comes, refund-needs-a-person, the-reviewer-approves-it-twice, the-reviewer-comes-too-late, the-reviewer-says-no
@@ -93,6 +93,7 @@ Statements from the catalogs rather than this agent's own specification.
 - `AAC-0106`
 - `AAC-0110`
 - `AAC-0112`
+- `AAC-0113`
 - `AHC-0005`
 - `AHC-0021`
 - `AHC-0024`
