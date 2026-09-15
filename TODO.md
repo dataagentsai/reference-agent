@@ -572,6 +572,58 @@ regeneration dropped a capability we never checked" are the same observation.
 proves each and add the tag. Where none exists, the gap is real and worth
 knowing about before T-008 runs rather than after.
 
+## T-010 · The constraints that produced this shape are in no specification
+
+**Status** Not started. Raised 2026-09-16. **Blocks T-008 being interpretable.**
+
+**What is missing.** A fourth artifact, beside AAC, AHC and AgentTwin, stating
+what **shape** the code must take. The family currently says what must be TRUE,
+what must EXIST and what must be FACED. It says nothing about structure — and
+structure is what a regeneration would visibly differ on.
+
+**It cannot be part of AHC, and the reason is AHC's own value.** That catalog is
+stack-agnostic on purpose: the same capabilities are meant to hold whether the
+harness is LangGraph, an SDK, or a hand-rolled loop. These constraints are
+stack-bound. "Modules under 416 lines" means nothing to a graph; "arrows point
+down only" is an import-linter concept; "only the composition root constructs a
+realisation" presumes composition roots. Folding them in would smuggle one
+language's opinions into a catalog that claims to transcend them, and the cost
+would be paid by every reader who does not use Python. It belongs beside the
+**binding** — the other stack-bound artifact — rather than inside a catalog.
+
+**This is extraction, not design.** All of it exists, is enforced, and is green:
+
+*The import contract* (`pyproject.toml`) — `Arrows point down` as layers with
+`exhaustive = true`, so a new module cannot be added without being placed. Four
+forbidden-module contracts, each failing closed with exactly one exception: only
+`llm` sees a provider SDK, only `tools` speaks MCP, only `state` and
+`idempotency` see psycopg, and the agent cannot see its simulator.
+
+*The ratchets* (`tests/test_build_checks.py`) — one-way ceilings set at the worst
+offender the day they were measured: complexity 14 → 8, statements 50 → 24,
+branches 12 → 7, longest module 744 → 416, `type: ignore` at 2.
+
+*The structural tests* — only the composition root constructs a realisation;
+every collaborator the root takes is an interface; every failure declares its
+kind; every counter declared is incremented somewhere.
+
+*`mypy --strict`* with `exhaustive-match`, so a new route or result kind fails
+the build rather than falling through the last branch.
+
+**Why it matters, and it is the reason to do it before T-008.** The architecture
+review records that the ratchets *"forced five extractions in the last two days,
+each of which turned out to be a job with a name."* The module structure was not
+designed — it was produced by the ceilings. So the testable claim is: a
+regeneration handed the ceilings arrives at a similar structure, and one handed
+only AHC does not. Without this artifact, T-008 can only report that the shapes
+differ; with it, T-008 can ask whether the constraints are what carries shape.
+
+**Open questions**, deliberately not answered here: what it is called; whether
+the numbers travel (416 is this codebase's history, not a law) or only the
+*mechanism* of a one-way ratchet does; and whether a TypeScript sibling would
+share anything but the mechanism. The last is the test of whether this is one
+artifact with bindings or a family of them.
+
 ---
 
 ## The queue
@@ -587,3 +639,4 @@ knowing about before T-008 runs rather than after.
 | T-007 | Every scenario runs once, so nothing measures reliability — discharges AAC-0010 | 2026-09-16 |
 | **T-008** | **The regeneration claim has never been run — the point of the whole family** | 2026-09-16 |
 | T-009 | Seven capabilities believed met with no test naming them | 2026-09-16 |
+| **T-010** | **The constraints that produced this shape are in no specification** | 2026-09-16 |
