@@ -517,6 +517,31 @@ the catalog states badly, not a bad generation. That is the output worth having,
 and the reason to run it before the catalogs are declared finished rather than
 after.
 
+**And the result has to be read against a circularity.** The AOAS declares its
+own `sources`, and two of the three are this repository — `worlds/clothing.yaml`
+and `src/support_agent/{router,policy,approvals,escalation,identity,config}`.
+Part of the specification was written *from* the code it would be regenerating.
+So a close match is ambiguous by construction: it may mean the spec is
+sufficient, or it may mean the spec was read off that exact structure. This is
+not a reason to skip the experiment — it is a reason to say it out loud before
+running, rather than discovering it while interpreting the result.
+
+Two things reduce it. The **scenarios** and the **golden set** are the parts a
+regeneration is honestly judged by, and neither was derived from module
+structure: the golden cases are generated from declared conditions, and the
+scenarios assert over a world. The parts most likely to be contaminated are the
+structural ones — which is the second reason similarity is defined as passing
+the scenarios rather than as a diff.
+
+**What the spec does not constrain at all**, and is worth predicting before the
+run so the prediction can be wrong: nothing declares the typed `TurnResult`
+union, the conversation-as-one-blob, the five policy positions, the split of
+`escalation` into wording/capacity/store/workflow, or gates running before
+routing. Those came from the ratchets and the import contract in
+`pyproject.toml` — which live here and not in any specification. A regeneration
+in an empty folder gets none of that pressure, and if the goal is that it
+should, the ratchets are a spec artifact nobody has written down.
+
 ## T-009 · Seven capabilities are believed met and named by no test
 
 **Status** Not started. Raised 2026-09-16. **Do before T-008.**
