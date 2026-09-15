@@ -377,6 +377,67 @@ the cheap version; storing the key and refusing a repeat is the complete one.
 make the effect safe to repeat, and give the repeat a name the far end
 recognises.
 
+## T-006 · A customer's own conversations cannot be found
+
+**Status** Not started. Raised 2026-09-15. **Needs T-002 first.**
+
+**What is missing.** A returning customer cannot be given back anything. Close
+the browser and `conversationId` — a `let` in the page, not `localStorage` — is
+gone, so the next message carries no id and `_conversation_for` mints a fresh
+conversation. Six past conversations, two of them with something still open, and
+nothing connects them to the person in front of us.
+
+Two separate questions are hiding in that, and only one of them is close.
+
+*"What do I have open?"* — nearly reachable. `approvals` and `escalations` both
+carry `customer_id NOT NULL` already. What is absent is a **query**: the
+protocols offer `open_for(conversation_id)` and `pending()`, which are the
+agent's view and the reviewer's view. Neither is the customer's.
+
+*"Continue the one about AB-10003."* — the data exists and is unreachable.
+`facts.records` is precisely *which identifiers this conversation touched*, and
+it is deliberately bounded: a customer who asks about the same order nine times
+costs one entry, and nothing in it is ever dropped by age. But it lives inside
+the `state` blob, and `agent_state.checkpoints` has no `customer_id` column at
+all — the customer is *in* the row and cannot be selected on. The tables already
+disagree about this: two of the three treat a customer as a first-class thing
+and the third does not.
+
+**Why it matters.** It is T-001's third reason with a record behind it. A
+customer who raised `esc_7`, closed the tab, and came back has an escalation
+still `queued` in Postgres, findable by conversation id, that nothing will ever
+ask for. They must quote the reference themselves — assuming they wrote it down
+— which is the state `HandoffDesk` already names as the failure worth avoiding:
+*an escalation that made the customer repeat everything is the moment an
+assistant becomes worse than no assistant.*
+
+**Where it would land**, in the order the blockers allow:
+
+1. `customer_id` on `agent_state.checkpoints`, with an index. One migration, and
+   it unblocks every version of this.
+2. `open_for_customer(...)` on `ApprovalStore` and `EscalationStore` — the
+   greeting T-001 wants, and the cheapest half.
+3. A `conversation_records(conversation_id, record)` index written beside the
+   checkpoint, so *"the chat about AB-10003"* is a join rather than a scan of
+   every blob.
+4. Resume by carrying **`facts`, not messages.**
+
+**Step 4 is the one to argue about before building.** Prepending an old
+transcript is the obvious implementation and the wrong one: the assembly window
+is 24,000 characters and trims whole exchanges from the middle, so an old
+conversation pushes out the turns the model is actually answering.
+`facts.as_handoff()` already exists and is what a *human* colleague is given —
+assembled from the record, never summarised from the transcript (AHC-0108,
+AHC-0070). Resuming should mean the agent knows AB-10003 was returned and a
+refund is pending, not that it has forty old messages.
+
+**And it is a disclosure surface.** Pulling a past conversation means the agent
+knows things this session's customer never said. `_conversation_for` already
+refuses a mismatched owner with a 404 rather than a 403, because confirming the
+id exists tells an attacker their guess was right; the same check has to hold on
+every new path, and a shared device or an impersonated session is where it gets
+tested.
+
 ---
 
 ## The queue
@@ -388,3 +449,4 @@ recognises.
 | T-004 | An Anthropic adapter at L2 — closes three open items, one module | 2026-09-05 |
 | T-005 | Carry the idempotency key downstream — carries F-017 | 2026-09-05 |
 | **T-002** | **No login exists, and the permission model cannot express ownership — carries F-016** | 2026-09-05 |
+| T-006 | A customer's own conversations cannot be found — needs T-002 | 2026-09-15 |
