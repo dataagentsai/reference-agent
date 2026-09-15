@@ -674,6 +674,124 @@ test, so the classification cannot rot silently — but the layer assignments
 themselves are judgement, recorded once, by one reader. If the thesis rests on
 that split, the split deserves more than a list.
 
+## T-012 · Trace every mechanism file back to a spec statement
+
+**Status** Not started. Raised 2026-09-16. **Do first of the hole-finding set —
+hours, no new artifact, and it attacks the largest gap.**
+
+**What is missing.** A reason, per file, for the 77%. `evals/reuse.py` says 46
+files and 7865 lines are mechanism — the part a second agent keeps. Nothing says
+*why each one has to exist*. Until that is written down, "the specs are
+sufficient" is a claim about the part of the codebase nobody has justified.
+
+**The exercise.** For each of the 46 mechanism files, answer one question: **which
+spec statement requires this file to exist?** Cite it — an AHC capability, an AAC
+obligation, an AOAS statement. Three outcomes and all are useful:
+
+*A statement names it.* Good. That file is spec-supplied.
+*No statement names it and the file is load-bearing.* A hole in the spec set, found
+for the price of reading.
+*No statement names it and nobody can say what breaks without it.* A candidate for
+deletion, which is the cheaper finding.
+
+**Why before T-011 and T-013.** Those test the 22% that is already best covered —
+the values and the domain. This attacks the 77% that no specification describes
+structurally, which is where the thesis is weakest and where T-010's argument
+either holds or does not.
+
+**Expect the answer to be uncomfortable.** `loop/freshness.py` traces to AHC-0107
+cleanly. `entrypoint/persist.py` exists because three call sites once wrote the
+conversation and none capped it — a defect, not a statement. Files in the second
+category are the interesting ones: the codebase knows something the catalogs do
+not say.
+
+---
+
+## T-013 · Write the Spark cost analyst AOAS — the adversarial shape
+
+**Status** Not started. Raised 2026-09-16. **Sibling of T-011, different failure
+mode expected.**
+
+**What is missing.** Evidence that the specification set describes an agent that
+is **not shaped like this one**. T-011 varies the domain and keeps the shape;
+this varies the shape and is therefore the sharper test.
+
+**The agent.** Case 2 of `LearnAgenticHarnessFrameworks/11-worked-examples.md` —
+reads Spark event logs and Delta metadata, finds expensive jobs, diagnoses why,
+writes up the evidence. It is also CostLens, which is the only argument that
+carries against the single-thread decision.
+
+**What it removes**, and this is the point:
+
+    who is waiting        a customer, live      →  nobody, it runs nightly
+    a run lasts           seconds               →  twenty minutes to two hours
+    shape                 turns, a conversation →  one long task, no turns
+    writes                yes, gated            →  read-only
+    approvals, escalation central               →  absent entirely
+    context               fits easily           →  the entire job
+
+Three of this agent's load-bearing concerns — approvals, escalation, irreversible
+effect gating — are simply not present there. So the question is not whether the
+format can say new things, it is whether it **degrades gracefully**: can an AOAS
+describe an agent with no approval gate without the omission reading as an
+oversight? If the format can only describe an agent shaped like this one, that is
+a hole and a large one.
+
+**And it inverts the pressure on context.** Context lifecycle is a *Must* for that
+agent and barely exercised here. Four of the seven context handlers are unbuilt —
+Offloader, Selector, Deduplicator, Compactor — and that agent needs at least the
+first two. Whether "deliberately absent" survives a second shape is a real test
+of that table, not a rhetorical one.
+
+---
+
+## T-014 · Delete a capability and see whether anything notices
+
+**Status** Not started. Raised 2026-09-16. **An afternoon.**
+
+**What is missing.** Evidence that the seven `x_untested` capabilities are *real*
+rather than believed. T-009 adds tags to the tests that already prove them; this
+asks the prior question — is there anything to tag?
+
+**The exercise.** Take one of AHC-0002, 0004, 0006, 0010, 0020, 0026, 0036.
+Remove the code that implements it. Run everything. If nothing fails, that
+capability is not exercised here, and the profile's `x_untested` entry is
+optimistic rather than merely untagged.
+
+It is mutation testing pointed at the **specification** instead of the code, and
+the instrument already exists: `scripts/scenario_kill_matrix.py` does exactly this
+for branches. Doing it for capabilities is the same technique one level up.
+
+**Why it matters more than it looks.** The architecture review calls these seven
+*the best available prediction of where a regeneration will disappoint, because
+nothing would notice if one quietly went missing.* That sentence contains a
+testable claim and nobody has tested it.
+
+---
+
+## T-015 · Ask a fresh model to describe the structure from the specs alone
+
+**Status** Not started. Raised 2026-09-16. **Five minutes. The cheapest item here.**
+
+**What is missing.** Any evidence at all about whether the specs carry structure.
+T-008 answers it expensively by generating a whole agent. This answers a weaker
+version for nothing.
+
+**The exercise.** Hand the AOAS, AHC and AAC to a model with no access to this
+repository and ask it to **describe** — not generate — the module structure it
+would build. Then compare with `entrypoint / loop / policy / context / state /
+approvals / escalation`.
+
+**How to read it.** A close answer weakens T-010's argument and is worth knowing.
+A distant answer confirms the structural gap for the price of one prompt, and
+does so *before* T-008 spends real effort discovering it.
+
+**One caution.** A model that has read this repository during training, or that
+recognises the shape from public patterns, gives a false positive. Run it on the
+specs alone, in a clean context, and treat a suspiciously exact answer as
+evidence of contamination rather than of sufficiency — the same caution T-008
+carries about the AOAS citing this repo among its sources.
+
 ---
 
 ## The queue
@@ -691,3 +809,7 @@ that split, the split deserves more than a list.
 | T-009 | Seven capabilities believed met with no test naming them | 2026-09-16 |
 | **T-010** | **The constraints that produced this shape are in no specification** | 2026-09-16 |
 | **T-011** | **Write the hotel AOAS and nothing else — is the spec set complete?** | 2026-09-16 |
+| **T-012** | **Trace every mechanism file back to a spec statement — do this first** | 2026-09-16 |
+| T-013 | Write the Spark cost analyst AOAS — the adversarial shape | 2026-09-16 |
+| T-014 | Delete a capability and see whether anything notices | 2026-09-16 |
+| T-015 | Ask a fresh model to describe the structure from the specs alone | 2026-09-16 |
