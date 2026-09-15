@@ -438,6 +438,45 @@ id exists tells an attacker their guess was right; the same check has to hold on
 every new path, and a shared device or an impersonated session is where it gets
 tested.
 
+## T-007 · Every scenario runs once, so nothing measures reliability
+
+**Status** Not started. Raised 2026-09-16. **Discharges `AAC-0010`, currently in
+`NOT_EXERCISED.md`.**
+
+**What is missing.** A number for *how often the agent gets it right*, as opposed
+to *whether it can*. Every scenario runs exactly once, against a scripted model,
+so the suite is deterministic by construction: it proves the harness works and
+says nothing about the agent's consistency. `AAC-0010` — variance across repeated
+runs is bounded — has no test behind it and this is why.
+
+**What the field uses.** τ-bench's `pass^k`: the probability that **all k**
+trials of a task succeed, averaged over tasks. Deliberately the opposite of
+`pass@k`, which asks whether *at least one* of k succeeds and suits code
+generation, where you can generate ten candidates and ship whichever passes. A
+support agent has no such luxury — every customer gets one attempt — so the
+metric that matters is the pessimistic one.
+
+**Why it matters.** The numbers do not degrade gently. A retail agent reported at
+61% mean accuracy is at **25%** by `pass^8`. Mean accuracy hides exactly the
+property a deployment cares about, and hides it worse the more the agent is used.
+Frontier models sit below 70% on τ-bench `pass^1` for retail and near 46% for
+airline, which is the honest shape of this problem and not a reason to avoid
+measuring it.
+
+**Where it would land.** The pieces mostly exist: `--live` in `scripts/run_view.py`
+and `scripts/live_runs.py` already drive a real provider. What is absent is
+running one scenario *n* times and reporting, per scenario, how many of the *n*
+passed — then `pass^k` as `C(c, k) / C(n, k)` averaged across scenarios. It
+belongs beside the run view rather than in the pytest suite: a reliability figure
+is a report, not a gate, and a flaky test that fails 30% of the time gets
+disabled within a week.
+
+**What not to do.** Do not adopt τ-bench's 165 tasks. Different domain, and their
+policy is prose in a prompt where ours is declared and machine-checkable — taking
+their cases would mean giving that up. **Do** read the retail policy document as
+a cross-check on the AOAS: it is 115 tasks' worth of edge cases somebody has
+already thought through for a retail support agent.
+
 ---
 
 ## The queue
@@ -450,3 +489,4 @@ tested.
 | T-005 | Carry the idempotency key downstream — carries F-017 | 2026-09-05 |
 | **T-002** | **No login exists, and the permission model cannot express ownership — carries F-016** | 2026-09-05 |
 | T-006 | A customer's own conversations cannot be found — needs T-002 | 2026-09-15 |
+| T-007 | Every scenario runs once, so nothing measures reliability — discharges AAC-0010 | 2026-09-16 |
