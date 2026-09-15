@@ -42,7 +42,7 @@ from support_agent.contracts import ModelResponse
 from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import GroqClient, ScriptedClient
 from support_agent.resilience import ResilientLLM
-from support_agent.state import FileCheckpointStore
+from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -93,7 +93,18 @@ async def main(real: bool, port: int) -> None:
         agent = ep.build(
             llm=llm,
             tools=tools,
-            store=FileCheckpointStore(os.path.join(HERE, ".state")),
+            # One row, not three-quarters of one. This was `FileCheckpointStore`
+            # beside three in-memory stores, which bought the worst of both: the
+            # conversation survived a restart still saying "a colleague has your
+            # refund, reference apr_3", and apr_3 did not. A folder that outlives
+            # what it points at lies to the customer; a folder that dies with them
+            # merely starts again. `build` now refuses the mixture outright.
+            #
+            # The durable row is Postgres, and it is not offered here yet because
+            # it is not a whole row either — the delivery log has no durable
+            # implementation at all (T-003), so `--postgres` would trip the same
+            # check. That is the check doing its job rather than a gap in it.
+            store=InMemoryCheckpointStore(),
             approvals=ap.InMemoryApprovalStore(),
             escalations=escalations,
             # A measured desk, so the demo shows a real wait rather than a

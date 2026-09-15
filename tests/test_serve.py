@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 from contextlib import asynccontextmanager
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -299,3 +300,63 @@ def test_the_desk_and_the_agent_share_one_escalation_store(
             serve.build(agent, secret=SECRET, escalations=given)
     else:
         serve.build(agent, secret=SECRET, escalations=given)
+
+
+# --------------------------------------------------------------------------- #
+# The same question in the other dimension: not *which* store, but whether they
+# agree about surviving a restart.
+# --------------------------------------------------------------------------- #
+
+DURABILITY = [
+    # (name, conversation store, approval store, must raise)
+    ("everything in memory is a whole row", "memory", "memory", False),
+    ("everything durable is a whole row", "file", "postgres", False),
+    ("a durable folder beside a volatile approval store is refused", "file", "memory", True),
+    ("a volatile folder beside a durable approval store is refused", "memory", "postgres", True),
+    ("an approval store that states nothing is not second-guessed", "file", "silent", False),
+]
+
+
+@pytest.mark.discharges("B3")
+@pytest.mark.parametrize(
+    ("name", "conversation", "approvals", "raises"), DURABILITY, ids=[d[0] for d in DURABILITY]
+)
+def test_the_stores_agree_about_what_a_restart_costs(
+    name: str, conversation: str, approvals: str, raises: bool, tmp_path
+) -> None:
+    """A conversation that outlives what it points at loses the pointer silently.
+
+    The folder comes back saying a colleague has the refund; the approval it
+    names does not; `resume` reads the absence as nothing to resume and answers
+    the next question as though nothing were owed.
+
+    The last case is the one worth keeping honest: a store that declares no
+    `durable` at all is left alone rather than assumed volatile. Guessing on a
+    caller's behalf here would refuse perfectly good wiring, and the check would
+    be switched off within a week.
+    """
+    from support_agent.approvals.store import InMemoryApprovalStore
+    from support_agent.state import FileCheckpointStore
+
+    class Silent:
+        """No opinion about restarts, and none invented for it."""
+
+    class DurableApprovals(InMemoryApprovalStore):
+        durable = True
+
+    folder = {
+        "memory": InMemoryCheckpointStore,
+        "file": lambda: FileCheckpointStore(tmp_path),
+    }[conversation]()
+    queue = {
+        "memory": InMemoryApprovalStore,
+        "postgres": DurableApprovals,
+        "silent": Silent,
+    }[approvals]()
+
+    build = partial(ep.build, llm=ScriptedClient([]), tools=None, store=folder, approvals=queue)
+    if raises:
+        with pytest.raises(ValueError, match="loses the pointer silently"):
+            build()
+    else:
+        build()

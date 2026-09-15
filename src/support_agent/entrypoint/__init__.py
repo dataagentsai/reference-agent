@@ -58,7 +58,7 @@ from support_agent.cost import Meter
 from support_agent.entrypoint import direct, promise
 from support_agent.entrypoint.handoff import Handoff, HandoffDesk, NoDesk
 from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
-from support_agent.entrypoint.persist import TurnPersister
+from support_agent.entrypoint.persist import TurnPersister, agree_on_durability
 from support_agent.escalation import rules as t2
 from support_agent.state import Conversation, TurnNote, facts
 from support_agent.telemetry import counters
@@ -370,6 +370,9 @@ def build(
     rule, since an import contract cannot see a module that fetches a
     collaborator instead of being handed one.
     """
+    agree_on_durability(
+        conversation=store, approvals=approvals, escalations=escalations, deliveries=deliveries
+    )
     if metering is None and config is not None:
         metering = partial(Meter, config.model, ceiling_usd=config.budgets.max_cost_usd)
     if metering is not None:

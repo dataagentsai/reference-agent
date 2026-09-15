@@ -218,9 +218,7 @@ def namespace_keyframes(css: str, js: str, prefix: str) -> tuple[str, str]:
     names = set(re.findall(r"@(?:-webkit-)?keyframes\s+([-\w]+)", css))
     for name in sorted(names, key=len, reverse=True):
         tag = f"{prefix}-{name}"
-        css = re.sub(
-            rf"(@(?:-webkit-)?keyframes\s+){re.escape(name)}\b", rf"\g<1>{tag}", css
-        )
+        css = re.sub(rf"(@(?:-webkit-)?keyframes\s+){re.escape(name)}\b", rf"\g<1>{tag}", css)
         css = re.sub(
             rf"(animation(?:-name)?\s*:[^;}}]*?)\b{re.escape(name)}\b",
             rf"\g<1>{tag}",
@@ -232,9 +230,7 @@ def namespace_keyframes(css: str, js: str, prefix: str) -> tuple[str, str]:
 
 # ------------------------------------------------------------- part extraction
 
-_DROP = re.compile(
-    r"<!doctype[^>]*>|</?html[^>]*>|</?head[^>]*>|</?body[^>]*>|<meta[^>]*>", re.I
-)
+_DROP = re.compile(r"<!doctype[^>]*>|</?html[^>]*>|</?head[^>]*>|</?body[^>]*>|<meta[^>]*>", re.I)
 
 # What a reader can jump to: a prose section, or one scenario's collapsed run.
 _LANDMARK = re.compile(r'<(section|details)\b[^>]*\bid="([^"]+)"[^>]*>', re.I)
@@ -250,9 +246,7 @@ class Part:
         self.standfirst = standfirst
         self.scope = f".part-{key}"
 
-        self.fonts = re.findall(
-            r'<link\b[^>]*rel="stylesheet"[^>]*>', source, re.I
-        )
+        self.fonts = re.findall(r'<link\b[^>]*rel="stylesheet"[^>]*>', source, re.I)
         self.css = "\n".join(re.findall(r"<style[^>]*>(.*?)</style>", source, re.S))
         self.js = "\n".join(re.findall(r"<script[^>]*>(.*?)</script>", source, re.S))
 
@@ -542,7 +536,7 @@ def build(fast: bool) -> str:
                 fonts.append(link)
 
     contents = "".join(
-        f'<section><h2>{i + 1:02d} · {e(p.title)}</h2><ol>'
+        f"<section><h2>{i + 1:02d} · {e(p.title)}</h2><ol>"
         + "".join(
             f'<li><span>{j + 1:02d}</span><a href="#{e(pid)}">{e(text)}</a></li>'
             for j, (pid, text) in enumerate(p.entries())
@@ -551,9 +545,7 @@ def build(fast: bool) -> str:
         for i, p in enumerate(parts)
     )
 
-    bar = "".join(
-        f'<a href="#part-{p.key}">{e(p.title.split(",")[0])}</a>' for p in parts
-    )
+    bar = "".join(f'<a href="#part-{p.key}">{e(p.title.split(",")[0])}</a>' for p in parts)
 
     body = "".join(
         f'<div class="part part-{p.key}" id="part-{p.key}">'
@@ -591,9 +583,7 @@ was generated. Parts one and four are authored prose, kept as written.</p>
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Build the one page.")
-    ap.add_argument(
-        "--fast", action="store_true", help="skip the scenario runs (part three)"
-    )
+    ap.add_argument("--fast", action="store_true", help="skip the scenario runs (part three)")
     args = ap.parse_args()
     page = build(args.fast)
     DEST.write_text(page, encoding="utf-8")
