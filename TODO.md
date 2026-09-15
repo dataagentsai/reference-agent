@@ -477,6 +477,76 @@ their cases would mean giving that up. **Do** read the retail policy document as
 a cross-check on the AOAS: it is 115 tasks' worth of edge cases somebody has
 already thought through for a retail support agent.
 
+## T-008 · The regeneration claim has never been run
+
+**Status** Not started. Raised 2026-09-16. **The point of the whole family.**
+
+**What is missing.** An experiment. The claim the spec family exists to support
+is that the catalogs plus the agent specification are sufficient to *produce* an
+agent — hand them to a generator in an empty folder and get similar code back.
+Nothing has ever tested that. Not once, not partially.
+
+**What is tested is the opposite direction.** 487 tests, AHC 50/72, AAC 44/52,
+AOAS 50/55 — every one of them asks *does this code satisfy the specification*.
+None asks *is the specification sufficient to produce this code*. A suite can be
+perfect at the first and say nothing about the second, and ours is.
+
+**The seven known weak points.** `harness-profile.yaml`'s `x_untested` lists the
+capabilities believed met with no test naming them — AHC-0002, 0004, 0006, 0010,
+0020, 0026, 0036. The architecture review already states what they are for: *the
+best available prediction of where G1's first regeneration will disappoint,
+because nothing would notice if one quietly went missing.* Closing those is worth
+doing **before** the experiment, not after, or the first run produces a result
+nobody can interpret.
+
+**Where it would land.** A second directory, the specs, and a generator, with
+three things fixed in advance so the result means something:
+
+*What counts as "similar".* Not a diff. The scenarios are implementation-
+independent by construction — `Subject` is three callables — so the honest
+measure is **does the regenerated agent pass the same 34 scenarios and discharge
+the same statements**. Structural similarity is a second, weaker question.
+
+*The binding is part of the experiment.* `evals/simulation.py` is this agent's
+binding to the scenario contract. A regeneration must supply its own, and
+whether a fresh generation produces something a binding can attach to at all is
+itself a finding — arguably the first one.
+
+*What a failure teaches.* A capability the regeneration misses is a capability
+the catalog states badly, not a bad generation. That is the output worth having,
+and the reason to run it before the catalogs are declared finished rather than
+after.
+
+## T-009 · Seven capabilities are believed met and named by no test
+
+**Status** Not started. Raised 2026-09-16. **Do before T-008.**
+
+**What is missing.** Seven `discharges` tags. `harness-profile.yaml` lists them
+under `x_untested`, deliberately separated from `accepted_gaps` because the two
+are different claims and this is the weaker one:
+
+    AHC-0002  context assembly is one function, and it is inspectable
+    AHC-0004  the choke point exists; the import contract is tested, the claim is not tagged
+    AHC-0006  spans carry the run id across the hops
+    AHC-0010  `Agent.handle` is the entrypoint scenarios drive
+    AHC-0020  the fan-out limiter is bounded by the harness
+    AHC-0026  the run id spans the unit of work
+    AHC-0036  every tool declares an argument contract, validated at dispatch
+
+**Why it matters.** Several are almost certainly already exercised by a test that
+simply does not name them — AHC-0010 in particular, since every scenario drives
+`Agent.handle`. That makes this cheap. It also makes it easy to leave, which is
+why it has sat.
+
+The cost of leaving it is stated in the architecture review: these are where a
+regeneration will disappoint, *because nothing would notice if one quietly went
+missing.* Until each has a test naming it, "the regeneration matched" and "the
+regeneration dropped a capability we never checked" are the same observation.
+
+**Where it would land.** Existing tests, mostly — find the test that already
+proves each and add the tag. Where none exists, the gap is real and worth
+knowing about before T-008 runs rather than after.
+
 ---
 
 ## The queue
@@ -490,3 +560,5 @@ already thought through for a retail support agent.
 | **T-002** | **No login exists, and the permission model cannot express ownership — carries F-016** | 2026-09-05 |
 | T-006 | A customer's own conversations cannot be found — needs T-002 | 2026-09-15 |
 | T-007 | Every scenario runs once, so nothing measures reliability — discharges AAC-0010 | 2026-09-16 |
+| **T-008** | **The regeneration claim has never been run — the point of the whole family** | 2026-09-16 |
+| T-009 | Seven capabilities believed met with no test naming them | 2026-09-16 |
