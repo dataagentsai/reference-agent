@@ -624,6 +624,56 @@ the numbers travel (416 is this codebase's history, not a law) or only the
 share anything but the mechanism. The last is the test of whether this is one
 artifact with bindings or a family of them.
 
+## T-011 · Write the hotel AOAS and nothing else
+
+**Status** Not started. Raised 2026-09-16. **Do before T-008. A day, not weeks.**
+
+**What is missing.** Evidence that the specification set is *complete* — that
+everything a second agent must change has somewhere to be said. Not evidence
+that a regeneration works; that is T-008 and it is expensive. This is the cheap
+falsifiable version, and it can be run without generating a line of code.
+
+**The measurement this rests on.** `evals/reuse.py` already classifies every
+module for exactly this question, and the numbers as of 2026-09-16:
+
+    mechanism       46 files   7865 lines   77.2%   a second agent keeps the file
+    parameterised    9 files   1663 lines   16.3%   keeps the code, replaces the values
+    per-agent        5 files    662 lines    6.5%   writes its own
+
+So roughly 94% of this code survives a change of domain. The five rewritten are
+`contracts/domain.py`, `entrypoint/direct.py`, `approvals/refund.py`,
+`escalation/wording.py`, `ui/__init__.py`.
+
+**The exercise.** Take those five, plus the nine parameterised modules —
+`router`, `approvals/policy`, `escalation/rules`, `policy`, `binding`, `config`,
+`approvals`, `entrypoint/promise`, `telemetry/contract` — and write the AOAS for
+a hotel support agent. Only the AOAS. Then ask, item by item: **does the format
+have a place to say this?**
+
+Where it does, that value is spec-supplied and the thesis holds for that piece.
+Where it does not, a hole in AOAS has been found for the price of a day.
+
+**Why the parameterised layer is the real subject.** Its own docstring calls it
+the dangerous one: *universal code, this agent's values… a bug in the values
+reads as a bug in the mechanism.* The per-agent five are obviously per-agent and
+nobody will forget them. The nine are the ones that look shared and are not, and
+they are where an incomplete AOAS does its damage quietly — a regenerated agent
+inherits `router/__init__.py`'s shape and this agent's regexes, and passes
+review.
+
+**What this does not test**, stated so the result is not over-read: it says
+nothing about whether the 77% mechanism layer would be *reproduced*. That layer
+is the part no specification describes structurally — AHC constrains that a
+provider choke point exists, not that it is a Protocol in the bottom layer that
+adapters satisfy without importing. That gap is T-010, and this exercise is the
+argument for it rather than a substitute.
+
+**And the artifact this leans on is thin.** `evals/reuse.py` is a hand-maintained
+list of filenames. Its one safeguard is that a module with no layer fails the
+test, so the classification cannot rot silently — but the layer assignments
+themselves are judgement, recorded once, by one reader. If the thesis rests on
+that split, the split deserves more than a list.
+
 ---
 
 ## The queue
@@ -640,3 +690,4 @@ artifact with bindings or a family of them.
 | **T-008** | **The regeneration claim has never been run — the point of the whole family** | 2026-09-16 |
 | T-009 | Seven capabilities believed met with no test naming them | 2026-09-16 |
 | **T-010** | **The constraints that produced this shape are in no specification** | 2026-09-16 |
+| **T-011** | **Write the hotel AOAS and nothing else — is the spec set complete?** | 2026-09-16 |
