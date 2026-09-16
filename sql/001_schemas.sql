@@ -99,6 +99,15 @@ CREATE TABLE IF NOT EXISTS agent_state.escalations (
     ))
 );
 
+-- A customer's login, kept so a chat channel can act for them (T-026). The
+-- refresh token is Fernet ciphertext; the key lives with the process, never
+-- here. Deleting the row is logout reaching the agent.
+CREATE TABLE IF NOT EXISTS agent_state.sessions (
+    subject         text PRIMARY KEY,          -- the login's `sub`, not the customer
+    refresh_token   bytea       NOT NULL,
+    updated_at      bigint      NOT NULL
+);
+
 -- The hot path: every turn of an escalated conversation asks "is one open?".
 -- Partial, because a resolved escalation is never read this way.
 CREATE INDEX IF NOT EXISTS escalations_open

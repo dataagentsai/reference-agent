@@ -49,6 +49,7 @@ MECHANISM = {
     "idempotency/__init__.py",
     "idempotency/postgres.py",
     "identity/__init__.py",
+    "identity/sessions.py",
     "llm/__init__.py",
     "loop/__init__.py",
     "loop/dispatch.py",

@@ -56,6 +56,7 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `entrypoint/handoff.py` | AAC-0110, AHC-0070, AHC-0108, P-ESC-CAP |
 | `idempotency/__init__.py` | AHC-0074 |
 | `identity/__init__.py` | AAC-0057, AAC-0106 |
+| `identity/sessions.py` | AAC-0057, AHC-0099 |
 | `llm/__init__.py` | AAC-0009, AHC-0001, AHC-0022, AHC-0024 |
 | `loop/__init__.py` | AAC-0009, AAC-0054, AAC-0055, AHC-0001, AHC-0107, AHC-0108 |
 | `loop/dispatch.py` | AAC-0051, AAC-0052, AHC-0104 |

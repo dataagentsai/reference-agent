@@ -35,10 +35,11 @@ from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent.binding import SCOPES
-from support_agent.contracts import IdempotencyKey, Identity, ModelResponse, RunId
+from support_agent.contracts import IdempotencyKey, Identity, ModelResponse, RunId, StoredSession
 from support_agent.idempotency import InMemoryLedger
+from support_agent.identity import sessions
 from support_agent.llm import ScriptedClient
-from support_agent.state import InMemoryCheckpointStore
+from support_agent.state import InMemoryCheckpointStore, InMemorySessionStore
 from support_agent.tools import connect
 
 REALM = os.environ.get("AGENT_TEST_ISSUER_URL", "http://localhost:8080/realms/support")
@@ -190,8 +191,8 @@ def test_an_expired_realm_session_is_refused(issuer: ident.Issuer) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def exchange() -> ident.TokenExchange:
-    return ident.TokenExchange.discover(
+def exchange() -> sessions.TokenExchange:
+    return sessions.TokenExchange.discover(
         REALM,
         client_id="support-agent",
         client_secret=os.environ.get("SUPPORT_AGENT_CLIENT_SECRET", "local-dev-only-agent-secret"),
@@ -236,3 +237,55 @@ async def test_the_far_end_serves_the_realms_customer_and_nobody_else(
     async with connect(server, ledger=InMemoryLedger(), exchange=exchange()) as tools:
         result = await tools.call("get_order", {"id": "AB-10003"}, customer(user, issuer), key)
     assert (not result.is_error) is served, result.text
+
+
+# --------------------------------------------------------------------------- #
+# T-026 (A): the portal's stored login, and logout reaching the agent.
+# --------------------------------------------------------------------------- #
+
+PORTAL = (
+    "support-portal",
+    os.environ.get("SUPPORT_PORTAL_CLIENT_SECRET", "local-dev-only-portal-secret"),
+)
+
+
+@pytest.mark.discharges("AHC-0099", "P-OWNERSHIP")
+async def test_a_portal_login_is_resumed_until_the_customer_logs_out(issuer: ident.Issuer) -> None:
+    client_id, secret = PORTAL
+    login_body = post_form(
+        f"{REALM}/protocol/openid-connect/token",
+        {
+            "grant_type": "password",
+            "client_id": client_id,
+            "client_secret": secret,
+            "username": "c-1042",
+            "password": PASSWORD,
+        },
+    )
+    subject = ident.verify(str(login_body["access_token"]), issuer=issuer).subject
+    store = InMemorySessionStore()
+    await store.put(
+        StoredSession(subject=subject, refresh_token=str(login_body["refresh_token"]), updated_at=0)
+    )
+    grant = sessions.KeycloakRefresh.discover(REALM, client_id=client_id, client_secret=secret)
+    resumed = sessions.Resume(store, grant, issuer=issuer)
+
+    assert (await resumed.identity_for(subject)).customer_id == "C-1042"
+
+    stored = await store.get(subject)
+    assert stored is not None
+    _logout(client_id, secret, stored.refresh_token)
+    resumed.forget(subject)
+    with pytest.raises(ident.SessionEnded):
+        await resumed.identity_for(subject)
+    assert await store.get(subject) is None
+
+
+def _logout(client_id: str, secret: str, refresh_token: str) -> None:
+    """The realm's logout returns 204 with no body, which `post_form` would try to read."""
+    data = urllib.parse.urlencode(
+        {"client_id": client_id, "client_secret": secret, "refresh_token": refresh_token}
+    ).encode()
+    request = urllib.request.Request(f"{REALM}/protocol/openid-connect/logout", data=data)
+    with urllib.request.urlopen(request, timeout=10) as response:
+        assert response.status in (200, 204)

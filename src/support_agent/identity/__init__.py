@@ -21,11 +21,7 @@ write them. There is no `mint` here any more; tests sign with a local issuer in
 
 from __future__ import annotations
 
-import asyncio
 import json
-import time
-import urllib.error
-import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -256,73 +252,19 @@ class Exchange(Protocol):
     async def for_far_end(self, identity: Identity) -> str: ...
 
 
-class TokenExchange:
-    """RFC 8693 at the issuer: the customer's session in, a token for the order
-    system out, issued to the agent's own client.
+class SessionEnded(AgentFailure):
+    """No live login to act for: never stored, logged out, or ended at the issuer.
 
-    The far end then verifies a token addressed to it (`aud`), naming the agent
-    as the party that asked (`azp`) and the customer as whose authority it
-    carries. The customer's own session is addressed to the agent and would be
-    refused there, which is the point: a token is good for one audience.
-
-    Exchanged tokens are cached until shortly before they expire, keyed by the
-    session they came from, so a turn of eight tool calls is one exchange.
+    The channel cannot fix it and neither can a retry. The customer logs in again.
     """
 
-    def __init__(
-        self,
-        token_endpoint: str,
-        *,
-        client_id: str,
-        client_secret: str,
-        audience: str,
-        scope: str,
-        clock: Any = time.time,
-    ) -> None:
-        self._endpoint = token_endpoint
-        self._client = (client_id, client_secret)
-        self._audience, self._scope, self._clock = audience, scope, clock
-        self._cache: dict[str, tuple[str, float]] = {}
+    fault = Fault.REFUSED
 
-    @classmethod
-    def discover(cls, issuer_url: str, **kwargs: Any) -> TokenExchange:
-        return cls(str(discovery(issuer_url)["token_endpoint"]), **kwargs)
 
-    async def for_far_end(self, identity: Identity) -> str:
-        if not identity.token:
-            raise InvalidSession("no session to exchange")
-        now = float(self._clock())
-        cached = self._cache.get(identity.token)
-        if cached is not None and cached[1] - 30 > now:
-            return cached[0]
-        body = await asyncio.to_thread(self._post, identity.token)
-        token = str(body["access_token"])
-        self._cache = {k: v for k, v in self._cache.items() if v[1] > now}
-        self._cache[identity.token] = (token, now + float(body.get("expires_in", 60)))
-        return token
+class RefreshGrant(Protocol):
+    """A refresh token in, a fresh access token and the refresh token to keep out."""
 
-    def _post(self, subject_token: str) -> dict[str, Any]:
-        client_id, secret = self._client
-        form = urllib.parse.urlencode(
-            {
-                "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-                "subject_token": subject_token,
-                "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
-                "requested_token_type": "urn:ietf:params:oauth:token-type:access_token",
-                "audience": self._audience,
-                "scope": self._scope,
-                "client_id": client_id,
-                "client_secret": secret,
-            }
-        ).encode()
-        try:
-            request = urllib.request.Request(self._endpoint, data=form)
-            with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310
-                body: dict[str, Any] = json.load(response)
-                return body
-        except urllib.error.HTTPError as exc:
-            # The issuer's reason is for the operator's span, not the caller.
-            raise InvalidSession(f"exchange refused: {exc.code}") from exc
+    async def refresh(self, refresh_token: str) -> tuple[str, str]: ...
 
 
 def require(identity: Identity | Principal, scope: str) -> None:
@@ -354,8 +296,9 @@ __all__ = [
     "KeySource",
     "NotACustomer",
     "Principal",
+    "RefreshGrant",
+    "SessionEnded",
     "RemoteJWKS",
-    "TokenExchange",
     "discovery",
     "require",
     "verify",

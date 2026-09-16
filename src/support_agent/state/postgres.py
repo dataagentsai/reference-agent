@@ -17,11 +17,13 @@ wrong one.
 
 from __future__ import annotations
 
+from cryptography.fernet import Fernet, InvalidToken
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
 
-from support_agent.contracts import Approval, ConversationId, Escalation, RunId
+from support_agent.contracts import Approval, ConversationId, Escalation, RunId, StoredSession
+from support_agent.contracts.failures import AgentFailure, Fault
 
 
 class PostgresCheckpointStore:
@@ -229,3 +231,59 @@ class PostgresEscalationStore:
             )
             rows = await cur.fetchall()
         return tuple(Escalation.model_validate(r) for r in rows)
+
+
+class UnreadableSession(AgentFailure):
+    """A stored session this key cannot decrypt: rotated keys, or a row written by
+    something else. Treated as no session, never as a partial one."""
+
+    fault = Fault.MISCONFIGURED
+
+
+class PostgresSessionStore:
+    """Stored sessions, with the refresh token encrypted at rest (T-026).
+
+    Fernet, with the key held by the process and never by the database, so a
+    dump of `agent_state` yields ciphertext. The subject is not encrypted: it is
+    the lookup key, and it is an opaque login id, not the customer.
+    """
+
+    durable = True
+
+    def __init__(self, pool: AsyncConnectionPool, *, key: bytes) -> None:
+        self._pool = pool
+        self._cipher = Fernet(key)
+
+    async def put(self, session: StoredSession) -> None:
+        sealed = self._cipher.encrypt(session.refresh_token.encode())
+        async with self._pool.connection() as conn:
+            await conn.execute(
+                """
+                INSERT INTO agent_state.sessions (subject, refresh_token, updated_at)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (subject) DO UPDATE
+                    SET refresh_token = EXCLUDED.refresh_token,
+                        updated_at = EXCLUDED.updated_at
+                """,
+                (session.subject, sealed, session.updated_at),
+            )
+
+    async def get(self, subject: str) -> StoredSession | None:
+        async with self._pool.connection() as conn:
+            cur = await conn.cursor(row_factory=dict_row).execute(
+                "SELECT * FROM agent_state.sessions WHERE subject = %s", (subject,)
+            )
+            row = await cur.fetchone()
+        if row is None:
+            return None
+        try:
+            token = self._cipher.decrypt(bytes(row["refresh_token"])).decode()
+        except InvalidToken as exc:
+            raise UnreadableSession(f"session for {subject!r} does not decrypt") from exc
+        return StoredSession(
+            subject=row["subject"], refresh_token=token, updated_at=row["updated_at"]
+        )
+
+    async def delete(self, subject: str) -> None:
+        async with self._pool.connection() as conn:
+            await conn.execute("DELETE FROM agent_state.sessions WHERE subject = %s", (subject,))

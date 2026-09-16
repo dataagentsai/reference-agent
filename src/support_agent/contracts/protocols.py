@@ -15,7 +15,13 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from support_agent.contracts.human import Escalation
-from support_agent.contracts.ids import ConversationId, IdempotencyKey, Identity, RunId
+from support_agent.contracts.ids import (
+    ConversationId,
+    IdempotencyKey,
+    Identity,
+    RunId,
+    StoredSession,
+)
 from support_agent.contracts.model import ModelRequest, ModelResponse
 from support_agent.contracts.tools import Approval, ToolRegistry, ToolResult
 
@@ -119,6 +125,22 @@ class ApprovalStore(Protocol):
     async def pending(self) -> tuple[Approval, ...]:
         """The queue a reviewer sees — P8."""
         ...
+
+
+@runtime_checkable
+class SessionStore(Protocol):
+    """Where a customer's login waits for a channel to act on it (T-026).
+
+    A refresh token is a credential that outlives the page it came from, so a
+    durable store keeps it encrypted, and deleting it is how logout reaches the
+    agent: no stored session, no turn.
+    """
+
+    async def put(self, session: StoredSession) -> None: ...
+
+    async def get(self, subject: str) -> StoredSession | None: ...
+
+    async def delete(self, subject: str) -> None: ...
 
 
 @runtime_checkable

@@ -21,6 +21,7 @@ from support_agent.contracts.ids import (
     IdempotencyKey,
     Identity,
     RunId,
+    StoredSession,
     new_conversation_id,
     new_run_id,
 )
@@ -43,6 +44,7 @@ from support_agent.contracts.protocols import (
     EscalationStore,
     IdempotencyLedger,
     LLMClient,
+    SessionStore,
     ToolClient,
 )
 from support_agent.contracts.results import (
@@ -73,6 +75,8 @@ from support_agent.contracts.tools import (
 )
 
 __all__ = [
+    "SessionStore",
+    "StoredSession",
     "ModelBudgetExhausted",
     "ModelRefused",
     "ModelThrottled",

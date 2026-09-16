@@ -186,6 +186,29 @@
       "secret": "${ORDER_SYSTEM_CLIENT_SECRET:local-dev-only-order-secret}",
       "defaultClientScopes": [],
       "optionalClientScopes": []
+    },
+    {
+      "clientId": "support-portal",
+      "name": "Customer portal (server-side session, T-026)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${SUPPORT_PORTAL_CLIENT_SECRET:local-dev-only-portal-secret}",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8077/callback",
+        "http://127.0.0.1:8077/callback"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8077/*##http://127.0.0.1:8077/*"
+      },
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "support-session"
+      ],
+      "optionalClientScopes": []
     }
   ],
   "users": [

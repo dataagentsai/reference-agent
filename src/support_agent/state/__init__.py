@@ -33,6 +33,7 @@ from support_agent.contracts import (
     NeedsApproval,
     Route,
     RunId,
+    StoredSession,
     TurnResult,
 )
 from support_agent.state.facts import Facts
@@ -231,6 +232,24 @@ class InMemoryCheckpointStore:
             return self._conversations.get(conversation_id)
 
 
+class InMemorySessionStore:
+    """Stored sessions for one process: tests, and a demo nobody logs out of."""
+
+    durable = False
+
+    def __init__(self) -> None:
+        self._sessions: dict[str, StoredSession] = {}
+
+    async def put(self, session: StoredSession) -> None:
+        self._sessions[session.subject] = session
+
+    async def get(self, subject: str) -> StoredSession | None:
+        return self._sessions.get(subject)
+
+    async def delete(self, subject: str) -> None:
+        self._sessions.pop(subject, None)
+
+
 class FileCheckpointStore:
     """Durable without infrastructure. Survives a restart; does not survive
     concurrent writers on different machines.
@@ -297,5 +316,6 @@ __all__ = [
     "Conversation",
     "FileCheckpointStore",
     "InMemoryCheckpointStore",
+    "InMemorySessionStore",
     "TurnNote",
 ]

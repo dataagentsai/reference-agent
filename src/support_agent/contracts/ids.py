@@ -54,6 +54,23 @@ class Identity(BaseModel):
         return scope in self.scopes
 
 
+class StoredSession(BaseModel):
+    """A customer's login, kept server-side so a channel can act for them (T-026).
+
+    A chat channel's webhook says who the contact is and carries no credential.
+    The portal that logged the customer in keeps their refresh token here, keyed
+    by the login (`sub`), and the agent turns it into a fresh session when a
+    message arrives. Logging out deletes it and revokes it at the issuer, after
+    which the agent cannot act for that customer at all.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    subject: str
+    refresh_token: str = Field(repr=False)
+    updated_at: int
+
+
 class IdempotencyKey(BaseModel):
     """Derived from run, step and iteration — never generated per attempt.
 

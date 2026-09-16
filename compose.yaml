@@ -118,6 +118,7 @@ services:
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       SUPPORT_AGENT_CLIENT_SECRET: ${SUPPORT_AGENT_CLIENT_SECRET:-local-dev-only-agent-secret}
       ORDER_SYSTEM_CLIENT_SECRET: ${ORDER_SYSTEM_CLIENT_SECRET:-local-dev-only-order-secret}
+      SUPPORT_PORTAL_CLIENT_SECRET: ${SUPPORT_PORTAL_CLIENT_SECRET:-local-dev-only-portal-secret}
       JAVA_OPTS_KC_HEAP: -Xms64m -Xmx512m
     ports:
       - 127.0.0.1:8080:8080

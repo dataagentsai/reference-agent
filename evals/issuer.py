@@ -96,4 +96,33 @@ class LocalExchange:
         )
 
 
-__all__ = ["AUDIENCE", "URL", "LocalExchange", "issuer", "jwks", "mint"]
+class LocalRefresh:
+    """The issuer's refresh grant, offline: logins held in memory, revocable.
+
+    `login` is what the portal's callback receives; `revoke` is logout at the
+    issuer. Every refresh is counted, so a test can see a burst of messages
+    cost one.
+    """
+
+    def __init__(self) -> None:
+        self._logins: dict[str, tuple[str | None, str]] = {}
+        self.refreshes = 0
+
+    def login(self, customer_id: str | None, *, subject: str | None = None) -> str:
+        token = f"rt-{uuid.uuid4().hex}"
+        self._logins[token] = (customer_id, subject or f"login-{customer_id or 'staff'}")
+        return token
+
+    def revoke(self, refresh_token: str) -> None:
+        self._logins.pop(refresh_token, None)
+
+    async def refresh(self, refresh_token: str) -> tuple[str, str]:
+        self.refreshes += 1
+        if refresh_token not in self._logins:
+            raise ident.SessionEnded("refresh refused: 400")
+        customer_id, subject = self._logins[refresh_token]
+        scopes = ident.CUSTOMER_SCOPES if customer_id else ident.REVIEWER_SCOPES
+        return mint(customer_id, subject=subject, scopes=scopes), refresh_token
+
+
+__all__ = ["AUDIENCE", "URL", "LocalExchange", "LocalRefresh", "issuer", "jwks", "mint"]
