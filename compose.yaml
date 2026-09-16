@@ -1,0 +1,295 @@
+# The adopted Open Stack, as one file. T-031.
+#
+#   docker compose up -d                        # postgres, litellm, keycloak
+#   docker compose --profile obs up -d          # + Langfuse
+#   docker compose --profile durable up -d      # + Temporal
+#   docker compose --profile channel up -d      # + Chatwoot
+#
+# **Profiles, because the whole stack does not fit on the machine it is built
+# on.** An 8 GB laptop gives Docker about 4 GB, and Langfuse (ClickHouse, MinIO,
+# Redis, a web and a worker process) and Chatwoot (Rails, Sidekiq, Redis) are
+# each a gigabyte or two by themselves. So the default set is what every item in
+# cycle 1 needs, and each heavier product sits behind the profile of the item
+# that adopts it. A deployment with the memory runs every profile at once; that
+# is the same file, not a different one.
+#
+# Every product here has a verdict in the adoption register
+# (clean-ai-engineering/TODO.md) and a row in stacks/open-stack.yaml.
+# tests/test_compose.py holds the two together, so a product adopted in one
+# place and forgotten in the other fails the suite.
+#
+# Secrets default to local-only values so a fresh clone starts with no setup.
+# Copy .env.example to .env to change them; compose and the agent's `Settings`
+# both read that one file.
+
+x-db-password: &db-password ${STACK_DB_PASSWORD:-local-dev-only}
+
+services:
+  # ------------------------------------------------------------ default set
+
+  postgres:
+    # pgvector because Chatwoot needs it; the agent's own schemas do not.
+    image: pgvector/pgvector:0.8.6-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+      STACK_DB_PASSWORD: *db-password
+    ports:
+      # 5433, not 5432: the native Postgres this README described first still
+      # works, and the two must be able to run side by side.
+      - 127.0.0.1:${POSTGRES_PORT:-5433}:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres/00-databases.sh:/docker-entrypoint-initdb.d/00-databases.sh:ro
+      - ./sql:/agent-sql:ro
+    healthcheck:
+      # A query, as the agent, over TCP, and not `pg_isready`. A failed init
+      # script crashes the container, the restart finds a non-empty data
+      # directory and skips init, and `pg_isready` then calls a database with no
+      # roles and no schemas healthy, permanently. This passes only once init
+      # finished. TCP because the image's temporary init server has no socket
+      # listener on it.
+      test: ["CMD-SHELL", "PGPASSWORD=\"$$STACK_DB_PASSWORD\" psql -h 127.0.0.1 -U agent -d support_agent -tAc 'SELECT 1 FROM agent_state.checkpoints LIMIT 0'"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  litellm:
+    # The model gateway (T-029). Nothing reaches it yet: the agent still calls
+    # Groq directly until T-018 decides what the fingerprint makes of a gateway.
+    image: docker.litellm.ai/berriai/litellm:v1.101.0
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["--config=/app/config.yaml", "--port=4000"]
+    environment:
+      DATABASE_URL: postgresql://litellm:${STACK_DB_PASSWORD:-local-dev-only}@postgres:5432/litellm
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-local-dev-only}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+    ports:
+      - 127.0.0.1:4000:4000
+    volumes:
+      - ./deploy/litellm/config.yaml:/app/config.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  keycloak:
+    # Login (T-002). The realm, clients and the customer_id claim are T-002's;
+    # this starts an empty Keycloak on its own database.
+    image: quay.io/keycloak/keycloak:26.7.3
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["start-dev"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: *db-password
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-local-dev-only}
+      KC_HEALTH_ENABLED: "true"
+      JAVA_OPTS_KC_HEAP: -Xms64m -Xmx512m
+    ports:
+      - 127.0.0.1:8080:8080
+    healthcheck:
+      # The image has no curl or wget; bash can open a socket itself.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+  # ------------------------------------------------------------ obs: Langfuse
+
+  langfuse-web:
+    # Traces (the agent already exports OTLP when AGENT_OTLP_ENDPOINT is set).
+    # The project and its keys are created on first start, so the endpoint and
+    # header in .env.example work without opening the UI.
+    profiles: [obs]
+    image: docker.langfuse.com/langfuse/langfuse:4.36.1
+    restart: unless-stopped
+    depends_on: &langfuse-depends-on
+      postgres: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment: &langfuse-env
+      DATABASE_URL: postgresql://langfuse:${STACK_DB_PASSWORD:-local-dev-only}@postgres:5432/langfuse
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-local-dev-only}
+      SALT: ${LANGFUSE_SALT:-local-dev-only}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      TELEMETRY_ENABLED: "false"
+      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-local-dev-only}
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-local-dev-only}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_AUTH: ${REDIS_PASSWORD:-local-dev-only}
+      LANGFUSE_INIT_ORG_ID: reference-agent
+      LANGFUSE_INIT_ORG_NAME: reference-agent
+      LANGFUSE_INIT_PROJECT_ID: support-agent
+      LANGFUSE_INIT_PROJECT_NAME: support-agent
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-local-dev-only}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-local-dev-only}
+      LANGFUSE_INIT_USER_EMAIL: dev@localhost.test
+      LANGFUSE_INIT_USER_NAME: dev
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_USER_PASSWORD:-local-dev-only}
+    ports:
+      - 127.0.0.1:3000:3000
+
+  langfuse-worker:
+    profiles: [obs]
+    image: docker.langfuse.com/langfuse/langfuse-worker:4.36.1
+    restart: unless-stopped
+    depends_on: *langfuse-depends-on
+    environment: *langfuse-env
+
+  clickhouse:
+    profiles: [obs]
+    image: clickhouse/clickhouse-server:25.12
+    restart: unless-stopped
+    user: "101:101"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-local-dev-only}
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    # Chainguard publishes only `latest` for free; MinIO stopped publishing
+    # images of its own. Langfuse's upstream compose file makes the same choice.
+    profiles: [obs]
+    image: cgr.dev/chainguard/minio:latest
+    restart: unless-stopped
+    entrypoint: sh
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local-dev-only}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    # Shared by Langfuse and Chatwoot, so it belongs to both profiles.
+    # `noeviction` is Langfuse's requirement: its queues live here.
+    profiles: [obs, channel]
+    image: redis:8.2
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-local-dev-only}", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD:-local-dev-only}\" --no-auth-warning ping | grep -q PONG"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local-dev-only}
+
+  # ------------------------------------------------------------ durable: Temporal
+
+  temporal:
+    # The approval and escalation waits (T-028). The CLI's dev server: one
+    # process, the UI built in, state in a SQLite file on a volume so a restart
+    # keeps a wait alive, which is T-028's done-when. A multi-node deployment
+    # uses temporalio/server on Postgres; nothing the agent calls changes.
+    profiles: [durable]
+    image: temporalio/temporal:1.9.1
+    restart: unless-stopped
+    user: "0:0"
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--db-filename", "/data/temporal.db", "--ui-port", "8233"]
+    volumes:
+      - temporal_data:/data
+    ports:
+      - 127.0.0.1:7233:7233
+      - 127.0.0.1:8233:8233
+
+  # ------------------------------------------------------------ channel: Chatwoot
+
+  chatwoot-migrate:
+    # Creates or migrates Chatwoot's schema, then exits. The web and worker
+    # processes wait for it, so neither starts against a half-built database.
+    profiles: [channel]
+    image: chatwoot/chatwoot:v4.17.1-ce
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment: &chatwoot-env
+      RAILS_ENV: production
+      NODE_ENV: production
+      INSTALLATION_ENV: docker
+      SECRET_KEY_BASE: ${CHATWOOT_SECRET_KEY_BASE:-local-dev-only-0000000000000000000000000000000000000000000000000000000000000000}
+      FRONTEND_URL: http://localhost:3100
+      FORCE_SSL: "false"
+      ENABLE_ACCOUNT_SIGNUP: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_DATABASE: chatwoot
+      POSTGRES_USERNAME: chatwoot
+      POSTGRES_PASSWORD: *db-password
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local-dev-only}
+      ACTIVE_STORAGE_SERVICE: local
+      RAILS_LOG_TO_STDOUT: "true"
+    command: ["bundle", "exec", "rails", "db:chatwoot_prepare"]
+    volumes:
+      - chatwoot_storage:/app/storage
+
+  chatwoot:
+    # The customer chat and the human side of escalation (T-026).
+    profiles: [channel]
+    image: chatwoot/chatwoot:v4.17.1-ce
+    restart: unless-stopped
+    depends_on: &chatwoot-depends-on
+      chatwoot-migrate: { condition: service_completed_successfully }
+    environment: *chatwoot-env
+    entrypoint: docker/entrypoints/rails.sh
+    command: ["bundle", "exec", "rails", "s", "-p", "3000", "-b", "0.0.0.0"]
+    ports:
+      - 127.0.0.1:3100:3000
+    volumes:
+      - chatwoot_storage:/app/storage
+
+  chatwoot-sidekiq:
+    profiles: [channel]
+    image: chatwoot/chatwoot:v4.17.1-ce
+    restart: unless-stopped
+    depends_on: *chatwoot-depends-on
+    environment: *chatwoot-env
+    command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
+    volumes:
+      - chatwoot_storage:/app/storage
+
+volumes:
+  postgres_data:
+  clickhouse_data:
+  minio_data:
+  redis_data:
+  temporal_data:
+  chatwoot_storage:

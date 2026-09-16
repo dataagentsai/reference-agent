@@ -46,7 +46,23 @@ matches, no ignore without its error code), **the import contract**
 (`lint-imports`, 5 contracts), and **size and complexity ceilings** (ruff),
 which start at today's worst value and only move down.
 
-Durable stores need Postgres (native, not Docker):
+Durable stores need Postgres. [`compose.yaml`](compose.yaml) runs it, with the
+rest of the adopted stack beside it:
+
+```bash
+docker compose up -d        # Postgres on 5433, the LiteLLM proxy, Keycloak
+AGENT_DATABASE_URL=postgresql://agent:local-dev-only@localhost:5433/support_agent uv run pytest
+
+docker compose --profile obs up -d       # + Langfuse     (T-016's exporter)
+docker compose --profile durable up -d   # + Temporal     (T-028)
+docker compose --profile channel up -d   # + Chatwoot     (T-026)
+```
+
+The heavier products sit behind profiles because the whole stack does not fit in
+the ~4 GB Docker gets on an 8 GB laptop; a machine with the memory passes every
+profile at once. `.env.example` lists every setting, all with local-only
+defaults. A native Postgres still works (port 5432, `postgresql:///support_agent`,
+the tests' default):
 
 ```bash
 brew install postgresql@16 && brew services start postgresql@16

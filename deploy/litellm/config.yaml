@@ -1,0 +1,23 @@
+# The LiteLLM proxy's model list. T-031 makes it runnable; T-029 puts the agent
+# behind it, and that is where budgets, rate limits and the fingerprint decision
+# (T-018) land.
+#
+# `model_name` is what the agent sends, so it is spelled exactly as
+# `Settings.approved_models` spells it. Pointing `AGENT_PROVIDER_BASE_URL` here
+# then changes the route and nothing the agent says.
+model_list:
+  - model_name: openai/gpt-oss-120b
+    litellm_params: { model: groq/openai/gpt-oss-120b, api_key: os.environ/GROQ_API_KEY }
+  - model_name: openai/gpt-oss-20b
+    litellm_params: { model: groq/openai/gpt-oss-20b, api_key: os.environ/GROQ_API_KEY }
+  - model_name: qwen/qwen3.8-27b
+    litellm_params: { model: groq/qwen/qwen3.8-27b, api_key: os.environ/GROQ_API_KEY }
+
+# No retries in the proxy. `ResilientLLM` retries in process, and it has to stay
+# there because it is the seam scenarios inject provider faults through (F-029).
+# Two retry layers on one call multiply: three attempts each is nine requests.
+# T-029 may move retries here deliberately; until then there is one layer.
+litellm_settings:
+  num_retries: 0
+router_settings:
+  num_retries: 0
