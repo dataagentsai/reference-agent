@@ -59,8 +59,8 @@ class Price:
 
 # Approximate, recorded 2026-09-01. These are an input to a budget, not a
 # quotation — verify against the provider's pricing page before any figure from
-# this system is published or acted on. Listed in the "verify before publishing"
-# section of TODO.md for that reason.
+# this system is published or acted on. Tracked as T-025 in
+# clean-ai-engineering/TODO.md for that reason.
 PRICES: dict[str, Price] = {
     "openai/gpt-oss-120b": Price(Decimal("0.15"), Decimal("0.75")),
     "openai/gpt-oss-20b": Price(Decimal("0.10"), Decimal("0.50")),
