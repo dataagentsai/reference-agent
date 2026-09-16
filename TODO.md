@@ -793,6 +793,98 @@ specs alone, in a clean context, and treat a suspiciously exact answer as
 evidence of contamination rather than of sufficiency — the same caution T-008
 carries about the AOAS citing this repo among its sources.
 
+## T-016 · What was hand-rolled that open source does better
+
+**Status** Not started. Raised 2026-09-16. **An audit, then a decision per row.**
+
+**What is missing.** A stated position on each thing this agent builds itself.
+Some are hand-rolled deliberately — the loop is, and the catalogs exist because a
+framework owning that layer hides the layer they expose. Others are hand-rolled
+because it was quicker on the day, and nobody has gone back. The two are
+indistinguishable from the outside, which is the problem: a reader cannot tell a
+decision from an accident, and the agent is meant to be read.
+
+**The audit.** One row per component: what it is, what open source does it, and a
+verdict of **keep / adopt / wrap**. Keep needs a reason.
+
+| Built here | The alternative | First read |
+|---|---|---|
+| `resilience/` — retry, backoff, circuit breaker | `tenacity`, `pybreaker` | **adopt.** Commodity, and ours is 370 lines |
+| `cassette/` — record and replay | `VCR.py`, `pytest-recording` | **adopt or wrap.** Genuinely commodity |
+| `llm/` — provider client | the provider SDK, or **LiteLLM** as gateway | **adopt** — this is T-004, already argued |
+| telemetry **export** | **Langfuse**, Phoenix, any OTLP collector | **adopt.** Spans go to an in-memory list and nowhere else |
+| telemetry **names** | OTel GenAI semantic conventions | **keep.** Already follows them; the `agent.*` family is ours and should be |
+| `ui/` — the chat page | Chainlit, assistant-ui, Chatwoot | **adopt.** Hand-written HTML is not the lesson this repo teaches |
+| the world | **Saleor / Medusa / Vendure** | **adopt** — see T-017 |
+| synthetic data | `Faker`, `Mimesis`, SDV | **wrap.** The generator derives cases from declared conditions, which none of these do; the *values* could come from one |
+| scenario generation | τ-bench, AgentDojo, promptfoo | **keep the format, read theirs.** Their policy is prose, ours is declared |
+| property testing | Hypothesis | **adopted 14 Sep** |
+| mutation testing | Cosmic Ray | **wrapped 14 Sep** — used once to calibrate, kept the technique not the tool |
+| `loop/`, `policy/`, `context/`, `state/` | LangGraph, Claude Agent SDK | **keep, and say why.** This is the thesis; see the L2/L4 split in T-004 |
+
+**Why it matters beyond tidiness.** Three of this repository's stated purposes
+depend on it: a reference somebody copies should not teach them to write their
+own circuit breaker; a teaching artifact should show where the line is; and a
+funding case is stronger when the novel part is small and named than when it is
+implied by everything being bespoke.
+
+**Where it lands.** A section in `REVIEW.md` or its own doc, with the verdicts and
+their reasons, and the adopt rows becoming their own items. The observability
+one is the most embarrassing and the cheapest: an `OTLP` processor beside the
+in-memory exporter is one line, and `telemetry/__init__.py` already says *"in
+production the composition root adds an OTLP processor alongside."*
+
+---
+
+## T-017 · A real store, and a human in front of it
+
+**Status** Not started. Raised 2026-09-16. **Depends on P1 (T-001, T-002).**
+
+**What is missing.** Anyone has ever talked to this agent. Every run to date is
+scripted or simulated: 34 scenarios with a scripted model, a golden set derived
+from declared conditions, a world projected from YAML. All of it proves the agent
+does what the specification says. None of it proves the specification describes an
+agent worth talking to.
+
+**Two halves, and only one is new.**
+
+*The store.* `ResolutionMode` already declares `[mock, replay, real, shadow]` and
+`worlds/clothing.yaml` says `resolution: mock`. A real store is the `real` value —
+the seam was designed for this and has never been exercised. **Saleor** is the
+closest fit by stack (Python, GraphQL, Postgres), though the language barely
+matters: the agent reaches the store over MCP and never imports it, so Medusa or
+Vendure work equally. What changes is one tool server, from the projected world to
+one that calls a real API.
+
+*The human.* A person opening a chat and trying to get something done. That is
+where the findings will be, and they will be a different **kind** of finding —
+the suite catches wrong behaviour, and a person catches behaviour that is correct
+and useless.
+
+**What it will find**, predicted so the prediction can be wrong: T-001 in the
+first thirty seconds. An empty box, no greeting, and the customer must know their
+order number. Every scenario opens by stating one because the actor is scripted
+to; a person will not.
+
+**And it is the honest test of `shadow`.** The fourth resolution mode is declared
+and unbuilt. A real store beside the projected one, both answering, the difference
+recorded, is how `verified_against: null` in every world file stops being null.
+
+**Why it matters, stated because it changes what "done" means.** Three purposes
+have been named for this repository and they pull in different directions:
+
+1. **A reference** somebody copies when building a production agent. Requires the
+   hand-rolled/adopted line to be explicit (T-016) and the gaps to be honest.
+2. **Teaching.** Requires the *reasons* to survive, which is why the docstrings
+   carry findings and why `docs/WHY-EACH-FILE.md` exists.
+3. **A funding case.** Requires a claim that has been *tested* rather than
+   argued — which is T-008, and which is why the hole-finding items are
+   sequenced before it.
+
+A human conversation serves all three and is prerequisite to none. It should
+happen once P1 exists, and its findings should be recorded the way F-001 to F-040
+were: the failures are the deliverable.
+
 ---
 
 ## The queue
@@ -814,3 +906,5 @@ carries about the AOAS citing this repo among its sources.
 | T-013 | Write the Spark cost analyst AOAS — the adversarial shape | 2026-09-16 |
 | T-014 | Delete a capability and see whether anything notices | 2026-09-16 |
 | T-015 | Ask a fresh model to describe the structure from the specs alone | 2026-09-16 |
+| **T-016** | **What was hand-rolled that open source does better — an audit** | 2026-09-16 |
+| **T-017** | **A real store, and a human in front of it — needs P1** | 2026-09-16 |
