@@ -22,6 +22,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 
 from support_agent import identity as ident
+from support_agent.contracts import Identity
 
 URL = "http://local-issuer.test/realms/support"
 AUDIENCE = "support-agent"
@@ -71,4 +72,28 @@ def mint(
     return jwt.encode(claims, _private_key(), algorithm="RS256", headers={"kid": KID})
 
 
-__all__ = ["AUDIENCE", "URL", "issuer", "jwks", "mint"]
+class LocalExchange:
+    """The issuer's token exchange, offline: what Keycloak's does, with the same
+    claims. The customer's session in, a token for `audience` out, issued to the
+    agent's client (`azp`), carrying the session's customer and its scopes and
+    nothing the agent added to its identity in process."""
+
+    def __init__(self, audience: str = "order-system", party: str = "support-agent") -> None:
+        self.audience, self.party = audience, party
+        self.exchanges = 0
+
+    async def for_far_end(self, identity: Identity) -> str:
+        if not identity.token:
+            raise ident.InvalidSession("no session to exchange")
+        claims = ident.verify(identity.token, issuer=issuer())
+        self.exchanges += 1
+        return mint(
+            claims.customer_id,
+            scopes=claims.scopes,
+            subject=claims.subject,
+            audience=self.audience,
+            extra={"azp": self.party},
+        )
+
+
+__all__ = ["AUDIENCE", "URL", "LocalExchange", "issuer", "jwks", "mint"]

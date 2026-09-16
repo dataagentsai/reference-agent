@@ -43,6 +43,7 @@ from support_agent.contracts import (
     UnknownTool,
 )
 from support_agent.contracts.failures import AgentFailure, Fault
+from support_agent.identity import Exchange
 
 SESSION_META = "aoas/session"
 """Where the caller's verified session travels in a call's `_meta`, so the
@@ -54,6 +55,11 @@ IDEMPOTENCY_META = "aoas/idempotency-key"
 """Where a write's idempotency key travels, so the system the effect lands on can
 recognise a retry — the harness's ledger cannot, when the effect landed and the
 reply was lost (F-017). The same binding as `SESSION_META`."""
+
+APPROVAL_META = "aoas/approval"
+"""Where an elevated call names the approval that elevated it. The far end loads
+that approval and checks it matches the call, rather than trusting a scope the
+agent added to its own identity (T-002). The same binding as `SESSION_META`."""
 
 META_SIDE_EFFECT = "side_effect"
 META_REQUIRED_SCOPE = "required_scope"
@@ -134,8 +140,9 @@ class MCPTransport:
     the `async with`; this is a pure adapter over a live client.
     """
 
-    def __init__(self, client: Client) -> None:
+    def __init__(self, client: Client, *, exchange: Exchange | None = None) -> None:
         self._client = client
+        self._exchange = exchange
 
     async def advertised(self) -> tuple[tuple[ToolSpec, ...], tuple[str, ...]]:
         try:
@@ -173,7 +180,9 @@ class MCPTransport:
         try:
             # MCP's `_meta` is an open object; the SDK's TypedDict names only the
             # progress token. The cast states that gap rather than hiding it.
-            fields: dict[str, object] = {SESSION_META: {"customer_id": caller.customer_id}}
+            fields: dict[str, object] = {SESSION_META: await self._session(caller)}
+            if caller.grant is not None:
+                fields[APPROVAL_META] = caller.grant
             if idempotency_key is not None:
                 fields[IDEMPOTENCY_META] = idempotency_key.value
             meta = cast(RequestParamsMeta, fields)
@@ -193,6 +202,19 @@ class MCPTransport:
             is_error=is_error,
             error_channel="execution" if is_error else "none",
         )
+
+    async def _session(self, caller: Identity) -> dict[str, object]:
+        """What the far end is told about the caller.
+
+        With an exchange, a token addressed to the far end, which it verifies;
+        the asserted `customer_id` rides along for a stand-in that has no
+        verifier, and a far end that has one ignores it (T-002). Without an
+        exchange, the assertion alone, which only a simulation should accept.
+        """
+        session: dict[str, object] = {"customer_id": caller.customer_id}
+        if self._exchange is not None:
+            session["token"] = await self._exchange.for_far_end(caller)
+        return session
 
 
 class GatedTools:
@@ -289,9 +311,15 @@ class MCPToolClient(GatedTools):
     """The gated tool client over MCP — what `connect()` yields."""
 
     def __init__(
-        self, client: Client, *, ledger: IdempotencyLedger, max_result_chars: int = 8000
+        self,
+        client: Client,
+        *,
+        ledger: IdempotencyLedger,
+        max_result_chars: int = 8000,
+        exchange: Exchange | None = None,
     ) -> None:
-        super().__init__(MCPTransport(client), ledger=ledger, max_result_chars=max_result_chars)
+        transport = MCPTransport(client, exchange=exchange)
+        super().__init__(transport, ledger=ledger, max_result_chars=max_result_chars)
 
 
 @asynccontextmanager
@@ -300,6 +328,7 @@ async def connect(
     *,
     ledger: IdempotencyLedger,
     max_result_chars: int = 8000,
+    exchange: Exchange | None = None,
 ) -> AsyncIterator[MCPToolClient]:
     """Open a tool connection for the duration of one scope.
 
@@ -308,11 +337,14 @@ async def connect(
     adapter under test is the one that runs in production.
     """
     async with Client(server) as client:
-        yield MCPToolClient(client, ledger=ledger, max_result_chars=max_result_chars)
+        yield MCPToolClient(
+            client, ledger=ledger, max_result_chars=max_result_chars, exchange=exchange
+        )
 
 
 __all__ = [
     "META_REQUIRED_SCOPE",
+    "APPROVAL_META",
     "IDEMPOTENCY_META",
     "META_SIDE_EFFECT",
     "SESSION_META",

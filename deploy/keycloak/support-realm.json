@@ -112,6 +112,25 @@
           }
         }
       ]
+    },
+    {
+      "name": "order-system-audience",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience order-system",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "order-system",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
     }
   ],
   "clients": [
@@ -151,7 +170,9 @@
       "defaultClientScopes": [
         "support-session"
       ],
-      "optionalClientScopes": []
+      "optionalClientScopes": [
+        "order-system-audience"
+      ]
     },
     {
       "clientId": "order-system",

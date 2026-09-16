@@ -19,6 +19,15 @@ any order.*
 >    stops trusting an asserted `customer_id`. Open inside this: how the far end
 >    verifies the **refund elevation**, which the agent grants itself today and
 >    Keycloak knows nothing about.
+> **Built 2026-09-16:** (A) verify-only RS256 and JWKS, `evals/issuer.py` for
+> tests; (B) the realm in `deploy/keycloak`, tested live; (C) token exchange and
+> `src/order_system`, the far end's own check: the token it verifies, and for a
+> refund the approval it loads and matches (the user chose this over an
+> approver-signed grant). **What C does not yet make independent:** the approvals
+> store is written by the agent, and small refunds are granted by the agent's own
+> policy, so the far end's check is as independent as that store. It becomes
+> fully independent when approvals leave the agent's write access (T-028).
+>
 > 4. **No login page in cycle 1.** The realm, clients, roles and test users
 >    exist; scripts and tests take tokens from the token endpoint. The customer's
 >    login arrives with the channel (T-026), since Chatwoot replaces the page.

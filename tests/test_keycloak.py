@@ -27,12 +27,15 @@ import pytest
 from agenttwin import Live, load, project
 from starlette.testclient import TestClient
 
+from order_system import authoriser
+from support_agent import approvals as ap
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
-from support_agent.contracts import ModelResponse
+from support_agent.binding import SCOPES
+from support_agent.contracts import IdempotencyKey, Identity, ModelResponse, RunId
 from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
 from support_agent.state import InMemoryCheckpointStore
@@ -180,3 +183,56 @@ def test_an_expired_realm_session_is_refused(issuer: ident.Issuer) -> None:
     token = login("c-1042")
     with pytest.raises(ident.InvalidSession):
         ident.verify(token, issuer=issuer, now=int(time.time()) + 3600)
+
+
+# --------------------------------------------------------------------------- #
+# T-002 (C): the realm's token exchange, and the far end that believes it.
+# --------------------------------------------------------------------------- #
+
+
+def exchange() -> ident.TokenExchange:
+    return ident.TokenExchange.discover(
+        REALM,
+        client_id="support-agent",
+        client_secret=os.environ.get("SUPPORT_AGENT_CLIENT_SECRET", "local-dev-only-agent-secret"),
+        audience="order-system",
+        scope="order-system-audience",
+    )
+
+
+def customer(user: str, issuer: ident.Issuer) -> Identity:
+    return ident.verify(login(user), issuer=issuer).as_customer()
+
+
+@pytest.mark.discharges("AAC-0057", "AHC-0099")
+async def test_the_realm_exchanges_a_session_for_the_order_system(issuer: ident.Issuer) -> None:
+    token = await exchange().for_far_end(customer("c-1042", issuer))
+    far_end = ident.Issuer(url=REALM, audience="order-system", keys=issuer.keys)
+    principal = ident.verify(token, issuer=far_end)
+
+    assert (principal.customer_id, principal.party) == ("C-1042", "support-agent")
+    with pytest.raises(ident.InvalidSession):
+        ident.verify(token, issuer=issuer)  # addressed to the order system, not the agent
+
+
+# (user, whether the far end serves C-1042's order AB-10003 to them)
+FAR_END = [("c-1042", True), ("c-9999", False)]
+
+
+@pytest.mark.parametrize(("user", "served"), FAR_END, ids=[u for u, _ in FAR_END])
+@pytest.mark.discharges("P-OWNERSHIP", "AAC-0057")
+async def test_the_far_end_serves_the_realms_customer_and_nobody_else(
+    issuer: ident.Issuer, user: str, served: bool
+) -> None:
+    world = Live.start(load(WORLD))
+    check = authoriser(
+        issuer=ident.Issuer(url=REALM, audience="order-system", keys=issuer.keys),
+        approvals=ap.InMemoryApprovalStore(),
+        required_scopes=SCOPES,
+        clock=lambda: int(time.time()),
+    )
+    server = project(world, scopes=SCOPES, authorise=check)
+    key = IdempotencyKey(run_id=RunId("run_kc"), step=1, iteration=0)
+    async with connect(server, ledger=InMemoryLedger(), exchange=exchange()) as tools:
+        result = await tools.call("get_order", {"id": "AB-10003"}, customer(user, issuer), key)
+    assert (not result.is_error) is served, result.text

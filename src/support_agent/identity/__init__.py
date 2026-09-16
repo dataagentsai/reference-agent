@@ -21,7 +21,11 @@ write them. There is no `mint` here any more; tests sign with a local issuer in
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
+import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -129,15 +133,21 @@ class RemoteJWKS:
     def discover(cls, issuer_url: str) -> RemoteJWKS:
         """From the issuer's OpenID discovery document, at startup. An issuer that
         cannot be reached fails the process, not the first customer."""
-        url = f"{issuer_url.rstrip('/')}/.well-known/openid-configuration"
-        with urllib.request.urlopen(url, timeout=10) as response:  # noqa: S310 — configured URL
-            return cls(str(json.load(response)["jwks_uri"]))
+        return cls(str(discovery(issuer_url)["jwks_uri"]))
 
     def key_for(self, token: str) -> Any:
         try:
             return self._client.get_signing_key_from_jwt(token).key
         except jwt.PyJWKClientError as exc:
             raise InvalidSession(str(exc)) from exc
+
+
+def discovery(issuer_url: str) -> dict[str, Any]:
+    """The issuer's OpenID discovery document."""
+    url = f"{issuer_url.rstrip('/')}/.well-known/openid-configuration"
+    with urllib.request.urlopen(url, timeout=10) as response:  # noqa: S310 — configured URL
+        document: dict[str, Any] = json.load(response)
+        return document
 
 
 @dataclass(frozen=True)
@@ -170,6 +180,10 @@ class Principal(BaseModel):
     session: str
     """`jti`: which session, so the record can say which login did a thing and
     not only which run."""
+    party: str | None = None
+    """`azp`: the client the session was issued to. After a token exchange it is
+    the agent, so the far end's record can say *the support agent, acting for
+    C-1042* rather than only *C-1042*."""
     token: str = Field(repr=False)
 
     def may(self, scope: str) -> bool:
@@ -224,6 +238,7 @@ def verify(token: str, *, issuer: Issuer, now: int | None = None) -> Principal:
         customer_id=customer if isinstance(customer, str) and customer else None,
         scopes=frozenset(_scopes(claims)),
         session=str(claims["jti"]),
+        party=claims.get("azp") if isinstance(claims.get("azp"), str) else None,
         token=token,
     )
 
@@ -233,6 +248,81 @@ def _scopes(claims: dict[str, Any]) -> list[str]:
     a string `scp` iterated character by character is a scope list of letters."""
     scp = claims.get("scp", [])
     return [s for s in scp if isinstance(s, str)] if isinstance(scp, list) else []
+
+
+class Exchange(Protocol):
+    """Turns a customer's session into one addressed to the far end (T-002)."""
+
+    async def for_far_end(self, identity: Identity) -> str: ...
+
+
+class TokenExchange:
+    """RFC 8693 at the issuer: the customer's session in, a token for the order
+    system out, issued to the agent's own client.
+
+    The far end then verifies a token addressed to it (`aud`), naming the agent
+    as the party that asked (`azp`) and the customer as whose authority it
+    carries. The customer's own session is addressed to the agent and would be
+    refused there, which is the point: a token is good for one audience.
+
+    Exchanged tokens are cached until shortly before they expire, keyed by the
+    session they came from, so a turn of eight tool calls is one exchange.
+    """
+
+    def __init__(
+        self,
+        token_endpoint: str,
+        *,
+        client_id: str,
+        client_secret: str,
+        audience: str,
+        scope: str,
+        clock: Any = time.time,
+    ) -> None:
+        self._endpoint = token_endpoint
+        self._client = (client_id, client_secret)
+        self._audience, self._scope, self._clock = audience, scope, clock
+        self._cache: dict[str, tuple[str, float]] = {}
+
+    @classmethod
+    def discover(cls, issuer_url: str, **kwargs: Any) -> TokenExchange:
+        return cls(str(discovery(issuer_url)["token_endpoint"]), **kwargs)
+
+    async def for_far_end(self, identity: Identity) -> str:
+        if not identity.token:
+            raise InvalidSession("no session to exchange")
+        now = float(self._clock())
+        cached = self._cache.get(identity.token)
+        if cached is not None and cached[1] - 30 > now:
+            return cached[0]
+        body = await asyncio.to_thread(self._post, identity.token)
+        token = str(body["access_token"])
+        self._cache = {k: v for k, v in self._cache.items() if v[1] > now}
+        self._cache[identity.token] = (token, now + float(body.get("expires_in", 60)))
+        return token
+
+    def _post(self, subject_token: str) -> dict[str, Any]:
+        client_id, secret = self._client
+        form = urllib.parse.urlencode(
+            {
+                "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+                "subject_token": subject_token,
+                "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+                "requested_token_type": "urn:ietf:params:oauth:token-type:access_token",
+                "audience": self._audience,
+                "scope": self._scope,
+                "client_id": client_id,
+                "client_secret": secret,
+            }
+        ).encode()
+        try:
+            request = urllib.request.Request(self._endpoint, data=form)
+            with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310
+                body: dict[str, Any] = json.load(response)
+                return body
+        except urllib.error.HTTPError as exc:
+            # The issuer's reason is for the operator's span, not the caller.
+            raise InvalidSession(f"exchange refused: {exc.code}") from exc
 
 
 def require(identity: Identity | Principal, scope: str) -> None:
@@ -250,6 +340,7 @@ __all__ = [
     "ALGORITHMS",
     "CLAIM_CUSTOMER",
     "CUSTOMER_SCOPES",
+    "Exchange",
     "JWKS",
     "REVIEWER_SCOPES",
     "SCOPE_ESCALATIONS_READ",
@@ -264,6 +355,8 @@ __all__ = [
     "NotACustomer",
     "Principal",
     "RemoteJWKS",
+    "TokenExchange",
+    "discovery",
     "require",
     "verify",
 ]

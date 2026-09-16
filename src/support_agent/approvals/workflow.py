@@ -137,7 +137,9 @@ def granted_identity(
         raise ApprovalError(f"approval {approval.id!r} is not executable")
     if approval.customer_id != base.customer_id:
         raise ApprovalError("approval does not belong to this identity")
-    return base.model_copy(update={"scopes": base.scopes | {policy.elevated_scope}})
+    return base.model_copy(
+        update={"scopes": base.scopes | {policy.elevated_scope}, "grant": approval.id}
+    )
 
 
 def stored_key(approval: Approval) -> IdempotencyKey:

@@ -52,7 +52,10 @@ def modules() -> list[dict]:
 
     placed = classify()
     contract = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    layered = contract["tool"]["importlinter"]["contracts"][0]["layers"]
+    # By type, not position: T-002 put two forbidden contracts ahead of it, and
+    # a positional read broke the page without anything saying why.
+    contracts = contract["tool"]["importlinter"]["contracts"]
+    layered = next(c for c in contracts if c["type"] == "layers")["layers"]
     # "router | loop" is one rank holding two modules that may not see each other.
     rank: dict[str, tuple[int, str]] = {}
     for depth, row in enumerate(layered):
