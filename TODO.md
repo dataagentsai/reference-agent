@@ -976,6 +976,69 @@ A human conversation serves all three and is prerequisite to none. It should
 happen once P1 exists, and its findings should be recorded the way F-001 to F-040
 were: the failures are the deliverable.
 
+## T-018 · The fingerprint cannot tell a gateway from a provider
+
+**Status** Not started. Raised 2026-09-16. **Small, and a decision rather than a
+task.**
+
+**What is wrong.** `RunConfig.fingerprint` hashes everything that changes
+behaviour and excludes what does not — `mcp_base_url`, and now `otlp_endpoint`.
+It **includes** `provider_base_url`, with a stated reason:
+
+> `provider_base_url` is included only because pointing at a different provider
+> *is* a different system.
+
+That reason is right and the implementation cannot honour it, because one field
+carries two different facts:
+
+    Groq, called directly          a different provider      fingerprint SHOULD move
+    Groq, reached via a gateway    the same model, same weights, one more hop
+                                                              fingerprint should NOT move
+
+Put a gateway in front — LiteLLM's proxy, Databricks Mosaic AI Gateway, Azure AI
+Foundry, Vertex's OpenAI-compatible endpoint — and every run after it is
+uncomparable with every run before it, for a change that altered nothing the
+agent does. This is exactly the argument `mcp_base_url` is already excluded
+under: a world reached over a different URL is the same world.
+
+**Why it matters now rather than later.** The gateway seam is already open and
+costs nothing to walk through. `GroqClient` takes `base_url`, four of the five
+plausible cloud gateways are OpenAI-compatible, and moving to one is an
+environment variable. The first person to do that will silently invalidate the
+fingerprint history, and the fingerprint history is the thing that makes "it
+passed last week" checkable — which is the entire reason `config` exists.
+
+**The decision, not the code.** What identifies "the same system" for a model?
+The candidates, and none is obviously right:
+
+*The model id alone.* Clean, and wrong the moment two providers serve the same
+open-weights model with different quantisation — which is the ordinary case for
+`openai/gpt-oss-120b`.
+
+*Model id plus a declared provider name*, with the URL excluded. The provider
+becomes a stated fact rather than an inferred one, which is the shape the rest of
+this file already prefers: `resolution` is declared, not derived from whether a
+URL looks like localhost.
+
+*Both, with the URL kept and a second "route" fingerprint beside it.* Honest, and
+two numbers where one is wanted.
+
+**Where it lands.** `config/__init__.py`, and `harness-profile.yaml` if provider
+becomes a declared field. Any change to what the fingerprint covers is a break in
+comparability with every run recorded before it, so whichever is chosen, the
+change itself should be dated in the file — the way `evals/baseline.json` records
+`taken` and the golden set records why it grew.
+
+**And the gateway question this came out of, recorded so it is not re-derived.**
+There is no AI gateway here today; the agent calls the provider directly. The
+seam is `provider_base_url` and it needs no work. A LiteLLM **proxy** — as
+opposed to the SDK — subsumes retries, backoff, cooldown and throttling into the
+gateway, which deletes `resilience/` without adopting a library in-process, and
+survives a later move to Databricks or Azure because that is then one gateway
+replacing another rather than a library being un-picked. If a gateway is coming,
+it is the better shape than T-016's LiteLLM-SDK row, and the two should be
+decided together rather than in sequence.
+
 ---
 
 ## The queue
@@ -1013,6 +1076,7 @@ agent real. They are independent and A is cheaper.
 | T-003 | Dedup works for one process only |
 | T-005 | Carry the idempotency key downstream — with T-003 |
 | T-007 | Every scenario runs once, so nothing measures reliability |
+| T-018 | The fingerprint cannot tell a gateway from a provider — decide with T-016's LiteLLM row |
 | T-004 | Anthropic adapter at L2 — **subsumed by T-016's LiteLLM row**; keep for the argument |
 
 ### The adopt/decline register — decided, lives in T-016
