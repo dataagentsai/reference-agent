@@ -53,9 +53,16 @@ decisions:
       into the customer's reply. Retaining nothing makes a malformed-output
       report unanswerable; retaining it in the reply is the leak.
   AHC-0004/choke_point:
-    value: in-process
-    source: chosen
-    note: No gateway in this deployment; the in-process seam is where cost, retries and the breaker live.
+    value: both
+    source: golden-path
+    note: >-
+      The split, written down as the resolution asks (T-029, 2026-09-16). In
+      process: retries, backoff and the breaker (they are the seam scenarios
+      inject faults through, F-029), the allowlist, and cost per task. The
+      LiteLLM proxy: the provider credential, and per-caller keys with a model
+      allowlist, rate limit and budget, which must hold for callers this code
+      does not control. The proxy's own retries and cooldowns are off, so there
+      is one resilience layer.
   AHC-0004/sdk_containment:
     value: import-contract
     source: chosen
@@ -143,7 +150,7 @@ thresholds:
 # this port. `in-house` here is a deliberate position — a framework owns L4, L1
 # and L10, which are the layers the catalogs exist to expose.
 bindings:
-  model:        { approach: in-house,    adapter: openai-compatible-client, x_could_be: [framework, gateway], x_provider: groq, x_provider_check: "declared, and checked against the endpoint at startup (T-018)" }
+  model:        { approach: in-house,    adapter: openai-compatible-client, x_could_be: [framework, gateway], x_provider: groq, x_provider_check: "declared, and checked against the endpoint at startup (T-018)", x_gateway: "litellm-proxy in compose.yaml, reached through provider_base_url with the agent's own key (T-029)" }
   tool_runtime:
     approach: open-source
     adapter: mcp-client

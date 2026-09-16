@@ -43,6 +43,8 @@ from functools import partial
 from support_agent import telemetry as tel
 from support_agent.contracts import (
     LLMClient,
+    ModelBudgetExhausted,
+    ModelRefused,
     ModelRequest,
     ModelResponse,
     ModelThrottled,
@@ -273,6 +275,10 @@ class ResilientLLM:
         await self.throttle.wait(self._sleep)
         try:
             response = await self.inner.complete(request)
+        except (ModelRefused, ModelBudgetExhausted):
+            # Asked and answered no, or a bound was reached: retrying gets the
+            # same answer, and neither is evidence the provider is down.
+            raise
         except ModelThrottled as exc:
             if exc.retry_after is not None:
                 self.throttle.note_retry_after(exc.retry_after)

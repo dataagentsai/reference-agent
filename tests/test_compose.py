@@ -55,6 +55,7 @@ ADOPTED = [
 
 # Services that are no product's binding, and the product each exists for.
 SUPPORTING = {
+    "litellm-keys": "litellm",
     "langfuse-worker": "langfuse-web",
     "clickhouse": "langfuse-web",
     "minio": "langfuse-web",

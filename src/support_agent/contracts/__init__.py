@@ -26,7 +26,9 @@ from support_agent.contracts.ids import (
 )
 from support_agent.contracts.model import (
     Message,
+    ModelBudgetExhausted,
     ModelMalformed,
+    ModelRefused,
     ModelRequest,
     ModelResponse,
     ModelThrottled,
@@ -71,6 +73,8 @@ from support_agent.contracts.tools import (
 )
 
 __all__ = [
+    "ModelBudgetExhausted",
+    "ModelRefused",
     "ModelThrottled",
     "ApprovalRequested",
     "Unbindable",

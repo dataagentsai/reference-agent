@@ -14,7 +14,9 @@ import pytest
 
 from support_agent.contracts import (
     Message,
+    ModelBudgetExhausted,
     ModelMalformed,
+    ModelRefused,
     ModelRequest,
     ModelResponse,
     ModelThrottled,
@@ -65,6 +67,17 @@ CASES: list[tuple[str, list, type[Exception] | None, int, bool, float]] = [
         2.5,
     ),
     ("malformed output is not retried", [ModelMalformed("junk")], ModelMalformed, 1, True, 0.0),
+    # T-029: reached, and the answer was no. Neither is retried, and neither is
+    # evidence the provider is down, so the breaker stays closed.
+    ("a refusal is not retried", [ModelRefused("401 bad key")], ModelRefused, 1, True, 0.0),
+    (
+        "an exhausted budget is not retried",
+        [ModelBudgetExhausted("429 budget_exceeded")],
+        ModelBudgetExhausted,
+        1,
+        True,
+        0.0,
+    ),
 ]
 
 

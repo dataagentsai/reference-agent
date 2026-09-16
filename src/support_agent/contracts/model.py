@@ -101,9 +101,10 @@ class ModelResponse(BaseModel):
 
 
 class ModelUnavailable(AgentFailure):
-    """The provider could not be reached, or refused, after the adapter's own
-    retries. Callers translate this into a declared degradation path (AAC-0009);
-    it never reaches the customer as a stack trace.
+    """The provider could not be reached, after the adapter's own retries.
+    Callers translate this into a declared degradation path (AAC-0009); it never
+    reaches the customer as a stack trace. A refusal and an exhausted budget are
+    subclasses with kinds of their own.
     """
 
     fault = Fault.UNREACHABLE
@@ -117,6 +118,34 @@ class ModelThrottled(ModelUnavailable):
     def __init__(self, message: str, *, retry_after: float | None = None) -> None:
         super().__init__(message)
         self.retry_after = retry_after
+
+
+class ModelRefused(ModelUnavailable):
+    """The provider, or a gateway in front of it, was reached and said no: a key
+    it does not accept, a model this caller may not use, a request it will not
+    take. Trying again gets the same answer, so it is never retried and never
+    counts against a breaker; a refusal is not evidence anything is down.
+
+    A subclass of `ModelUnavailable` so every declared degradation path that
+    handles an unavailable model handles this one without a new branch. Its kind
+    is what differs, and `ResilientLLM` reads the type. Until T-029 every 4xx
+    other than 429 was `ModelUnavailable`: a revoked key was retried three times
+    and opened the breaker.
+    """
+
+    fault = Fault.REFUSED
+
+
+class ModelBudgetExhausted(ModelUnavailable):
+    """The gateway's budget for this caller is spent (T-029).
+
+    Its own type because the wire does not tell it apart: LiteLLM answers an
+    exhausted budget with HTTP 429, the status of a rate limit, and without this
+    the agent waited and retried against a bound that resets in weeks. A rate
+    limit says *come back soon*; this says *not until somebody raises the bound*.
+    """
+
+    fault = Fault.EXHAUSTED
 
 
 class ModelMalformed(AgentFailure):

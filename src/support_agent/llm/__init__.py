@@ -27,7 +27,9 @@ from support_agent import telemetry as tel
 from support_agent.config import RunConfig
 from support_agent.contracts import (
     Message,
+    ModelBudgetExhausted,
     ModelMalformed,
+    ModelRefused,
     ModelRequest,
     ModelResponse,
     ModelThrottled,
@@ -59,6 +61,28 @@ def _to_wire(messages: Iterable[Message]) -> list[dict[str, object]]:
             ]
         wire.append(entry)
     return wire
+
+
+RETRYABLE_4XX = frozenset({408, 409, 425})
+"""Client-error statuses that mean *not now* rather than *no*: a timeout, a
+conflict, too early. Every other 4xx is a refusal."""
+
+
+def failure_from(error: APIError) -> ModelUnavailable:
+    """What a provider or gateway error means for the caller, by kind.
+
+    The status alone is not enough. A gateway answers an exhausted budget with
+    429, the same status as a rate limit, and says which in the error `type`
+    (T-029). The body is read only for that; everything else is the status.
+    """
+    if isinstance(error, RateLimitError):
+        if getattr(error, "type", None) == "budget_exceeded":
+            return ModelBudgetExhausted(str(error))
+        return ModelThrottled(str(error), retry_after=retry_after_of(error))
+    status = error.status_code if isinstance(error, APIStatusError) else None
+    if status is not None and 400 <= status < 500 and status not in RETRYABLE_4XX:
+        return ModelRefused(str(error))
+    return ModelUnavailable(str(error))
 
 
 def retry_after_of(error: object) -> float | None:
@@ -165,10 +189,8 @@ class GroqClient:
                     max_tokens=request.max_tokens,
                     temperature=request.temperature or self._temperature,
                 )
-            except RateLimitError as exc:
-                raise ModelThrottled(str(exc), retry_after=retry_after_of(exc)) from exc
-            except (APIConnectionError, APIError) as exc:
-                raise ModelUnavailable(str(exc)) from exc
+            except APIError as exc:
+                raise failure_from(exc) from exc
 
             response = _from_wire(raw)
             span.set_attribute(tel.GEN_AI_RESPONSE_MODEL, response.model)
@@ -339,6 +361,7 @@ __all__ = [
     "ScriptedClient",
     "UnavailableClient",
     "connect_model",
+    "failure_from",
     "provider_from_host",
     "provider_from_model_info",
     "retry_after_of",

@@ -56,8 +56,8 @@ services:
       retries: 20
 
   litellm:
-    # The model gateway (T-029). Nothing reaches it yet: the agent still calls
-    # Groq directly until T-018 decides what the fingerprint makes of a gateway.
+    # The model gateway (T-029). The agent reaches it with its own key from
+    # litellm-keys; the Groq key lives here and nowhere in the agent.
     image: docker.litellm.ai/berriai/litellm:v1.101.0
     restart: unless-stopped
     depends_on:
@@ -77,6 +77,21 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+
+  litellm-keys:
+    # The agent's gateway key, created or updated to match, then exits (T-029).
+    # The agent holds this key and never the provider's.
+    image: docker.litellm.ai/berriai/litellm:v1.101.0
+    depends_on:
+      litellm: { condition: service_healthy }
+    entrypoint: ["python3", "/deploy/keys.py"]
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-local-dev-only}
+      AGENT_GATEWAY_KEY: ${AGENT_GATEWAY_KEY:-sk-support-agent-local-dev-only}
+      AGENT_GATEWAY_RPM: ${AGENT_GATEWAY_RPM:-30}
+      AGENT_GATEWAY_BUDGET_USD: ${AGENT_GATEWAY_BUDGET_USD:-5}
+    volumes:
+      - ./deploy/litellm/keys.py:/deploy/keys.py:ro
 
   keycloak:
     # Login (T-002). The realm, clients and the customer_id claim are T-002's;
