@@ -28,6 +28,7 @@ dependencies = [
     # nobody reads. Six routes with three scopes is where dependency injection
     # and a real integration surface start paying, so that is where it lands.
     "fastapi>=0.115",
+    "opentelemetry-exporter-otlp-proto-http>=1.27",
 ]
 
 [project.optional-dependencies]

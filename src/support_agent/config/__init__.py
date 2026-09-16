@@ -95,6 +95,19 @@ class Settings(BaseSettings):
     max_steps: int = 12
     max_cost_usd: float = 0.50
 
+    otlp_endpoint: str = ""
+    """Where spans go besides memory. Empty means nowhere, which is the honest
+    default for a machine with no collector on it.
+
+    Deliberately **not** part of the run fingerprint: pointing telemetry at a
+    different backend does not change what the agent does, and a fingerprint
+    that moved when it did would say two identical runs were different systems.
+    Same argument as `mcp_base_url`, which `RunConfig.fingerprint` already
+    excludes."""
+    otlp_headers: str = Field(default="", repr=False)
+    """`key=value,key=value` — an auth header for a hosted collector. `repr=False`
+    for the same reason the provider key is."""
+
 
 class RunConfig(BaseModel):
     """The resolved, frozen configuration for one run, plus its fingerprint."""

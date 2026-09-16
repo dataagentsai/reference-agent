@@ -135,3 +135,52 @@ def test_errors_are_recorded_and_still_raised(exporter) -> None:
     finished = exporter.get_finished_spans()[0]
     assert finished.status.status_code.name == "ERROR"
     assert finished.events
+
+
+# --------------------------------------------------------------------------- #
+# The collector, added alongside rather than instead.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.tooling
+def test_a_collector_is_added_without_displacing_the_in_memory_exporter() -> None:
+    """The one line T-016 called the cheapest thing on the page.
+
+    Spans went to a Python list and nowhere else while `telemetry`'s own
+    docstring said a composition root adds an OTLP processor alongside. This is
+    that processor, and the property worth pinning is *alongside*: the in-memory
+    exporter is what this suite asserts against, and a deployment gaining a
+    backend must not make the tests blind.
+
+    **The provider is shut down at the end and that is not tidiness.** A
+    `BatchSpanProcessor` pointed at a collector that is not listening retries in
+    a background thread — correct in a deployment, where a collector restarting
+    should not lose a trace, and intolerable in a suite, where it is noise on
+    every later test. The first draft of this test left it running.
+    """
+    exporter = tel.configure()
+    added = tel.export_to("http://127.0.0.1:1/v1/traces")
+    try:
+        assert added is True
+        with tel.span("agent.turn", **{tel.RUN_ID: "run_otlp"}):
+            pass
+        names = [s.name for s in exporter.get_finished_spans()]
+        assert "agent.turn" in names, "the in-memory exporter stopped seeing spans"
+    finally:
+        tel._PROVIDER.shutdown()
+        tel.configure()
+
+
+@pytest.mark.tooling
+def test_export_to_is_a_no_op_before_a_provider_exists() -> None:
+    """So a caller need not order `configure` and `export_to`.
+
+    Returning False rather than raising: a missing provider is a caller that did
+    not configure one, and a composition root forced to guard every telemetry
+    call would grow a branch nobody tests.
+    """
+    tel._PROVIDER = None
+    try:
+        assert tel.export_to("http://127.0.0.1:1/v1/traces") is False
+    finally:
+        tel.configure()

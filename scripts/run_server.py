@@ -69,10 +69,27 @@ def demo_replies() -> ScriptedClient:
     )
 
 
-async def main(real: bool, port: int) -> None:
+def _telemetry(settings: Settings | None) -> None:
+    """Install the provider, and point it at a collector if one is configured.
+
+    The endpoint is read here rather than in `tel.configure` because it is a
+    deployment's decision and the composition root is where those live. The
+    in-memory exporter stays either way — it is what the eval harness asserts
+    against, and a suite that went blind the moment a deployment gained a
+    backend would be a suite that only works where nobody is watching.
+    """
     tel.configure()
-    world = Live.start(load(WORLD))
+    if settings is None or not settings.otlp_endpoint:
+        return
+    pairs = (p.split("=", 1) for p in settings.otlp_headers.split(",") if "=" in p)
+    if tel.export_to(settings.otlp_endpoint, headers=dict(pairs)):
+        print(f"  telemetry also going to {settings.otlp_endpoint}")
+
+
+async def main(real: bool, port: int) -> None:
     settings = Settings() if real else None
+    _telemetry(settings)
+    world = Live.start(load(WORLD))
 
     async with connect(project(world), ledger=InMemoryLedger()) as tools:
         # The real provider sits behind retries, a shared throttle and a breaker

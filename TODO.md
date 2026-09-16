@@ -844,11 +844,21 @@ lines, becomes configuration. It closes the one unambiguous violation and it
 subsumes T-004: that item argued about which client the wrapper wraps, and the
 better answer is not to own the wrapper.
 
-*An OTLP processor.* The cheapest and most embarrassing row. Spans go to an
-in-memory list and nowhere else, while `telemetry/__init__.py` already says *"in
-production the composition root adds an OTLP processor alongside"*. One line, and
-Langfuse or Phoenix then reads everything the agent already emits — the GenAI
-semantic conventions are followed, so nothing needs renaming.
+*An OTLP processor.* **Done 16 Sep.** `tel.export_to(endpoint, headers=…)`, called
+from the composition root when `AGENT_OTLP_ENDPOINT` is set, adding a
+`BatchSpanProcessor` **beside** the in-memory exporter rather than instead of it.
+Batch and not Simple: a network export on the request path would put a
+collector's latency inside a customer's turn, and its outage there too.
+`otlp_endpoint` is deliberately outside `RunConfig.fingerprint` — pointing
+telemetry elsewhere does not change what the agent does, and a fingerprint that
+moved when it did would call two identical runs different systems.
+
+One thing the work taught, recorded because it is a live trap: a
+`BatchSpanProcessor` aimed at a collector that is not listening **retries in a
+background thread**. Correct in a deployment, where a restarting collector should
+not lose a trace. Intolerable in a suite, where it is noise on every later test —
+the first draft of the test left it running, and the fix is that the test shuts
+the provider down.
 
 *A chat surface.* Chainlit or assistant-ui. Hand-written HTML in `ui/` teaches a
 reader nothing this project wants taught.
