@@ -1,7 +1,7 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 473,
-  "tagged": 388,
+  "functions": 491,
+  "tagged": 392,
   "tooling": [
     "tests/test_actors.py::test_a_model_driven_actor_says_what_it_is_told_and_stops",
     "tests/test_actors.py::test_a_persona_is_behaviour_and_the_situation_is_the_domains",
@@ -29,6 +29,7 @@
     "tests/test_assurance_map.py::test_the_unit_is_the_function_and_the_remainders_are_both_directions",
     "tests/test_break_it.py::test_a_scenario_whose_fault_never_fired_is_reported",
     "tests/test_build_checks.py::test_every_collaborator_the_root_takes_is_an_interface",
+    "tests/test_build_checks.py::test_every_counter_declared_is_incremented_somewhere",
     "tests/test_build_checks.py::test_every_failure_this_package_declares_says_what_kind_it_is",
     "tests/test_build_checks.py::test_only_the_composition_root_constructs_a_realisation",
     "tests/test_build_checks.py::test_the_build_check_passes",
@@ -74,11 +75,23 @@
     "tests/test_pattern_view.py::test_the_view_names_only_patterns_that_exist",
     "tests/test_reuse_audit.py::test_a_module_belongs_to_exactly_one_layer",
     "tests/test_reuse_audit.py::test_every_module_is_placed_in_a_layer",
+    "tests/test_reuse_audit.py::test_every_seam_names_something_that_exists",
     "tests/test_reuse_audit.py::test_the_domain_measurement_agrees_with_the_classification",
     "tests/test_scenario_files.py::test_every_scenario_names_what_it_discharges",
     "tests/test_scenario_files.py::test_every_unreached_statement_says_why_it_cannot_be_reached",
     "tests/test_scenario_files.py::test_scenario_coverage_only_goes_up",
     "tests/test_scripts.py::test_an_offline_script_runs",
+    "tests/test_single_page.py::test_a_comment_before_a_rule_does_not_eat_the_selector",
+    "tests/test_single_page.py::test_a_part_keeps_its_own_tokens",
+    "tests/test_single_page.py::test_each_script_is_closed_over",
+    "tests/test_single_page.py::test_every_link_in_the_page_lands_somewhere",
+    "tests/test_single_page.py::test_every_part_is_present",
+    "tests/test_single_page.py::test_no_part_styles_the_document",
+    "tests/test_single_page.py::test_no_two_elements_claim_the_same_anchor",
+    "tests/test_single_page.py::test_scoping_keeps_the_theme_switch_reaching_in",
+    "tests/test_single_page.py::test_the_contents_list_reaches_every_part",
+    "tests/test_telemetry.py::test_a_collector_is_added_without_displacing_the_in_memory_exporter",
+    "tests/test_telemetry.py::test_export_to_is_a_no_op_before_a_provider_exists",
     "tests/test_telemetry.py::test_span_carries_the_attributes_a_verdict_needs",
     "tests/test_telemetry.py::test_trajectory_is_reconstructable_from_the_trace",
     "tests/test_trigger.py::test_a_trigger_that_never_fires_is_an_omission",
@@ -88,7 +101,9 @@
     "tests/test_truth.py::test_the_new_oracle_catches_the_same_lie",
     "tests/test_truth.py::test_the_old_predicates_pass_a_lying_agent",
     "tests/test_truth.py::test_the_oracle_reads_the_world_not_the_declaration",
-    "tests/test_truth.py::test_what_counts_as_a_claim"
+    "tests/test_truth.py::test_what_counts_as_a_claim",
+    "tests/test_why_each_file.py::test_every_mechanism_file_has_a_recorded_reason",
+    "tests/test_why_each_file.py::test_the_document_names_no_file_that_is_not_mechanism"
   ],
   "unwired": {},
   "gaps": {
@@ -165,32 +180,16 @@
     },
     "AHC": {
       "owed": 72,
-      "exercised": 50,
+      "exercised": 55,
       "failing": [],
       "not_exercised": [
-        {
-          "id": "AHC-0002",
-          "title": "Context assembly is one inspectable function"
-        },
-        {
-          "id": "AHC-0004",
-          "title": "One choke point for every model call"
-        },
         {
           "id": "AHC-0006",
           "title": "One span per call, with context that survives the hops"
         },
         {
-          "id": "AHC-0010",
-          "title": "A task entrypoint an evaluation can drive"
-        },
-        {
           "id": "AHC-0015",
           "title": "Streaming has a completion and abort contract"
-        },
-        {
-          "id": "AHC-0020",
-          "title": "Concurrency is bounded by the harness, not by the runtime"
         },
         {
           "id": "AHC-0026",
@@ -215,10 +214,6 @@
         {
           "id": "AHC-0033",
           "title": "What serves traffic is the artifact that was assessed"
-        },
-        {
-          "id": "AHC-0036",
-          "title": "Every tool has a declared argument contract"
         },
         {
           "id": "AHC-0071",
@@ -366,6 +361,7 @@
     },
     "AAC-0011": {
       "passed": [
+        "tests/test_build_checks.py::test_every_counter_declared_is_incremented_somewhere",
         "tests/test_entrypoint_state.py::test_the_turn_span_carries_the_config_fingerprint",
         "tests/test_llm_identity_idempotency.py::test_model_call_emits_a_span_with_usage",
         "tests/test_router_loop.py::test_the_trajectory_is_reconstructable_from_the_trace",
@@ -432,7 +428,9 @@
       "passed": [
         "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
         "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
+        "tests/test_break_it.py::test_a_retry_never_gets_a_new_name_however_the_run_unfolds",
         "tests/test_contracts.py::test_idempotency_key_identity",
+        "tests/test_contracts.py::test_a_retry_is_minted_the_key_it_already_had",
         "tests/test_far_end_idempotency.py::test_the_far_end_recognises_a_retried_write",
         "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system",
         "tests/test_llm_identity_idempotency.py::test_retry_under_the_same_key_does_not_execute_twice",
@@ -734,12 +732,25 @@
       ],
       "failed": []
     },
+    "AHC-0002": {
+      "passed": [
+        "tests/test_context_budget.py::test_how_much_survives"
+      ],
+      "failed": []
+    },
     "AHC-0003": {
       "passed": [
         "tests/test_config.py::test_fingerprint_tracks_behaviour_not_secrets",
         "tests/test_config.py::test_fingerprint_is_stable_across_identical_resolutions",
         "tests/test_entrypoint_state.py::test_the_turn_span_carries_the_config_fingerprint",
         "tests/test_golden.py::test_every_approved_model_is_configurable_priced_and_reachable"
+      ],
+      "failed": []
+    },
+    "AHC-0004": {
+      "passed": [
+        "tests/test_build_checks.py::test_only_the_composition_root_constructs_a_realisation",
+        "tests/test_config.py::test_model_allowlist"
       ],
       "failed": []
     },
@@ -779,6 +790,12 @@
     "AHC-0009": {
       "passed": [
         "tests/test_golden.py::test_every_approved_model_is_configurable_priced_and_reachable"
+      ],
+      "failed": []
+    },
+    "AHC-0010": {
+      "passed": [
+        "tests/test_scenario_files.py::test_a_declared_scenario_passes_every_check_it_makes"
       ],
       "failed": []
     },
@@ -855,6 +872,7 @@
       "passed": [
         "tests/test_approvals.py::test_deciding_an_unknown_approval_is_an_error",
         "tests/test_approvals.py::test_the_decision_is_on_the_trace",
+        "tests/test_build_checks.py::test_every_counter_declared_is_incremented_somewhere",
         "tests/test_policy.py::test_the_failure_is_visible_on_the_trace",
         "tests/test_policy.py::test_the_blocking_rule_is_named_on_the_trace"
       ],
@@ -865,6 +883,12 @@
         "tests/test_telemetry.py::test_redaction_leaves_ordinary_text_alone",
         "tests/test_telemetry.py::test_redaction_bounds_length",
         "tests/test_telemetry.py::test_payload_capture_redacts_when_enabled"
+      ],
+      "failed": []
+    },
+    "AHC-0020": {
+      "passed": [
+        "tests/test_flow_resilience.py::test_concurrency_is_actually_bounded"
       ],
       "failed": []
     },
@@ -948,6 +972,12 @@
     "AHC-0035": {
       "passed": [
         "tests/test_contracts.py::test_identity_token_is_not_in_its_repr"
+      ],
+      "failed": []
+    },
+    "AHC-0036": {
+      "passed": [
+        "tests/test_tools_context.py::test_invalid_arguments_are_rejected_before_dispatch"
       ],
       "failed": []
     },
@@ -1116,8 +1146,10 @@
       "passed": [
         "tests/test_approvals.py::test_the_original_key_survives_the_wait",
         "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
+        "tests/test_break_it.py::test_a_retry_never_gets_a_new_name_however_the_run_unfolds",
         "tests/test_contracts.py::test_idempotency_key_identity",
         "tests/test_contracts.py::test_idempotency_key_is_stable_across_construction",
+        "tests/test_contracts.py::test_a_retry_is_minted_the_key_it_already_had",
         "tests/test_contracts.py::test_side_effect_class_decides_idempotency",
         "tests/test_far_end_idempotency.py::test_the_far_end_recognises_a_retried_write",
         "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system",
@@ -1323,7 +1355,8 @@
       "passed": [
         "tests/test_config.py::test_sealed_mode_fails_closed",
         "tests/test_config.py::test_swapping_the_tool_endpoint_is_the_only_change_agenttwin_makes",
-        "tests/test_serve.py::test_the_desk_and_the_agent_share_one_escalation_store"
+        "tests/test_serve.py::test_the_desk_and_the_agent_share_one_escalation_store",
+        "tests/test_serve.py::test_the_stores_agree_about_what_a_restart_costs"
       ],
       "failed": []
     },

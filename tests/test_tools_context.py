@@ -124,10 +124,14 @@ async def test_calling_a_tool_outside_the_surface_is_recoverable(server) -> None
             await client.call("issue_refund", {"order_id": "O-1"}, customer(), key())
 
 
-@pytest.mark.discharges("AAC-0052", "AHC-0037")
+@pytest.mark.discharges("AAC-0052", "AHC-0037", "AHC-0036")
 async def test_invalid_arguments_are_rejected_before_dispatch(server) -> None:
     """AAC-0052 — arguments valid syntactically and semantically, at P5, the last
-    place an action can be stopped while stopping it is cheap."""
+    place an action can be stopped while stopping it is cheap.
+
+    AHC-0036 is the other half and the reason this passes: the declaration the
+    model is shown is the same one the dispatcher validates against, so a
+    rejection here proves the contract is real rather than documentation."""
     import jsonschema
 
     async with open_client(server) as client:

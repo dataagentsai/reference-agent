@@ -26,8 +26,10 @@ MODEL_CASES = [
 
 
 @pytest.mark.parametrize(("name", "model", "allowed"), MODEL_CASES, ids=[c[0] for c in MODEL_CASES])
-@pytest.mark.discharges("AAC-0094", "Q-MODEL")
+@pytest.mark.discharges("AAC-0094", "Q-MODEL", "AHC-0004")
 def test_model_allowlist(name: str, model: str, allowed: bool) -> None:
+    """Also AHC-0004: the set of reachable models is enumerable from the choke
+    point, and a model outside it fails at startup rather than at a provider."""
     if allowed:
         assert resolve(settings(model=model)).model == model
     else:

@@ -552,7 +552,13 @@ should, the ratchets are a spec artifact nobody has written down.
 
 ## T-009 · Seven capabilities are believed met and named by no test
 
-**Status** Not started. Raised 2026-09-16. **Do before T-008.**
+**Status** **Done 2026-09-16.** Five were already proved by tests that did not
+name them and are tagged now: AHC-0002, 0004, 0010, 0020, 0036 (AHC 50 → 55/72).
+**Two were not met.** AHC-0006 and AHC-0026 hold inside the process and stop at
+its edge — no `traceparent` goes into a tool call's `_meta`, and a read carries
+no run id at all. Both moved to `accepted_gaps` with the fix named;
+`x_untested` is empty. That is the finding this item was for: had T-008 run
+first, a regeneration with no propagation would have looked like a match.
 
 **What is missing.** Seven `discharges` tags. `harness-profile.yaml` lists them
 under `x_untested`, deliberately separated from `accepted_gaps` because the two
@@ -1079,13 +1085,13 @@ agent real. They are independent and A is cheaper.
 |---|---|
 | ~~T-011~~ | Hotel AOAS — worked example 2. Four frictions, plus a fifth from T-012 |
 | ~~T-012~~ | Why each of the 46 mechanism files exists — `docs/WHY-EACH-FILE.md`. Seven citations closed the same day |
+| ~~T-009~~ | Five `x_untested` tagged; AHC-0006 and 0026 turned out unmet across the process edge — now accepted gaps |
 
 ### Track A · Is the spec set sufficient?
 
 | | Item | Cost |
 |---|---|---|
 | T-015 | A fresh model *describes* the structure from specs alone | **5 min** — needs a clean context |
-| T-009 | Tag the seven `x_untested` capabilities | hours |
 | T-014 | Delete a capability, see whether anything notices | afternoon |
 | T-013 | Spark cost analyst AOAS — the **adversarial shape**, no writes, no turns, no approvals | a day |
 | T-010 | Extract the shape constraints — **re-scope**: T-012 proved it is about boundaries, not existence | days |

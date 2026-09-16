@@ -266,16 +266,36 @@ accepted_gaps:
       one that was assessed. The Build Manifest is the half of this that exists.
     owner: reference-agent
     review: "2026-12-01"
+  # T-009, 2026-09-16. Both were listed under x_untested as believed met. Looking
+  # for the test that proves each found there is nothing to prove: the in-process
+  # half holds and the cross-process half does not exist.
+  - capability: AHC-0006
+    reason: >-
+      One trace per turn in process, and it stops at the process edge. No trace
+      context is injected into anything that leaves: a tool call's MCP `_meta`
+      carries the session and, for writes, the idempotency key, and never a
+      `traceparent`, so the tool server's work cannot attach to the agent's trace.
+      Nothing crosses a gateway because there is none (T-018). Closing it is
+      `propagate.inject` into `_meta` on the transport and an extract on the
+      server, with a test that the server's span has the agent's trace id.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0026
+    reason: >-
+      The run id is minted where the turn begins and is required on `agent.turn`,
+      `agent.run` and `agent.step` by the span contract, so in-process spans join
+      on it. It does not cross a service boundary on its own: it reaches the tool
+      server only inside a write's idempotency key, and a read carries no run id
+      at all. Same fix as AHC-0006 — the run id rides beside the trace context.
+    owner: reference-agent
+    review: "2026-12-01"
 
 # `x_` is the format's extension point. These are not accepted gaps: each is
 # believed met and **no test names it**, which the Assurance Map reports and this
 # records. A capability claimed without evidence is exactly what that map exists
 # to prevent, so they are listed rather than quietly counted as met.
-x_untested:
-  - AHC-0002   # context assembly is one function, and it is inspectable
-  - AHC-0004   # the choke point exists; the import contract is tested, the claim is not tagged
-  - AHC-0006   # spans carry the run id across the hops
-  - AHC-0010   # `Agent.handle` is the entrypoint scenarios drive
-  - AHC-0020   # the fan-out limiter is bounded by the harness
-  - AHC-0026   # the run id spans the unit of work
-  - AHC-0036   # every tool declares an argument contract, validated at dispatch
+#
+# Empty since T-009 (2026-09-16). Five of the seven were proved by tests that did
+# not name them — AHC-0002, 0004, 0010, 0020, 0036 are tagged now. AHC-0006 and
+# AHC-0026 were not met across the process edge and moved to accepted_gaps.
+x_untested: []

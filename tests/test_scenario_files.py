@@ -334,8 +334,12 @@ Anything absent gets an empty script, so reaching the model at all raises."""
 
 
 @pytest.mark.parametrize("path", SCENARIOS, ids=[p.stem for p in SCENARIOS])
-@pytest.mark.discharges("op:escalate", "op:request_refund")
+@pytest.mark.discharges("op:escalate", "op:request_refund", "AHC-0010")
 async def test_a_declared_scenario_passes_every_check_it_makes(path: Path) -> None:
+    """AHC-0010 is discharged by what this test does not need. Thirty-four
+    scenarios drive one unit of work end to end through `Agent.handle` with no
+    web server, no queue and no interface, and assert on typed results. An
+    entrypoint that required any of those could not be driven this way."""
     scenario = load_scenario(path)
     live = Live.start(load(path.parent / scenario.world))
 

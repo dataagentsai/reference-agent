@@ -73,8 +73,12 @@ SIZES = [
 
 
 @pytest.mark.parametrize(("name", "turns", "cap", "expected"), SIZES, ids=[c[0] for c in SIZES])
-@pytest.mark.discharges("AHC-0067")
+@pytest.mark.discharges("AHC-0067", "AHC-0002")
 def test_how_much_survives(name: str, turns: int, cap: int, expected) -> None:
+    """AHC-0002 is discharged by the shape of this test rather than its
+    assertion: `ctx.bounded` is called directly, with typed inputs, no provider
+    and no agent. A function that could not be tested this way would be the
+    string concatenation spread across call sites the capability forbids."""
     history = tuple(said("x" * 100) for _ in range(turns))
     kept = ctx.bounded(history, max_chars=cap)
 

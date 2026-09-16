@@ -68,11 +68,15 @@ REALISATION = re.compile(
 )
 
 
-@pytest.mark.discharges("B13")
+@pytest.mark.discharges("B13", "AHC-0004")
 def test_only_the_composition_root_constructs_a_realisation() -> None:
     """A store, client or transport is constructed only where it is defined —
     the package receives its collaborators, it never fetches them. Tests and
     scripts are composition roots and may build what they like; `src` may not.
+
+    AHC-0004's second sentence, checked rather than asserted: provider SDKs
+    are constructed in one place and nowhere else. `GroqClient` is in the
+    realisation set above, so a second construction site fails this.
     """
     defined: dict[str, Path] = {}
     for path in SRC.rglob("*.py"):

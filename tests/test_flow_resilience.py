@@ -52,8 +52,11 @@ async def test_results_come_back_in_the_order_they_were_asked_for() -> None:
     assert out == [0, 1, 2, 3, 4]
 
 
-@pytest.mark.discharges("AHC-0097")
+@pytest.mark.discharges("AHC-0097", "AHC-0020")
 async def test_concurrency_is_actually_bounded() -> None:
+    """AHC-0020 — the limit is the harness's and exists whether or not the
+    runtime would have imposed one. `peak` is the assertion that it was
+    enforced rather than merely configured."""
     limiter = flw.Limiter(limit=2)
 
     async def work() -> None:
