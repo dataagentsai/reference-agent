@@ -865,6 +865,43 @@ each adopt becoming its own item. The rows already decided this week — Hypothe
 adopted, Cosmic Ray used once to calibrate and not kept — belong in it as
 precedent for the format.
 
+**Three rows whose verdict is already decided and should be written as such.**
+
+*The customer-facing chat, and the human side of escalation — adopt Chatwoot.*
+Its Agent Bot API is this agent's escalation model already built: webhook events
+carry the message with full conversation context, and a bot that decides a person
+is needed flips the conversation to `open`, at which point a human takes over
+**with the transcript already there**. Channels, history and assignment come with
+it. `facts.as_handoff()` stops being the whole handoff and becomes an added note.
+It closes T-001 and the customer half of T-017 without a line of UI. Two things to
+record with it: it does **not** solve approvals — escalation is a person taking
+the conversation, approval is a person authorising one action while the agent
+keeps it, and only the first is Chatwoot-shaped — and it needs **T-002** first,
+because Chatwoot supplies a contact and this agent needs a signed `customer_id`.
+
+*Intent conversion — adopt nothing.* Multi-intent is already specified and
+already tested: P-DIRECT sends a turn naming several orders or several intents to
+the loop, F-037 is the defect from getting that wrong, and
+`twelve-steps-and-then-a-person` exercises five orders in one run. There are two
+opinions about intent here — a regex router for the unambiguous single case and
+the loop for everything else. An NLU layer would be a **third**, and three things
+that can disagree about what a customer meant is worse than two, because a
+misroute then has no clear owner.
+
+*Model tier routing — deferred, with the seam named.* Routing a hard question to
+a strong model and an easy one to a weak model is solved: LiteLLM has cost-based
+strategies, OpenRouter ships an Auto Router with a cost/quality dial, and
+RouteLLM is the research answer at 85% cost saving for 95% of GPT-4 quality. None
+of it is worth adopting **here yet**, and the reason is arithmetic: the ceiling is
+`max_cost_usd = 0.50` per task and a real turn costs about $0.00002 — four orders
+of magnitude of headroom. Tier routing optimises a cost this agent does not have,
+and P-DIRECT already answers the more valuable question, *any model at all*, by
+removing three of four routes before one is called. When it does become real the
+seam exists: `LLMClient` is a Protocol with six implementations, and a
+`TieredLLM(strong, weak)` is a seventh that changes nothing else — the same shape
+as `ResilientLLM` wrapping `GroqClient`. Recorded here rather than left out so a
+later reader sees a decision and not an oversight.
+
 ---
 
 ## T-017 · A real store, and a human in front of it
