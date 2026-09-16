@@ -838,11 +838,38 @@ other two are drift, and drift is what an audit is for.
 
 **The adoptions, highest value first.**
 
-*LiteLLM at L2.* One dependency for the provider client, retries, fallback, cost
-tracking and caching — `llm/` plus `resilience/` plus part of `cost/`, about 600
-lines, becomes configuration. It closes the one unambiguous violation and it
-subsumes T-004: that item argued about which client the wrapper wraps, and the
-better answer is not to own the wrapper.
+*LiteLLM at L2 — **measured 16 Sep, and the case does not hold as written**.*
+The claim above was about 600 lines. It is 65: `GroqClient` is 65 lines of
+`llm/`'s 266, and `ScriptedClient` and `UnavailableClient` stay because the tests
+need them.
+
+**`resilience/` cannot go, and the reason is structural rather than a
+preference.** `ResilientLLM` wraps an `LLMClient`, and that is the seam scenarios
+inject faults through — `evals/simulation.py` builds
+`ResilientLLM(FaultyProvider(scripted))`, which is how `the-provider-throttles`
+and `the-model-fails-twice` work at all. LiteLLM's retries live *inside* LiteLLM,
+below that seam, so it would never see a `FaultyProvider`: production would
+retry and simulation would not. That is F-029 exactly, and `simulation.py`
+already states it — *a simulation that composes the agent differently from
+production is simulating a different agent, and the difference is invisible until
+a scenario asks the provider to misbehave.*
+
+So the real trade is 65 lines removed, ~50 lines of adapter added, a dependency
+gained, LiteLLM's own retries disabled to avoid two retry layers, and
+`completion_cost` avoided because it returns 0.0 for an unknown model rather than
+raising — the exact failure `UnknownPrice` exists to prevent. Net roughly zero
+lines for one dependency. The gains that remain are real but narrow: a hundred
+providers behind one call, and a maintained price map worth cross-checking ours
+against.
+
+**The better shape is the proxy, and it is T-018's point arriving concretely.**
+Provider portability, retries, cooldowns, fallbacks and budgets are what a
+gateway is for, and a gateway is reached through `provider_base_url` — no
+dependency, no code change, `GroqClient` already takes a `base_url`. Resilience
+then sits in the gateway where it covers everything else you run, `ResilientLLM`
+stays untouched so F-029 holds, and a later move to Databricks or Azure is one
+gateway replacing another. **Decide this with T-018 and not before**; the answer
+today is *neither, until there is somewhere to run a proxy*, which is P1 again.
 
 *An OTLP processor.* **Done 16 Sep.** `tel.export_to(endpoint, headers=…)`, called
 from the composition root when `AGENT_OTLP_ENDPOINT` is set, adding a
@@ -1083,7 +1110,8 @@ agent real. They are independent and A is cheaper.
 
 | | Verdict |
 |---|---|
-| LiteLLM | **adopt** — `llm/` + `resilience/` + part of `cost/`, ~636 lines |
+| LiteLLM **SDK** | **not now** — 65 lines, not 636; `resilience/` is the fault-injection seam (F-029) |
+| LiteLLM **proxy**, or any gateway | **when there is somewhere to run one** — via `provider_base_url`, no dependency. Decide with T-018 |
 | OTLP processor → Langfuse | **adopt** — one line, cheapest thing on this page |
 | Chatwoot Agent Bot API | **adopt** — needs T-002; does **not** solve approvals |
 | Anthropic context editing + memory tool | **adopt at L2** — no framework, no loop change |
