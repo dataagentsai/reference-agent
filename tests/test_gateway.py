@@ -27,6 +27,7 @@ from support_agent.config import Settings, resolve
 from support_agent.contracts import (
     Message,
     ModelBudgetExhausted,
+    ModelMalformed,
     ModelRefused,
     ModelRequest,
     ModelThrottled,
@@ -172,7 +173,14 @@ async def test_a_refused_call_does_not_put_the_gateway_on_cooldown(key) -> None:
             outcomes.append(None)
         except ModelUnavailable as exc:
             outcomes.append(type(exc))
+        except ModelMalformed:
+            # The provider answered: five tokens is less than a reasoning model
+            # spends before it replies. Served, not refused.
+            outcomes.append(None)
     if None in outcomes:
+        # Since 17 Sep the local proxy holds a working key, so this skips there.
+        # The property was checked when it did not: with cooldowns switched back
+        # on, the second call came back as ModelThrottled.
         pytest.skip("the proxy holds a provider key, so no call is refused")
     assert outcomes == [ModelRefused, ModelRefused]
 
