@@ -793,46 +793,77 @@ specs alone, in a clean context, and treat a suspiciously exact answer as
 evidence of contamination rather than of sufficiency — the same caution T-008
 carries about the AOAS citing this repo among its sources.
 
-## T-016 · What was hand-rolled that open source does better
+## T-016 · Three things on this project's own "do not build" list are built here
 
-**Status** Not started. Raised 2026-09-16. **An audit, then a decision per row.**
+**Status** Not started. Raised 2026-09-16. **Audit, then one item per adopt.**
 
-**What is missing.** A stated position on each thing this agent builds itself.
-Some are hand-rolled deliberately — the loop is, and the catalogs exist because a
-framework owning that layer hides the layer they expose. Others are hand-rolled
-because it was quicker on the day, and nobody has gone back. The two are
-indistinguishable from the outside, which is the problem: a reader cannot tell a
-decision from an accident, and the agent is meant to be read.
+**What is missing.** A verdict per harness component: keep, adopt, or wrap. Some
+things here are hand-rolled deliberately — the loop is, and the catalogs exist
+because a framework owning that layer hides what they expose. Others are
+hand-rolled because it was quicker that day and nobody went back. From outside the
+two are indistinguishable, and that is the real cost: a reader cannot tell a
+decision from an accident, and this repository exists to be read.
 
-**The audit.** One row per component: what it is, what open source does it, and a
-verdict of **keep / adopt / wrap**. Keep needs a reason.
+**Scored against `LearnAgenticHarnessFrameworks/08-what-you-build.md`**, which is
+this project's own list of what not to build:
 
-| Built here | The alternative | First read |
-|---|---|---|
-| `resilience/` — retry, backoff, circuit breaker | `tenacity`, `pybreaker` | **adopt.** Commodity, and ours is 370 lines |
-| `cassette/` — record and replay | `VCR.py`, `pytest-recording` | **adopt or wrap.** Genuinely commodity |
-| `llm/` — provider client | the provider SDK, or **LiteLLM** as gateway | **adopt** — this is T-004, already argued |
-| telemetry **export** | **Langfuse**, Phoenix, any OTLP collector | **adopt.** Spans go to an in-memory list and nowhere else |
-| telemetry **names** | OTel GenAI semantic conventions | **keep.** Already follows them; the `agent.*` family is ours and should be |
-| `ui/` — the chat page | Chainlit, assistant-ui, Chatwoot | **adopt.** Hand-written HTML is not the lesson this repo teaches |
-| the world | **Saleor / Medusa / Vendure** | **adopt** — see T-017 |
-| synthetic data | `Faker`, `Mimesis`, SDV | **wrap.** The generator derives cases from declared conditions, which none of these do; the *values* could come from one |
-| scenario generation | τ-bench, AgentDojo, promptfoo | **keep the format, read theirs.** Their policy is prose, ours is declared |
-| property testing | Hypothesis | **adopted 14 Sep** |
-| mutation testing | Cosmic Ray | **wrapped 14 Sep** — used once to calibrate, kept the technique not the tool |
-| `loop/`, `policy/`, `context/`, `state/` | LangGraph, Claude Agent SDK | **keep, and say why.** This is the thesis; see the L2/L4 split in T-004 |
+    A trace format              clean — OTel GenAI conventions
+    A prompt DSL                clean — Jinja and files, versions in traces
+    Own tool protocol           clean — MCP
+    A vector DB, a sandbox      not applicable
+    Model client wrappers       VIOLATED — llm/ plus resilience/ is 636 lines,
+                                against a warning that a thin wrapper will not stay thin
+    A durable workflow engine   PARTLY — approvals and escalation with ttl, lapse
+                                and sweep is a small workflow engine
+    The agentic loop            QUALIFIED — the stated exception applies, but the
+                                danger named is drifting into a half-built
+                                compactor and checkpointer, and context/ and
+                                state/ are that
 
-**Why it matters beyond tidiness.** Three of this repository's stated purposes
-depend on it: a reference somebody copies should not teach them to write their
-own circuit breaker; a teaching artifact should show where the line is; and a
-funding case is stronger when the novel part is small and named than when it is
-implied by everything being bespoke.
+Three of eight. The loop is defensible and should be defended in writing. The
+other two are drift, and drift is what an audit is for.
 
-**Where it lands.** A section in `REVIEW.md` or its own doc, with the verdicts and
-their reasons, and the adopt rows becoming their own items. The observability
-one is the most embarrassing and the cheapest: an `OTLP` processor beside the
-in-memory exporter is one line, and `telemetry/__init__.py` already says *"in
-production the composition root adds an OTLP processor alongside."*
+**The adoptions, highest value first.**
+
+*LiteLLM at L2.* One dependency for the provider client, retries, fallback, cost
+tracking and caching — `llm/` plus `resilience/` plus part of `cost/`, about 600
+lines, becomes configuration. It closes the one unambiguous violation and it
+subsumes T-004: that item argued about which client the wrapper wraps, and the
+better answer is not to own the wrapper.
+
+*An OTLP processor.* The cheapest and most embarrassing row. Spans go to an
+in-memory list and nowhere else, while `telemetry/__init__.py` already says *"in
+production the composition root adds an OTLP processor alongside"*. One line, and
+Langfuse or Phoenix then reads everything the agent already emits — the GenAI
+semantic conventions are followed, so nothing needs renaming.
+
+*A chat surface.* Chainlit or assistant-ui. Hand-written HTML in `ui/` teaches a
+reader nothing this project wants taught.
+
+*Record and replay.* VCR.py or pytest-recording in place of `cassette/`.
+
+**What to evaluate rather than adopt.** LangGraph's Postgres checkpointer against
+`state/`, and its interrupts — or Temporal — against the approval and escalation
+workflow. Both are the L4 decision, which T-004 argues is independent of L2 and
+should stay that way. Evaluating is not adopting; the output is a written reason.
+
+**What stays, and the test for it.** The doc states the heuristic: the do-not-build
+list is everything that is the same for everyone, and the build list is everything
+that encodes your domain, risk appetite and definition of quality. By that test
+these are ours and should say so: `contracts/`, `policy/` — the five positions are
+the contribution and no guardrail library models position at all — `approvals/`,
+`escalation/`, `state/facts.py`, `router/`, the scenarios and the golden set.
+
+**Why it matters beyond tidiness.** All three stated purposes depend on it. A
+reference somebody copies should not teach them to write a circuit breaker. A
+teaching artifact has to show where the line is, which means drawing it. And a
+funding case is stronger when the novel part is small and named than when
+bespoke-everything implies it.
+
+**Where it lands.** A table in `REVIEW.md` with a verdict and a reason per row,
+each adopt becoming its own item. The rows already decided this week — Hypothesis
+adopted, Cosmic Ray used once to calibrate and not kept — belong in it as
+precedent for the format.
 
 ---
 
@@ -906,5 +937,5 @@ were: the failures are the deliverable.
 | T-013 | Write the Spark cost analyst AOAS — the adversarial shape | 2026-09-16 |
 | T-014 | Delete a capability and see whether anything notices | 2026-09-16 |
 | T-015 | Ask a fresh model to describe the structure from the specs alone | 2026-09-16 |
-| **T-016** | **What was hand-rolled that open source does better — an audit** | 2026-09-16 |
+| **T-016** | **Three of our own do-not-build entries are built here — audit** | 2026-09-16 |
 | **T-017** | **A real store, and a human in front of it — needs P1** | 2026-09-16 |
