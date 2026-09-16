@@ -134,6 +134,16 @@ CONTRACT: dict[str, SpanSpec] = {
         required=frozenset(),
         optional=frozenset({"http.refusal_detail"}),
     ),
+    "agent.channel.webhook": SpanSpec(
+        # Before anything is verified there is no tenant to record: the outcome
+        # says whether the webhook was unsigned, ignored or accepted (T-026).
+        required=frozenset({"agent.channel.outcome"}),
+    ),
+    "agent.channel.turn": SpanSpec(
+        # What came of an accepted message: a turn's result, a request to sign
+        # in, a duplicate, or a conversation that is not this customer's.
+        required=frozenset({"agent.channel.outcome"}),
+    ),
     "agent.portal.refused": SpanSpec(
         # A login that did not complete has no verified session to record. The
         # detail is why, for the operator; the customer saw a fixed sentence.

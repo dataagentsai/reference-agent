@@ -139,6 +139,10 @@ class Settings(BaseSettings):
     chatwoot_hmac_token: str = Field(default="", repr=False)
     """The website inbox's identity validation secret: signs contact identifiers
     on the server, never sent to a page."""
+    chatwoot_bot_secret: str = Field(default="", repr=False)
+    """Verifies the bot webhook's signature: an unsigned webhook causes nothing."""
+    chatwoot_bot_token: str = Field(default="", repr=False)
+    """The bot's API token, for replies, private notes and handoff."""
 
     otlp_endpoint: str = ""
     """Where spans go besides memory. Empty means nowhere, which is the honest

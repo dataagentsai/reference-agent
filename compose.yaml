@@ -284,9 +284,35 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-local-dev-only}
       ACTIVE_STORAGE_SERVICE: local
       RAILS_LOG_TO_STDOUT: "true"
+      # Local only. The agent runs on the host, which Docker reaches at a
+      # private address, and Chatwoot refuses webhooks to private addresses
+      # unless told otherwise. A deployment with the agent on a routable name
+      # leaves this off.
+      SAFE_FETCH_ALLOW_PRIVATE_NETWORK: "true"
     command: ["bundle", "exec", "rails", "db:chatwoot_prepare"]
     volumes:
       - chatwoot_storage:/app/storage
+
+  chatwoot-setup:
+    # The account, the HMAC-mandatory website inbox and the agent bot, found or
+    # created then updated to match (deploy/chatwoot/setup.rb). Exits.
+    profiles: [channel]
+    image: chatwoot/chatwoot:v4.17.1-ce
+    depends_on:
+      chatwoot-migrate: { condition: service_completed_successfully }
+    environment:
+      <<: *chatwoot-env
+      CHATWOOT_ADMIN_EMAIL: ${CHATWOOT_ADMIN_EMAIL:-desk@localhost.test}
+      CHATWOOT_ADMIN_PASSWORD: ${CHATWOOT_ADMIN_PASSWORD:-Local-dev-only-1!}
+      CHATWOOT_WEBSITE_TOKEN: ${CHATWOOT_WEBSITE_TOKEN:-localdevonlywebsitetoken}
+      CHATWOOT_HMAC_TOKEN: ${CHATWOOT_HMAC_TOKEN:-local-dev-only-inbox-identity-secret}
+      CHATWOOT_BOT_SECRET: ${CHATWOOT_BOT_SECRET:-local-dev-only-bot-webhook-secret}
+      CHATWOOT_BOT_TOKEN: ${CHATWOOT_BOT_TOKEN:-localdevonlybottoken}
+      AGENT_WEBHOOK_URL: ${AGENT_WEBHOOK_URL:-http://host.docker.internal:8077/chatwoot/webhook}
+      PORTAL_URL: ${PORTAL_URL:-http://localhost:8077}
+    command: ["bundle", "exec", "rails", "runner", "/deploy/setup.rb"]
+    volumes:
+      - ./deploy/chatwoot/setup.rb:/deploy/setup.rb:ro
 
   chatwoot:
     # The customer chat and the human side of escalation (T-026).

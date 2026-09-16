@@ -58,6 +58,7 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `identity/__init__.py` | AAC-0057, AAC-0106 |
 | `identity/sessions.py` | AAC-0057, AHC-0099 |
 | `portal/__init__.py` | AAC-0111, AHC-0099 |
+| `channel/__init__.py` | AAC-0076, AAC-0111, AHC-0070 |
 | `llm/__init__.py` | AAC-0009, AHC-0001, AHC-0022, AHC-0024 |
 | `loop/__init__.py` | AAC-0009, AAC-0054, AAC-0055, AHC-0001, AHC-0107, AHC-0108 |
 | `loop/dispatch.py` | AAC-0051, AAC-0052, AHC-0104 |

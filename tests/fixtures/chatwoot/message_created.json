@@ -1,0 +1,154 @@
+{
+  "account": {
+    "id": 1,
+    "name": "Reference store"
+  },
+  "additional_attributes": {},
+  "content_attributes": {
+    "in_reply_to": null
+  },
+  "content_type": "text",
+  "content": "where is my order AB-10003",
+  "conversation": {
+    "additional_attributes": {
+      "browser_language": null,
+      "browser": {
+        "browser_name": "Unknown Browser",
+        "browser_version": "0.0",
+        "device_name": "Unknown",
+        "platform_name": "Unknown",
+        "platform_version": "0"
+      },
+      "initiated_at": {
+        "timestamp": "Thu Sep 17 00:19:17 2026"
+      },
+      "referer": null
+    },
+    "can_reply": true,
+    "channel": "Channel::WebWidget",
+    "contact_inbox": {
+      "id": 2,
+      "contact_id": 2,
+      "inbox_id": 1,
+      "source_id": "a742ea10-8bba-4ad8-be80-7e53859a6f3b",
+      "created_at": "2026-09-16T18:49:17.339Z",
+      "updated_at": "2026-09-16T18:49:17.472Z",
+      "hmac_verified": true,
+      "pubsub_token": "ggw24d1m6hf1ZLMzXZqKCjgm"
+    },
+    "id": 1,
+    "inbox_id": 1,
+    "messages": [
+      {
+        "id": 1,
+        "content": "where is my order AB-10003",
+        "account_id": 1,
+        "inbox_id": 1,
+        "conversation_id": 1,
+        "message_type": 0,
+        "created_at": 1789584557,
+        "updated_at": "2026-09-16T18:49:17.921Z",
+        "private": false,
+        "status": "sent",
+        "source_id": null,
+        "content_type": "text",
+        "content_attributes": {
+          "in_reply_to": null
+        },
+        "sender_type": "Contact",
+        "sender_id": 2,
+        "external_source_ids": {},
+        "additional_attributes": {},
+        "processed_message_content": "where is my order AB-10003",
+        "sentiment": {},
+        "conversation": {
+          "assignee_id": null,
+          "unread_count": 1,
+          "last_activity_at": 1789584557,
+          "contact_inbox": {
+            "source_id": "a742ea10-8bba-4ad8-be80-7e53859a6f3b"
+          }
+        },
+        "sender": {
+          "additional_attributes": {},
+          "custom_attributes": {},
+          "email": null,
+          "id": 2,
+          "identifier": "login-C-1042",
+          "name": "polished-smoke-653",
+          "phone_number": null,
+          "thumbnail": "",
+          "blocked": false,
+          "type": "contact"
+        }
+      }
+    ],
+    "labels": [],
+    "meta": {
+      "sender": {
+        "additional_attributes": {},
+        "custom_attributes": {},
+        "email": null,
+        "id": 2,
+        "identifier": "login-C-1042",
+        "name": "polished-smoke-653",
+        "phone_number": null,
+        "thumbnail": "",
+        "blocked": false,
+        "type": "contact"
+      },
+      "assignee": {
+        "id": 1,
+        "name": "support-agent",
+        "avatar_url": "",
+        "type": "agent_bot"
+      },
+      "assignee_type": "AgentBot",
+      "team": null,
+      "hmac_verified": true
+    },
+    "status": "pending",
+    "custom_attributes": {},
+    "snoozed_until": null,
+    "unread_count": 1,
+    "first_reply_created_at": null,
+    "priority": null,
+    "waiting_since": 1789584557,
+    "agent_last_seen_at": 0,
+    "contact_last_seen_at": 0,
+    "last_activity_at": 1789584557,
+    "timestamp": 1789584557,
+    "created_at": 1789584557,
+    "updated_at": 1789584557.936227,
+    "account": {
+      "id": 1,
+      "name": "Reference store"
+    }
+  },
+  "created_at": "2026-09-16T18:49:17.921Z",
+  "id": 1,
+  "inbox": {
+    "id": 1,
+    "name": "Support"
+  },
+  "message_type": "incoming",
+  "private": false,
+  "sender": {
+    "account": {
+      "id": 1,
+      "name": "Reference store"
+    },
+    "additional_attributes": {},
+    "avatar": "",
+    "custom_attributes": {},
+    "email": null,
+    "id": 2,
+    "identifier": "login-C-1042",
+    "name": "polished-smoke-653",
+    "phone_number": null,
+    "thumbnail": "",
+    "blocked": false
+  },
+  "source_id": null,
+  "event": "message_created"
+}

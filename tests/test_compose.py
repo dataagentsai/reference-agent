@@ -61,6 +61,7 @@ SUPPORTING = {
     "minio": "langfuse-web",
     "redis": "langfuse-web",
     "chatwoot-migrate": "chatwoot",
+    "chatwoot-setup": "chatwoot",
     "chatwoot-sidekiq": "chatwoot",
 }
 

@@ -38,6 +38,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from evals import issuer as local_issuer  # noqa: E402
 
 from support_agent import approvals as ap
+from support_agent import channel as ch
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
 from support_agent import identity as ident
@@ -49,7 +50,7 @@ from support_agent.config import RunConfig, Settings, resolve
 from support_agent.contracts import LLMClient, ModelResponse
 from support_agent.idempotency import InMemoryLedger
 from support_agent.identity import REVIEWER_SCOPES
-from support_agent.identity.sessions import KeycloakLogin
+from support_agent.identity.sessions import KeycloakLogin, KeycloakRefresh, Resume
 from support_agent.llm import ScriptedClient, connect_model
 from support_agent.resilience import ResilientLLM
 from support_agent.state import InMemoryCheckpointStore, InMemorySessionStore
@@ -99,36 +100,60 @@ def _issuer() -> ident.Issuer:
     return ident.Issuer(url=configured.issuer_url, audience=configured.issuer_audience, keys=keys)
 
 
-def _with_portal(app: Starlette, issuer: ident.Issuer) -> Starlette:
-    """Mount the customer portal at /portal when a realm, a cookie key and a
-    Chatwoot inbox are configured (T-026); otherwise serve the app as it is."""
+def _with_chatwoot(app: Starlette, agent: ep.Agent, issuer: ident.Issuer) -> Starlette:
+    """Mount the customer portal at /portal and Chatwoot's webhook at /chatwoot
+    when a realm, a cookie key and a Chatwoot inbox are configured (T-026).
+
+    The two share one store of logins and one `Resume`, which is what makes
+    logging out in the portal stop the agent acting for that customer.
+    """
     configured = Settings()
     if not (
         configured.issuer_url and configured.portal_cookie_key and configured.chatwoot_base_url
     ):
         return app
-    login = KeycloakLogin.discover(
-        configured.issuer_url,
-        client_id=configured.portal_client_id,
-        client_secret=configured.portal_client_secret,
-    )
-    widget = ptl.Widget(
-        base_url=configured.chatwoot_base_url,
-        website_token=configured.chatwoot_website_token,
-        hmac_token=configured.chatwoot_hmac_token,
+    client = (configured.portal_client_id, configured.portal_client_secret)
+    logins = InMemorySessionStore()
+    resume = Resume(
+        logins,
+        KeycloakRefresh.discover(
+            configured.issuer_url, client_id=client[0], client_secret=client[1]
+        ),
+        issuer=issuer,
     )
     portal = ptl.Portal(
-        login=login,
+        login=KeycloakLogin.discover(
+            configured.issuer_url, client_id=client[0], client_secret=client[1]
+        ),
         issuer=issuer,
-        sessions=InMemorySessionStore(),
-        widget=widget,
+        sessions=logins,
+        widget=ptl.Widget(
+            base_url=configured.chatwoot_base_url,
+            website_token=configured.chatwoot_website_token,
+            hmac_token=configured.chatwoot_hmac_token,
+        ),
         redirect_uri=configured.portal_redirect_uri,
         base_path="/portal",
         cookie_key=configured.portal_cookie_key.encode(),
         secure_cookies=configured.portal_redirect_uri.startswith("https://"),
+        forget=resume.forget,
     )
-    print("  Customer portal at /portal, sessions from the realm.")
-    return Starlette(routes=[Mount("/portal", app=ptl.build(portal)), Mount("/", app=app)])
+    channel = ch.Channel(
+        agent=agent,
+        store=agent.store,
+        sessions=resume,
+        api=ch.ChatwootClient(configured.chatwoot_base_url, token=configured.chatwoot_bot_token),
+        portal_url=configured.portal_redirect_uri.rsplit("/", 1)[0] + "/",
+        secret=configured.chatwoot_bot_secret,
+    )
+    print("  Customer portal at /portal; Chatwoot webhook at /chatwoot/webhook.")
+    return Starlette(
+        routes=[
+            Mount("/portal", app=ptl.build(portal)),
+            Mount("/chatwoot", app=ch.build(channel)),
+            Mount("/", app=app),
+        ]
+    )
 
 
 def _announce(port: int, settings: Settings | None, *, local: bool) -> None:
@@ -204,7 +229,7 @@ async def main(real: bool, port: int) -> None:
         # The desk reads the agent's own store. Sessions come from Keycloak when
         # AGENT_ISSUER_URL names a realm, else from the process-local issuer.
         issuer = _issuer()
-        app = _with_portal(serve.build(agent, issuer=issuer), issuer)
+        app = _with_chatwoot(serve.build(agent, issuer=issuer), agent, issuer)
 
         _announce(port, settings, local=issuer.url == local_issuer.URL)
 
