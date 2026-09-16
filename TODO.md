@@ -676,8 +676,9 @@ that split, the split deserves more than a list.
 
 ## T-012 · Trace every mechanism file back to a spec statement
 
-**Status** Not started. Raised 2026-09-16. **Do first of the hole-finding set —
-hours, no new artifact, and it attacks the largest gap.**
+**Status** **Done 2026-09-16** — `docs/WHY-EACH-FILE.md`, with a coverage test.
+The three follow-ups it produced are listed at the end of that document; the one
+that changes another item is that T-010's premise was wrong in size.
 
 **What is missing.** A reason, per file, for the 77%. `evals/reuse.py` says 46
 files and 7865 lines are mechanism — the part a second agent keeps. Nothing says
@@ -809,7 +810,7 @@ carries about the AOAS citing this repo among its sources.
 | T-009 | Seven capabilities believed met with no test naming them | 2026-09-16 |
 | **T-010** | **The constraints that produced this shape are in no specification** | 2026-09-16 |
 | **T-011** | **Write the hotel AOAS and nothing else — is the spec set complete?** | 2026-09-16 |
-| **T-012** | **Trace every mechanism file back to a spec statement — do this first** | 2026-09-16 |
+| ~~T-012~~ | ~~Trace every mechanism file back to a spec statement~~ — **done**, `docs/WHY-EACH-FILE.md` | 2026-09-16 |
 | T-013 | Write the Spark cost analyst AOAS — the adversarial shape | 2026-09-16 |
 | T-014 | Delete a capability and see whether anything notices | 2026-09-16 |
 | T-015 | Ask a fresh model to describe the structure from the specs alone | 2026-09-16 |
