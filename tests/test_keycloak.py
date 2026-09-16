@@ -13,6 +13,7 @@ get Keycloak's default `basic` scope. Every session would have been refused.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import time
@@ -289,3 +290,83 @@ def _logout(client_id: str, secret: str, refresh_token: str) -> None:
     request = urllib.request.Request(f"{REALM}/protocol/openid-connect/logout", data=data)
     with urllib.request.urlopen(request, timeout=10) as response:
         assert response.status in (200, 204)
+
+
+# --------------------------------------------------------------------------- #
+# T-026 (B): the portal's code flow against the realm's real login form.
+# --------------------------------------------------------------------------- #
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        return None
+
+
+def _log_in_at_the_realm(authorize_url: str, username: str) -> dict[str, str]:
+    """What a person does in a browser: open the login page, submit the form, and
+    come back with a code. Returns the query the realm redirects to.
+
+    The realm's login cookies are `Secure` (they are `SameSite=None`), which a
+    browser still sends to http://localhost and Python's cookie jar does not, so
+    they are carried by hand.
+    """
+    import re
+
+    with urllib.request.urlopen(authorize_url, timeout=10) as response:
+        cookies = "; ".join(c.split(";")[0] for c in response.headers.get_all("Set-Cookie") or [])
+        form = response.read().decode()
+    action = re.search(r'<form[^>]*id="kc-form-login"[^>]*action="([^"]+)"', form)
+    assert action, "the realm's login form"
+    submit = urllib.request.Request(
+        action.group(1).replace("&amp;", "&"),
+        data=urllib.parse.urlencode({"username": username, "password": PASSWORD}).encode(),
+        headers={"Cookie": cookies},
+    )
+    try:
+        urllib.request.build_opener(_NoRedirect).open(submit, timeout=10)
+    except urllib.error.HTTPError as redirect:
+        location = redirect.headers["Location"]
+    else:
+        raise AssertionError("the realm did not redirect back after login")
+    assert location, "a redirect with somewhere to go"
+    return dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(location).query))
+
+
+@pytest.mark.discharges("AHC-0099", "AAC-0111")
+async def test_the_portal_logs_a_customer_in_through_the_realm(issuer: ident.Issuer) -> None:
+    from starlette.applications import Starlette
+    from starlette.routing import Mount
+
+    from support_agent import portal as ptl
+
+    client_id, secret = PORTAL
+    realm_login = sessions.KeycloakLogin.discover(REALM, client_id=client_id, client_secret=secret)
+    store = InMemorySessionStore()
+    portal = ptl.Portal(
+        login=realm_login,
+        issuer=issuer,
+        sessions=store,
+        widget=ptl.Widget(base_url="http://localhost:3100", website_token="w", hmac_token="h"),
+        redirect_uri="http://localhost:8077/portal/callback",
+        base_path="/portal",
+        cookie_key=b"portal-cookie-key-for-tests-only",
+        secure_cookies=False,
+    )
+    app = Starlette(routes=[Mount("/portal", app=ptl.build(portal))])
+    with TestClient(app, follow_redirects=False) as client:
+        authorize = client.get("/portal/login").headers["location"]
+        back = await asyncio.to_thread(_log_in_at_the_realm, authorize, "c-1042")
+        assert client.get("/portal/callback", params=back).status_code == 303
+        page = client.get("/portal/")
+
+        assert page.status_code == 200
+        subject = ident.verify(login("c-1042"), issuer=issuer).subject
+        assert await store.get(subject) is not None, "the login is kept under its sub"
+        grant = sessions.KeycloakRefresh.discover(REALM, client_id=client_id, client_secret=secret)
+        resumed = sessions.Resume(store, grant, issuer=issuer)
+        assert (await resumed.identity_for(subject)).customer_id == "C-1042"
+
+        assert client.post("/portal/logout").status_code == 303
+        resumed.forget(subject)
+        with pytest.raises(ident.SessionEnded):
+            await resumed.identity_for(subject)

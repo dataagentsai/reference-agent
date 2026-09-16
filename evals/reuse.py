@@ -59,6 +59,7 @@ MECHANISM = {
     "loop/screen.py",
     "resilience/__init__.py",
     "reviewer/__init__.py",
+    "portal/__init__.py",
     "serve/__init__.py",
     "state/__init__.py",
     "state/facts.py",

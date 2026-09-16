@@ -134,6 +134,12 @@ CONTRACT: dict[str, SpanSpec] = {
         required=frozenset(),
         optional=frozenset({"http.refusal_detail"}),
     ),
+    "agent.portal.refused": SpanSpec(
+        # A login that did not complete has no verified session to record. The
+        # detail is why, for the operator; the customer saw a fixed sentence.
+        required=frozenset(),
+        optional=frozenset({"http.refusal_detail"}),
+    ),
     "agent.escalation.resolve": SpanSpec(
         # The outcome is required. It is the ground truth behind the
         # over-escalation rate, and a close that did not record one is a close

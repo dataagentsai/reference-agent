@@ -267,6 +267,19 @@ class RefreshGrant(Protocol):
     async def refresh(self, refresh_token: str) -> tuple[str, str]: ...
 
 
+class Login(Protocol):
+    """The issuer's login, as a portal drives it: send the browser to authorize,
+    redeem the code it comes back with, and end the session at logout (T-026)."""
+
+    def authorize_url(self, *, redirect_uri: str, state: str, challenge: str) -> str: ...
+
+    async def redeem(self, code: str, *, redirect_uri: str, verifier: str) -> tuple[str, str]:
+        """The access token and the refresh token to keep."""
+        ...
+
+    async def end(self, refresh_token: str) -> None: ...
+
+
 def require(identity: Identity | Principal, scope: str) -> None:
     """Assert a scope before an action is attempted.
 
@@ -292,6 +305,7 @@ __all__ = [
     "SCOPE_REFUNDS_WRITE",
     "SCOPE_RETURNS_WRITE",
     "InvalidSession",
+    "Login",
     "Issuer",
     "KeySource",
     "NotACustomer",

@@ -125,6 +125,21 @@ class Settings(BaseSettings):
     """The `aud` a session must name. A token issued for another service is
     refused even when the issuer and signature are right."""
 
+    portal_client_id: str = "support-portal"
+    portal_client_secret: str = Field(default="", repr=False)
+    portal_redirect_uri: str = "http://localhost:8077/portal/callback"
+    portal_cookie_key: str = Field(default="", repr=False)
+    """Signs the portal's cookies. Empty means no portal is mounted (T-026)."""
+    session_key: str = Field(default="", repr=False)
+    """The Fernet key stored logins are encrypted under. Held here, never in the
+    database, so a dump of `agent_state.sessions` is ciphertext."""
+
+    chatwoot_base_url: str = ""
+    chatwoot_website_token: str = ""
+    chatwoot_hmac_token: str = Field(default="", repr=False)
+    """The website inbox's identity validation secret: signs contact identifiers
+    on the server, never sent to a page."""
+
     otlp_endpoint: str = ""
     """Where spans go besides memory. Empty means nowhere, which is the honest
     default for a machine with no collector on it.

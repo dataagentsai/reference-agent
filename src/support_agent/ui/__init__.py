@@ -23,6 +23,9 @@ decorative.
 
 from __future__ import annotations
 
+import html
+import json
+
 CHAT_PAGE = """<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -173,4 +176,56 @@ form.addEventListener("submit", async e => {
 </body></html>
 """
 
-__all__ = ["CHAT_PAGE"]
+
+PORTAL_PAGE = """<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Support</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 2rem 1rem; color: #222; }
+  main { max-width: 36rem; margin: 0 auto; }
+  form { display: inline; }
+  button { font: inherit; padding: .4rem .9rem; }
+</style>
+</head><body>
+<main>
+  <h1>Support</h1>
+  <p>You are signed in. Open the chat in the corner to talk to us.</p>
+  <form method="post" action="__LOGOUT__"><button type="submit">Sign out</button></form>
+</main>
+<script>
+  // The identity the widget presents is decided on the server. The hash is an
+  // HMAC the server computed with the inbox's secret, which never reaches this
+  // page, so a visitor cannot claim someone else's identifier (T-026).
+  const who = __WHO__;
+  window.chatwootSettings = { hideMessageBubble: false, position: "right" };
+  window.addEventListener("chatwoot:ready", () => {
+    window.$chatwoot.setUser(who.identifier, { identifier_hash: who.identifier_hash });
+  });
+  (function (d, t) {
+    const base = who.base_url;
+    const g = d.createElement(t), s = d.getElementsByTagName(t)[0];
+    g.src = base + "/packs/js/sdk.js"; g.async = true;
+    s.parentNode.insertBefore(g, s);
+    g.onload = () => window.chatwootSDK.run({ websiteToken: who.website_token, baseUrl: base });
+  })(document, "script");
+</script>
+</body></html>
+"""
+"""The customer's page once signed in: the Chatwoot widget, told who they are.
+
+The portal fills `__WHO__` with JSON and `__LOGOUT__` with the sign-out path. No
+token of any kind is placed on the page: the session is a cookie the browser
+cannot read, and the widget's identity is an identifier and its HMAC.
+"""
+
+
+def portal_page(*, who: dict[str, str], logout_path: str) -> str:
+    """The page with its values in. JSON for the script, escaped so no value can
+    close the script tag it sits in."""
+    data = json.dumps(who).replace("<", "\\u003c")
+    return PORTAL_PAGE.replace("__WHO__", data).replace("__LOGOUT__", html.escape(logout_path))
+
+
+__all__ = ["CHAT_PAGE", "PORTAL_PAGE", "portal_page"]

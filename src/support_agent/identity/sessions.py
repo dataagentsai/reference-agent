@@ -195,4 +195,61 @@ class Resume:
         self._fresh.pop(subject, None)
 
 
-__all__ = ["KeycloakRefresh", "Resume", "TokenExchange"]
+class KeycloakLogin:
+    """The realm's authorization code flow with PKCE, for the portal's client."""
+
+    def __init__(self, document: dict[str, Any], *, client_id: str, client_secret: str) -> None:
+        self._authorize = str(document["authorization_endpoint"])
+        self._token = str(document["token_endpoint"])
+        self._logout = str(document["end_session_endpoint"])
+        self._client = (client_id, client_secret)
+
+    @classmethod
+    def discover(cls, issuer_url: str, **kwargs: Any) -> KeycloakLogin:
+        return cls(discovery(issuer_url), **kwargs)
+
+    def authorize_url(self, *, redirect_uri: str, state: str, challenge: str) -> str:
+        query = urllib.parse.urlencode(
+            {
+                "response_type": "code",
+                "client_id": self._client[0],
+                "redirect_uri": redirect_uri,
+                "scope": "openid",
+                "state": state,
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+            }
+        )
+        return f"{self._authorize}?{query}"
+
+    async def redeem(self, code: str, *, redirect_uri: str, verifier: str) -> tuple[str, str]:
+        body = await asyncio.to_thread(
+            self._post,
+            self._token,
+            {
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "code_verifier": verifier,
+            },
+        )
+        return str(body["access_token"]), str(body["refresh_token"])
+
+    async def end(self, refresh_token: str) -> None:
+        await asyncio.to_thread(self._post, self._logout, {"refresh_token": refresh_token})
+
+    def _post(self, url: str, fields: dict[str, str]) -> dict[str, Any]:
+        client_id, secret = self._client
+        form = urllib.parse.urlencode(
+            {**fields, "client_id": client_id, "client_secret": secret}
+        ).encode()
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, data=form), timeout=10) as r:  # noqa: S310
+                raw = r.read()
+        except urllib.error.HTTPError as exc:
+            raise SessionEnded(f"the realm refused: {exc.code}") from exc
+        parsed: dict[str, Any] = json.loads(raw) if raw else {}
+        return parsed
+
+
+__all__ = ["KeycloakLogin", "KeycloakRefresh", "Resume", "TokenExchange"]

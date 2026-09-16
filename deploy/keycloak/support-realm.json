@@ -197,12 +197,12 @@
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "redirectUris": [
-        "http://localhost:8077/callback",
-        "http://127.0.0.1:8077/callback"
+        "http://localhost:8077/portal/callback",
+        "http://127.0.0.1:8077/portal/callback"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:8077/*##http://127.0.0.1:8077/*"
+        "post.logout.redirect.uris": "http://localhost:8077/portal/*##http://127.0.0.1:8077/portal/*"
       },
       "fullScopeAllowed": true,
       "defaultClientScopes": [

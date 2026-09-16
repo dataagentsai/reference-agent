@@ -12,7 +12,10 @@ a test depends on a fresh one.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import time
+import urllib.parse
 import uuid
 from functools import cache
 from typing import Any
@@ -125,4 +128,54 @@ class LocalRefresh:
         return mint(customer_id, subject=subject, scopes=scopes), refresh_token
 
 
-__all__ = ["AUDIENCE", "URL", "LocalExchange", "LocalRefresh", "issuer", "jwks", "mint"]
+class LocalLogin:
+    """The issuer's code flow with PKCE, offline, holding the challenge the way a
+    real one does: a code redeems only with the verifier that produced it."""
+
+    AUTHORIZE = "http://local-issuer.test/auth"
+
+    def __init__(self) -> None:
+        self.refresh = LocalRefresh()
+        self._codes: dict[str, tuple[str | None, str, str]] = {}
+        self.ended: list[str] = []
+
+    def authorize_url(self, *, redirect_uri: str, state: str, challenge: str) -> str:
+        query = urllib.parse.urlencode(
+            {"redirect_uri": redirect_uri, "state": state, "code_challenge": challenge}
+        )
+        return f"{self.AUTHORIZE}?{query}"
+
+    def approve(self, authorize_url: str, customer_id: str | None) -> dict[str, str]:
+        """The person logs in: the query the issuer sends the browser back with."""
+        query = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(authorize_url).query))
+        code = f"code-{uuid.uuid4().hex}"
+        subject = f"login-{customer_id or 'staff'}"
+        self._codes[code] = (customer_id, subject, query["code_challenge"])
+        return {"code": code, "state": query["state"]}
+
+    async def redeem(self, code: str, *, redirect_uri: str, verifier: str) -> tuple[str, str]:
+        if code not in self._codes:
+            raise ident.SessionEnded("the realm refused: 400")
+        customer_id, subject, challenge = self._codes.pop(code)
+        digest = hashlib.sha256(verifier.encode()).digest()
+        if base64.urlsafe_b64encode(digest).rstrip(b"=").decode() != challenge:
+            raise ident.SessionEnded("the realm refused: 400")
+        scopes = ident.CUSTOMER_SCOPES if customer_id else ident.REVIEWER_SCOPES
+        access = mint(customer_id, subject=subject, scopes=scopes)
+        return access, self.refresh.login(customer_id, subject=subject)
+
+    async def end(self, refresh_token: str) -> None:
+        self.ended.append(refresh_token)
+        self.refresh.revoke(refresh_token)
+
+
+__all__ = [
+    "AUDIENCE",
+    "URL",
+    "LocalExchange",
+    "LocalLogin",
+    "LocalRefresh",
+    "issuer",
+    "jwks",
+    "mint",
+]

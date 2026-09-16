@@ -31,6 +31,8 @@ import time
 
 import uvicorn
 from agenttwin import Live, load, project
+from starlette.applications import Starlette
+from starlette.routing import Mount
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from evals import issuer as local_issuer  # noqa: E402
@@ -39,6 +41,7 @@ from support_agent import approvals as ap
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
 from support_agent import identity as ident
+from support_agent import portal as ptl
 from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
@@ -46,9 +49,10 @@ from support_agent.config import RunConfig, Settings, resolve
 from support_agent.contracts import LLMClient, ModelResponse
 from support_agent.idempotency import InMemoryLedger
 from support_agent.identity import REVIEWER_SCOPES
+from support_agent.identity.sessions import KeycloakLogin
 from support_agent.llm import ScriptedClient, connect_model
 from support_agent.resilience import ResilientLLM
-from support_agent.state import InMemoryCheckpointStore
+from support_agent.state import InMemoryCheckpointStore, InMemorySessionStore
 from support_agent.tools import connect
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -93,6 +97,38 @@ def _issuer() -> ident.Issuer:
         return local_issuer.issuer()
     keys = ident.RemoteJWKS.discover(configured.issuer_url)
     return ident.Issuer(url=configured.issuer_url, audience=configured.issuer_audience, keys=keys)
+
+
+def _with_portal(app: Starlette, issuer: ident.Issuer) -> Starlette:
+    """Mount the customer portal at /portal when a realm, a cookie key and a
+    Chatwoot inbox are configured (T-026); otherwise serve the app as it is."""
+    configured = Settings()
+    if not (
+        configured.issuer_url and configured.portal_cookie_key and configured.chatwoot_base_url
+    ):
+        return app
+    login = KeycloakLogin.discover(
+        configured.issuer_url,
+        client_id=configured.portal_client_id,
+        client_secret=configured.portal_client_secret,
+    )
+    widget = ptl.Widget(
+        base_url=configured.chatwoot_base_url,
+        website_token=configured.chatwoot_website_token,
+        hmac_token=configured.chatwoot_hmac_token,
+    )
+    portal = ptl.Portal(
+        login=login,
+        issuer=issuer,
+        sessions=InMemorySessionStore(),
+        widget=widget,
+        redirect_uri=configured.portal_redirect_uri,
+        base_path="/portal",
+        cookie_key=configured.portal_cookie_key.encode(),
+        secure_cookies=configured.portal_redirect_uri.startswith("https://"),
+    )
+    print("  Customer portal at /portal, sessions from the realm.")
+    return Starlette(routes=[Mount("/portal", app=ptl.build(portal)), Mount("/", app=app)])
 
 
 def _announce(port: int, settings: Settings | None, *, local: bool) -> None:
@@ -168,7 +204,7 @@ async def main(real: bool, port: int) -> None:
         # The desk reads the agent's own store. Sessions come from Keycloak when
         # AGENT_ISSUER_URL names a realm, else from the process-local issuer.
         issuer = _issuer()
-        app = serve.build(agent, issuer=issuer)
+        app = _with_portal(serve.build(agent, issuer=issuer), issuer)
 
         _announce(port, settings, local=issuer.url == local_issuer.URL)
 
