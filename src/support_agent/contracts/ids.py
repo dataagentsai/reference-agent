@@ -40,6 +40,11 @@ class Identity(BaseModel):
     scopes: frozenset[str] = Field(default_factory=frozenset)
     token: str | None = Field(default=None, repr=False)
     """Bearer credential. `repr=False` so it cannot reach a log by accident."""
+    subject: str | None = None
+    """The login behind the session (`sub`), for the record. Never used to find a
+    row: that is `customer_id`'s job, and the two differ on purpose (T-002)."""
+    session: str | None = None
+    """The session (`jti`), so a record can say which login did a thing."""
 
     def may(self, scope: str) -> bool:
         return scope in self.scopes

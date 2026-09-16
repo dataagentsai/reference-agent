@@ -4,7 +4,9 @@
     uv run python scripts/run_server.py --real    # a real provider call per turn
 
 Then open the printed URL. The token is in it — the page cannot mint one, so a
-link without it is a page that can talk to nothing.
+link without it is a page that can talk to nothing. The token is signed by the
+local test issuer in `evals/issuer.py`, because the agent can only verify
+sessions, never sign them (T-002). Against Keycloak a token comes from the realm.
 
 ## Why the default is the simulated shop
 
@@ -30,16 +32,19 @@ import time
 import uvicorn
 from agenttwin import Live, load, project
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from evals import issuer as local_issuer  # noqa: E402
+
 from support_agent import approvals as ap
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
-from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
 from support_agent.config import RunConfig, Settings, resolve
 from support_agent.contracts import LLMClient, ModelResponse
 from support_agent.idempotency import InMemoryLedger
+from support_agent.identity import REVIEWER_SCOPES
 from support_agent.llm import ScriptedClient, connect_model
 from support_agent.resilience import ResilientLLM
 from support_agent.state import InMemoryCheckpointStore
@@ -47,11 +52,6 @@ from support_agent.tools import connect
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORLD = os.path.join(HERE, "worlds", "clothing.yaml")
-
-SECRET = os.environ.get("AGENT_SESSION_SECRET", "dev-only-secret-not-for-production-32b!")
-"""Overridable, and the default is loud about what it is. A 32-byte minimum is
-enforced by `identity`, so a short one fails at startup rather than at the first
-forged token."""
 
 
 def demo_replies() -> ScriptedClient:
@@ -84,6 +84,23 @@ def _telemetry(settings: Settings | None) -> None:
     pairs = (p.split("=", 1) for p in settings.otlp_headers.split(",") if "=" in p)
     if tel.export_to(settings.otlp_endpoint, headers=dict(pairs)):
         print(f"  telemetry also going to {settings.otlp_endpoint}")
+
+
+def _announce(port: int, settings: Settings | None) -> None:
+    """The links a person needs, with tokens from the process-local issuer."""
+    token = local_issuer.mint("C-1042", ttl_s=8 * 3600)
+    print("\n  Support agent running against the simulated clothing shop")
+    print(
+        f"  model: {'REAL — ' + settings.model if settings is not None else 'scripted (free, offline)'}"
+    )
+    print("\n  Open this — the token is in the link:\n")
+    print(f"    http://127.0.0.1:{port}/?token={token}\n")
+    # The desk at /ops needs a reviewer: a login with no customer behind it,
+    # signed by the same process-local issuer, so it only works against this run.
+    desk = local_issuer.mint(None, scopes=REVIEWER_SCOPES, subject="desk-1", ttl_s=8 * 3600)
+    print(f"  Reviewer token for /ops (GET /ops/escalations):\n\n    {desk}\n")
+    print("  Orders: AB-10001 shipped · AB-10002 pending · AB-10003 delivered 5d")
+    print("          AB-10004 delivered 31d · AB-10005 final sale · AB-66666 poisoned note\n")
 
 
 async def _model(settings: Settings | None) -> tuple[LLMClient, RunConfig | None]:
@@ -135,17 +152,10 @@ async def main(real: bool, port: int) -> None:
             # one is free and has nothing to meter.
             config=run_config,
         )
-        app = serve.build(agent, secret=SECRET)  # the desk reads the agent's own store
+        # The desk reads the agent's own store.
+        app = serve.build(agent, issuer=local_issuer.issuer())
 
-        token = ident.mint("C-1042", secret=SECRET, ttl_s=8 * 3600, now=int(time.time()))
-        print("\n  Support agent running against the simulated clothing shop")
-        print(
-            f"  model: {'REAL — ' + settings.model if settings is not None else 'scripted (free, offline)'}"
-        )
-        print("\n  Open this — the token is in the link:\n")
-        print(f"    http://127.0.0.1:{port}/?token={token}\n")
-        print("  Orders: AB-10001 shipped · AB-10002 pending · AB-10003 delivered 5d")
-        print("          AB-10004 delivered 31d · AB-10005 final sale · AB-66666 poisoned note\n")
+        _announce(port, settings)
 
         # The sweeper, on a timer. `esc.sweep` owns no scheduling of its own so
         # a scenario can drive it; this is the deployment's half of that split.

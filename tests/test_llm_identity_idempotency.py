@@ -3,7 +3,16 @@ ledger that decides whether an effect happens once or twice."""
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
+
+import jwt
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from evals import issuer as issuing
 
 from support_agent import identity as ident
 from support_agent import telemetry as tel
@@ -23,7 +32,7 @@ from support_agent.contracts import (
 from support_agent.idempotency import InMemoryLedger, once
 from support_agent.llm import ScriptedClient, UnavailableClient
 
-SECRET = "test-secret-long-enough-for-hs256-32b"
+ISSUER = issuing.issuer()
 RUN = RunId("run_t")
 
 
@@ -98,39 +107,106 @@ async def test_model_call_emits_a_span_with_usage() -> None:
 
 @pytest.mark.discharges("AHC-0099")
 def test_round_trip_yields_the_customer_and_scopes() -> None:
-    who = ident.verify(ident.mint("C-1042", secret=SECRET), secret=SECRET)
+    who = ident.verify(issuing.mint("C-1042"), issuer=ISSUER)
     assert who.customer_id == "C-1042"
     assert who.may(ident.SCOPE_ORDERS_READ)
+    assert who.session, "jti is required, so every session can be named in the record"
 
 
+def _other_key_token() -> str:
+    """Signed by a key the agent was never given, with every claim right."""
+    other = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    claims = jwt.decode(issuing.mint("C-1042"), options={"verify_signature": False})
+    return jwt.encode(claims, other, algorithm="RS256", headers={"kid": issuing.KID})
+
+
+def _hs256_with_the_public_key() -> str:
+    """Algorithm confusion: the issuer's *public* key, as PEM, used as an HMAC
+    secret. A verifier that let the header choose the algorithm would accept it.
+    Built by hand, because PyJWT refuses to sign it, which is its own defence
+    and not ours."""
+    claims = jwt.decode(issuing.mint("C-1042"), options={"verify_signature": False})
+    pem = (
+        issuing._private_key()
+        .public_key()
+        .public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+    )
+
+    def part(value: dict[str, object]) -> str:
+        raw = json.dumps(value, separators=(",", ":")).encode()
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+    signing_input = f"{part({'alg': 'HS256', 'typ': 'JWT', 'kid': issuing.KID})}.{part(claims)}"
+    mac = hmac.new(pem, signing_input.encode(), hashlib.sha256).digest()
+    return f"{signing_input}.{base64.urlsafe_b64encode(mac).rstrip(b'=').decode()}"
+
+
+def _unsigned() -> str:
+    claims = jwt.decode(issuing.mint("C-1042"), options={"verify_signature": False})
+    return jwt.encode(claims, None, algorithm="none")
+
+
+def _without_jti() -> str:
+    claims = jwt.decode(issuing.mint("C-1042"), options={"verify_signature": False})
+    claims.pop("jti")
+    return jwt.encode(
+        claims, issuing._private_key(), algorithm="RS256", headers={"kid": issuing.KID}
+    )
+
+
+# (why, how the token is made) — every one must produce no principal at all
 REJECTION_CASES = [
-    ("wrong secret", lambda t: (t, "other-secret-also-long-enough-32bytes")),
-    ("tampered payload", lambda t: (t[:-4] + "AAAA", SECRET)),
-    ("not a token at all", lambda t: ("garbage", SECRET)),
+    ("tampered payload", lambda: issuing.mint("C-1042")[:-4] + "AAAA"),
+    ("not a token at all", lambda: "garbage"),
+    ("signed by a key the agent was never given", _other_key_token),
+    ("addressed to another service", lambda: issuing.mint("C-1042", audience="the-store-api")),
+    ("issued by someone else", lambda: issuing.mint("C-1042", iss="https://elsewhere.test/")),
+    ("HS256, keyed with the issuer's public key", _hs256_with_the_public_key),
+    ("alg none", _unsigned),
+    ("no jti", _without_jti),
 ]
 
 
 @pytest.mark.discharges("AHC-0099", "AAC-0111")
-@pytest.mark.parametrize(("name", "mangle"), REJECTION_CASES, ids=[c[0] for c in REJECTION_CASES])
-def test_bad_tokens_produce_no_identity_at_all(name: str, mangle) -> None:
-    token, secret = mangle(ident.mint("C-1042", secret=SECRET))
+@pytest.mark.parametrize(("name", "make"), REJECTION_CASES, ids=[c[0] for c in REJECTION_CASES])
+def test_bad_tokens_produce_no_identity_at_all(name: str, make) -> None:
     with pytest.raises(ident.InvalidSession):
-        ident.verify(token, secret=secret)
+        ident.verify(make(), issuer=ISSUER)
 
 
 @pytest.mark.discharges("AHC-0099", "AAC-0111")
 def test_expired_token_is_refused() -> None:
-    token = ident.mint("C-1042", secret=SECRET, ttl_s=60, now=1_000_000)
+    token = issuing.mint("C-1042", ttl_s=60, now=1_000_000)
     with pytest.raises(ident.InvalidSession):
-        ident.verify(token, secret=SECRET, now=1_000_061)
+        ident.verify(token, issuer=ISSUER, now=1_000_061)
 
 
-@pytest.mark.discharges("AHC-0099")
-def test_a_short_secret_is_a_configuration_fault_not_a_warning() -> None:
-    """RFC 7518 §3.2. Enforced, and it takes the process down at startup rather
-    than failing one customer quietly at runtime."""
-    with pytest.raises(ValueError, match="at least 32"):
-        ident.mint("C-1", secret="too-short")
+# (why, the session's customer claim, whether it may act as a customer)
+CUSTOMER_CASES = [
+    ("a customer's session", "C-1042", True),
+    ("a staff login has no customer, and is not given one", None, False),
+    ("an empty customer claim is no customer", "", False),
+]
+
+
+@pytest.mark.discharges("AHC-0099", "AAC-0111", "P-OWNERSHIP")
+@pytest.mark.parametrize(
+    ("name", "customer", "ok"), CUSTOMER_CASES, ids=[c[0] for c in CUSTOMER_CASES]
+)
+def test_only_a_session_with_a_customer_acts_as_one(name: str, customer, ok: bool) -> None:
+    """T-002 decision 1: the customer is its own claim, never `sub`. A fallback
+    to `sub` would make every staff login a customer whose id is a UUID."""
+    principal = ident.verify(issuing.mint(customer, subject="login-7"), issuer=ISSUER)
+    if ok:
+        who = principal.as_customer()
+        assert (who.customer_id, who.subject, who.session) == (
+            customer,
+            "login-7",
+            principal.session,
+        )
+    else:
+        with pytest.raises(ident.NotACustomer):
+            principal.as_customer()
 
 
 @pytest.mark.discharges("AAC-0057", "AHC-0057")
@@ -138,7 +214,7 @@ def test_customer_scopes_exclude_refunds() -> None:
     """A refund is irreversible and needs a human above the threshold, so the
     agent acting as the customer must not hold the scope that would skip it."""
     assert ident.SCOPE_REFUNDS_WRITE not in ident.CUSTOMER_SCOPES
-    who = ident.verify(ident.mint("C-1", secret=SECRET), secret=SECRET)
+    who = ident.verify(issuing.mint("C-1"), issuer=ISSUER).as_customer()
     with pytest.raises(ident.InvalidSession, match="lacks scope"):
         ident.require(who, ident.SCOPE_REFUNDS_WRITE)
 
@@ -147,7 +223,7 @@ def test_customer_scopes_exclude_refunds() -> None:
 def test_confused_deputy_needs_a_different_token_not_a_different_claim() -> None:
     """T-AD-01. Whatever the model believes about who it is talking to, the
     identity it can act as is the one the token carries."""
-    who = ident.verify(ident.mint("C-1042", secret=SECRET), secret=SECRET)
+    who = ident.verify(issuing.mint("C-1042"), issuer=ISSUER).as_customer()
     assert who.customer_id == "C-1042"
     assert Identity(customer_id="C-9999").customer_id != who.customer_id
 

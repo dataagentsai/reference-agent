@@ -121,7 +121,12 @@ CONTRACT: dict[str, SpanSpec] = {
         optional=frozenset({"agent.escalation.waited_s"}),
     ),
     "agent.escalation.queue": SpanSpec(
-        required=frozenset({TENANT}), optional=frozenset({"agent.escalation.depth"})
+        # The reader's login, not a tenant. Until T-002 a desk session carried a
+        # made-up customer id and this recorded it as `agent.tenant`; a reviewer
+        # is no tenant, and naming one as such would put staff reads in every
+        # per-tenant panel.
+        required=frozenset({USER_ID}),
+        optional=frozenset({"agent.escalation.depth"}),
     ),
     "agent.escalation.refused": SpanSpec(
         # Nothing required: a request refused before its token is read has no

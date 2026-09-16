@@ -14,10 +14,11 @@ from pathlib import Path
 
 import pytest
 from agenttwin import Live, load, project
+from evals import issuer as issuing
+from jwt.algorithms import RSAAlgorithm
 from starlette.testclient import TestClient
 
 from support_agent import entrypoint as ep
-from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
@@ -28,7 +29,7 @@ from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
 WORLD = Path(__file__).parent.parent / "worlds" / "clothing.yaml"
-SECRET = "test-secret-long-enough-to-be-allowed-32"
+ISSUER = issuing.issuer()
 
 
 @pytest.fixture(autouse=True)
@@ -37,7 +38,7 @@ def exporter():
 
 
 def token(customer: str = "C-1042", **kw) -> str:
-    return ident.mint(customer, secret=SECRET, now=int(time.time()), **kw)
+    return issuing.mint(customer, now=int(time.time()), **kw)
 
 
 @pytest.fixture
@@ -62,7 +63,7 @@ def client():
                 deliveries=trg.InMemoryDeliveryLog(),
             )
 
-    with TestClient(serve.build(make_agent, secret=SECRET)) as c:
+    with TestClient(serve.build(make_agent, issuer=ISSUER)) as c:
         c.store = store  # type: ignore[attr-defined]
         c.world = world  # type: ignore[attr-defined]
         yield c
@@ -114,7 +115,7 @@ def test_a_forged_token_is_refused_without_saying_why(client) -> None:
 
 @pytest.mark.discharges("AHC-0099", "AAC-0111")
 def test_an_expired_token_is_refused(client) -> None:
-    stale = ident.mint("C-1042", secret=SECRET, ttl_s=1, now=int(time.time()) - 100)
+    stale = issuing.mint("C-1042", ttl_s=1, now=int(time.time()) - 100)
     assert post(client, "hello", tok=stale).status_code == 401
 
 
@@ -270,7 +271,8 @@ def test_the_page_is_served_and_cannot_mint_its_own_identity(client) -> None:
     page = client.get("/").text
 
     assert "<form" in page and "idempotency-key" in page, "it is a chat page"
-    assert SECRET not in page, "the signing secret reached the browser"
+    private = RSAAlgorithm.to_jwk(issuing._private_key(), as_dict=True)
+    assert private["d"] not in page, "the issuer's signing key reached the browser"
     for signing in ("HS256", "hmac", "createSign", "jsonwebtoken", "crypto.subtle.sign"):
         assert signing not in page, f"the page can sign tokens itself ({signing})"
 
@@ -297,9 +299,9 @@ def test_the_desk_and_the_agent_share_one_escalation_store(
     given = {"same": own, "none": None, "other": esc.InMemoryEscalationStore()}[passed]
     if raises:
         with pytest.raises(ValueError, match="not the agent's own"):
-            serve.build(agent, secret=SECRET, escalations=given)
+            serve.build(agent, issuer=ISSUER, escalations=given)
     else:
-        serve.build(agent, secret=SECRET, escalations=given)
+        serve.build(agent, issuer=ISSUER, escalations=given)
 
 
 # --------------------------------------------------------------------------- #

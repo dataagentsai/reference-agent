@@ -125,6 +125,7 @@ async def resolve(
     *,
     outcome: EscalationOutcome | str,
     by: str,
+    by_customer: str | None = None,
     note: str = "",
     now: int,
 ) -> Escalation:
@@ -170,7 +171,11 @@ async def resolve(
         raise EscalationError(f"escalation {escalation_id!r} is already {escalation.state.value}")
     if escalation.lapsed(now):
         raise EscalationError(f"escalation {escalation_id!r} lapsed before anyone came")
-    if by == escalation.customer_id:
+    # `by` is the login that closes it; `by_customer` the customer that login is
+    # linked to, if any (T-002). The two differ once logins come from an issuer,
+    # so both are compared: a reviewer who is also this customer is refused
+    # whichever name the caller passed.
+    if escalation.customer_id in (by, by_customer):
         raise EscalationError("an escalation cannot be closed by the customer it belongs to")
 
     closed = escalation.model_copy(

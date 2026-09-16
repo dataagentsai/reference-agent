@@ -14,6 +14,7 @@ from __future__ import annotations
 import time
 
 import pytest
+from evals import issuer as issuing
 from starlette.testclient import TestClient
 
 from support_agent import escalation as esc
@@ -22,7 +23,7 @@ from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent.contracts import EscalationState
 
-SECRET = "test-only-secret-not-for-production!!"
+ISSUER = issuing.issuer()
 CUSTOMER = "C-1042"
 
 
@@ -41,7 +42,7 @@ def client(store):
     """The reviewer app mounted where it really lives — under the same Starlette
     application that serves `/chat`. Testing it standalone would prove the app
     works and say nothing about the mount."""
-    app = serve.build(_NoAgent(), secret=SECRET, escalations=store)
+    app = serve.build(_NoAgent(), issuer=ISSUER, escalations=store)
     return TestClient(app)
 
 
@@ -53,7 +54,7 @@ class _NoAgent:
 
 
 def token(*, scopes, customer: str = "desk-3") -> str:
-    return ident.mint(customer, secret=SECRET, scopes=scopes, ttl_s=900)
+    return issuing.mint(customer, scopes=scopes, subject=customer, ttl_s=900)
 
 
 def reader() -> dict[str, str]:
@@ -113,8 +114,8 @@ async def test_a_reader_cannot_close_anything(client, store) -> None:
     """Read and review are separate scopes, so a read-only desk session is a real
     thing rather than a comment in the docs."""
     row = await queued(store)
-    only_read = ident.mint(
-        "desk-9", secret=SECRET, scopes=frozenset({ident.SCOPE_ESCALATIONS_READ})
+    only_read = issuing.mint(
+        None, subject="desk-9", scopes=frozenset({ident.SCOPE_ESCALATIONS_READ})
     )
     res = client.post(
         f"/ops/escalations/{row.id}/resolve",

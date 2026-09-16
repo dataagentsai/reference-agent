@@ -51,7 +51,6 @@ from support_agent.contracts import (
     Escalation,
     EscalationOutcome,
     EscalationStore,
-    Identity,
 )
 
 
@@ -122,7 +121,7 @@ class _Desk:
     """What one mounted desk serves from. Held on `app.state`, read per request."""
 
     store: EscalationStore
-    secret: str
+    issuer: ident.Issuer
     clock: Clock | None = None
 
     def now(self) -> int:
@@ -134,7 +133,7 @@ def _desk(request: Request) -> _Desk:
     return desk
 
 
-def reviewer(request: Request, authorization: str | None = Header(default=None)) -> Identity:
+def reviewer(request: Request, authorization: str | None = Header(default=None)) -> ident.Principal:
     """Verify once, here, and hand every route a trustworthy identity.
 
     The 401 body is fixed for the same reason `serve`'s is: the library's own
@@ -147,7 +146,7 @@ def reviewer(request: Request, authorization: str | None = Header(default=None))
     if not token:
         raise HTTPException(401, "a bearer token is required")
     try:
-        return ident.verify(token, secret=_desk(request).secret)
+        return ident.verify(token, issuer=_desk(request).issuer)
     except ident.InvalidSession as exc:
         detail = tel.redact(f"{type(exc).__name__}: {exc}")
         with tel.span("agent.escalation.refused", **{"http.refusal_detail": detail}):
@@ -155,11 +154,11 @@ def reviewer(request: Request, authorization: str | None = Header(default=None))
         raise HTTPException(401, "the session token is not valid") from None
 
 
-def requires(scope: str) -> Callable[..., Identity]:
+def requires(scope: str) -> Callable[..., ident.Principal]:
     """One scope check, declared per route — written once, applied by the router,
     and impossible to forget on the route added next month."""
 
-    def guard(who: Identity = Depends(reviewer)) -> Identity:
+    def guard(who: ident.Principal = Depends(reviewer)) -> ident.Principal:
         if not who.may(scope):
             raise HTTPException(403, f"this session does not hold {scope}")
         return who
@@ -167,7 +166,7 @@ def requires(scope: str) -> Callable[..., Identity]:
     return guard
 
 
-# `Depends(...)` as the default rather than inside `Annotated`: `Identity` is a
+# `Depends(...)` as the default rather than inside `Annotated`: `Principal` is a
 # Pydantic model, and FastAPI reads a bare model-typed parameter as a request
 # field — so the annotated form silently became a *query parameter named `who`*,
 # and every route answered 422 before the token was ever read.
@@ -178,10 +177,10 @@ router = APIRouter()
 
 
 @router.get("/escalations", response_model=list[Queued], summary="The queue, oldest first")
-async def queue(request: Request, who: Identity = Depends(read_guard)) -> list[Queued]:
+async def queue(request: Request, who: ident.Principal = Depends(read_guard)) -> list[Queued]:
     desk = _desk(request)
     moment = desk.now()
-    with tel.span("agent.escalation.queue", **{tel.TENANT: who.customer_id}) as span:
+    with tel.span("agent.escalation.queue", **{tel.USER_ID: who.subject}) as span:
         rows = await desk.store.pending()
         span.set_attribute("agent.escalation.depth", len(rows))
         return [Queued.of(row, now=moment) for row in rows]
@@ -191,7 +190,7 @@ async def queue(request: Request, who: Identity = Depends(read_guard)) -> list[Q
 async def one(
     request: Request,
     escalation_id: Annotated[str, Path(max_length=64)],
-    who: Identity = Depends(read_guard),
+    who: ident.Principal = Depends(read_guard),
 ) -> Queued:
     desk = _desk(request)
     row = await desk.store.get(escalation_id)
@@ -209,7 +208,7 @@ async def close(
     request: Request,
     escalation_id: Annotated[str, Path(max_length=64)],
     resolution: Resolution,
-    who: Identity = Depends(review_guard),
+    who: ident.Principal = Depends(review_guard),
 ) -> Closed:
     """Every refusal `esc.resolve` raises becomes a 409, not a 500.
 
@@ -224,7 +223,8 @@ async def close(
             desk.store,
             escalation_id,
             outcome=resolution.outcome,
-            by=who.customer_id,
+            by=who.subject,
+            by_customer=who.customer_id,
             note=resolution.note,
             now=desk.now(),
         )
@@ -241,7 +241,7 @@ async def close(
     )
 
 
-def build(store: EscalationStore, *, secret: str, clock: Clock | None = None) -> FastAPI:
+def build(store: EscalationStore, *, issuer: ident.Issuer, clock: Clock | None = None) -> FastAPI:
     """The reviewer app, ready to mount. Wiring only — the routes are above.
 
     Takes the store rather than the agent: this surface never runs a turn, never
@@ -252,7 +252,7 @@ def build(store: EscalationStore, *, secret: str, clock: Clock | None = None) ->
         summary="Read the escalation queue and close what you have handled.",
         version="1",
     )
-    app.state.desk = _Desk(store=store, secret=secret, clock=clock)
+    app.state.desk = _Desk(store=store, issuer=issuer, clock=clock)
     app.include_router(router)
     return app
 

@@ -114,7 +114,33 @@ class Inbound:
     delivery_id: str | None
 
 
-async def decode(request: Request, *, secret: str) -> Inbound:
+def _customer(request: Request, issuer: ident.Issuer) -> Identity:
+    """The customer a request's bearer token speaks for, or a refusal."""
+    header = request.headers.get("authorization", "")
+    token = header[7:].strip() if header[:7].lower() == "bearer " else ""
+    if not token:
+        raise BadRequest(401, "a bearer token is required")
+    try:
+        principal = ident.verify(token, issuer=issuer)
+    except ident.InvalidSession as exc:
+        # A fixed message. The library's own text is descriptive — it will
+        # happily report a codec error from a malformed segment — and every word
+        # of that tells whoever is probing which part of the token they got
+        # wrong. The detail goes on the span, where an operator can read it and
+        # an attacker cannot.
+        raise BadRequest(
+            401, "the session token is not valid", internal=f"{type(exc).__name__}: {exc}"
+        ) from None
+    try:
+        return principal.as_customer()
+    except ident.NotACustomer:
+        # A valid session with no customer behind it, a reviewer's. 403 and not
+        # 401: the token is fine, and it is not one a customer conversation may
+        # run under. Never a fallback to `sub`.
+        raise BadRequest(403, "this session is not a customer's") from None
+
+
+async def decode(request: Request, *, issuer: ident.Issuer) -> Inbound:
     """Turn an HTTP request into arguments, refusing anything that is not one."""
     raw = await request.body()
     if len(raw) > MAX_BODY:
@@ -133,21 +159,7 @@ async def decode(request: Request, *, secret: str) -> Inbound:
     # Identity comes from the token and only from the token. A `customer_id` in
     # the body is ignored rather than merged — silently preferring the token
     # would still leave the field there for the next reader to trust.
-    header = request.headers.get("authorization", "")
-    token = header[7:].strip() if header[:7].lower() == "bearer " else ""
-    if not token:
-        raise BadRequest(401, "a bearer token is required")
-    try:
-        who = ident.verify(token, secret=secret)
-    except ident.InvalidSession as exc:
-        # A fixed message. The library's own text is descriptive — it will
-        # happily report a codec error from a malformed segment — and every word
-        # of that tells whoever is probing which part of the token they got
-        # wrong. The detail goes on the span, where an operator can read it and
-        # an attacker cannot.
-        raise BadRequest(
-            401, "the session token is not valid", internal=f"{type(exc).__name__}: {exc}"
-        ) from None
+    who = _customer(request, issuer)
 
     cid = body.get("conversation_id")
     if cid is not None and (not isinstance(cid, str) or not cid):
@@ -189,7 +201,7 @@ async def chat(request: Request) -> Response:
     state = request.app.state
     with tel.span("http.chat") as span:
         try:
-            inbound = await decode(request, secret=state.secret)
+            inbound = await decode(request, issuer=state.issuer)
         except BadRequest as exc:
             span.set_attribute("http.status_code", exc.status)
             if exc.internal:
@@ -275,7 +287,7 @@ async def page(_: Request) -> Response:
 def build(
     agent: Agent | AgentFactory,
     *,
-    secret: str,
+    issuer: ident.Issuer,
     store: CheckpointStore | None = None,
     escalations: EscalationStore | None = None,
 ) -> Starlette:
@@ -305,17 +317,17 @@ def build(
     if escalations is not None:
         from support_agent import reviewer
 
-        routes.append(Mount("/ops", app=reviewer.build(escalations, secret=secret)))
+        routes.append(Mount("/ops", app=reviewer.build(escalations, issuer=issuer)))
 
     if isinstance(agent, Agent):
         app = Starlette(routes=routes)
-        app.state.secret, app.state.agent, app.state.store = secret, agent, store
+        app.state.issuer, app.state.agent, app.state.store = issuer, agent, store
         return app
 
     @asynccontextmanager
     async def lifespan(app: Starlette) -> AsyncIterator[None]:
         async with agent() as built:
-            app.state.secret, app.state.agent = secret, built
+            app.state.issuer, app.state.agent = issuer, built
             app.state.store = store or built.store
             yield
 
