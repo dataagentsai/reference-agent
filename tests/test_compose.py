@@ -45,7 +45,7 @@ ADOPTED = [
     ("workflow", "temporal", "temporal", "durable", "only T-028 needs it"),
     ("approval", "temporal-signals", "temporal", "durable", "the same Temporal as workflow"),
     (
-        "x_channel",
+        "channel",
         "chatwoot-agent-bot",
         "chatwoot",
         "channel",

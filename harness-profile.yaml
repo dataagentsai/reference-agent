@@ -170,6 +170,7 @@ bindings:
   identity:     { approach: open-source, adapter: keycloak-rs256-jwks, x_could_be: [gateway, cloud-native], x_note: "verify-only since T-002: RS256 against the realm JWKS, aud and jti required, customer_id its own admin-set claim; the order system verifies a token exchanged for it (RFC 8693) and, for a refund, the approval it loads (src/order_system)" }
   secrets:      { approach: in-house,    adapter: environment-settings, x_could_be: [cloud-native] }
   cost_ledger:  { approach: in-house,    adapter: per-task-meter, x_could_be: [gateway, platform] }
+  channel:      { approach: open-source, adapter: chatwoot-agent-bot, x_could_be: [platform], x_note: "T-026: signed webhook, HMAC-verified contact, a live stored login resumed per turn; handoff with the facts as a private note" }
   config:       { approach: open-source, adapter: typed-settings, x_could_be: [cloud-native] }
   recorder:     { approach: in-house,    adapter: json-cassettes, x_could_be: [open-source] }
   trigger:      { approach: in-house,    adapter: delivery-log, x_could_be: [cloud-native] }
