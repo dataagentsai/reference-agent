@@ -4,6 +4,25 @@
 [F-016](../evals/FINDINGS.md), which is critical: today any customer can act on
 any order.*
 
+> **Decided 2026-09-16 (the user), for T-002.** Steps 1 and 2 below are built:
+> the ownership rule and its two-customer test. For steps 3 and 4:
+>
+> 1. **`customer_id` is its own claim**, from a Keycloak user attribute only an
+>    admin can set. `sub` stays the login's identity for the audit trail; the
+>    store's customer id is written to the attribute when the account is linked.
+> 2. **Tests sign with a local issuer.** The agent knows only RS256 and a JWKS;
+>    HS256 leaves `src`. Tests sign with an in-process key pair, and a separate
+>    set runs against the composed Keycloak and skips when it is down.
+> 3. **The far end verifies, by token exchange (RFC 8693).** The agent exchanges
+>    the customer's token for one addressed to the order system (`sub` the
+>    customer, `azp` the agent) and sends it with every call. The order system
+>    stops trusting an asserted `customer_id`. Open inside this: how the far end
+>    verifies the **refund elevation**, which the agent grants itself today and
+>    Keycloak knows nothing about.
+> 4. **No login page in cycle 1.** The realm, clients, roles and test users
+>    exist; scripts and tests take tokens from the token endpoint. The customer's
+>    login arrives with the channel (T-026), since Chatwoot replaces the page.
+
 The reason this needs designing rather than picking a library is that **three
 different questions get called "auth", they are enforced in three different
 places, and the one we got wrong is the one a library does not answer for you.**
