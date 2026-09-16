@@ -28,7 +28,16 @@ from datetime import UTC, datetime
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from agenttwin import Live, load, load_scenario, perturbed, provider_faults, run_file, timeline_for
+from agenttwin import (  # noqa: E402
+    Clock,
+    Live,
+    load,
+    load_scenario,
+    perturbed,
+    provider_faults,
+    run_file,
+    timeline_for,
+)
 from evals.simulation import subject_for, voice_of
 
 from support_agent.config import Settings, resolve
@@ -47,9 +56,15 @@ async def once(path: pathlib.Path, settings: Settings) -> tuple[list, tuple, flo
     config = resolve(settings)
     meters: list[Meter] = []
     timeline = timeline_for(scenario)
+    # One clock for the agent, the world and the people offstage, composed as the
+    # suite composes it. Without it a lapse that waits on time never fires live:
+    # `nobody-picks-up-the-escalation` passed offline and failed live (17 Sep)
+    # because this runner gave the desk and the agent no shared clock (F-033's
+    # lesson, relearned by the one runner that had not taken it).
+    clock = Clock(step_s=scenario.step_seconds)
     # Always wrapped, even with nothing to fire: the wrapper is what counts calls,
     # and a scenario asserting that the agent *read* before acting needs them.
-    wrap = perturbed(live, timeline)
+    wrap = perturbed(live, timeline, clock)
 
     client, _ = await connect_model(config, api_key=settings.provider_api_key)
     async with subject_for(
@@ -59,9 +74,15 @@ async def once(path: pathlib.Path, settings: Settings) -> tuple[list, tuple, flo
         provider_faults=provider_faults(scenario),
         config=config,
         meters=meters,
+        clock=clock,
     ) as subject:
         record, outcomes = await run_file(
-            path, subject=subject, live=live, timeline=timeline, voice=voice_of(client)
+            path,
+            subject=subject,
+            live=live,
+            timeline=timeline,
+            clock=clock,
+            voice=voice_of(client),
         )
     return (
         list(outcomes),
