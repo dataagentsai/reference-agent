@@ -517,6 +517,14 @@ the catalog states badly, not a bad generation. That is the output worth having,
 and the reason to run it before the catalogs are declared finished rather than
 after.
 
+**One repo, and a second implementation is a second repo.** If this is ever run
+against LangGraph or the Claude Agent SDK rather than an empty folder, each is
+its own repository citing `scenarios/` by relative path — the way
+`worlds/clothing.yaml` already cites the AOAS across repos. Not a `harness:`
+config flag in this one: a flag means shared code, and shared code means "both
+pass the scenarios" proves the shared layer works rather than proving the specs
+do. Nothing to move today; the citation pattern already exists.
+
 **And the result has to be read against a circularity.** The AOAS declares its
 own `sources`, and two of the three are this repository — `worlds/clothing.yaml`
 and `src/support_agent/{router,policy,approvals,escalation,identity,config}`.
@@ -626,7 +634,12 @@ artifact with bindings or a family of them.
 
 ## T-011 · Write the hotel AOAS and nothing else
 
-**Status** Not started. Raised 2026-09-16. **Do before T-008. A day, not weeks.**
+**Status** **Done 2026-09-16.** `clean-ai-engineering/drafts/examples/support-agent-hotel.aoas.yaml`
+and its extraction record. It validates; nine of thirteen sections carried
+unchanged; four things resisted and a fifth turned up separately from T-012's
+citation work — the AOAS has normative blocks with **no identifier**, so a file
+cannot cite what governs it. Do not fix the five until T-013 adds its set, or the
+format gets fitted to hotels.
 
 **What is missing.** Evidence that the specification set is *complete* — that
 everything a second agent must change has somewhere to be said. Not evidence
@@ -957,22 +970,62 @@ were: the failures are the deliverable.
 
 ## The queue
 
-| | Item | Raised |
+Two tracks. **A** asks whether the specifications are sufficient; **B** makes the
+agent real. They are independent and A is cheaper.
+
+### Done
+
+| | Item |
+|---|---|
+| ~~T-011~~ | Hotel AOAS — worked example 2. Four frictions, plus a fifth from T-012 |
+| ~~T-012~~ | Why each of the 46 mechanism files exists — `docs/WHY-EACH-FILE.md`. Seven citations closed the same day |
+
+### Track A · Is the spec set sufficient?
+
+| | Item | Cost |
 |---|---|---|
-| T-001 | Nothing happens when the chat opens | 2026-09-05 |
-| T-003 | Dedup works for one process only, and the durable port needs claim expiry | 2026-09-05 |
-| T-004 | An Anthropic adapter at L2 — closes three open items, one module | 2026-09-05 |
-| T-005 | Carry the idempotency key downstream — carries F-017 | 2026-09-05 |
-| **T-002** | **No login exists, and the permission model cannot express ownership — carries F-016** | 2026-09-05 |
-| T-006 | A customer's own conversations cannot be found — needs T-002 | 2026-09-15 |
-| T-007 | Every scenario runs once, so nothing measures reliability — discharges AAC-0010 | 2026-09-16 |
-| **T-008** | **The regeneration claim has never been run — the point of the whole family** | 2026-09-16 |
-| T-009 | Seven capabilities believed met with no test naming them | 2026-09-16 |
-| **T-010** | **The constraints that produced this shape are in no specification** | 2026-09-16 |
-| **T-011** | **Write the hotel AOAS and nothing else — is the spec set complete?** | 2026-09-16 |
-| ~~T-012~~ | ~~Trace every mechanism file back to a spec statement~~ — **done**, `docs/WHY-EACH-FILE.md` | 2026-09-16 |
-| T-013 | Write the Spark cost analyst AOAS — the adversarial shape | 2026-09-16 |
-| T-014 | Delete a capability and see whether anything notices | 2026-09-16 |
-| T-015 | Ask a fresh model to describe the structure from the specs alone | 2026-09-16 |
-| **T-016** | **Three of our own do-not-build entries are built here — audit** | 2026-09-16 |
-| **T-017** | **A real store, and a human in front of it — needs P1** | 2026-09-16 |
+| T-015 | A fresh model *describes* the structure from specs alone | **5 min** — needs a clean context |
+| T-009 | Tag the seven `x_untested` capabilities | hours |
+| T-014 | Delete a capability, see whether anything notices | afternoon |
+| T-013 | Spark cost analyst AOAS — the **adversarial shape**, no writes, no turns, no approvals | a day |
+| T-010 | Extract the shape constraints — **re-scope**: T-012 proved it is about boundaries, not existence | days |
+| **T-008** | **Run the regeneration.** One repo; a second implementation is a second repo | weeks |
+
+### Track B · Make it real — all of it blocked on P1
+
+| | Item |
+|---|---|
+| **T-002** | No login exists, and the permission model cannot express ownership — **everything needs this** |
+| T-001 | Nothing happens when the chat opens |
+| **T-016** | Three of our own "do not build" entries are built here — the adopt/decline audit |
+| T-017 | A real store, and a human in front of it |
+| T-006 | A customer's own conversations cannot be found |
+| T-003 | Dedup works for one process only |
+| T-005 | Carry the idempotency key downstream — with T-003 |
+| T-007 | Every scenario runs once, so nothing measures reliability |
+| T-004 | Anthropic adapter at L2 — **subsumed by T-016's LiteLLM row**; keep for the argument |
+
+### The adopt/decline register — decided, lives in T-016
+
+| | Verdict |
+|---|---|
+| LiteLLM | **adopt** — `llm/` + `resilience/` + part of `cost/`, ~636 lines |
+| OTLP processor → Langfuse | **adopt** — one line, cheapest thing on this page |
+| Chatwoot Agent Bot API | **adopt** — needs T-002; does **not** solve approvals |
+| Anthropic context editing + memory tool | **adopt at L2** — no framework, no loop change |
+| VCR.py / pytest-recording | **adopt** — replaces `cassette/` |
+| `pass^k`, and τ-bench's `verify` actor strategy | **adopt the idea** — T-007 |
+| Temporal / LangGraph interrupts, LangGraph checkpointer | **evaluate** — L4, write the reason either way |
+| The loop | **keep** — and write down why, because our own exception does not cover it |
+| Guardrails AI / NeMo / Llama Guard | **decline** — none models *position* |
+| NLU for intent | **decline** — two opinions already; a third has no owner |
+| Model tier routing | **defer** — 4 orders of magnitude of budget headroom; seam is `LLMClient` |
+| The Compactor | **decline** — provenance laundering |
+| τ-bench's 165 tasks | **decline** — prose policy; read their retail doc instead |
+| Hypothesis | ✅ **adopted 14 Sep** |
+| Cosmic Ray | ✅ **used once to calibrate, not kept** |
+
+### Start here
+
+`T-015` (5 min) · then the **OTLP line** and **LiteLLM** from T-016 — both pure
+subtraction, neither touches the thesis.
