@@ -167,7 +167,7 @@ bindings:
   approval:     { approach: in-house,    adapter: postgres-approval-queue, x_could_be: [platform] }
   telemetry:    { approach: open-source, adapter: otlp-tracing, x_could_be: [platform] }
   policy:       { approach: in-house,    adapter: positioned-rule-lists, x_could_be: [gateway, open-source] }
-  identity:     { approach: open-source, adapter: signed-token-at-the-edge, x_could_be: [gateway, cloud-native] }
+  identity:     { approach: open-source, adapter: keycloak-rs256-jwks, x_could_be: [gateway, cloud-native], x_note: "verify-only since T-002: RS256 against the realm JWKS, aud and jti required, customer_id its own admin-set claim; token exchange to the order system is T-002 C" }
   secrets:      { approach: in-house,    adapter: environment-settings, x_could_be: [cloud-native] }
   cost_ledger:  { approach: in-house,    adapter: per-task-meter, x_could_be: [gateway, platform] }
   config:       { approach: open-source, adapter: typed-settings, x_could_be: [cloud-native] }

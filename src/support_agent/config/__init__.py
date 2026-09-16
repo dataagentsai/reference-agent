@@ -115,6 +115,16 @@ class Settings(BaseSettings):
     max_steps: int = 12
     max_cost_usd: float = 0.50
 
+    issuer_url: str = ""
+    """Whose sessions are accepted (T-002): the realm's URL, whose discovery
+    document names its public keys. Empty means none is configured: the demo
+    server then signs with the process-local test issuer, which is only ever
+    right for a simulated shop. Outside the fingerprint, like every endpoint:
+    who signs a session does not change what the agent does with it."""
+    issuer_audience: str = "support-agent"
+    """The `aud` a session must name. A token issued for another service is
+    refused even when the issuer and signature are right."""
+
     otlp_endpoint: str = ""
     """Where spans go besides memory. Empty means nowhere, which is the honest
     default for a machine with no collector on it.

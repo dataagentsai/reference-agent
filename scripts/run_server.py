@@ -38,6 +38,7 @@ from evals import issuer as local_issuer  # noqa: E402
 from support_agent import approvals as ap
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
+from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
@@ -86,8 +87,20 @@ def _telemetry(settings: Settings | None) -> None:
         print(f"  telemetry also going to {settings.otlp_endpoint}")
 
 
-def _announce(port: int, settings: Settings | None) -> None:
+def _issuer() -> ident.Issuer:
+    configured = Settings()
+    if not configured.issuer_url:
+        return local_issuer.issuer()
+    keys = ident.RemoteJWKS.discover(configured.issuer_url)
+    return ident.Issuer(url=configured.issuer_url, audience=configured.issuer_audience, keys=keys)
+
+
+def _announce(port: int, settings: Settings | None, *, local: bool) -> None:
     """The links a person needs, with tokens from the process-local issuer."""
+    if not local:
+        print(f"\n  Support agent on http://127.0.0.1:{port}, sessions from the realm.")
+        print("  A token: POST the realm's token endpoint as client support-chat.\n")
+        return
     token = local_issuer.mint("C-1042", ttl_s=8 * 3600)
     print("\n  Support agent running against the simulated clothing shop")
     print(
@@ -152,10 +165,12 @@ async def main(real: bool, port: int) -> None:
             # one is free and has nothing to meter.
             config=run_config,
         )
-        # The desk reads the agent's own store.
-        app = serve.build(agent, issuer=local_issuer.issuer())
+        # The desk reads the agent's own store. Sessions come from Keycloak when
+        # AGENT_ISSUER_URL names a realm, else from the process-local issuer.
+        issuer = _issuer()
+        app = serve.build(agent, issuer=issuer)
 
-        _announce(port, settings)
+        _announce(port, settings, local=issuer.url == local_issuer.URL)
 
         # The sweeper, on a timer. `esc.sweep` owns no scheduling of its own so
         # a scenario can drive it; this is the deployment's half of that split.

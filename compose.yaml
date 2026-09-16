@@ -94,13 +94,16 @@ services:
       - ./deploy/litellm/keys.py:/deploy/keys.py:ro
 
   keycloak:
-    # Login (T-002). The realm, clients and the customer_id claim are T-002's;
-    # this starts an empty Keycloak on its own database.
+    # Login (T-002). The `support` realm is imported from deploy/keycloak on
+    # first start: roles that become `scp`, an admin-only `customer_id`
+    # attribute emitted as its own claim, the chat, agent and order-system
+    # clients, and three test users. An existing realm is never overwritten, so
+    # changing the file means dropping the keycloak database.
     image: quay.io/keycloak/keycloak:26.7.3
     restart: unless-stopped
     depends_on:
       postgres: { condition: service_healthy }
-    command: ["start-dev"]
+    command: ["start-dev", "--import-realm"]
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
@@ -109,9 +112,17 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-local-dev-only}
       KC_HEALTH_ENABLED: "true"
+      # One issuer name whoever asks: the agent on the host and a container on
+      # the compose network both see iss = http://localhost:8080/realms/support.
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      SUPPORT_AGENT_CLIENT_SECRET: ${SUPPORT_AGENT_CLIENT_SECRET:-local-dev-only-agent-secret}
+      ORDER_SYSTEM_CLIENT_SECRET: ${ORDER_SYSTEM_CLIENT_SECRET:-local-dev-only-order-secret}
       JAVA_OPTS_KC_HEAP: -Xms64m -Xmx512m
     ports:
       - 127.0.0.1:8080:8080
+    volumes:
+      - ./deploy/keycloak:/opt/keycloak/data/import:ro
     healthcheck:
       # The image has no curl or wget; bash can open a socket itself.
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
