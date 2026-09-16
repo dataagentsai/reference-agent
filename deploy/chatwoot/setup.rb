@@ -34,6 +34,9 @@ admin.password_confirmation = admin.password
 admin.confirmed_at ||= Time.current
 admin.save!
 AccountUser.find_or_create_by!(account: account, user: admin) { |member| member.role = :administrator }
+# The desk admin's API token, fixed like the bot's, for tools and tests that act
+# as a person at the desk: reading a conversation, resolving it.
+admin.access_token.update!(token: env!('CHATWOOT_ADMIN_TOKEN'))
 
 channel = Channel::WebWidget.find_by(website_token: env!('CHATWOOT_WEBSITE_TOKEN')) ||
           Channel::WebWidget.new(account: account)

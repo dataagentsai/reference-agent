@@ -304,6 +304,7 @@ services:
       <<: *chatwoot-env
       CHATWOOT_ADMIN_EMAIL: ${CHATWOOT_ADMIN_EMAIL:-desk@localhost.test}
       CHATWOOT_ADMIN_PASSWORD: ${CHATWOOT_ADMIN_PASSWORD:-Local-dev-only-1!}
+      CHATWOOT_ADMIN_TOKEN: ${CHATWOOT_ADMIN_TOKEN:-localdevonlydesktoken}
       CHATWOOT_WEBSITE_TOKEN: ${CHATWOOT_WEBSITE_TOKEN:-localdevonlywebsitetoken}
       CHATWOOT_HMAC_TOKEN: ${CHATWOOT_HMAC_TOKEN:-local-dev-only-inbox-identity-secret}
       CHATWOOT_BOT_SECRET: ${CHATWOOT_BOT_SECRET:-local-dev-only-bot-webhook-secret}
