@@ -21,8 +21,8 @@ missed and which turned out to be the sharpest entry in it.*
 
 | Verdict | Files | Lines |
 |---|---:|---:|
-| **Cited** — names its statement in the file | 29 | 5,877 |
-| **Required but uncited** — a statement demands it; nothing says so | 7 | 704 |
+| **Cited** — names its statement in the file | 36 | 6,581 |
+| ~~Required but uncited~~ — **closed 16 Sep**, all seven now cite | 0 | 0 |
 | **Port realisation** — an implementation of a declared protocol | 4 | 361 |
 | **Defect-driven** — exists because something went wrong | 3 | 693 |
 | **Structural** — exists because of the import contract, not a statement | 1 | 124 |
@@ -73,9 +73,9 @@ These name their statement in the file. Extracted mechanically, not asserted.
 
 ---
 
-## Required but uncited — 7 files, 704 lines
+## Required but uncited — 7 files, 704 lines · **CLOSED**
 
-**The largest finding.** A statement plainly requires each of these, and nothing
+**The largest finding, and the first one fixed.** A statement plainly requires each of these, and nothing
 in the file says which. They are not holes in the spec set; they are holes in the
 *traceability* of the spec set, and every one is cheap to close.
 
@@ -83,6 +83,20 @@ This matters because it is the same failure as the seven `x_untested`
 capabilities (T-009): a statement believed satisfied with nothing naming the
 satisfaction. When a regeneration drops one of these, nobody will notice by
 reading, because reading finds no claim to check.
+
+Each now names its statement in its own docstring. `flow/__init__.py` also
+closes an `x_untested` entry — AHC-0020 was believed met, untested *and* uncited,
+and one of the three is now fixed. Mechanism files citing no statement: **17 → 10**,
+and the ten that remain are the four port realisations, three defect-driven
+files, one structural, one known catalog gap and the empty package marker —
+every one a category that should not cite a statement.
+
+**One thing the fix exposed.** Two of the seven are governed by AOAS blocks that
+have **no identifier**: `issue_refund.authority` and
+`personal_data_in_conversation`. A file cannot cite what has no name, so both now
+cite the identified statements that govern them instead — P-REFUND with AHC-0057,
+and AAC-0095. The AOAS having unidentified normative blocks is the same
+traceability gap one level up, and is worth raising against the format.
 
 | File | Lines | The statement that requires it |
 |---|---:|---|

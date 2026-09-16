@@ -6,6 +6,12 @@ raise means, how long it stays open, what the customer is told — while the
 durable substrate belongs to `state`. `PostgresEscalationStore` therefore lives
 in `state.postgres`, exactly where `PostgresApprovalStore` does.
 
+What that policy **is** comes from the AOAS `policies.escalation` block entire:
+`on_request` and `on_condition` are the two tiers, and the statements are the
+rules — P-ESC-ONCE, P-ESC-CAP, P-ESC-TTL, P-ESC-LAPSE, P-ESC-TOLD, P-ESC-OWNS
+and P-ESC-OUTCOME. This package is that block, executable. Nothing here decides
+what an escalation means; it decides when the spec's answer applies.
+
 ## What this fixes
 
 Before it, `Escalate` produced a sentence and nothing else. The agent told a

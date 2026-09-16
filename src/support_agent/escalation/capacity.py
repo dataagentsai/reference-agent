@@ -1,4 +1,11 @@
-"""Whether anyone is there, and how long the queue really is."""
+"""Whether anyone is there, and how long the queue really is.
+
+**P-ESC-TOLD**, and this module is the clause rather than a helper for it: *"the
+customer is told a reference number, and a wait only when one is measured from
+queue depth and observed throughput"*. Everything here exists so the second half
+can be honoured — an estimate this cannot defend is one the agent must not
+state, and `None` is the answer that produces silence rather than a guess.
+"""
 
 from __future__ import annotations
 

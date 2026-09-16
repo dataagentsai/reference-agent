@@ -1,5 +1,10 @@
 """Work a person must decide before the agent may finish it — refund approvals.
 
+**P-REFUND** and **AHC-0057**, from the turn's side — *a refund above the
+limit needs a person*, and a run may not grant itself that authority. `approvals/workflow.py`
+owns getting a decision made; this owns what a *turn* does about one — offering
+the request, and picking up an answer that arrived while nobody was looking.
+
 One responsibility, behind one protocol: what the turn needs from the approval
 workflow. Two questions, and the agent never branches on whether a store exists:
 

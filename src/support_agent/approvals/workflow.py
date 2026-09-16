@@ -1,4 +1,16 @@
-"""Request, decide, and the elevated identity only a granted decision mints."""
+"""Request, decide, and the elevated identity only a granted decision mints.
+
+**AOAS `issue_refund.authority`** — `otherwise: human_approval` is the whole of
+this module: the spec says a refund the agent may not decide alone goes to a
+person, and every step of getting it there and back is here. The `approval`
+entity and its `outcome` enum are declared beside it, which is why `decide`
+writes one of four stated values and not a boolean.
+
+The elevated scope is the part the spec does not say and the harness must:
+**AHC-0057** asks that a run cannot grant itself authority over an irreversible
+action, so the scope a refund needs is minted by the *decision*, never held by
+the agent that asked for it.
+"""
 
 from __future__ import annotations
 

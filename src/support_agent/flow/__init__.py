@@ -3,6 +3,11 @@
 L8 · P3 and P5. Fan-out limits, backpressure, and behaviour when a provider
 throttles rather than fails.
 
+**AHC-0020** — the fan-out limiter is the harness's, not the model's. Cited here
+because it was not: this module satisfied the capability, the profile recorded it
+under `x_untested`, and no file or test named it. Believed met, untested and
+uncited at once, which is three ways of not being checked (T-012).
+
 ### Reads go in parallel; writes go in order
 
 A model may emit several tool calls in one turn, and running them concurrently is

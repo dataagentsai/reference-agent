@@ -1,4 +1,17 @@
-"""Raise, resolve, lapse, sweep — each step recorded before it is spoken of."""
+"""Raise, resolve, lapse, sweep — each step recorded before it is spoken of.
+
+Four steps, and three of them are AOAS statements implemented rather than
+helpers around one:
+
+    raise    the record exists before the customer is told a reference — AAC-0110
+    resolve  **P-ESC-OUTCOME** — closing records an outcome from a declared set, once
+    lapse    **P-ESC-LAPSE** — the conversation returns, and the customer is told nobody came
+    sweep    **P-ESC-TTL** — a queued escalation nobody comes to lapses
+
+`sweep` owns no scheduling of its own, which is what lets a scenario drive the
+clock and a deployment drive a timer. The rule is the spec's; when it runs is the
+binding's.
+"""
 
 from __future__ import annotations
 
