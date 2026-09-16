@@ -37,10 +37,10 @@ from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
-from support_agent.config import Settings, resolve
-from support_agent.contracts import ModelResponse
+from support_agent.config import RunConfig, Settings, resolve
+from support_agent.contracts import LLMClient, ModelResponse
 from support_agent.idempotency import InMemoryLedger
-from support_agent.llm import GroqClient, ScriptedClient
+from support_agent.llm import ScriptedClient, connect_model
 from support_agent.resilience import ResilientLLM
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
@@ -86,6 +86,17 @@ def _telemetry(settings: Settings | None) -> None:
         print(f"  telemetry also going to {settings.otlp_endpoint}")
 
 
+async def _model(settings: Settings | None) -> tuple[LLMClient, RunConfig | None]:
+    """The scripted demo, or the real provider behind `ResilientLLM` with its
+    declared provider checked against the endpoint first (T-018)."""
+    if settings is None:
+        return demo_replies(), None
+    config = resolve(settings)
+    client, verified = await connect_model(config, api_key=settings.provider_api_key)
+    print(f"  provider {config.provider}: {'verified' if verified else 'UNVERIFIED'}")
+    return ResilientLLM(client), config
+
+
 async def main(real: bool, port: int) -> None:
     settings = Settings() if real else None
     _telemetry(settings)
@@ -95,17 +106,7 @@ async def main(real: bool, port: int) -> None:
         # The real provider sits behind retries, a shared throttle and a breaker
         # (F-022: those existed, passed their tests, and nothing called them).
         # The scripted model cannot fail, so it has nothing to be resilient about.
-        llm = (
-            ResilientLLM(
-                GroqClient(
-                    api_key=settings.provider_api_key,
-                    base_url=settings.provider_base_url,
-                    model=settings.model,
-                )
-            )
-            if settings is not None
-            else demo_replies()
-        )
+        llm, run_config = await _model(settings)
         escalations = esc.InMemoryEscalationStore()
         agent = ep.build(
             llm=llm,
@@ -132,7 +133,7 @@ async def main(real: bool, port: int) -> None:
             deliveries=trg.InMemoryDeliveryLog(),
             # The real model is priced, so its cost ceiling is live; the scripted
             # one is free and has nothing to meter.
-            config=resolve(settings) if settings is not None else None,
+            config=run_config,
         )
         app = serve.build(agent, secret=SECRET)  # the desk reads the agent's own store
 

@@ -33,7 +33,7 @@ from evals.simulation import subject_for, voice_of
 
 from support_agent.config import Settings, resolve
 from support_agent.cost import Meter
-from support_agent.llm import GroqClient
+from support_agent.llm import connect_model
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCENARIOS = sorted((ROOT / "scenarios").glob("*.yaml"))
@@ -51,12 +51,7 @@ async def once(path: pathlib.Path, settings: Settings) -> tuple[list, tuple, flo
     # and a scenario asserting that the agent *read* before acting needs them.
     wrap = perturbed(live, timeline)
 
-    client = GroqClient(
-        api_key=settings.provider_api_key,
-        base_url=config.provider_base_url,
-        model=config.model,
-        temperature=config.temperature,
-    )
+    client, _ = await connect_model(config, api_key=settings.provider_api_key)
     async with subject_for(
         live,
         llm=client,

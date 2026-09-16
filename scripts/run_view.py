@@ -64,7 +64,7 @@ from support_agent.binding import SCOPES  # noqa: E402
 from support_agent.config import Settings, resolve  # noqa: E402
 from support_agent.contracts import Identity  # noqa: E402
 from support_agent.idempotency import InMemoryLedger  # noqa: E402
-from support_agent.llm import GroqClient  # noqa: E402
+from support_agent.llm import connect_model  # noqa: E402
 from support_agent.resilience import ResilientLLM  # noqa: E402
 from support_agent.state import InMemoryCheckpointStore  # noqa: E402
 from support_agent.tools import connect  # noqa: E402
@@ -285,7 +285,7 @@ async def capture(name: str, live_model: bool) -> Run:
         discharges=tuple(scenario.discharges),
     )
 
-    inner, config = _model(name, scenario, live_model)
+    inner, config = await _model(name, scenario, live_model)
     approvals, escalations = WatchedApprovals(run), WatchedEscalations(run)
     clock = Clock(step_s=scenario.step_seconds)
     local = frozenset({ap.REQUEST_REFUND})
@@ -385,16 +385,12 @@ async def _talk(run, scenario, agent, world, who, clock, reviewer, colleague) ->
     return reply
 
 
-def _model(name: str, scenario, live_model: bool):
+async def _model(name: str, scenario, live_model: bool):
     if live_model:
         settings = Settings(provider_api_key=os.environ.get("AGENT_PROVIDER_API_KEY", ""))
         config = resolve(settings)
-        return GroqClient(
-            api_key=settings.provider_api_key,
-            base_url=config.provider_base_url,
-            model=config.model,
-            temperature=config.temperature,
-        ), config
+        client, _ = await connect_model(config, api_key=settings.provider_api_key)
+        return client, config
     from tests.test_scenario_files import model_for  # the suite's own scripts
 
     return model_for(name), None

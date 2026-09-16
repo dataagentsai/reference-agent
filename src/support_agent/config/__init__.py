@@ -35,6 +35,17 @@ class UnapprovedModel(AgentFailure):
     fault = Fault.MISCONFIGURED
 
 
+class ProviderMismatch(AgentFailure):
+    """The declared provider is not the one the endpoint routes to (T-018).
+
+    Checked at startup like `UnapprovedModel`, for the same reason: a gateway
+    whose routing moved under a fixed declaration is a different system wearing
+    the old fingerprint, and a turn is the wrong place to find that out.
+    """
+
+    fault = Fault.MISCONFIGURED
+
+
 class Budgets(BaseModel):
     """Ceilings that can actually stop a call.
 
@@ -74,7 +85,16 @@ class Settings(BaseSettings):
     class of failure the first live call exists to find. Re-check this list
     whenever a run starts failing at the provider rather than in the loop.
     """
+    provider: str = "groq"
+    """Who serves the model, **declared** rather than read off the URL (T-018).
+
+    One URL used to carry two facts: which provider, and which route to it. A
+    gateway in front of the same provider changes the route and not the system,
+    and a URL cannot say which of the two happened. So the provider is stated
+    here and checked at startup against what the endpoint reports serving
+    (`RunConfig.check_served_by`), and the URL is left out of the fingerprint."""
     provider_base_url: str = "https://api.groq.com/openai/v1"
+    """The route: the provider itself, or a gateway in front of it (T-029)."""
     provider_api_key: str = Field(default="", repr=False)
 
     mcp_base_url: str = "http://localhost:9040/mcp"
@@ -115,6 +135,7 @@ class RunConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     model: str
+    provider: str
     provider_base_url: str
     mcp_base_url: str
     prompt_version: str
@@ -129,13 +150,39 @@ class RunConfig(BaseModel):
         """A stable hash over everything that changes behaviour.
 
         Secrets and endpoints are excluded: a key rotation must not invalidate
-        the claim that this is the same configuration, and `provider_base_url`
-        is included only because pointing at a different provider *is* a
-        different system.
+        the claim that this is the same configuration, and a URL is a route, not
+        a system. `mcp_base_url` is out because a world reached over another URL
+        is the same world; `provider_base_url` is out because a gateway in front
+        of the same provider is the same model. The provider itself is in,
+        declared.
+
+        **Changed 2026-09-16 (T-018).** Until then `provider_base_url` was
+        hashed, so every fingerprint recorded before this date differs from one
+        taken after it for the same configuration. No committed baseline carried
+        one, which is why the break was taken now rather than later.
         """
-        material = self.model_dump(mode="json", exclude={"mcp_base_url"})
+        material = self.model_dump(mode="json", exclude={"mcp_base_url", "provider_base_url"})
         canonical = json.dumps(material, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+    def check_served_by(self, served: str | None) -> bool:
+        """Hold the declared provider to what the endpoint says it serves.
+
+        Returns whether the declaration was verified. `None` means the endpoint
+        could not say, which is the honest answer for a provider this agent does
+        not recognise; the caller records it as unverified. A *different* answer
+        fails the process: a declaration that disagrees with the route would put
+        one fingerprint on two systems, which is the failure this field exists
+        to prevent.
+        """
+        if served is None:
+            return False
+        if served != self.provider:
+            raise ProviderMismatch(
+                f"declared provider {self.provider!r}, but {self.provider_base_url} "
+                f"serves {self.model!r} from {served!r}"
+            )
+        return True
 
 
 def resolve(settings: Settings) -> RunConfig:
@@ -151,6 +198,7 @@ def resolve(settings: Settings) -> RunConfig:
         )
     return RunConfig(
         model=settings.model,
+        provider=settings.provider,
         provider_base_url=settings.provider_base_url,
         mcp_base_url=settings.mcp_base_url,
         prompt_version=settings.prompt_version,
@@ -167,6 +215,7 @@ def resolve(settings: Settings) -> RunConfig:
 
 __all__ = [
     "Budgets",
+    "ProviderMismatch",
     "ResolutionMode",
     "RunConfig",
     "Settings",

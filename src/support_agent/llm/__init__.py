@@ -19,10 +19,12 @@ from __future__ import annotations
 import json
 from collections import deque
 from collections.abc import Iterable
+from urllib.parse import urlparse
 
-from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
+from openai import APIConnectionError, APIError, APIStatusError, AsyncOpenAI, RateLimitError
 
 from support_agent import telemetry as tel
+from support_agent.config import RunConfig
 from support_agent.contracts import (
     Message,
     ModelMalformed,
@@ -78,6 +80,36 @@ def retry_after_of(error: object) -> float | None:
         return None
 
 
+PROVIDER_HOSTS = {
+    "api.groq.com": "groq",
+    "api.together.xyz": "together",
+    "api.cerebras.ai": "cerebras",
+}
+"""Providers recognisable by their own endpoint. A gateway is not listed: it says
+where it routes through `/model/info`, and its host says nothing about that."""
+
+
+def provider_from_host(base_url: str) -> str | None:
+    """The provider a direct endpoint belongs to, or `None` if it is not one we
+    recognise. Never a guess from a substring: `groq.example.com` is not Groq."""
+    return PROVIDER_HOSTS.get(urlparse(base_url).hostname or "")
+
+
+def provider_from_model_info(payload: object, model: str) -> str | None:
+    """The provider a LiteLLM-style gateway routes `model` to, read from its
+    `/model/info`. `None` when the payload does not name the model, which is
+    unverified, not a match."""
+    data = payload.get("data") if isinstance(payload, dict) else None
+    for entry in data if isinstance(data, list) else []:
+        if not isinstance(entry, dict) or entry.get("model_name") != model:
+            continue
+        info = entry.get("model_info")
+        provider = info.get("litellm_provider") if isinstance(info, dict) else None
+        if isinstance(provider, str) and provider:
+            return provider
+    return None
+
+
 class GroqClient:
     """`real` resolution. Groq over its OpenAI-compatible endpoint.
 
@@ -95,11 +127,14 @@ class GroqClient:
         api_key: str,
         base_url: str,
         model: str,
+        provider: str = "groq",
         temperature: float = 0.0,
         max_retries: int = 0,
         timeout_s: float = 60.0,
     ) -> None:
         self._model = model
+        self._provider = provider
+        self._base_url = base_url
         self._temperature = temperature
         self._client = AsyncOpenAI(
             api_key=api_key,
@@ -112,8 +147,8 @@ class GroqClient:
         with tel.span(
             "gen_ai.chat",
             **{
-                tel.GEN_AI_PROVIDER: "groq",
-                tel.GEN_AI_SYSTEM: "groq",  # deprecated; emitted during migration
+                tel.GEN_AI_PROVIDER: self._provider,
+                tel.GEN_AI_SYSTEM: self._provider,  # deprecated; emitted during migration
                 tel.GEN_AI_OPERATION: "chat",
                 tel.GEN_AI_REQUEST_MODEL: self._model,
             },
@@ -143,6 +178,41 @@ class GroqClient:
                 output_tokens=response.usage.output_tokens,
             )
             return response
+
+    async def served_provider(self) -> str | None:
+        """Who actually serves this model through `base_url`, asked once at
+        startup (T-018). A gateway answers from `/model/info`; a provider's own
+        endpoint has no such route and is recognised by its host; anything else
+        is `None`, unverified.
+
+        A gateway that cannot be reached fails the process as `ModelUnavailable`:
+        starting anyway would defer the same failure to a customer's first turn.
+        """
+        try:
+            payload = await self._client.get("/model/info", cast_to=object)
+        except APIStatusError:
+            return provider_from_host(self._base_url)
+        except APIConnectionError as exc:
+            raise ModelUnavailable(f"{self._base_url} is unreachable: {exc}") from exc
+        return provider_from_model_info(payload, self._model) or provider_from_host(self._base_url)
+
+
+async def connect_model(config: RunConfig, *, api_key: str) -> tuple[GroqClient, bool]:
+    """The `real` client for a resolved configuration, with its provider checked.
+
+    The one place a composition root gets a provider client from, so the check
+    cannot be skipped by a script that builds its own. Returns the client and
+    whether the declared provider was verified; a declaration the endpoint
+    contradicts raises `ProviderMismatch` before any turn runs (T-018).
+    """
+    client = GroqClient(
+        api_key=api_key,
+        base_url=config.provider_base_url,
+        model=config.model,
+        provider=config.provider,
+        temperature=config.temperature,
+    )
+    return client, config.check_served_by(await client.served_provider())
 
 
 def _from_wire(raw: object) -> ModelResponse:
@@ -263,4 +333,13 @@ class UnavailableClient:
         raise ModelUnavailable("provider is unavailable (injected)")
 
 
-__all__ = ["retry_after_of", "GroqClient", "ScriptedClient", "UnavailableClient"]
+__all__ = [
+    "PROVIDER_HOSTS",
+    "GroqClient",
+    "ScriptedClient",
+    "UnavailableClient",
+    "connect_model",
+    "provider_from_host",
+    "provider_from_model_info",
+    "retry_after_of",
+]

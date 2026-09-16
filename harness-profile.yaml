@@ -143,7 +143,7 @@ thresholds:
 # this port. `in-house` here is a deliberate position — a framework owns L4, L1
 # and L10, which are the layers the catalogs exist to expose.
 bindings:
-  model:        { approach: in-house,    adapter: openai-compatible-client, x_could_be: [framework, gateway] }
+  model:        { approach: in-house,    adapter: openai-compatible-client, x_could_be: [framework, gateway], x_provider: groq, x_provider_check: "declared, and checked against the endpoint at startup (T-018)" }
   tool_runtime:
     approach: open-source
     adapter: mcp-client

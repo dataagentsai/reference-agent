@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from support_agent.config import Settings, UnapprovedModel, resolve
+from support_agent.config import ProviderMismatch, Settings, UnapprovedModel, resolve
 
 
 def settings(**overrides: object) -> Settings:
@@ -78,6 +78,13 @@ FINGERPRINT_CASES = [
     ("resolution change", {"resolution": "mock"}, True),
     ("api key rotation", {"provider_api_key": "rotated"}, False),
     ("tool endpoint swap", {"mcp_base_url": "http://localhost:9999/mcp"}, False),
+    # T-018: a URL is a route, the provider is the system.
+    ("a different provider", {"provider": "together"}, True),
+    (
+        "a gateway in front of the same provider",
+        {"provider_base_url": "http://localhost:4000/v1"},
+        False,
+    ),
 ]
 
 
@@ -109,3 +116,31 @@ def test_swapping_the_tool_endpoint_is_the_only_change_agenttwin_makes() -> None
     simulated = resolve(settings(mcp_base_url="http://localhost:9040/mcp"))
     assert real.fingerprint == simulated.fingerprint
     assert real.mcp_base_url != simulated.mcp_base_url
+
+
+# --------------------------------------------------------------------------- #
+# T-018 · The declared provider is held to what the endpoint serves. A mismatch
+# fails at startup; an endpoint that cannot say is unverified, not a pass.
+# --------------------------------------------------------------------------- #
+
+SERVED_CASES = [
+    ("the endpoint serves the declared provider", "groq", True),
+    ("the endpoint cannot say", None, False),
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "served", "verified"), SERVED_CASES, ids=[c[0] for c in SERVED_CASES]
+)
+@pytest.mark.discharges("AAC-0012", "AHC-0003")
+def test_a_declared_provider_is_checked_against_the_endpoint(
+    name: str, served: str | None, verified: bool
+) -> None:
+    assert resolve(settings(provider="groq")).check_served_by(served) is verified
+
+
+@pytest.mark.discharges("AAC-0012", "AHC-0003")
+def test_a_gateway_routing_elsewhere_fails_at_startup() -> None:
+    config = resolve(settings(provider="groq", provider_base_url="http://localhost:4000/v1"))
+    with pytest.raises(ProviderMismatch, match="'together'"):
+        config.check_served_by("together")

@@ -33,7 +33,7 @@ from support_agent.config import Settings, resolve
 from support_agent.contracts import Identity, SideEffectClass
 from support_agent.cost import Meter
 from support_agent.idempotency import InMemoryLedger
-from support_agent.llm import GroqClient
+from support_agent.llm import connect_model
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import META_SIDE_EFFECT, connect
 
@@ -70,17 +70,10 @@ async def main(replay: bool, record: bool = False) -> int:
 
     if replay:
         llm: object = Player(Cassette.load(CASSETTE))
-        recorder = None
+        recorder, verified = None, False
     else:
-        recorder = Recorder(
-            GroqClient(
-                api_key=settings.provider_api_key,
-                base_url=config.provider_base_url,
-                model=config.model,
-                temperature=config.temperature,
-            )
-        )
-        llm = recorder
+        client, verified = await connect_model(config, api_key=settings.provider_api_key)
+        llm = recorder = Recorder(client)
 
     who: Identity = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
 
@@ -94,7 +87,10 @@ async def main(replay: bool, record: bool = False) -> int:
         result, _ = await agent.handle(QUESTION, identity=who)
 
     print(f"  mode      {'replay (no network)' if replay else 'live'}")
-    print(f"  model     {config.model}")
+    print(
+        f"  model     {config.model} from {config.provider}"
+        + ("" if replay else f" ({'verified' if verified else 'UNVERIFIED'})")
+    )
     print(f"  config    {config.fingerprint}")
     print(f"  result    {result.kind}")
     print(f"  reply     {getattr(result, 'reply', getattr(result, 'customer_message', ''))!r}")
