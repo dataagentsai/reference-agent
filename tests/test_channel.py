@@ -51,8 +51,15 @@ def exporter():
 class Recorder:
     """Chatwoot's application API, as far as the bot uses it."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, verified: bool = True) -> None:
         self.calls: list[tuple[str, int, str]] = []
+        self.verified = verified
+
+    async def open_conversation(
+        self, account: int, inbox: int, contact: int, source_id: str
+    ) -> tuple[int, bool]:
+        self.calls.append(("open", 77, source_id))
+        return 77, self.verified
 
     async def reply(self, account: int, conversation: int, text: str) -> None:
         self.calls.append(("reply", conversation, text))
@@ -75,9 +82,15 @@ def signed(body: dict, *, secret: str = SECRET, at: float | None = None) -> tupl
     }
 
 
-async def post(body: dict, *, logged_in: bool = True, headers=None, twice: bool = False):
+async def post(
+    body: dict, *, logged_in: bool = True, headers=None, twice: bool = False, verified: bool = True
+):
     """One webhook through the real receiver, and what Chatwoot was told."""
-    api, sessions, grant = Recorder(), InMemorySessionStore(), issuing.LocalRefresh()
+    api, sessions, grant = (
+        Recorder(verified=verified),
+        InMemorySessionStore(),
+        issuing.LocalRefresh(),
+    )
     if logged_in:
         token = grant.login("C-1042", subject=SUBJECT)
         await sessions.put(StoredSession(subject=SUBJECT, refresh_token=token, updated_at=0))
@@ -186,3 +199,64 @@ async def test_an_escalation_hands_the_conversation_to_a_person() -> None:
     assert [c[0] for c in calls] == ["reply", "note", "hand_off"]
     assert "E-" in calls[0][2], "the customer is told the reference"
     assert "put me through to a human" in calls[1][2], "the person is handed what was asked"
+
+
+# --------------------------------------------------------------------------- #
+# T-001: the widget opened. Captured from Chatwoot v4.17.1 on 17 September.
+# --------------------------------------------------------------------------- #
+
+OPENED = json.loads(
+    (Path(__file__).parent / "fixtures" / "chatwoot" / "webwidget_triggered.json").read_text()
+)
+
+
+def opened(**edits) -> dict:
+    body = copy.deepcopy(OPENED)
+    body["contact"]["identifier"] = SUBJECT
+    for key, value in edits.items():
+        if key == "identifier":
+            body["contact"]["identifier"] = value
+        else:
+            body[key] = value
+    return body
+
+
+# (why, the webhook, logged in, verified, status, what Chatwoot is told)
+OPENINGS = [
+    (
+        "a signed-in customer opens the widget",
+        opened(),
+        True,
+        True,
+        202,
+        ["open", "reply:AB-10003: delivered"],
+    ),
+    (
+        "they already have a conversation",
+        opened(current_conversation={"id": 5}),
+        True,
+        True,
+        200,
+        [],
+    ),
+    ("an anonymous visitor opens it", opened(identifier=None), True, True, 200, []),
+    ("a contact whose login has ended", opened(), False, True, 202, []),
+    ("Chatwoot does not mark the contact verified", opened(), True, False, 202, ["open"]),
+]
+
+
+@pytest.mark.parametrize(
+    ("why", "body", "logged_in", "verified", "status", "told"),
+    OPENINGS,
+    ids=[o[0] for o in OPENINGS],
+)
+@pytest.mark.discharges("P-OPEN", "P-OWNERSHIP", "AAC-0111")
+async def test_opening_the_widget_greets_only_a_verified_signed_in_customer(
+    why: str, body: dict, logged_in: bool, verified: bool, status: int, told: list[str]
+) -> None:
+    (response,), calls = await post(body, logged_in=logged_in, verified=verified)
+    assert response.status_code == status
+    assert [c[0] for c in calls] == [t.split(":")[0] for t in told]
+    for (_, _, text), expected in zip(calls, told, strict=True):
+        if ":" in expected:
+            assert expected.split(":", 1)[1] in text, text

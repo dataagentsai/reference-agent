@@ -18,6 +18,13 @@ decides what the webhook may cause, from four things checked in order:
    customer session (`identity.sessions.Resume`). Logged out, or a staff login,
    and the customer is told to sign in again. Nothing is done on their behalf.
 
+**Opening the widget** is its own event (`webwidget_triggered`). For a contact
+with no conversation yet, a login's identifier and a live login, the bot opens
+the conversation, confirms Chatwoot marks it HMAC-verified, and posts what
+`Agent.opening` shows: the customer's orders and work in flight, with no model
+call (P-OPEN, T-001). Anyone else opening the widget is left alone; a greeting
+is not worth a conversation on the desk for every anonymous visitor.
+
 The turn runs after the webhook is answered, because a model turn can outlast
 Chatwoot's webhook timeout. The Chatwoot message id is the delivery id, so a
 redelivered webhook is recognised by the same guard `/chat` uses (AAC-0076). On
@@ -65,6 +72,13 @@ class ChatwootApi(Protocol):
 
     async def hand_off(self, account: int, conversation: int) -> None: ...
 
+    async def open_conversation(
+        self, account: int, inbox: int, contact: int, source_id: str
+    ) -> tuple[int, bool]:
+        """A new conversation for a contact: its id, and whether Chatwoot marks
+        the contact HMAC-verified."""
+        ...
+
 
 class ChatwootClient:
     """Chatwoot's application API with the bot's access token."""
@@ -84,14 +98,31 @@ class ChatwootClient:
     async def hand_off(self, account: int, conversation: int) -> None:
         await self._post(account, conversation, "toggle_status", {"status": "open"})
 
+    async def open_conversation(
+        self, account: int, inbox: int, contact: int, source_id: str
+    ) -> tuple[int, bool]:
+        body = {"source_id": source_id, "inbox_id": inbox, "contact_id": contact}
+        created = await self._send(f"{self._base}/api/v1/accounts/{account}/conversations", body)
+        meta = created.get("meta") or {}
+        return int(created["id"]), bool(meta.get("hmac_verified"))
+
     async def _post(self, account: int, conversation: int, path: str, body: dict[str, Any]) -> None:
         url = f"{self._base}/api/v1/accounts/{account}/conversations/{conversation}/{path}"
+        await self._send(url, body)
+
+    async def _send(self, url: str, body: dict[str, Any]) -> dict[str, Any]:
         request = urllib.request.Request(
             url,
             data=json.dumps(body).encode(),
             headers={"Content-Type": "application/json", "api_access_token": self._token},
         )
-        await asyncio.to_thread(urllib.request.urlopen, request, timeout=15)  # noqa: S310
+
+        def post() -> dict[str, Any]:
+            with urllib.request.urlopen(request, timeout=15) as response:  # noqa: S310
+                parsed: dict[str, Any] = json.loads(response.read() or b"{}")
+                return parsed
+
+        return await asyncio.to_thread(post)
 
 
 class Sessions(Protocol):
@@ -108,6 +139,17 @@ class Incoming:
     subject: str
     verified: bool
     text: str
+
+
+@dataclass(frozen=True)
+class Opening:
+    """A contact opening the widget with no conversation yet."""
+
+    account: int
+    inbox: int
+    contact: int
+    source_id: str
+    subject: str
 
 
 @dataclass(frozen=True)
@@ -154,6 +196,25 @@ def incoming(payload: Any) -> Incoming | None:
     )
 
 
+def opened(payload: Any) -> Opening | None:
+    """A signed-in contact opening the widget afresh, or `None` for anything else."""
+    if not isinstance(payload, dict) or payload.get("event") != "webwidget_triggered":
+        return None
+    if payload.get("current_conversation"):
+        return None  # already talking; a second greeting is noise
+    contact = payload.get("contact") or {}
+    subject, source_id = contact.get("identifier"), payload.get("source_id")
+    if not subject or not source_id:
+        return None
+    return Opening(
+        account=int((payload.get("account") or {}).get("id", 0)),
+        inbox=int((payload.get("inbox") or {}).get("id", 0)),
+        contact=int(contact.get("id", 0)),
+        source_id=str(source_id),
+        subject=str(subject),
+    )
+
+
 async def webhook(request: Request) -> Response:
     channel: Channel = request.app.state.channel
     raw = await request.body()
@@ -162,16 +223,40 @@ async def webhook(request: Request) -> Response:
             span.set_attribute("agent.channel.outcome", "unsigned")
             return JSONResponse({"error": "not signed"}, status_code=401)
         try:
-            message = incoming(json.loads(raw))
+            payload = json.loads(raw)
         except ValueError:
-            message = None
-        if message is None:
+            payload = None
+        message, opening = incoming(payload), opened(payload)
+        if message is None and opening is None:
             span.set_attribute("agent.channel.outcome", "ignored")
             return JSONResponse({"status": "ignored"})
         span.set_attribute("agent.channel.outcome", "accepted")
-    return JSONResponse(
-        {"status": "accepted"}, status_code=202, background=BackgroundTask(answer, channel, message)
+    task = (
+        BackgroundTask(answer, channel, message)
+        if message is not None
+        else BackgroundTask(greet, channel, opening)
     )
+    return JSONResponse({"status": "accepted"}, status_code=202, background=task)
+
+
+async def greet(channel: Channel, opening: Opening | None) -> None:
+    """The conversation opened and the customer shown their orders (P-OPEN)."""
+    if opening is None:
+        return
+    with tel.span("agent.channel.opening") as span:
+        try:
+            who = await channel.sessions.identity_for(opening.subject)
+        except (ident.SessionEnded, ident.NotACustomer):
+            span.set_attribute("agent.channel.outcome", "not-signed-in")
+            return
+        conversation, verified = await channel.api.open_conversation(
+            opening.account, opening.inbox, opening.contact, opening.source_id
+        )
+        if not verified:
+            span.set_attribute("agent.channel.outcome", "unverified")
+            return
+        await channel.api.reply(opening.account, conversation, await channel.agent.opening(who))
+        span.set_attribute("agent.channel.outcome", "greeted")
 
 
 async def answer(channel: Channel, message: Incoming) -> None:
@@ -236,4 +321,14 @@ def build(channel: Channel) -> Starlette:
     return app
 
 
-__all__ = ["Channel", "ChatwootApi", "ChatwootClient", "Incoming", "build", "incoming"]
+__all__ = [
+    "Channel",
+    "ChatwootApi",
+    "ChatwootClient",
+    "Incoming",
+    "Opening",
+    "build",
+    "greet",
+    "incoming",
+    "opened",
+]

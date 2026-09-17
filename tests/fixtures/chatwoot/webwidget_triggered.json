@@ -1,0 +1,42 @@
+{
+  "id": 17,
+  "contact": {
+    "account": {
+      "id": 1,
+      "name": "Reference store"
+    },
+    "additional_attributes": {},
+    "avatar": "",
+    "custom_attributes": {},
+    "email": null,
+    "id": 17,
+    "identifier": "login-opening-probe",
+    "name": "late-silence-496",
+    "phone_number": null,
+    "thumbnail": "",
+    "blocked": false
+  },
+  "inbox": {
+    "id": 1,
+    "name": "Support"
+  },
+  "account": {
+    "id": 1,
+    "name": "Reference store"
+  },
+  "current_conversation": null,
+  "source_id": "8f0d364d-e151-48fe-b71e-f00ed68cdf4f",
+  "event": "webwidget_triggered",
+  "event_info": {
+    "referer": "http://localhost:8077/portal/",
+    "widget_language": null,
+    "browser_language": null,
+    "browser": {
+      "browser_name": "Unknown Browser",
+      "browser_version": "0.0",
+      "device_name": "Unknown",
+      "platform_name": "Unknown",
+      "platform_version": "0"
+    }
+  }
+}

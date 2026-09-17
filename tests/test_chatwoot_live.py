@@ -131,6 +131,35 @@ def portal_login(username: str):
     return browser, who
 
 
+def _widget(method: str, path: str, body: dict, auth: str | None) -> dict:
+    request = urllib.request.Request(
+        f"{CHATWOOT}{path}?website_token={WEBSITE}",
+        method=method,
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json", **({"X-Auth-Token": auth} if auth else {})},
+    )
+    with urllib.request.urlopen(request, timeout=15) as response:
+        return json.loads(response.read() or b"{}")
+
+
+def widget_session(who: dict) -> str:
+    """The widget loads and tells Chatwoot who the portal said the contact is."""
+    token = _widget("POST", "/api/v1/widget/config", {}, None)["website_channel_config"][
+        "auth_token"
+    ]
+    user = {"identifier": who["identifier"], "identifier_hash": who["identifier_hash"]}
+    return _widget("PATCH", "/api/v1/widget/contact/set_user", user, token).get(
+        "widget_auth_token", token
+    )
+
+
+def widget_opens(token: str) -> None:
+    """What the embedded widget sends when the customer opens it."""
+    _widget(
+        "POST", "/api/v1/widget/events", {"name": "webwidget.triggered", "event_info": {}}, token
+    )
+
+
 def widget_says(who: dict, text: str, token: str | None = None) -> tuple[str, int]:
     """Chatwoot's widget API, as the embedded widget calls it."""
 
@@ -219,7 +248,28 @@ def test_a_customer_logs_in_chats_escalates_and_logs_out(server) -> None:
     browser, who = portal_login("c-1042")
     close_everything_for(who["identifier"])
 
-    token, cid = widget_says(who, "where is my order AB-10003")
+    # T-001: opening the widget, before a word is typed, shows the orders.
+    token = widget_session(who)
+    widget_opens(token)
+    greeted = None
+    for _ in range(30):
+        listed = desk("GET", "/conversations?status=all")["data"]["payload"]
+        mine = [
+            c
+            for c in listed
+            if c["meta"]["sender"].get("identifier") == who["identifier"]
+            and c["status"] == "pending"
+        ]
+        if mine:
+            _, shown = conversation(mine[0]["id"])
+            if any("AB-10003: delivered" in text for text in outgoing(shown)):
+                greeted = mine[0]["id"]
+                break
+        time.sleep(1)
+    assert greeted is not None, "opening the widget showed the customer their orders"
+
+    token, cid = widget_says(who, "where is my order AB-10003", token)
+    assert cid == greeted, "the customer's first message lands in the greeted conversation"
     _, messages = wait_for(cid, lambda s, m: any("AB-10003" in t for t in outgoing(m)))
     assert any("AB-10003" in t for t in outgoing(messages)), "the agent answered through Chatwoot"
 

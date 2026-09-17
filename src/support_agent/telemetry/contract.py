@@ -139,6 +139,11 @@ CONTRACT: dict[str, SpanSpec] = {
         # says whether the webhook was unsigned, ignored or accepted (T-026).
         required=frozenset({"agent.channel.outcome"}),
     ),
+    "agent.channel.opening": SpanSpec(
+        # A widget opened afresh: greeted, not signed in, or a conversation
+        # Chatwoot did not mark verified, which gets no greeting (T-001).
+        required=frozenset({"agent.channel.outcome"}),
+    ),
     "agent.channel.turn": SpanSpec(
         # What came of an accepted message: a turn's result, a request to sign
         # in, a duplicate, or a conversation that is not this customer's.
