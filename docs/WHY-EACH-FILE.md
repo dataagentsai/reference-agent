@@ -73,6 +73,8 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `telemetry/names.py` | AAC-0020, AAC-0100, AAC-0103, AAC-0104, AHC-0001, AHC-0107 |
 | `tools/__init__.py` | AAC-0105, Q-TOOL-RESULT |
 | `trigger/__init__.py` | AAC-0076, AHC-0053, AHC-0055 |
+| `trigger/log.py` | AAC-0076, AHC-0053 |
+| `trigger/durable.py` | AAC-0076, AHC-0053, AHC-0102 |
 
 ---
 

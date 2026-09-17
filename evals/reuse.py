@@ -72,6 +72,8 @@ MECHANISM = {
     "telemetry/redaction.py",
     "tools/__init__.py",
     "trigger/__init__.py",
+    "trigger/log.py",
+    "trigger/durable.py",
     "approvals/workflow.py",
     "approvals/durable.py",
     "approvals/desk.py",

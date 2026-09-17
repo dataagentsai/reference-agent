@@ -14,10 +14,12 @@ sees it. One idea, two positions, and the last test in this file pins that.
 from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 
 import pytest
 from agenttwin import Live, load, omitted, project
+from evals import durable
 
 from support_agent import entrypoint as ep
 from support_agent import identity as ident
@@ -120,6 +122,67 @@ def test_the_in_memory_log_says_it_is_not_durable() -> None:
     """It answers the obligation for one instance, not for a deployment, and it
     says so rather than letting a reader assume otherwise."""
     assert trg.InMemoryDeliveryLog.durable is False
+
+
+# --------------------------------------------------------------------------- #
+# T-003: the same guard, across processes, with an expiry.
+# --------------------------------------------------------------------------- #
+
+# (why, what happened to the first claim before the second, how the second ends)
+CLAIMS = [
+    ("nothing yet — the first run still has it", "held", "OverlappingRun"),
+    ("it was handled", "settled", "DuplicateDelivery"),
+    ("the run that claimed it died and the claim expired", "abandoned", None),
+]
+
+
+@pytest.mark.parametrize(("why", "first", "refused"), CLAIMS, ids=[c[0] for c in CLAIMS])
+@pytest.mark.discharges("AAC-0076", "AHC-0053", "AHC-0102")
+async def test_a_durable_claim_is_shared_and_expires(
+    why: str, first: str, refused: str | None
+) -> None:
+    """The claim two processes share, and the expiry that keeps it honest.
+
+    A durable claim that never expired would be worse than none: `settle` runs
+    in a `finally`, which a killed process never reaches, so one crash would
+    silence that message for ever. Here the claim is a workflow with a timer,
+    and a second claim is refused only while the first is alive or finished.
+    """
+    moment = [int(time.time())]
+    async with durable.deliveries_for(clock=lambda: moment[0]) as (waits, log):
+        await log.claim("msg-1")
+        if first == "settled":
+            await log.settle("msg-1")
+        if first == "abandoned":
+            # Nobody settles. Time passes — and the claim's own timer releases it.
+            moment[0] += trg.CLAIM_TTL_S + 300
+            await waits.approvals.time.catch_up()
+
+        if refused is None:
+            again = await log.claim("msg-1")
+            assert again.state is trg.State.IN_FLIGHT, "claimable again, not wedged"
+            return
+        with pytest.raises(getattr(trg, refused)):
+            await log.claim("msg-1")
+
+
+@pytest.mark.discharges("AAC-0076")
+async def test_a_durable_claim_guards_a_turn_the_same_way() -> None:
+    """Through `once`, which is all the entrypoint knows about any of this."""
+    ran = []
+    async with durable.deliveries_for() as (_waits, log):
+        async with trg.once(log, "msg-2"):
+            ran.append("first")
+        with pytest.raises(trg.DuplicateDelivery):
+            async with trg.once(log, "msg-2"):
+                ran.append("second")
+
+    assert ran == ["first"], "a redelivery must not start a second run"
+
+
+@pytest.mark.discharges("AHC-0102")
+def test_the_durable_log_says_it_is_durable() -> None:
+    assert trg.TemporalDeliveries.durable is True
 
 
 # --------------------------------------------------------------------------- #

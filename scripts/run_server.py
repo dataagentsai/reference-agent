@@ -269,10 +269,11 @@ async def main(real: bool, port: int) -> None:
             # what it points at lies to the customer; a folder that dies with them
             # merely starts again. `build` now refuses the mixture outright.
             #
-            # The durable row is Postgres, and it is not offered here yet because
-            # it is not a whole row either — the delivery log has no durable
-            # implementation at all (T-003), so `--postgres` would trip the same
-            # check. That is the check doing its job rather than a gap in it.
+            # A whole durable row is now assemblable — Postgres for the
+            # conversation and the ledger, Temporal for both waits and for the
+            # delivery claim (T-003's last half) — and this demo does not
+            # assemble it: it runs with no database on purpose. Everything here
+            # is in memory together, which the check below is what enforces.
             store=InMemoryCheckpointStore(),
             approvals=approvals,
             escalations=escalations,
