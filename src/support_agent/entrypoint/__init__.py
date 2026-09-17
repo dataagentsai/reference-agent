@@ -57,6 +57,7 @@ from support_agent.contracts import (
 from support_agent.cost import Meter
 from support_agent.entrypoint import direct, promise
 from support_agent.entrypoint.handoff import Handoff, HandoffDesk, NoDesk
+from support_agent.entrypoint.opening import opening
 from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
 from support_agent.entrypoint.persist import TurnPersister, agree_on_durability
 from support_agent.escalation import rules as t2
@@ -126,6 +127,12 @@ class Agent:
     configured ceiling — can stop a run. `None` means no priced model is
     configured, and the step budget is the only bound (F-019: it used to be
     `None` on every path, so the ceiling was configured and never reachable)."""
+
+    async def opening(self, identity: Identity) -> str:
+        """What the customer is shown on opening a conversation. No model (P-OPEN)."""
+        return await opening(
+            identity, tools=self.tools, approvals=self.approvals, escalations=self.escalations
+        )
 
     async def handle(
         self,

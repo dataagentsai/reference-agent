@@ -97,6 +97,7 @@ PER_AGENT = {
     "approvals/refund.py",  # a refund tool, an order's total, a policy approver
     "contracts/domain.py",  # this domain's entities
     "entrypoint/direct.py",  # order status, refund status
+    "entrypoint/opening.py",  # a customer's orders and this shop's queues, on opening
     "escalation/wording.py",  # what this shop says to its customers
     "ui/__init__.py",  # a support chat page
 }

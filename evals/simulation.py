@@ -166,7 +166,11 @@ async def subject_for(
         def colleague(resolution: str, by: str, delay_s: int = 0) -> Desk:
             return RESOLUTIONS[resolution](escalations, esc.resolve, name=by, delay_s=delay_s)
 
-        yield Subject(say=say, reviewer=reviewer, colleague=colleague)
+        async def opens(customer_id: str) -> str:
+            who = Identity(customer_id=customer_id, scopes=ident.CUSTOMER_SCOPES)
+            return await agent.opening(who)
+
+        yield Subject(say=say, reviewer=reviewer, colleague=colleague, opens=opens)
 
 
 def voice_of(client: LLMClient) -> Callable[[str, str], Awaitable[str]]:

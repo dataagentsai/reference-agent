@@ -1,0 +1,26 @@
+# P-OPEN: a signed-in customer opens the chat and is shown their own orders, and
+# no model is asked anything to do it.
+#
+# The customer says nothing. What they are shown is the only reply, so every
+# check below reads the opening. And, as in `answered-without-a-model`, this
+# scenario is not in `SCRIPTS`: the model client raises if it is called at all,
+# so a pass is a run where nothing was generated.
+apiVersion: awd-scenario/v0
+scenario: a customer opens the chat and is shown their orders, with no model call
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  Opening a conversation shows the customer their own orders to pick from, so the
+  first turn is not spent finding an order number, and it costs no model call.
+concern: cost
+discharges: [P-OPEN, op:list_orders]
+max_turns: 1
+
+actor:
+  opens: true
+
+expect:
+  - {world: unchanged}
+  - {reply: says, text: AB-10003}
+  - {reply: says, text: delivered}
+  - {reply: says, text: Which one can I help with}

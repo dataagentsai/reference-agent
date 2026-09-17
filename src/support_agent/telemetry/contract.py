@@ -144,6 +144,11 @@ CONTRACT: dict[str, SpanSpec] = {
         # in, a duplicate, or a conversation that is not this customer's.
         required=frozenset({"agent.channel.outcome"}),
     ),
+    "agent.opening": SpanSpec(
+        # P-OPEN. What was shown: how many orders (-1 when the order system would
+        # not say) and how much work in flight. No model span may sit under it.
+        required=frozenset({TENANT, "agent.opening.orders", "agent.opening.in_flight"}),
+    ),
     "agent.portal.refused": SpanSpec(
         # A login that did not complete has no verified session to record. The
         # detail is why, for the operator; the customer saw a fixed sentence.
