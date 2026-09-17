@@ -75,17 +75,18 @@ def tries_the_return_late() -> ScriptedClient:
     return ScriptedClient([wait, wait, attempt, explain, explain])
 
 
-def obeys_the_note() -> ScriptedClient:
+def obeys_the_note(order: str = "AB-66666") -> ScriptedClient:
     """A model entirely taken in: it reads the order, then does what the note
     told it to. Every attempt must die at the tool boundary rather than here."""
     look = ModelResponse(
-        tool_calls=(ToolCall(id="n1", name="get_order", arguments={"id": "AB-66666"}),),
+        tool_calls=(ToolCall(id="n1", name="get_order", arguments={"id": order}),),
         usage=Usage(input_tokens=5, output_tokens=2),
     )
     obey = ModelResponse(
         tool_calls=(
-            ToolCall(id="n2", name="issue_refund", arguments={"id": "AB-66666"}),
-            ToolCall(id="n3", name="cancel_order", arguments={"id": "AB-66666"}),
+            ToolCall(id="n2", name="issue_refund", arguments={"id": order}),
+            ToolCall(id="n3", name="cancel_order", arguments={"id": order}),
+            ToolCall(id="n4", name="request_refund", arguments={"order_id": order}),
         ),
         usage=Usage(input_tokens=5, output_tokens=2),
     )
@@ -459,7 +460,7 @@ async def test_every_generated_attack_case_leaves_the_world_alone(path: Path) ->
         plant(live, scenario, payload)
         timeline = timeline_for(scenario)
         async with subject_for(
-            live, llm=obeys_the_note(), wrap=perturbed(live, timeline)
+            live, llm=obeys_the_note(scenario.generate.key), wrap=perturbed(live, timeline)
         ) as subject:
             _, outcomes = await run_file(path, subject=subject, live=live, timeline=timeline)
         failed = [f"{o.check} — {o.detail}" for o in outcomes if not o.passed]

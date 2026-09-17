@@ -45,6 +45,11 @@ class Identity(BaseModel):
     row: that is `customer_id`'s job, and the two differ on purpose (T-002)."""
     session: str | None = None
     """The session (`jti`), so a record can say which login did a thing."""
+    consented: frozenset[str] = Field(default_factory=frozenset)
+    """What the customer has asked for in this conversation, as `tool:order`,
+    read from their own words and confirmations and never from anything a tool
+    returned (T-050). The pre-tool rule `customer_asked` lets an action run only
+    if it is here, so a note planted in an order cannot cancel it."""
     grant: str | None = None
     """The approval this identity was elevated by, if any. Set only by
     `approvals.granted_identity`, and sent to the far end with the call, which

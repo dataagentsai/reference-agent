@@ -352,7 +352,10 @@ async def test_writes_run_one_at_a_time_in_the_order_asked(server) -> None:
     async with connect(server, ledger=InMemoryLedger()) as tools:
         await agent_loop.run(
             "cancel three orders",
-            identity=customer(),
+            # Ordering is under test, not consent: the customer asked for all three.
+            identity=customer().model_copy(
+                update={"consented": frozenset(f"cancel_order:A-{n}" for n in (1, 2, 3))}
+            ),
             llm=ScriptedClient(
                 [batch("cancel_order", "A-1", "A-2", "A-3"), ModelResponse(text="done")]
             ),

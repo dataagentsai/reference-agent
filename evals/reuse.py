@@ -98,6 +98,7 @@ PER_AGENT = {
     "contracts/domain.py",  # this domain's entities
     "entrypoint/direct.py",  # order status, refund status
     "entrypoint/opening.py",  # a customer's orders and this shop's queues, on opening
+    "entrypoint/consent.py",  # which of this shop's actions a customer's words ask for
     "escalation/wording.py",  # what this shop says to its customers
     "ui/__init__.py",  # a support chat page
 }

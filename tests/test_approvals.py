@@ -41,7 +41,7 @@ async def pending_refund(store, amount: str = "12400") -> ap.Approval:
     return await ap.request(
         store,
         action=ap.REFUND_ACTION,
-        args={"order_id": "AB-1", "amount": amount},
+        args={"order_id": "AB-201", "amount": amount},
         reason="above threshold",
         identity=customer(),
         idempotency_key=key(),
@@ -205,10 +205,10 @@ class OrderOut(BaseModel):
 
 
 ORDERS = {
-    "AB-1": OrderOut(order_id="AB-1", status="returned", total=12400),  # owed, large
-    "AB-2": OrderOut(order_id="AB-2", status="returned", total=2400),  # owed, small
-    "AB-3": OrderOut(order_id="AB-3", status="delivered", total=2400),  # small, not owed
-    "AB-4": OrderOut(order_id="AB-4", status="returned"),  # owed, total unknown
+    "AB-201": OrderOut(order_id="AB-201", status="returned", total=12400),  # owed, large
+    "AB-202": OrderOut(order_id="AB-202", status="returned", total=2400),  # owed, small
+    "AB-203": OrderOut(order_id="AB-203", status="delivered", total=2400),  # small, not owed
+    "AB-204": OrderOut(order_id="AB-204", status="returned"),  # owed, total unknown
 }
 
 
@@ -262,7 +262,9 @@ async def test_the_whole_path_produces_exactly_one_refund(server) -> None:
 
     async with connect(server, ledger=ledger) as tools:
         for _ in range(2):
-            await tools.call("issue_refund", {"order_id": "AB-1"}, elevated, ap.stored_key(granted))
+            await tools.call(
+                "issue_refund", {"order_id": "AB-201"}, elevated, ap.stored_key(granted)
+            )
 
     assert server.state["refunds"] == 1
 
@@ -299,7 +301,7 @@ def refund_agent(tools, store, approvals, llm):
     return ep.build(llm=llm, tools=tools, store=store, approvals=approvals, clock=lambda: T0)
 
 
-def wants_refund(order_id: str = "AB-1", **stated: object):
+def wants_refund(order_id: str = "AB-201", **stated: object):
     """The model asks for a refund — and may state an amount, which the tool
     must ignore: the amount is the order's."""
     from support_agent.contracts import ModelResponse, ToolCall
@@ -343,7 +345,7 @@ async def test_a_large_refund_waits_and_then_completes_across_turns(server) -> N
         )
 
         first, conversation = await agent.handle(
-            "I want my money back for AB-1", identity=customer()
+            "I want my money back for AB-201", identity=customer()
         )
         assert isinstance(first, NeedsApproval)
         assert "Nothing has been refunded" in first.reply
@@ -372,7 +374,7 @@ async def test_a_pending_approval_short_circuits_the_next_turn(server) -> None:
         agent = refund_agent(
             tools, InMemoryCheckpointStore(), approvals, ScriptedClient([wants_refund()])
         )
-        first, conversation = await agent.handle("refund AB-1 please", identity=customer())
+        first, conversation = await agent.handle("refund AB-201 please", identity=customer())
         assert isinstance(first, NeedsApproval)
 
         agent.llm = ScriptedClient([])
@@ -393,7 +395,7 @@ async def test_a_refused_approval_is_reported_and_nothing_is_refunded(server) ->
         agent = refund_agent(
             tools, InMemoryCheckpointStore(), approvals, ScriptedClient([wants_refund()])
         )
-        first, conversation = await agent.handle("refund AB-1", identity=customer())
+        first, conversation = await agent.handle("refund AB-201", identity=customer())
         await ap.decide(approvals, first.approval_id, granted=False, by="ops-7", now=T0 + 1)
 
         agent.llm = ScriptedClient([])
@@ -419,7 +421,7 @@ async def test_an_agent_without_an_approval_store_cannot_refund_at_all(server) -
             tools=tools,
             store=InMemoryCheckpointStore(),
         )
-        await agent.handle("refund AB-1", identity=customer())
+        await agent.handle("refund AB-201", identity=customer())
     assert server.state["refunds"] == 0
 
 
@@ -457,7 +459,7 @@ async def test_an_approval_lives_on_the_agents_clock(
             approvals=approvals,
             clock=lambda: moment[0],
         )
-        first, conversation = await agent.handle("refund AB-1 please", identity=customer())
+        first, conversation = await agent.handle("refund AB-201 please", identity=customer())
         requested = await approvals.get(first.approval_id)
         assert requested.expires_at == T0 + 24 * HOUR, "the expiry is the agent's, not the wall's"
 
@@ -491,15 +493,15 @@ ISSUED = "Your refund has been issued to your original payment method."
 # (name, order, what the model states, result type, refunded, stored amount, granted by)
 GROUNDING = [
     ("an understated amount on a large order still needs a person",
-     "AB-1", {"amount": "500"}, "NeedsApproval", [], "12400", None),
+     "AB-201", {"amount": "500"}, "NeedsApproval", [], "12400", None),
     ("a small owed refund is issued at once",
-     "AB-2", {}, "Completed", ["AB-2"], "2400", ap.POLICY_APPROVER),
+     "AB-202", {}, "Completed", ["AB-202"], "2400", ap.POLICY_APPROVER),
     ("an overstated amount on a small order is refunded for its total",
-     "AB-2", {"amount": "99999"}, "Completed", ["AB-2"], "2400", ap.POLICY_APPROVER),
+     "AB-202", {"amount": "99999"}, "Completed", ["AB-202"], "2400", ap.POLICY_APPROVER),
     ("a small refund that is not owed goes to a person",
-     "AB-3", {}, "NeedsApproval", [], "2400", None),
+     "AB-203", {}, "NeedsApproval", [], "2400", None),
     ("a total nobody can read goes to a person",
-     "AB-4", {}, "NeedsApproval", [], None, None),
+     "AB-204", {}, "NeedsApproval", [], None, None),
 ]  # fmt: skip
 
 

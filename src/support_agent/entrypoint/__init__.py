@@ -55,7 +55,7 @@ from support_agent.contracts import (
     new_run_id,
 )
 from support_agent.cost import Meter
-from support_agent.entrypoint import direct, promise
+from support_agent.entrypoint import consent, direct, promise
 from support_agent.entrypoint.handoff import Handoff, HandoffDesk, NoDesk
 from support_agent.entrypoint.opening import opening
 from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
@@ -182,7 +182,8 @@ class Agent:
             conversation = conversation.model_copy(
                 update={"facts": conversation.facts.asking(text)}
             ).with_messages(ctx.user_message(text))
-            result, landed = await self._dispatch(decision, conversation, identity, run_id)
+            identity = consent.granting(identity, conversation, text, self.rules)
+            result, landed, tried = await self._dispatch(decision, conversation, identity, run_id)
             conversation = conversation.with_turn(TurnNote.of(decision, result))
 
             # Tier 2, after the work rather than before it. Every rule here asks
@@ -195,9 +196,10 @@ class Agent:
             if escalated is not None:
                 result = escalated
 
-            conversation = conversation.model_copy(
-                update={"facts": facts.after(conversation.facts, result, landed)}
+            after = consent.pending(
+                facts.after(conversation.facts, result, landed), tried, identity
             )
+            conversation = conversation.model_copy(update={"facts": after})
             result = await promise.honest(result, self.desk, conversation, identity, run_id)
             result = _screened(result, identity, self.policy_rules)
             counters.record_turn(result, decision)
@@ -232,7 +234,7 @@ class Agent:
 
     async def _dispatch(
         self, decision: Route, conversation: Conversation, identity: Identity, run_id: RunId
-    ) -> tuple[TurnResult, tuple[tuple[str, str], ...]]:
+    ) -> tuple[TurnResult, tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]:
         """Four routes, and only one of them reaches the model.
 
         Returns the effects the far system confirmed as well as the result,
@@ -242,16 +244,20 @@ class Agent:
         """
         match decision:
             case Refuse():
-                return Refused(
-                    reply=router.refusal_text(decision),
-                    reason=decision.reason,
-                    rule_id=decision.rule_id,
-                ), ()
+                return (
+                    Refused(
+                        reply=router.refusal_text(decision),
+                        reason=decision.reason,
+                        rule_id=decision.rule_id,
+                    ),
+                    (),
+                    (),
+                )
             case Escalate():
                 held = await self.desk.raise_requested(decision, conversation, identity, run_id)
-                return held, ()
+                return held, (), ()
             case Direct():
-                return await direct.answer(decision, identity, run_id, self.tools), ()
+                return await direct.answer(decision, identity, run_id, self.tools), (), ()
             case Agentic():
                 result, trace = await agent_loop.run(
                     decision.goal,
@@ -268,7 +274,7 @@ class Agent:
                     now=self._now,
                     fresh_for_s=self.fresh_for_s,
                 )
-                return result, tuple(trace.effects)
+                return result, tuple(trace.effects), tuple(trace.tool_calls)
             case _:
                 assert_never(decision)
 
