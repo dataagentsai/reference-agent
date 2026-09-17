@@ -31,7 +31,11 @@ def key(iteration: int) -> IdempotencyKey:
 # (name, the keys the two calls carry, how many times the effect must land)
 REPEATS = [
     ("the same key twice is one request", [key(0), key(0)], 1),
-    ("a new key is a genuine second request", [key(0), key(1)], 2),
+    # A new key is judged again rather than replayed, and the order refuses it:
+    # `return_open` is state the order system holds, so `identity: order_id` is
+    # answered by the record. Until T-050 the effect was prose, this row said 2,
+    # and a live model that retried a lost reply as a new call opened two returns.
+    ("a new key is judged again, and the order refuses a second return", [key(0), key(1)], 1),
 ]
 
 
@@ -51,8 +55,12 @@ async def test_the_far_end_recognises_a_retried_write(
         ]
 
     assert world.count("open_return_request") == landed
-    if landed == 1:
+    if keys[0] == keys[1]:
         assert answers[0].structured == answers[1].structured, "a repeat gets the same answer"
+    else:
+        assert answers[1].structured["allowed"] is False, (
+            "a second request is refused, not replayed"
+        )
 
 
 @pytest.mark.discharges("op:issue_refund", "P-REFUND", "AHC-0074", "AAC-0047")

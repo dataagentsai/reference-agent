@@ -55,4 +55,9 @@ expect:
   # And the agent does not claim a failure it cannot actually know about.
   - {reply: never_says, text: could not}
   - {reply: never_says, text: did not go through}
+  # Live, 17 Sep: the second attempt was refused, the refusal said only "a return
+  # is not possible", and the customer was told their open return "can't be
+  # processed". The refusal now states the facts; this holds the reply to them.
+  - {reply: never_says, text: "can't be processed"}
+  - {reply: never_says, text: "can’t be processed"}
   - {truthful: order, id: AB-10003}

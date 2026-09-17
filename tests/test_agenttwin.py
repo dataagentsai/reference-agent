@@ -71,6 +71,7 @@ def live_with(status: str, days: int = 0, final_sale: bool = False) -> Live:
         "status": status,
         "days_since_delivery": days,
         "final_sale": final_sale,
+        "return_open": False,
     }
     return live
 
@@ -418,6 +419,7 @@ async def test_the_second_world_projects_and_enforces_its_own_policy() -> None:
         "status": "delivered",
         "days_since_delivery": 20,
         "final_sale": False,
+        "return_open": False,
     }
 
     async with connect(project(live), ledger=InMemoryLedger()) as tools:
