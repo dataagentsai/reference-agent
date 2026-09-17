@@ -54,6 +54,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import BaseRoute, Mount, Route
 
+from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
@@ -62,7 +63,7 @@ from support_agent.contracts import (
     Completed,
     ConversationId,
     Escalated,
-    EscalationStore,
+    Escalations,
     Failed,
     Identity,
     NeedsApproval,
@@ -289,7 +290,8 @@ def build(
     *,
     issuer: ident.Issuer,
     store: CheckpointStore | None = None,
-    escalations: EscalationStore | None = None,
+    escalations: Escalations | None = None,
+    desk: esc.EscalationDesk | None = None,
 ) -> Starlette:
     """Wire an agent behind HTTP. Wiring only — the handlers are module functions.
 
@@ -317,7 +319,7 @@ def build(
     if escalations is not None:
         from support_agent import reviewer
 
-        routes.append(Mount("/ops", app=reviewer.build(escalations, issuer=issuer)))
+        routes.append(Mount("/ops", app=reviewer.build(escalations, issuer=issuer, desk=desk)))
 
     if isinstance(agent, Agent):
         app = Starlette(routes=routes)
@@ -337,8 +339,8 @@ def build(
 def _stores_of(
     agent: Agent | AgentFactory,
     store: CheckpointStore | None,
-    escalations: EscalationStore | None,
-) -> tuple[CheckpointStore | None, EscalationStore | None]:
+    escalations: Escalations | None,
+) -> tuple[CheckpointStore | None, Escalations | None]:
     """A ready agent's own stores; a factory's, as named by the caller."""
     if not isinstance(agent, Agent):
         return store, escalations

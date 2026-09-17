@@ -41,7 +41,7 @@ from support_agent.contracts import (
     Completed,
     Direct,
     Escalate,
-    EscalationStore,
+    Escalations,
     Failed,
     Identity,
     LLMClient,
@@ -80,7 +80,7 @@ class Agent:
     tools: ToolClient
     store: CheckpointStore
     approvals: Approvals | None = None
-    escalations: EscalationStore | None = None
+    escalations: Escalations | None = None
     """Absent means the agent cannot escalate at all, and it says so rather than
     pretending: with no store the request is refused and nothing is claimed.
     Same honesty as the approval flow refusing to offer a refund tool when no
@@ -363,7 +363,7 @@ def build(
     tools: ToolClient,
     store: CheckpointStore,
     approvals: Approvals | None = None,
-    escalations: EscalationStore | None = None,
+    escalations: Escalations | None = None,
     capacity: esc.Capacity | None = None,
     deliveries: trg.DeliveryLog | None = None,
     clock: Clock | None = None,

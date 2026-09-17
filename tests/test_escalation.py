@@ -15,8 +15,10 @@ Three properties are worth more than the rest, and each has a table:
 from __future__ import annotations
 
 import time
+from contextlib import asynccontextmanager
 
 import pytest
+from evals import durable
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, TypeAdapter
 
@@ -68,14 +70,28 @@ def server():
     return srv
 
 
-def agent_with(tools, *, escalations=None, llm=None) -> ep.Agent:
+def agent_with(tools, *, escalations=None, llm=None, clock=None) -> ep.Agent:
     """A scripted client with nothing in it: reaching the model raises."""
     return ep.build(
         llm=llm or ScriptedClient([]),
         tools=tools,
         store=InMemoryCheckpointStore(),
         escalations=escalations,
+        clock=clock,
     )
+
+
+@asynccontextmanager
+async def escalating(server, *, llm=None):
+    """The agent with a real escalation workflow behind it, on a clock the test
+    moves — so "nobody came" is the workflow's own timer (T-028)."""
+    moment = [int(time.time())]
+    async with (
+        connect(server, ledger=InMemoryLedger()) as tools,
+        durable.escalations_for(clock=lambda: moment[0]) as waits,
+    ):
+        agent = agent_with(tools, escalations=waits.escalations, llm=llm, clock=lambda: moment[0])
+        yield agent, waits, moment
 
 
 # --------------------------------------------------------------------------- #
@@ -145,24 +161,25 @@ def test_the_policy_rule_still_fires_without_anyone_asking() -> None:
 
 @pytest.mark.discharges("op:escalate", "ext:escalation_desk", "AHC-0070", "AAC-0110")
 async def test_an_escalation_writes_a_record_and_names_it(server) -> None:
-    store = esc.InMemoryEscalationStore()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
-        agent = agent_with(tools, escalations=store)
+    async with escalating(server) as (agent, waits, _):
+        store = waits.escalations
         result, conversation = await agent.handle("put me through to a human", identity=customer())
 
-    assert isinstance(result, Escalated)
-    assert result.ticket_id is not None, "the field existed for months and was never set"
-    assert result.ticket_id in result.reply, "a reference the customer is never told is not one"
-    assert result.termination is TerminationReason.AWAITING_HUMAN
+        assert isinstance(result, Escalated)
+        assert result.ticket_id is not None, "the field existed for months and was never set"
+        assert result.ticket_id in result.reply, "a reference the customer is never told is not one"
+        assert result.termination is TerminationReason.AWAITING_HUMAN
 
-    raised = await store.get(result.ticket_id)
+        raised = await store.get(result.ticket_id)
+        queued = await store.pending()
+
     assert raised is not None
     assert raised.state is EscalationState.QUEUED
     assert raised.conversation_id == conversation.conversation_id
     assert raised.customer_id == "C-1042"
     assert raised.rule_id == "asked-for-human"
     assert raised.rules_version == router.Rules().version
-    assert (await store.pending()) == (raised,)
+    assert queued == (raised,)
 
 
 @pytest.mark.discharges("AAC-0110", "op:escalate")
@@ -189,7 +206,7 @@ async def test_without_a_store_the_handover_is_refused_not_claimed(server) -> No
 async def test_escalation_still_never_reaches_the_model(server) -> None:
     llm = ScriptedClient([])
     async with connect(server, ledger=InMemoryLedger()) as tools:
-        agent = agent_with(tools, escalations=esc.InMemoryEscalationStore(), llm=llm)
+        agent = agent_with(tools, escalations=durable.RememberedEscalations(), llm=llm)
         result, _ = await agent.handle("get me a manager", identity=customer())
 
     assert isinstance(result, Escalated)
@@ -212,7 +229,7 @@ FOLLOW_UPS = [
 async def test_the_agent_does_not_answer_over_a_live_handoff(server, name: str, text: str) -> None:
     """It used to. The customer was told a colleague would take over and the
     next message was served by the agent as though nothing had happened."""
-    store = esc.InMemoryEscalationStore()
+    store = durable.RememberedEscalations()
     llm = ScriptedClient([])
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = agent_with(tools, escalations=store, llm=llm)
@@ -230,15 +247,11 @@ async def test_the_agent_does_not_answer_over_a_live_handoff(server, name: str, 
 
 @pytest.mark.discharges("op:escalate")
 async def test_a_resolved_escalation_hands_the_conversation_back(server) -> None:
-    store = esc.InMemoryEscalationStore()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
-        agent = agent_with(tools, escalations=store)
+    async with escalating(server) as (agent, waits, _):
         first, conversation = await agent.handle("put me through to a human", identity=customer())
 
         assert first.ticket_id is not None
-        raised = await store.get(first.ticket_id)
-        assert raised is not None
-        await store.put(raised.model_copy(update={"state": EscalationState.RESOLVED}))
+        await waits.colleagues.resolve(first.ticket_id, outcome="resolved", by="desk-1")
 
         result, conversation = await agent.handle(
             "where is my order AB-12345", identity=customer(), conversation=conversation
@@ -256,29 +269,26 @@ async def test_nobody_came_so_the_conversation_is_handed_back(server) -> None:
     Without a lapse path, every escalated conversation would be held open
     forever against a queue no human can yet see.
     """
-    store = esc.InMemoryEscalationStore()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
-        agent = agent_with(tools, escalations=store)
+    async with escalating(server) as (agent, waits, moment):
         first, conversation = await agent.handle("transfer me", identity=customer())
-
         assert first.ticket_id is not None
-        raised = await store.get(first.ticket_id)
-        assert raised is not None
-        # Wind the clock past the window rather than sleeping through it.
-        await store.put(raised.model_copy(update={"expires_at": int(time.time()) - 1}))
+
+        # Nobody comes. Time passes — and the lapse is the workflow's own timer,
+        # not a sweep this test performs (T-028).
+        moment[0] += esc.DEFAULT_TTL_S + 300
 
         result, conversation = await agent.handle(
             "anyone?", identity=customer(), conversation=conversation
         )
+        lapsed = await waits.escalations.get(first.ticket_id)
+        queued = await waits.escalations.pending()
 
     assert isinstance(result, Completed)
     assert first.ticket_id in result.reply, "say which reference lapsed"
     assert conversation.pending_escalation_id is None
-
-    lapsed = await store.get(first.ticket_id)
     assert lapsed is not None
     assert lapsed.state is EscalationState.EXPIRED, "the record survives as evidence"
-    assert (await store.pending()) == (), "and leaves the queue"
+    assert queued == (), "and leaves the queue"
 
 
 # --------------------------------------------------------------------------- #
@@ -290,7 +300,7 @@ async def test_nobody_came_so_the_conversation_is_handed_back(server) -> None:
 async def test_the_escalated_result_still_round_trips_the_union(server) -> None:
     adapter: TypeAdapter[TurnResult] = TypeAdapter(TurnResult)
     async with connect(server, ledger=InMemoryLedger()) as tools:
-        agent = agent_with(tools, escalations=esc.InMemoryEscalationStore())
+        agent = agent_with(tools, escalations=durable.RememberedEscalations())
         result, _ = await agent.handle("I need a supervisor", identity=customer())
 
     assert adapter.validate_python(adapter.dump_python(result)) == result
@@ -306,8 +316,7 @@ TIER_ONE_SPANS = [
 @pytest.mark.parametrize(("name", "span"), TIER_ONE_SPANS, ids=[c[0] for c in TIER_ONE_SPANS])
 @pytest.mark.discharges("B8")
 async def test_the_expected_spans_are_emitted(server, exporter, name: str, span: str) -> None:
-    async with connect(server, ledger=InMemoryLedger()) as tools:
-        agent = agent_with(tools, escalations=esc.InMemoryEscalationStore())
+    async with escalating(server) as (agent, _, _moment):
         await agent.handle("put me through to a human", identity=customer())
 
     assert span in {s.name for s in exporter.get_finished_spans()}
@@ -318,8 +327,7 @@ async def test_the_raise_span_carries_the_rule_it_fired(server, exporter) -> Non
     """Required, not optional. A span that says only "escalated" cannot be
     attributed to a rule, and attributing them is the whole mechanism for
     telling over-escalation from correct handoff."""
-    async with connect(server, ledger=InMemoryLedger()) as tools:
-        agent = agent_with(tools, escalations=esc.InMemoryEscalationStore())
+    async with escalating(server) as (agent, _, _moment):
         await agent.handle("put me through to a human", identity=customer())
 
     raised = next(s for s in exporter.get_finished_spans() if s.name == "agent.escalation.raise")
@@ -378,7 +386,7 @@ async def test_the_reply_says_only_what_the_queue_supports(
             llm=ScriptedClient([]),
             tools=tools,
             store=InMemoryCheckpointStore(),
-            escalations=esc.InMemoryEscalationStore(),
+            escalations=durable.RememberedEscalations(),
             capacity=capacity,
         )
         result, _ = await agent.handle("put me through to a human", identity=customer())
@@ -408,60 +416,7 @@ def test_the_estimate_comes_from_depth_and_throughput(
     assert (esc.humanise(seconds) if seconds is not None else None) == expected
 
 
-@pytest.mark.discharges("op:escalate", "ext:escalation_desk")
-async def test_the_sweeper_lapses_what_nobody_came_for(server) -> None:
-    """The queue's phantom work.
-
-    Lapse used to run only when the customer sent another turn, so an escalation
-    on a conversation somebody abandoned never expired — it sat in the desk's
-    queue forever, and the depth every wait estimate divides by drifted upward
-    with it.
-    """
-    store = esc.InMemoryEscalationStore()
-    stale = await esc.raise_for(
-        store,
-        conversation_id="cnv_gone",
-        run_id="run_1",
-        customer_id="C-1042",
-        reason="the customer asked for a human",
-        rule_id="asked-for-human",
-        rules_version="v1",
-        ttl_s=60,
-        now=1000,
-    )
-    fresh = await esc.raise_for(
-        store,
-        conversation_id="cnv_here",
-        run_id="run_2",
-        customer_id="C-1042",
-        reason="the customer asked for a human",
-        rule_id="asked-for-human",
-        rules_version="v1",
-        ttl_s=3600,
-        now=1000,
-    )
-
-    lapsed = await esc.sweep(store, now=2000)
-
-    assert [e.id for e in lapsed] == [stale.id], "only what actually expired"
-    assert (await store.get(stale.id)).state is EscalationState.EXPIRED
-    assert [e.id for e in await store.pending()] == [fresh.id]
-
-
-@pytest.mark.discharges("P-ESC-TTL")
-async def test_sweeping_twice_lapses_nothing_the_second_time() -> None:
-    """It runs on a timer, so it runs against a queue it has already swept."""
-    store = esc.InMemoryEscalationStore()
-    await esc.raise_for(
-        store,
-        conversation_id="c",
-        run_id="r",
-        customer_id="C-1042",
-        reason="x",
-        rule_id="asked-for-human",
-        rules_version="v1",
-        ttl_s=60,
-        now=1000,
-    )
-    assert len(await esc.sweep(store, now=2000)) == 1
-    assert await esc.sweep(store, now=3000) == ()
+# The sweeper's two tests left with it (T-028). Lapsing is the escalation
+# workflow's timer now, so there is no cadence for a caller to get wrong and
+# nothing to run twice against a queue it has already swept; what the customer
+# is told when nobody comes is tested above, through the agent.

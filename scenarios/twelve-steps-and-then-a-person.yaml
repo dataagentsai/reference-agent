@@ -16,6 +16,11 @@ objective: >-
   landed on the world.
 concern: cost
 discharges: [Q-STEPS, esc:loop-exhausted, AHC-0041, AHC-0042, AAC-0055, ext:escalation_desk]
+# Five minutes a turn: a colleague has to be able to look before the
+# escalation's thirty-minute window closes. On the default hour it lapses
+# first, which is a real case and not this one (T-028 made the lapse a
+# timer, so the format's warning about this finally bites).
+step_seconds: 300
 max_turns: 1
 # Live, a model answers three orders in one step and never spends the budget, so
 # the guard does not fire and `handed_off` reads 0 (T-050). Proven offline.

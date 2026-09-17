@@ -11,13 +11,11 @@ this existed the number was not merely unmeasured — it was unmeasurable.
 
 from __future__ import annotations
 
-import time
-
+import httpx2 as httpx
 import pytest
+from evals import durable
 from evals import issuer as issuing
-from starlette.testclient import TestClient
 
-from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
@@ -33,17 +31,32 @@ def exporter():
 
 
 @pytest.fixture
-def store():
-    return esc.InMemoryEscalationStore()
+async def waits():
+    """Escalations as they really are: a Temporal workflow on the test server."""
+    async with durable.escalations_for() as running:
+        yield running
 
 
 @pytest.fixture
-def client(store):
+def store(waits):
+    return waits.escalations
+
+
+@pytest.fixture
+def client(waits):
     """The reviewer app mounted where it really lives — under the same Starlette
     application that serves `/chat`. Testing it standalone would prove the app
-    works and say nothing about the mount."""
-    app = serve.build(_NoAgent(), issuer=ISSUER, escalations=store)
-    return TestClient(app)
+    works and say nothing about the mount.
+
+    Driven in this test's own event loop rather than through `TestClient`,
+    which runs the app in a thread of its own: the desk now closes an
+    escalation by talking to Temporal, and that connection belongs to one loop.
+    """
+    app = serve.build(
+        _NoAgent(), issuer=ISSUER, escalations=waits.escalations, desk=waits.colleagues
+    )
+    transport = httpx.ASGITransport(app=app)
+    return httpx.AsyncClient(transport=transport, base_url="http://desk.test")
 
 
 class _NoAgent:
@@ -66,8 +79,7 @@ def customer_token() -> dict[str, str]:
 
 
 async def queued(store, *, rule_id: str = "asked-for-human", ttl_s: int = 1800):
-    return await esc.raise_for(
-        store,
+    return await store.raise_for(
         conversation_id="cnv_1",
         run_id="run_1",
         customer_id=CUSTOMER,
@@ -75,7 +87,6 @@ async def queued(store, *, rule_id: str = "asked-for-human", ttl_s: int = 1800):
         rule_id=rule_id,
         rules_version="v1",
         ttl_s=ttl_s,
-        now=int(time.time()),  # the desk under test reads the wall clock
     )
 
 
@@ -93,19 +104,19 @@ REFUSED = [
 
 @pytest.mark.discharges("AHC-0040", "AHC-0099")
 @pytest.mark.parametrize(("name", "headers", "status"), REFUSED, ids=[c[0] for c in REFUSED])
-def test_who_may_read_the_queue(client, name: str, headers, status: int) -> None:
+async def test_who_may_read_the_queue(client, name: str, headers, status: int) -> None:
     """A customer token is *valid* and still refused — 403, not 401. The
     distinction matters: one says "we do not know you", the other says "we know
     you and this is not yours"."""
     sent = customer_token() if headers == "customer" else headers
-    assert client.get("/ops/escalations", headers=sent).status_code == status
+    assert (await client.get("/ops/escalations", headers=sent)).status_code == status
 
 
 @pytest.mark.discharges("AHC-0099")
-def test_the_401_body_says_nothing_useful_to_a_prober(client) -> None:
+async def test_the_401_body_says_nothing_useful_to_a_prober(client) -> None:
     """Same reasoning as `/chat`'s: the library's own message would report which
     part of the token was malformed."""
-    res = client.get("/ops/escalations", headers={"authorization": "Bearer garbage"})
+    res = await client.get("/ops/escalations", headers={"authorization": "Bearer garbage"})
     assert res.json() == {"detail": "the session token is not valid"}
 
 
@@ -117,7 +128,7 @@ async def test_a_reader_cannot_close_anything(client, store) -> None:
     only_read = issuing.mint(
         None, subject="desk-9", scopes=frozenset({ident.SCOPE_ESCALATIONS_READ})
     )
-    res = client.post(
+    res = await client.post(
         f"/ops/escalations/{row.id}/resolve",
         headers={"authorization": f"Bearer {only_read}"},
         json={"outcome": "resolved"},
@@ -134,7 +145,7 @@ async def test_a_reader_cannot_close_anything(client, store) -> None:
 @pytest.mark.discharges("ext:escalation_desk")
 async def test_the_queue_shows_what_a_reviewer_needs(client, store) -> None:
     row = await queued(store)
-    body = client.get("/ops/escalations", headers=reader()).json()
+    body = (await client.get("/ops/escalations", headers=reader())).json()
 
     assert [q["id"] for q in body] == [row.id]
     one = body[0]
@@ -147,15 +158,15 @@ async def test_the_queue_shows_what_a_reviewer_needs(client, store) -> None:
 @pytest.mark.discharges("P-ESC-QUEUE")
 async def test_a_resolved_escalation_leaves_the_queue(client, store) -> None:
     row = await queued(store)
-    client.post(
+    await client.post(
         f"/ops/escalations/{row.id}/resolve", headers=reader(), json={"outcome": "resolved"}
     )
-    assert client.get("/ops/escalations", headers=reader()).json() == []
+    assert (await client.get("/ops/escalations", headers=reader())).json() == []
 
 
 @pytest.mark.discharges("AHC-0017")
-def test_an_unknown_escalation_is_404_not_500(client) -> None:
-    assert client.get("/ops/escalations/E-NOPE", headers=reader()).status_code == 404
+async def test_an_unknown_escalation_is_404_not_500(client) -> None:
+    assert (await client.get("/ops/escalations/E-NOPE", headers=reader())).status_code == 404
 
 
 # --------------------------------------------------------------------------- #
@@ -174,7 +185,7 @@ OUTCOMES = [
 @pytest.mark.parametrize(("name", "outcome"), OUTCOMES, ids=[c[0] for c in OUTCOMES])
 async def test_every_outcome_reaches_the_row(client, store, name: str, outcome: str) -> None:
     row = await queued(store)
-    res = client.post(
+    res = await client.post(
         f"/ops/escalations/{row.id}/resolve",
         headers=reader(),
         json={"outcome": outcome, "note": name},
@@ -197,7 +208,7 @@ async def test_the_over_escalation_label_is_sliceable_by_rule(client, store) -> 
     question that tunes the rule set, and it cannot be asked of a sentence.
     """
     row = await queued(store, rule_id="lost-in-transit")
-    client.post(
+    await client.post(
         f"/ops/escalations/{row.id}/resolve",
         headers=reader(),
         json={"outcome": "agent_could_have"},
@@ -212,10 +223,10 @@ async def test_closing_twice_is_refused_rather_than_overwritten(client, store) -
     """An outcome that can be rewritten is one that can be rewritten *after*
     somebody reads the dashboard."""
     row = await queued(store)
-    first = client.post(
+    first = await client.post(
         f"/ops/escalations/{row.id}/resolve", headers=reader(), json={"outcome": "resolved"}
     )
-    second = client.post(
+    second = await client.post(
         f"/ops/escalations/{row.id}/resolve",
         headers=reader(),
         json={"outcome": "agent_could_have"},
@@ -233,14 +244,14 @@ async def test_a_close_without_an_outcome_is_refused(client, store) -> None:
     agent could have handled it has given us nothing, and a default would make
     the least informative answer the one nobody had to choose."""
     row = await queued(store)
-    res = client.post(f"/ops/escalations/{row.id}/resolve", headers=reader(), json={})
+    res = await client.post(f"/ops/escalations/{row.id}/resolve", headers=reader(), json={})
     assert res.status_code == 422
 
 
 @pytest.mark.discharges("B10")
 async def test_an_invented_outcome_never_reaches_the_row(client, store) -> None:
     row = await queued(store)
-    res = client.post(
+    res = await client.post(
         f"/ops/escalations/{row.id}/resolve", headers=reader(), json={"outcome": "sorted-it"}
     )
     assert res.status_code == 422
@@ -255,13 +266,13 @@ async def test_an_invented_outcome_never_reaches_the_row(client, store) -> None:
 
 
 @pytest.mark.discharges("AHC-0017")
-def test_the_two_surfaces_share_a_process_and_not_a_contract(client) -> None:
+async def test_the_two_surfaces_share_a_process_and_not_a_contract(client) -> None:
     """`/chat` keeps its hand-written 400s; the desk answers FastAPI's 422 for
     the same class of fault. That is the trade the mount exists to make, and
     asserting it stops a later "let us make these consistent" from quietly
     changing the contract `/chat`'s tests pin."""
-    assert client.get("/healthz").status_code == 200
-    assert client.get("/ops/openapi.json").status_code == 200
+    assert (await client.get("/healthz")).status_code == 200
+    assert (await client.get("/ops/openapi.json")).status_code == 200
 
 
 @pytest.mark.discharges("AHC-0040", "P-APPROVER")

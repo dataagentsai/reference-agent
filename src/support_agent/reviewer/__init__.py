@@ -50,7 +50,7 @@ from support_agent.contracts import (
     Clock,
     Escalation,
     EscalationOutcome,
-    EscalationStore,
+    Escalations,
 )
 
 
@@ -120,9 +120,12 @@ class Closed(BaseModel):
 class _Desk:
     """What one mounted desk serves from. Held on `app.state`, read per request."""
 
-    store: EscalationStore
+    store: Escalations
     issuer: ident.Issuer
     clock: Clock | None = None
+    desk: esc.EscalationDesk | None = None
+    """How this desk closes one. Absent on a read-only mount, which answers
+    every question the queue asks and refuses to change anything."""
 
     def now(self) -> int:
         return self.clock() if self.clock is not None else int(time.time())
@@ -210,7 +213,7 @@ async def close(
     resolution: Resolution,
     who: ident.Principal = Depends(review_guard),
 ) -> Closed:
-    """Every refusal `esc.resolve` raises becomes a 409, not a 500.
+    """Every refusal the escalation workflow makes becomes a 409, not a 500.
 
     They are all *"the state does not allow that"* — already closed, lapsed
     before anyone came, or the customer trying to close their own case — and a
@@ -219,8 +222,9 @@ async def close(
     """
     desk = _desk(request)
     try:
-        row = await esc.resolve(
-            desk.store,
+        if desk.desk is None:
+            raise HTTPException(503, "this desk cannot close escalations")
+        row = await desk.desk.resolve(
             escalation_id,
             outcome=resolution.outcome,
             by=who.subject,
@@ -241,7 +245,13 @@ async def close(
     )
 
 
-def build(store: EscalationStore, *, issuer: ident.Issuer, clock: Clock | None = None) -> FastAPI:
+def build(
+    store: Escalations,
+    *,
+    issuer: ident.Issuer,
+    clock: Clock | None = None,
+    desk: esc.EscalationDesk | None = None,
+) -> FastAPI:
     """The reviewer app, ready to mount. Wiring only — the routes are above.
 
     Takes the store rather than the agent: this surface never runs a turn, never
@@ -252,7 +262,7 @@ def build(store: EscalationStore, *, issuer: ident.Issuer, clock: Clock | None =
         summary="Read the escalation queue and close what you have handled.",
         version="1",
     )
-    app.state.desk = _Desk(store=store, issuer=issuer, clock=clock)
+    app.state.desk = _Desk(store=store, issuer=issuer, clock=clock, desk=desk)
     app.include_router(router)
     return app
 

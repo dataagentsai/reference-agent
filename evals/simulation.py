@@ -29,7 +29,6 @@ from agenttwin import Approver, Desk, Live, Subject, project
 
 from evals import durable
 from support_agent import entrypoint as ep
-from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent.binding import SCOPES
 from support_agent.config import RunConfig
@@ -120,7 +119,6 @@ async def subject_for(
     perturbation happens to the system the agent depends on, so the world owns
     it and this side neither interprets it nor knows it is there. Forwarded
     to the projection and never inspected."""
-    escalations = esc.InMemoryEscalationStore()
     # A meter is made per unit of work, so the only way to know what a scenario
     # cost is to keep the ones this run made. Kept here rather than on the
     # contract: what a run costs is real, and it is not something a scenario
@@ -152,7 +150,7 @@ async def subject_for(
         # scenario's clock, and acts on the same projected world (T-028).
         durable.approvals_for(tools, clock=clock) as waits,
     ):
-        approvals = waits.approvals
+        approvals, escalations = waits.approvals, waits.escalations
         agent = ep.build(
             llm=llm,
             tools=tools,
@@ -180,7 +178,8 @@ async def subject_for(
             return DECISIONS[decision](approvals, deciding, name=by, delay_s=delay_s)
 
         def colleague(resolution: str, by: str, delay_s: int = 0) -> Desk:
-            return RESOLUTIONS[resolution](escalations, esc.resolve, name=by, delay_s=delay_s)
+            resolving = durable.resolving(waits.colleagues)
+            return RESOLUTIONS[resolution](escalations, resolving, name=by, delay_s=delay_s)
 
         async def opens(customer_id: str) -> str:
             who = Identity(customer_id=customer_id, scopes=ident.CUSTOMER_SCOPES)

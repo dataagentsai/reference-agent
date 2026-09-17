@@ -42,6 +42,7 @@ from __future__ import annotations
 
 from support_agent.approvals.desk import (
     TASK_QUEUE,
+    WORKFLOWS,
     ApprovalDesk,
     TemporalApprovals,
     approval_id,
@@ -81,6 +82,7 @@ __all__ = [
     "REQUEST_REFUND",
     "REQUEST_REFUND_SPEC",
     "TASK_QUEUE",
+    "WORKFLOWS",
     "Approval",
     "ApprovalDesk",
     "ApprovalError",

@@ -165,17 +165,33 @@ class SessionStore(Protocol):
 
 
 @runtime_checkable
-class EscalationStore(Protocol):
-    """Where a conversation waits for a person — P6, same argument as
+class Escalations(Protocol):
+    """Where a conversation waits for a person — P6, the same argument as
     `Approvals` and one step larger: a lost approval loses one action, a lost
     escalation loses a customer nobody knows is waiting.
+
+    **No write, and no close** (T-028). The agent raises one and reads it; a
+    colleague closes it through a desk the agent is never handed, and the lapse
+    is the workflow's timer rather than anybody's sweep.
 
     `open_for` rather than `get` on the read path the agent uses. The agent never
     holds an escalation id it did not just write, and a conversation is the handle
     it *does* hold — the same F-006 lesson the checkpoint store already learned.
     """
 
-    async def put(self, escalation: Escalation) -> None: ...
+    async def raise_for(
+        self,
+        *,
+        conversation_id: str,
+        run_id: str,
+        customer_id: str,
+        reason: str,
+        rule_id: str,
+        rules_version: str,
+        context: str = "",
+        tier: int = 1,
+        ttl_s: int = ...,
+    ) -> Escalation: ...
 
     async def get(self, escalation_id: str) -> Escalation | None: ...
 
@@ -184,8 +200,7 @@ class EscalationStore(Protocol):
         ...
 
     async def pending(self) -> tuple[Escalation, ...]:
-        """The queue a reviewer will see — P8. Nothing reads this yet; the
-        reviewer surface is step 4."""
+        """The queue a reviewer sees — P8."""
         ...
 
 

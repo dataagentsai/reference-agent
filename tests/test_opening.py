@@ -15,7 +15,6 @@ from agenttwin import Live, load, project
 from evals import durable
 
 from support_agent import entrypoint as ep
-from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.binding import SCOPES
@@ -78,11 +77,11 @@ async def open_as(who: str, *, setup=(), approvals=(), escalations=(), down: boo
     for step in setup:
         step(live)
     approval_store = durable.Remembered()
-    escalation_store = esc.InMemoryEscalationStore()
+    escalation_store = durable.RememberedEscalations()
     for a in approvals:
         approval_store.add(a)
     for e in escalations:
-        await escalation_store.put(e)
+        escalation_store.add(e)
 
     def refuse(name, fn):
         if not down:

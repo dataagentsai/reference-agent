@@ -203,13 +203,18 @@ ignore_imports = ["support_agent.tools -> mcp", "support_agent.tools.* -> mcp"]
 unmatched_ignore_imports_alerting = "none"
 
 [[tool.importlinter.contracts]]
-# T-028. Durable waits are Temporal's, and only the package that waits knows it:
-# the agent's turn sees `Approvals`, a protocol, and never a workflow.
-name = "Only approvals knows Temporal"
+# T-028. Durable waits are Temporal's, and only the packages that wait know it:
+# the agent's turn sees `Approvals` and `Escalations`, protocols, never a workflow.
+name = "Only the two waits know Temporal"
 type = "forbidden"
 source_modules = ["support_agent"]
 forbidden_modules = ["temporalio"]
-ignore_imports = ["support_agent.approvals.* -> temporalio.*", "support_agent.approvals.* -> temporalio"]
+ignore_imports = [
+    "support_agent.approvals.* -> temporalio.*",
+    "support_agent.approvals.* -> temporalio",
+    "support_agent.escalation.* -> temporalio.*",
+    "support_agent.escalation.* -> temporalio",
+]
 unmatched_ignore_imports_alerting = "none"
 
 [[tool.importlinter.contracts]]

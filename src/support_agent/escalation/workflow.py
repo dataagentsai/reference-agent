@@ -1,29 +1,20 @@
-"""Raise, resolve, lapse, sweep — each step recorded before it is spoken of.
+"""Who may close an escalation, how it ends, and how long it waits.
 
-Four steps, and three of them are AOAS statements implemented rather than
-helpers around one:
+The AOAS statements, as rules rather than as steps: **P-ESC-OUTCOME**, closing
+records an outcome from a declared set, once; **P-ESC-LAPSE**, nobody came and
+the conversation returns; **P-ESC-TTL**, a queued escalation lapses.
 
-    raise    the record exists before the customer is told a reference — AAC-0110
-    resolve  **P-ESC-OUTCOME** — closing records an outcome from a declared set, once
-    lapse    **P-ESC-LAPSE** — the conversation returns, and the customer is told nobody came
-    sweep    **P-ESC-TTL** — a queued escalation nobody comes to lapses
-
-`sweep` owns no scheduling of its own, which is what lets a scenario drive the
-clock and a deployment drive a timer. The rule is the spec's; when it runs is the
-binding's.
+The steps themselves are the workflow's (`escalation/durable.py`, T-028). Raise,
+hold, resolve and lapse are Temporal's, and the lapse is a timer rather than a
+sweep somebody has to remember to run — which is what it was, in one process,
+in a loop only the demo server had.
 """
 
 from __future__ import annotations
 
 import uuid
 
-from support_agent import telemetry as tel
-from support_agent.contracts import (
-    Escalation,
-    EscalationOutcome,
-    EscalationState,
-    EscalationStore,
-)
+from support_agent.contracts import Escalation, EscalationOutcome
 from support_agent.contracts.failures import AgentFailure, Fault
 
 DEFAULT_TTL_S = 30 * 60
@@ -33,27 +24,6 @@ Thirty minutes is a placeholder with a real shape: it should come from the
 desk's actual answer time, and it is deliberately short enough that the lapse
 path is exercised rather than theoretical.
 """
-
-
-async def sweep(store: EscalationStore, *, now: int) -> tuple[Escalation, ...]:
-    """Lapse everything nobody came for.
-
-    The lapse path was lazy: it only ran when the customer sent another turn. So
-    an escalation on a conversation somebody abandoned never expired, and sat in
-    the desk's queue as permanent phantom work — the queue depth that the wait
-    estimate above divides by would drift upward forever, and every promise made
-    from it would get worse.
-
-    Deliberately a plain function rather than a background thread. The caller
-    decides the cadence: a periodic task in the server, one call in a test, a
-    cron job in a deployment. A sweeper that owns its own scheduling is one
-    nobody can drive from a scenario.
-    """
-    lapsed: list[Escalation] = []
-    for escalation in await store.pending():
-        if escalation.lapsed(now):
-            lapsed.append(await lapse(store, escalation, now=now))
-    return tuple(lapsed)
 
 
 def new_escalation_id() -> str:
@@ -66,161 +36,72 @@ def new_escalation_id() -> str:
     return f"E-{uuid.uuid4().hex[:8].upper()}"
 
 
-async def raise_for(
-    store: EscalationStore,
-    *,
-    conversation_id: str,
-    run_id: str,
-    customer_id: str,
-    reason: str,
-    rule_id: str,
-    rules_version: str,
-    context: str = "",
-    tier: int = 1,
-    ttl_s: int = DEFAULT_TTL_S,
-    now: int,
-) -> Escalation:
-    """Write the record, then let the caller speak.
-
-    Deliberately in this order. Everything that has gone wrong with this path
-    came from telling the customer first and recording second — which is to say,
-    never recording at all.
-    """
-    escalation = Escalation(
-        id=new_escalation_id(),
-        conversation_id=conversation_id,
-        run_id=run_id,
-        customer_id=customer_id,
-        tier=tier,
-        context=context,
-        rule_id=rule_id,
-        rules_version=rules_version,
-        reason=reason,
-        state=EscalationState.QUEUED,
-        created_at=now,
-        expires_at=now + ttl_s,
-    )
-    with tel.span(
-        "agent.escalation.raise",
-        **{
-            tel.ESCALATION_ID: escalation.id,
-            tel.ESCALATION_TIER: tier,
-            tel.ESCALATION_RULE: rule_id,
-            "agent.escalation.rules_version": rules_version,
-        },
-    ):
-        await store.put(escalation)
-    return escalation
-
-
 class EscalationError(AgentFailure):
     """This escalation cannot be closed that way."""
 
     fault = Fault.REFUSED
 
 
-async def resolve(
-    store: EscalationStore,
-    escalation_id: str,
-    *,
-    outcome: EscalationOutcome | str,
-    by: str,
-    by_customer: str | None = None,
-    note: str = "",
-    now: int,
-) -> Escalation:
-    """A person closes it, and says what it was.
+def outcome_of(outcome: EscalationOutcome | str) -> EscalationOutcome:
+    """The label, or a refusal naming what was expected.
 
-    Three refusals, fail-closed, and each is `approvals.decide`'s reasoning in
-    the shape this record has:
-
-    **Nobody closes their own escalation.** `by` may not be the customer — the
-    confused deputy of the human path, and the reason the outcome label is worth
-    anything. A customer who could mark their own case resolved would make the
-    over-escalation rate a number the measured party writes.
-
-    **Closing is terminal.** Re-resolving is refused rather than overwritten. An
-    outcome that can be rewritten is an outcome that can be rewritten *after*
-    someone reads the dashboard.
-
-    **A lapsed escalation cannot be resolved.** Nobody came; recording that
-    somebody did, an hour later, would erase precisely the evidence the expiry
-    exists to leave.
-
-    `outcome` is required rather than defaulted. A reviewer who closes without
-    saying whether the agent could have handled it has given us nothing, and
-    letting that pass silently is how the false-positive rate stays unmeasurable
-    forever.
+    Coerced at the boundary, not trusted from it. Every caller of this is across
+    a wire or a seam — an HTTP reviewer surface, a simulated desk — and none of
+    them hands over a Python enum, so an unchecked string would land in the
+    record and surface later as an outcome no dashboard has a bucket for.
     """
-    # Coerced at the boundary, not trusted from it. Every caller of this is
-    # across a wire or a seam — an HTTP reviewer surface, a simulated desk — and
-    # none of them hands over a Python enum. `model_copy(update=...)` does not
-    # validate, so an unchecked string would land in the row and surface later as
-    # an outcome no dashboard has a bucket for.
     try:
-        label = EscalationOutcome(outcome)
+        return EscalationOutcome(outcome)
     except ValueError:
         raise EscalationError(
             f"{outcome!r} is not an outcome; expected one of {[o.value for o in EscalationOutcome]}"
         ) from None
 
-    escalation = await store.get(escalation_id)
-    if escalation is None:
-        raise EscalationError(f"no escalation {escalation_id!r}")
+
+def refusal(
+    escalation: Escalation,
+    *,
+    outcome: EscalationOutcome | str,
+    by: str,
+    by_customer: str | None = None,
+    now: int,
+) -> str | None:
+    """Why this person may not close this escalation this way, or `None`.
+
+    Four refusals, fail-closed, and each is `approvals.refusal`'s reasoning in
+    the shape this record has:
+
+    **The outcome must be one of the declared set.** A reviewer who closes
+    without saying whether the agent could have handled it has given us nothing,
+    and letting that pass silently is how the false-positive rate stays
+    unmeasurable forever.
+
+    **Nobody closes their own escalation.** `by` may not be the customer — the
+    confused deputy of the human path, and the reason the outcome label is worth
+    anything. A customer who could mark their own case resolved would make the
+    over-escalation rate a number the measured party writes. `by` is the login
+    and `by_customer` the customer it is linked to (T-002); either name is
+    refused.
+
+    **Closing is terminal.** Re-resolving is refused rather than overwritten. An
+    outcome that can be rewritten is one that can be rewritten *after* somebody
+    reads the dashboard.
+
+    **A lapsed escalation cannot be resolved.** Nobody came; recording that
+    somebody did, an hour later, would erase precisely the evidence the expiry
+    exists to leave.
+    """
+    try:
+        outcome_of(outcome)
+    except EscalationError as exc:
+        return str(exc)
     if not escalation.open:
-        raise EscalationError(f"escalation {escalation_id!r} is already {escalation.state.value}")
+        return f"escalation {escalation.id!r} is already {escalation.state.value}"
     if escalation.lapsed(now):
-        raise EscalationError(f"escalation {escalation_id!r} lapsed before anyone came")
-    # `by` is the login that closes it; `by_customer` the customer that login is
-    # linked to, if any (T-002). The two differ once logins come from an issuer,
-    # so both are compared: a reviewer who is also this customer is refused
-    # whichever name the caller passed.
+        return f"escalation {escalation.id!r} lapsed before anyone came"
     if escalation.customer_id in (by, by_customer):
-        raise EscalationError("an escalation cannot be closed by the customer it belongs to")
-
-    closed = escalation.model_copy(
-        update={
-            "state": EscalationState.RESOLVED,
-            "resolved_at": now,
-            "outcome": label,
-            "outcome_by": by,
-            "outcome_note": note or None,
-        }
-    )
-    with tel.span(
-        "agent.escalation.resolve",
-        **{
-            tel.ESCALATION_ID: closed.id,
-            tel.ESCALATION_RULE: closed.rule_id,
-            "agent.escalation.outcome": label.value,
-            "agent.escalation.waited_s": now - closed.created_at,
-        },
-    ):
-        await store.put(closed)
-    return closed
+        return "an escalation cannot be closed by the customer it belongs to"
+    return None
 
 
-async def lapse(store: EscalationStore, escalation: Escalation, *, now: int) -> Escalation:
-    """Nobody came. Close it as expired and hand the conversation back."""
-    expired = escalation.model_copy(update={"state": EscalationState.EXPIRED, "resolved_at": now})
-    with tel.span(
-        "agent.escalation.lapse",
-        **{
-            tel.ESCALATION_ID: expired.id,
-            tel.ESCALATION_RULE: expired.rule_id,
-            "agent.escalation.waited_s": now - expired.created_at,
-        },
-    ):
-        await store.put(expired)
-    return expired
-
-
-__all__ = [
-    "DEFAULT_TTL_S",
-    "EscalationError",
-    "lapse",
-    "new_escalation_id",
-    "raise_for",
-    "resolve",
-    "sweep",
-]
+__all__ = ["DEFAULT_TTL_S", "EscalationError", "new_escalation_id", "outcome_of", "refusal"]

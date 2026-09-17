@@ -15,7 +15,6 @@ from agenttwin import Live, load, project
 from evals import durable
 
 from support_agent import entrypoint as ep
-from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent.contracts import Identity, ModelResponse, ToolCall, Usage
 from support_agent.idempotency import InMemoryLedger
@@ -141,7 +140,7 @@ async def test_the_colleague_is_handed_the_record_not_the_transcript() -> None:
     """What the escalation carries. An escalation that makes the customer repeat
     everything is the moment an assistant becomes worse than no assistant."""
     world = Live.start(load(WORLD))
-    escalations = esc.InMemoryEscalationStore()
+    escalations = durable.RememberedEscalations()
     async with connect(project(world), ledger=InMemoryLedger()) as tools:
         agent = ep.build(
             llm=ScriptedClient([]),

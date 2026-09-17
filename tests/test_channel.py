@@ -19,12 +19,12 @@ from pathlib import Path
 
 import pytest
 from agenttwin import Live, load, project
+from evals import durable
 from evals import issuer as issuing
 from starlette.testclient import TestClient
 
 from support_agent import channel as ch
 from support_agent import entrypoint as ep
-from support_agent import escalation as esc
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
 from support_agent.contracts import StoredSession
@@ -101,7 +101,7 @@ async def post(
             llm=ScriptedClient([]),
             tools=tools,
             store=store,
-            escalations=esc.InMemoryEscalationStore(),
+            escalations=durable.RememberedEscalations(),
             deliveries=trg.InMemoryDeliveryLog(),
         )
         channel = ch.Channel(

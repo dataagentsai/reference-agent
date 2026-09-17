@@ -8,11 +8,11 @@ wiring, not the agent.
 from __future__ import annotations
 
 import pytest
+from evals import durable
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel
 
 from support_agent import entrypoint as ep
-from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.config import Settings, resolve
@@ -106,7 +106,7 @@ async def test_refusal_and_escalation_never_call_the_model(
     """A scripted client with nothing in it: reaching the model would raise."""
     llm = ScriptedClient([])
     async with open_tools(server) as tools:
-        agent = agent_with(tools, llm=llm, escalations=esc.InMemoryEscalationStore())
+        agent = agent_with(tools, llm=llm, escalations=durable.RememberedEscalations())
         result, _ = await agent.handle(text, identity=customer())
     assert isinstance(result, expected)
     assert llm.calls == []

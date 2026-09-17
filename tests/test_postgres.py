@@ -44,7 +44,6 @@ async def pool():
     p = await _pool()
     async with p.connection() as conn:
         await conn.execute("TRUNCATE agent_state.checkpoints, agent_state.idempotency")
-        await conn.execute("TRUNCATE agent_state.escalations")
     yield p
     await p.close()
 
@@ -179,178 +178,13 @@ async def test_the_first_outcome_for_a_key_is_the_outcome(pool) -> None:
 @pytest.mark.discharges("AHC-0102")
 def test_every_postgres_store_declares_itself_durable() -> None:
     from support_agent.idempotency.postgres import PostgresLedger
-    from support_agent.state.postgres import PostgresCheckpointStore, PostgresEscalationStore
+    from support_agent.state.postgres import PostgresCheckpointStore, PostgresSessionStore
 
-    for cls in (PostgresCheckpointStore, PostgresLedger, PostgresEscalationStore):
+    for cls in (PostgresCheckpointStore, PostgresLedger, PostgresSessionStore):
         assert cls.durable is True
 
 
-# --------------------------------------------------------------------------- #
-# Escalations. The store that was written and never once constructed.
-# --------------------------------------------------------------------------- #
-
-
-def pg_escalations(pool):
-    from support_agent.state.postgres import PostgresEscalationStore
-
-    return PostgresEscalationStore(pool)
-
-
-async def raised(store, *, rule_id: str = "asked-for-human", ttl_s: int = HOUR, now: int = T0):
-    from support_agent import escalation as esc
-
-    return await esc.raise_for(
-        store,
-        conversation_id="cnv_1",
-        run_id="run_pg",
-        customer_id="C-1042",
-        reason="the customer asked for a human",
-        rule_id=rule_id,
-        rules_version="v1",
-        ttl_s=ttl_s,
-        now=now,
-    )
-
-
-@pytest.mark.discharges("op:escalate")
-async def test_an_escalation_outlives_the_process_that_raised_it(pool) -> None:
-    """The whole point of the record, and the reason `InMemoryEscalationStore`
-    says `durable = False` out loud.
-
-    A customer is told a colleague will pick this up. If the process that made
-    that promise takes the promise with it, the customer was lied to by an
-    implementation detail.
-    """
-    row = await raised(pg_escalations(pool))
-
-    second = await _pool()
-    try:
-        found = await pg_escalations(second).get(row.id)
-    finally:
-        await second.close()
-
-    assert found is not None
-    assert found.id == row.id
-    assert found.rule_id == "asked-for-human"
-    assert found.tier == 1
-    assert found.created_at == T0, "epoch seconds survive the round trip as integers"
-
-
-@pytest.mark.discharges("P-ESC-QUEUE")
-async def test_the_queue_a_reviewer_reads_is_ordered_and_open_only(pool) -> None:
-    from support_agent import escalation as esc
-    from support_agent.contracts import EscalationOutcome
-
-    store = pg_escalations(pool)
-    first = await raised(store, rule_id="asked-for-human", now=T0)
-    second = await raised(store, rule_id="lost-in-transit", now=T0 + 10)
-    third = await raised(store, rule_id="second-refusal", now=T0 + 20)
-
-    await esc.resolve(
-        store, second.id, outcome=EscalationOutcome.RESOLVED, by="desk-3", now=T0 + 30
-    )
-
-    assert [e.id for e in await store.pending()] == [first.id, third.id], "oldest first, open only"
-
-
-@pytest.mark.discharges("P-ESC-OWNS")
-async def test_open_for_finds_the_conversations_live_escalation(pool) -> None:
-    """The hot path: every turn of an escalated conversation asks whether one is
-    open. Keyed by conversation because that is the handle the agent holds."""
-    store = pg_escalations(pool)
-    row = await raised(store)
-
-    assert (await store.open_for("cnv_1")).id == row.id
-    assert await store.open_for("cnv_nothing") is None
-
-
-@pytest.mark.discharges("P-ESC-OUTCOME")
-async def test_only_the_closing_fields_are_updatable(pool) -> None:
-    """Why it fired is fixed at raise time. A store that let `rule_id` change
-    afterwards would let the analysis blame the wrong rule — the same reasoning
-    that keeps an approval's action immutable."""
-    from support_agent.contracts import EscalationState
-
-    store = pg_escalations(pool)
-    row = await raised(store, rule_id="asked-for-human")
-
-    tampered = row.model_copy(
-        update={
-            "rule_id": "something-else",
-            "reason": "rewritten",
-            "tier": 2,
-            "state": EscalationState.RESOLVED,
-        }
-    )
-    await store.put(tampered)
-
-    stored = await store.get(row.id)
-    assert stored is not None
-    assert (stored.rule_id, stored.reason, stored.tier) == ("asked-for-human", row.reason, 1)
-    assert stored.state is EscalationState.RESOLVED, "the closing fields did change"
-
-
-@pytest.mark.discharges("P-ESC-OUTCOME")
-async def test_the_outcome_survives_and_is_sliceable_by_rule(pool) -> None:
-    """The row the over-escalation rate is computed from. If this does not
-    round-trip, the number cannot be computed at all."""
-    from support_agent import escalation as esc
-    from support_agent.contracts import EscalationOutcome
-
-    store = pg_escalations(pool)
-    row = await raised(store, rule_id="second-refusal")
-    await esc.resolve(
-        store,
-        row.id,
-        outcome=EscalationOutcome.AGENT_COULD_HAVE,
-        by="desk-7",
-        note="ordinary status question",
-        now=T0 + 60,
-    )
-
-    closed = await store.get(row.id)
-    assert closed is not None
-    assert closed.outcome is EscalationOutcome.AGENT_COULD_HAVE
-    assert (closed.outcome_by, closed.outcome_note) == ("desk-7", "ordinary status question")
-    assert closed.rule_id == "second-refusal"
-    assert closed.resolved_at == T0 + 60
-
-
-@pytest.mark.discharges("P-ESC-OUTCOME")
-async def test_the_database_refuses_an_outcome_the_model_does_not_know(pool) -> None:
-    """Belt and braces, the same shape as `refunds.idempotency_key UNIQUE`: the
-    application coerces at the boundary, and the constraint makes the bad row
-    impossible even if that check is somehow bypassed."""
-    import psycopg
-
-    with pytest.raises(psycopg.errors.CheckViolation):
-        async with pool.connection() as conn:
-            await conn.execute(
-                """
-                INSERT INTO agent_state.escalations
-                    (id, conversation_id, run_id, customer_id, tier, rule_id,
-                     rules_version, reason, state, created_at, expires_at, outcome)
-                VALUES ('E-BAD','c','r','C-1042',1,'x','v1','y','queued',1,2,'sorted-it')
-                """
-            )
-
-
-@pytest.mark.discharges("op:escalate")
-async def test_the_sweeper_lapses_across_a_restart(pool) -> None:
-    """Expiry is a property of the row, not of the process that wrote it — which
-    is exactly the case the in-memory store cannot answer."""
-    from support_agent import escalation as esc
-    from support_agent.contracts import EscalationState
-
-    store = pg_escalations(pool)
-    stale = await raised(store, ttl_s=60, now=T0)
-
-    second = await _pool()
-    try:
-        lapsed = await esc.sweep(pg_escalations(second), now=T0 + HOUR)
-    finally:
-        await second.close()
-
-    assert [e.id for e in lapsed] == [stale.id]
-    assert (await store.get(stale.id)).state is EscalationState.EXPIRED
-    assert await store.pending() == ()
+# Escalations left this file with T-028, as approvals did. They are Temporal
+# workflows now: what survives a restart is tested against a real server in
+# `test_temporal_live.py`, the queue and the outcome through the desk in
+# `test_reviewer.py`, and the lapse — a sweeper here — is the workflow's timer.

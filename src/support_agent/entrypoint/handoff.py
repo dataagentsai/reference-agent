@@ -21,7 +21,8 @@ from support_agent.contracts import (
     Completed,
     Escalate,
     Escalated,
-    EscalationStore,
+    Escalations,
+    EscalationState,
     Identity,
     NeedsApproval,
     Refused,
@@ -72,7 +73,7 @@ class NoDesk:
 
 @dataclass(frozen=True)
 class HandoffDesk:
-    store: EscalationStore
+    store: Escalations
     now: Callable[[], int]
     rules_version: str
     """The Tier 1 router rules' version, recorded on what they raise."""
@@ -93,13 +94,20 @@ class HandoffDesk:
         """
         assert conversation.pending_escalation_id is not None
         open_now = await self.store.get(conversation.pending_escalation_id)
-        if open_now is None or not open_now.open:
+        if open_now is None:
             return None
 
         moment = self.now()
-        if open_now.lapsed(moment):
-            lapsed = await esc.lapse(self.store, open_now, now=moment)
-            handed_back = Completed(reply=esc.LAPSED_REPLY.format(ticket=lapsed.id))
+        if not open_now.open:
+            # A colleague finished: the turn proceeds normally, and nothing is
+            # said about a handoff that is over.
+            if open_now.state is not EscalationState.EXPIRED:
+                return None
+            # Nobody came. The workflow's own timer closed it (T-028: this used
+            # to happen only when the customer sent another turn, so a
+            # conversation somebody abandoned sat in the desk's queue forever),
+            # and the conversation returns with the truth — P-ESC-LAPSE.
+            handed_back = Completed(reply=esc.LAPSED_REPLY.format(ticket=open_now.id))
             released = conversation.model_copy(update={"pending_escalation_id": None})
             return handed_back, released.recording(handed_back)
 
@@ -132,8 +140,7 @@ class HandoffDesk:
         """
         if conversation.escalations_raised >= t2.MAX_PER_CONVERSATION:
             return Completed(reply=esc.CAPPED_REPLY)
-        raised = await esc.raise_for(
-            self.store,
+        raised = await self.store.raise_for(
             conversation_id=conversation.conversation_id,
             run_id=run_id,
             customer_id=identity.customer_id,
@@ -146,7 +153,6 @@ class HandoffDesk:
             # assistant becomes worse than no assistant.
             context=conversation.facts.as_handoff(),
             tier=decision.tier,
-            now=self.now(),
         )
         return Escalated(
             reply=await self._handoff_text(raised.id),
@@ -171,8 +177,7 @@ class HandoffDesk:
         if rule is None:
             return None
 
-        raised = await esc.raise_for(
-            self.store,
+        raised = await self.store.raise_for(
             conversation_id=conversation.conversation_id,
             run_id=run_id,
             customer_id=identity.customer_id,
@@ -182,7 +187,6 @@ class HandoffDesk:
             rules_version=(self.tier_2 or t2.RuleSet()).version,
             tier=2,
             ttl_s=rule.ttl_s,
-            now=self.now(),
         )
         return Escalated(
             reply=await self._handoff_text(raised.id),

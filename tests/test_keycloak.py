@@ -31,7 +31,6 @@ from starlette.testclient import TestClient
 
 from order_system import authoriser
 from support_agent import entrypoint as ep
-from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
@@ -148,7 +147,7 @@ def test_only_an_administrator_can_link_a_login_to_a_customer(issuer: ident.Issu
 def app(issuer: ident.Issuer):
     """The chat edge and the desk, accepting only the realm's sessions."""
     world = Live.start(load(WORLD))
-    escalations = esc.InMemoryEscalationStore()
+    escalations = durable.RememberedEscalations()
 
     @asynccontextmanager
     async def make_agent():

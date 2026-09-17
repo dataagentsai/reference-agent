@@ -1,11 +1,8 @@
 """Handing a conversation to a person.
 
-L14 · P6 and P8, and the sibling of `approvals`. The split between them is the
-one the import contract already forced once: this module is *policy* — what a
-raise means, how long it stays open, what the customer is told — while the
-durable substrate belongs to `state`. `PostgresEscalationStore` therefore lives
-in `state.postgres`, where `PostgresApprovalStore` did until approvals moved to
-a Temporal workflow (T-028).
+L14 · P6 and P8, and the sibling of `approvals`. This module is *policy* — what
+a raise means, how long it stays open, what the customer is told — and the wait
+itself is a Temporal workflow (T-028), as an approval's is.
 
 What that policy **is** comes from the AOAS `policies.escalation` block entire:
 `on_request` and `on_condition` are the two tiers, and the statements are the
@@ -41,8 +38,12 @@ from __future__ import annotations
 from support_agent.escalation.capacity import (
     Capacity,
 )
-from support_agent.escalation.store import (
-    InMemoryEscalationStore,
+from support_agent.escalation.desk import (
+    TASK_QUEUE,
+    WORKFLOWS,
+    EscalationDesk,
+    TemporalEscalations,
+    worker,
 )
 from support_agent.escalation.wording import (
     CAPPED_REPLY,
@@ -57,29 +58,29 @@ from support_agent.escalation.wording import (
 from support_agent.escalation.workflow import (
     DEFAULT_TTL_S,
     EscalationError,
-    lapse,
     new_escalation_id,
-    raise_for,
-    resolve,
-    sweep,
+    outcome_of,
+    refusal,
 )
 
 __all__ = [
     "CAPPED_REPLY",
     "CLOSED_REPLY",
     "DEFAULT_TTL_S",
-    "QUEUED_REPLY",
-    "Capacity",
-    "EscalationError",
     "LAPSED_REPLY",
     "NO_DESK_REPLY",
+    "QUEUED_REPLY",
     "RAISED_REPLY",
+    "TASK_QUEUE",
+    "WORKFLOWS",
     "WAITING_REPLY",
-    "InMemoryEscalationStore",
+    "Capacity",
+    "EscalationDesk",
+    "EscalationError",
+    "TemporalEscalations",
     "humanise",
-    "lapse",
     "new_escalation_id",
-    "raise_for",
-    "resolve",
-    "sweep",
+    "outcome_of",
+    "refusal",
+    "worker",
 ]

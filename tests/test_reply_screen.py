@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from agenttwin import Live, load, project
+from evals import durable
 
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
@@ -43,7 +44,7 @@ def plant_status(monkeypatch: pytest.MonkeyPatch) -> dict:
 
 def plant_handoff(monkeypatch: pytest.MonkeyPatch) -> dict:
     monkeypatch.setattr(esc, "RAISED_REPLY", "Card 4111111111111111 is on file — ref {ticket}.")
-    return {"escalations": esc.InMemoryEscalationStore()}
+    return {"escalations": durable.RememberedEscalations()}
 
 
 # (route, what the customer says, how the bad reply is planted, the rule that must catch it)

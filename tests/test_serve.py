@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from agenttwin import Live, load, project
+from evals import durable
 from evals import issuer as issuing
 from jwt.algorithms import RSAAlgorithm
 from starlette.testclient import TestClient
@@ -290,13 +291,12 @@ WIRING = [
 def test_the_desk_and_the_agent_share_one_escalation_store(
     name: str, passed: str, raises: bool
 ) -> None:
-    from support_agent import escalation as esc
 
-    own = esc.InMemoryEscalationStore()
+    own = durable.RememberedEscalations()
     agent = ep.build(
         llm=ScriptedClient([]), tools=None, store=InMemoryCheckpointStore(), escalations=own
     )
-    given = {"same": own, "none": None, "other": esc.InMemoryEscalationStore()}[passed]
+    given = {"same": own, "none": None, "other": durable.RememberedEscalations()}[passed]
     if raises:
         with pytest.raises(ValueError, match="not the agent's own"):
             serve.build(agent, issuer=ISSUER, escalations=given)

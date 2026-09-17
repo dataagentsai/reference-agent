@@ -11,13 +11,14 @@ as: C-1042
 objective: The desk never comes. The conversation returns to the agent, and nothing is promised.
 concern: interaction-capability
 discharges: [op:escalate, esc:asked-for-human, P-ESC-TTL, P-ESC-LAPSE, P-ESC-TOLD, ext:escalation_desk]
-# Two turns, and the second is the lapse: the TTL is 30 minutes and so is a
-# step, so the escalation raised on turn 1 has expired by the time the customer
-# asks again. It ran to three turns until the check below was added, and the
+# Two turns, and the second is the lapse: the TTL is 30 minutes and a step is a
+# minute longer, so the escalation raised on turn 1 has expired by the time the
+# customer asks again. A step of exactly 30 minutes lands on the boundary — the
+# window opens when the workflow starts, a moment after the turn does (T-028). It ran to three turns until the check below was added, and the
 # third turn was reaching a scripted model with nothing left to say — so what
 # the customer last read was a degradation, not the handover being tested.
 max_turns: 2
-step_seconds: 1800
+step_seconds: 1860
 
 actor:
   says:

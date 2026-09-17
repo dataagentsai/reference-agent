@@ -14,9 +14,8 @@ forever.
 
 from __future__ import annotations
 
-import time
-
 import pytest
+from evals import durable
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel
 
@@ -199,7 +198,7 @@ def agent_with(tools, *, escalations, llm=None) -> ep.Agent:
 async def test_a_repeatedly_refused_customer_reaches_a_person(server) -> None:
     """Nobody asked for one. The agent refused twice, which is the agent working
     correctly *and* a sign that a person should decide."""
-    store = esc.InMemoryEscalationStore()
+    store = durable.RememberedEscalations()
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = agent_with(tools, escalations=store)
         first, conversation = await agent.handle("can I get a discount?", identity=customer())
@@ -225,7 +224,7 @@ async def test_the_same_rule_does_not_raise_again_after_it_lapses(server) -> Non
     customer is refused again — the condition still holds. Without the cooldown
     this mints a second reference, and a third, for as long as they keep talking.
     """
-    store = esc.InMemoryEscalationStore()
+    store = durable.RememberedEscalations()
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = agent_with(tools, escalations=store)
         await agent.handle("can I get a discount?", identity=customer())
@@ -234,9 +233,8 @@ async def test_the_same_rule_does_not_raise_again_after_it_lapses(server) -> Non
             "a coupon?", identity=customer(), conversation=conversation
         )
 
-        # Nobody came.
-        open_now = (await store.pending())[0]
-        await store.put(open_now.model_copy(update={"expires_at": 0}))
+        # Nobody came, and the escalation's own timer said so.
+        store.lapse((await store.pending())[0].id)
 
         handed_back, conversation = await agent.handle(
             "hello?", identity=customer(), conversation=conversation
@@ -253,7 +251,7 @@ async def test_the_same_rule_does_not_raise_again_after_it_lapses(server) -> Non
 @pytest.mark.discharges("P-ESC-TIER1")
 async def test_a_tier_one_escalation_is_not_overridden(server) -> None:
     """A turn that already fetched a person does not need a second reason to."""
-    store = esc.InMemoryEscalationStore()
+    store = durable.RememberedEscalations()
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = agent_with(tools, escalations=store)
         conversation = Conversation(
@@ -298,7 +296,7 @@ async def test_without_a_store_tier_two_never_fires(server) -> None:
 @pytest.mark.discharges("fact:turn_count", "fact:repeated_intent")
 async def test_a_turn_is_recorded_as_facts_not_prose(server) -> None:
     async with connect(server, ledger=InMemoryLedger()) as tools:
-        agent = agent_with(tools, escalations=esc.InMemoryEscalationStore())
+        agent = agent_with(tools, escalations=durable.RememberedEscalations())
         _, conversation = await agent.handle("where is my order AB-12345", identity=customer())
 
     assert conversation.turn_count == 1
@@ -351,7 +349,7 @@ async def test_a_customer_asking_the_same_thing_three_times_reaches_a_person(ser
     that ended unresolved, and a turn the agent answered reset it, so the third
     ask never reached the threshold it was written for.
     """
-    store = esc.InMemoryEscalationStore()
+    store = durable.RememberedEscalations()
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = agent_with(tools, escalations=store)
         conversation = None
@@ -379,7 +377,7 @@ async def test_the_cap_holds_however_the_escalation_was_raised(server) -> None:
     for a person got a new reference every time they asked, each one reading like
     progress and none of it being any.
     """
-    store = esc.InMemoryEscalationStore()
+    store = durable.RememberedEscalations()
     async with connect(server, ledger=InMemoryLedger()) as tools:
         agent = agent_with(tools, escalations=store)
         conversation = None
@@ -391,10 +389,9 @@ async def test_the_cap_holds_however_the_escalation_was_raised(server) -> None:
                 "I want to speak to a human", identity=customer(), conversation=conversation
             )
             results.append(result)
+            # A colleague closes each one, as the desk would.
             for open_one in await store.pending():
-                await esc.resolve(
-                    store, open_one.id, outcome="resolved", by="desk-1", now=int(time.time())
-                )
+                store.resolved(open_one.id, by="desk-1")
 
     raised = [r for r in results if isinstance(r, Escalated)]
     assert len(raised) == 2, f"the cap is 2 and {len(raised)} references were issued"

@@ -19,6 +19,11 @@ objective: >-
   use, or the promise is withdrawn — never a fluent ending with nothing behind it.
 concern: functional-suitability
 discharges: [AHC-0106, AAC-0112, AHC-0070, op:escalate, ext:escalation_desk]
+# Five minutes a turn: a colleague has to be able to look before the
+# escalation's thirty-minute window closes. On the default hour it lapses
+# first, which is a real case and not this one (T-028 made the lapse a
+# timer, so the format's warning about this finally bites).
+step_seconds: 300
 max_turns: 3
 # Live, the model asked for a refund approval instead of promising and doing
 # nothing, which is better, and the desk was never needed (T-050).

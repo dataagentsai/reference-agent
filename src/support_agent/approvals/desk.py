@@ -39,6 +39,10 @@ from support_agent.contracts import Approval, ApprovalState, IdempotencyKey, Ide
 
 TASK_QUEUE = "approvals"
 
+WORKFLOWS = [ApprovalWorkflow, ApprovalQueue]
+"""What a worker must run for approvals. Named so a deployment can run these
+beside another package's in one worker, which is what a small one does."""
+
 
 async def connect_temporal(address: str, *, namespace: str = "default") -> Client:
     """A client that carries the contracts as they are: pydantic, frozen."""
@@ -72,7 +76,9 @@ class TemporalApprovals:
 
     @property
     def queue(self) -> str:
-        return f"{self.task_queue}.queue"
+        """The queue workflow's id. Named after what it holds, not after the
+        task queue, because one worker may run both waits on one task queue."""
+        return f"{self.task_queue}.approval-queue"
 
     async def request(
         self,
@@ -207,9 +213,8 @@ def worker(
     return Worker(
         client,
         task_queue=task_queue,
-        workflows=[ApprovalWorkflow, ApprovalQueue],
         activities=list(activities),
-        **extra,
+        **{"workflows": WORKFLOWS, **extra},
         # The package passes through the sandbox rather than being re-imported
         # per workflow: its modules are deterministic where a workflow uses
         # them, and pydantic and OpenTelemetry fail to load twice.
@@ -228,6 +233,7 @@ def _gone(exc: RPCError) -> bool:
 
 __all__ = [
     "TASK_QUEUE",
+    "WORKFLOWS",
     "ApprovalDesk",
     "TemporalApprovals",
     "approval_id",

@@ -10,10 +10,10 @@ import json
 from pathlib import Path
 
 import pytest
+from evals import durable
 from evals import world as evalworld
 
 from support_agent import context as ctx
-from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.config import Settings, resolve
@@ -190,7 +190,7 @@ async def test_every_route_returns_a_conforming_result() -> None:
                 llm=llm,
                 tools=tools,
                 store=InMemoryCheckpointStore(),
-                escalations=esc.InMemoryEscalationStore(),
+                escalations=durable.RememberedEscalations(),
             )
             result, _ = await agent.handle(text, identity=privileged())
             assert isinstance(result, expected), f"{route} returned {type(result).__name__}"

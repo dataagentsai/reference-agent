@@ -43,7 +43,8 @@ MECHANISM = {
     "entrypoint/persist.py",
     "escalation/__init__.py",
     "escalation/capacity.py",
-    "escalation/store.py",
+    "escalation/durable.py",
+    "escalation/desk.py",
     "escalation/workflow.py",
     "flow/__init__.py",
     "idempotency/__init__.py",
@@ -199,9 +200,9 @@ SEAMS = {
         "the window its own concurrent writers make necessary",
     ),
     "where state is kept": (
-        "CheckpointStore, ApprovalStore, EscalationStore",
+        "CheckpointStore, Approvals, Escalations",
         "protocol with a null object",
-        "nothing — it wires Postgres or memory, and the null objects answer honestly",
+        "nothing — it wires Postgres, Temporal or memory, and the null objects answer honestly",
     ),
     "which model, at what price": (
         "config.RunConfig",

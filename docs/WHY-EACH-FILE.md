@@ -106,7 +106,9 @@ traceability gap one level up, and is worth raising against the format.
 | `approvals/workflow.py` | 149 | AOAS `issue_refund.authority.otherwise: human_approval`, and the `approval` entity with its `outcome` enum. Who may decide, and the elevated identity only a grant mints — both the spec's, neither cited. |
 | `approvals/durable.py` | 261 | The same statement's *wait*: `human_approval` means a decision that may take an hour and must survive the process. Temporal's, with our rules as its validator (T-028). |
 | `approvals/desk.py` | 244 | **AHC-0057** read as a boundary rather than a check: the agent's handle can ask and read, the reviewer's can decide, and no type gives one the other's power. |
-| `escalation/workflow.py` | 208 | P-ESC-TTL (a queued escalation lapses), P-ESC-LAPSE (the conversation returns), P-ESC-OUTCOME (closing records an outcome, once). Raise, resolve, lapse and sweep are those three statements, implemented. |
+| `escalation/workflow.py` | 121 | P-ESC-TTL (a queued escalation lapses), P-ESC-LAPSE (the conversation returns), P-ESC-OUTCOME (closing records an outcome, once) — as rules rather than steps, since the steps are the workflow's. |
+| `escalation/durable.py` | 178 | The same three statements' *timing*. A lapse used to need somebody to remember to sweep; it is the workflow's own timer now, so the rule holds wherever the record lives (T-028). |
+| `escalation/desk.py` | 224 | P-ESC-OWNS read as a boundary: the agent raises and reads, a colleague closes, and no type gives one the other's power. |
 | `escalation/__init__.py` | 78 | The AOAS `policies.escalation` block in full — `on_request`, `on_condition`, and the nine statements. |
 | `entrypoint/pending.py` | 119 | The other half of `issue_refund.authority`: what a turn does with a decision made since the last one. |
 | `escalation/capacity.py` | 32 | **P-ESC-TOLD** — *"a wait only when one is measured from queue depth and observed throughput"*. This file is that clause, and the clause is the reason it exists at all. |

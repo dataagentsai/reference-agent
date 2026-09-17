@@ -112,7 +112,7 @@ async def test_a_promise_with_a_desk_becomes_a_handoff() -> None:
     """The promise is made true: a person is fetched and the customer gets the
     reference that proves it."""
     world = Live.start(load(WORLD))
-    escalations = esc.InMemoryEscalationStore()
+    escalations = durable.RememberedEscalations()
     async with connect(project(world), ledger=InMemoryLedger()) as tools:
         agent = ep.build(
             llm=says("Let me check that for you."),
@@ -156,7 +156,7 @@ async def test_an_ordinary_answer_is_left_exactly_as_it_was() -> None:
     """The gate must not fire on the common case, which is most of them."""
     answer = "Your order was delivered on the 3rd of March."
     world = Live.start(load(WORLD))
-    escalations = esc.InMemoryEscalationStore()
+    escalations = durable.RememberedEscalations()
     async with connect(project(world), ledger=InMemoryLedger()) as tools:
         agent = ep.build(
             llm=says(answer),

@@ -19,7 +19,7 @@ from typing import Any
 from support_agent import telemetry as tel
 from support_agent.contracts import (
     Approvals,
-    EscalationStore,
+    Escalations,
     IdempotencyKey,
     Identity,
     RunId,
@@ -37,7 +37,7 @@ async def opening(
     *,
     tools: ToolClient,
     approvals: Approvals | None,
-    escalations: EscalationStore | None,
+    escalations: Escalations | None,
 ) -> str:
     with tel.span("agent.opening", **{tel.TENANT: identity.customer_id}) as span:
         orders = await _orders(tools, identity)
@@ -58,7 +58,7 @@ async def _orders(tools: ToolClient, identity: Identity) -> list[dict[str, Any]]
 
 
 async def _in_flight(
-    customer_id: str, approvals: Approvals | None, escalations: EscalationStore | None
+    customer_id: str, approvals: Approvals | None, escalations: Escalations | None
 ) -> list[str]:
     waiting: list[str] = []
     pending = await approvals.pending() if approvals is not None else ()

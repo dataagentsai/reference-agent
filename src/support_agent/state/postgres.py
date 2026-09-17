@@ -21,7 +21,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
-from support_agent.contracts import ConversationId, Escalation, RunId, StoredSession
+from support_agent.contracts import ConversationId, RunId, StoredSession
 from support_agent.contracts.failures import AgentFailure, Fault
 
 
@@ -88,93 +88,6 @@ class PostgresCheckpointStore:
                 )
             ).fetchone()
         return bytes(row[0]) if row else None
-
-
-class PostgresEscalationStore:
-    """One row per escalation. The record that has to outlive the process.
-
-    This is the store whose absence was the whole defect: a customer told that a
-    colleague would take over, and nothing anywhere that a colleague could find.
-    """
-
-    durable = True
-
-    def __init__(self, pool: AsyncConnectionPool) -> None:
-        self._pool = pool
-
-    async def put(self, escalation: Escalation) -> None:
-        async with self._pool.connection() as conn:
-            await conn.execute(
-                """
-                INSERT INTO agent_state.escalations
-                    (id, conversation_id, run_id, customer_id, tier, rule_id,
-                     rules_version, reason, state, created_at, expires_at,
-                     resolved_at, outcome, outcome_by, outcome_note)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (id) DO UPDATE SET
-                    state        = EXCLUDED.state,
-                    resolved_at  = EXCLUDED.resolved_at,
-                    outcome      = EXCLUDED.outcome,
-                    outcome_by   = EXCLUDED.outcome_by,
-                    outcome_note = EXCLUDED.outcome_note
-                """,
-                (
-                    escalation.id,
-                    escalation.conversation_id,
-                    escalation.run_id,
-                    escalation.customer_id,
-                    escalation.tier,
-                    escalation.rule_id,
-                    escalation.rules_version,
-                    escalation.reason,
-                    escalation.state.value,
-                    escalation.created_at,
-                    escalation.expires_at,
-                    escalation.resolved_at,
-                    escalation.outcome.value if escalation.outcome else None,
-                    escalation.outcome_by,
-                    escalation.outcome_note,
-                ),
-            )
-            # Only the closing fields are updatable, exactly as for approvals.
-            # Why it fired is fixed at raise time — a store that let `rule_id`
-            # change afterwards would let the analysis blame the wrong rule.
-
-    async def get(self, escalation_id: str) -> Escalation | None:
-        async with self._pool.connection() as conn:
-            cur = await conn.cursor(row_factory=dict_row).execute(
-                "SELECT * FROM agent_state.escalations WHERE id = %s", (escalation_id,)
-            )
-            row = await cur.fetchone()
-        return Escalation.model_validate(row) if row else None
-
-    async def open_for(self, conversation_id: str) -> Escalation | None:
-        """The read on the hot path: every turn of an escalated conversation.
-
-        Ordered and limited rather than asserting uniqueness, so a duplicate that
-        should not exist degrades to "the newest one" instead of raising in front
-        of a customer.
-        """
-        async with self._pool.connection() as conn:
-            cur = await conn.cursor(row_factory=dict_row).execute(
-                """
-                SELECT * FROM agent_state.escalations
-                WHERE conversation_id = %s AND state = 'queued'
-                ORDER BY created_at DESC
-                LIMIT 1
-                """,
-                (conversation_id,),
-            )
-            row = await cur.fetchone()
-        return Escalation.model_validate(row) if row else None
-
-    async def pending(self) -> tuple[Escalation, ...]:
-        async with self._pool.connection() as conn:
-            cur = await conn.cursor(row_factory=dict_row).execute(
-                "SELECT * FROM agent_state.escalations WHERE state = 'queued' ORDER BY created_at"
-            )
-            rows = await cur.fetchall()
-        return tuple(Escalation.model_validate(r) for r in rows)
 
 
 class UnreadableSession(AgentFailure):

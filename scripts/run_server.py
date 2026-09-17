@@ -27,7 +27,6 @@ import asyncio
 import contextlib
 import os
 import sys
-import time
 
 import uvicorn
 from agenttwin import Live, load, project
@@ -192,8 +191,15 @@ async def _model(settings: Settings | None) -> tuple[LLMClient, RunConfig | None
 
 
 @contextlib.asynccontextmanager
-async def approvals_running(tools: ToolClient) -> AsyncIterator[ap.TemporalApprovals]:
-    """Temporal, and the worker that carries out what a colleague grants.
+async def waits_running(
+    tools: ToolClient,
+) -> AsyncIterator[tuple[ap.TemporalApprovals, esc.TemporalEscalations, esc.EscalationDesk]]:
+    """Temporal, and the worker that holds both waits.
+
+    One worker for approvals and escalations: the approval workflows with the
+    activity that carries out a granted refund, and the escalation workflows,
+    which have no activities at all. A deployment may split them; a demo should
+    not pretend to.
 
     The address in `AGENT_TEMPORAL_ADDRESS` is the compose `durable` profile,
     whose dev server keeps its state on a volume; with none, this starts an
@@ -211,13 +217,24 @@ async def approvals_running(tools: ToolClient) -> AsyncIterator[ap.TemporalAppro
 
         env = await WorkflowEnvironment.start_local(data_converter=_CONVERTER)
         client, durable, shutdown = env.client, False, env.shutdown
-    print(f"  approvals      Temporal at {client.service_client.config.target_host}", end="")
+    print(f"  waits          Temporal at {client.service_client.config.target_host}", end="")
     print(" (durable)" if durable else " (in this process, lost on exit)")
 
     work = ap.RefundWork(tools, acting_for=_acting_for)
+    queue = ap.TASK_QUEUE
+    running = ap.worker(
+        client,
+        activities=[work.assess, work.carry_out],
+        task_queue=queue,
+        workflows=[*ap.WORKFLOWS, *esc.WORKFLOWS],
+    )
     try:
-        async with ap.worker(client, activities=[work.assess, work.carry_out]):
-            yield ap.TemporalApprovals(client, durable=durable)
+        async with running:
+            yield (
+                ap.TemporalApprovals(client, task_queue=queue, durable=durable),
+                esc.TemporalEscalations(client, task_queue=queue, durable=durable),
+                esc.EscalationDesk(client),
+            )
     finally:
         if shutdown is not None:
             await shutdown()
@@ -236,13 +253,12 @@ async def main(real: bool, port: int) -> None:
 
     async with (
         connect(project(world), ledger=InMemoryLedger()) as tools,
-        approvals_running(tools) as approvals,
+        waits_running(tools) as (approvals, escalations, colleagues),
     ):
         # The real provider sits behind retries, a shared throttle and a breaker
         # (F-022: those existed, passed their tests, and nothing called them).
         # The scripted model cannot fail, so it has nothing to be resilient about.
         llm, run_config = await _model(settings)
-        escalations = esc.InMemoryEscalationStore()
         agent = ep.build(
             llm=llm,
             tools=tools,
@@ -270,28 +286,17 @@ async def main(real: bool, port: int) -> None:
             # one is free and has nothing to meter.
             config=run_config,
         )
-        # The desk reads the agent's own store. Sessions come from Keycloak when
-        # AGENT_ISSUER_URL names a realm, else from the process-local issuer.
+        # The desk reads the agent's own queue and closes through its own
+        # handle. Sessions come from Keycloak when AGENT_ISSUER_URL names a
+        # realm, else from the process-local issuer. Nothing sweeps: an
+        # escalation nobody comes to lapses on the workflow's timer (T-028).
         issuer = _issuer()
-        app = _with_chatwoot(serve.build(agent, issuer=issuer), agent, issuer)
+        app = _with_chatwoot(serve.build(agent, issuer=issuer, desk=colleagues), agent, issuer)
 
         _announce(port, settings, local=issuer.url == local_issuer.URL)
 
-        # The sweeper, on a timer. `esc.sweep` owns no scheduling of its own so
-        # a scenario can drive it; this is the deployment's half of that split.
-        async def sweeping() -> None:
-            while True:
-                await asyncio.sleep(60)
-                # The deployment is where the wall clock is read; everything
-                # below this line takes the moment it is given.
-                for lapsed in await esc.sweep(escalations, now=int(time.time())):
-                    print(f"  escalation {lapsed.id} lapsed — nobody came")
-
         config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
-        async with asyncio.TaskGroup() as group:
-            sweeper = group.create_task(sweeping())
-            await uvicorn.Server(config).serve()
-            sweeper.cancel()
+        await uvicorn.Server(config).serve()
 
 
 if __name__ == "__main__":
