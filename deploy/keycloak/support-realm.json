@@ -175,6 +175,22 @@
       ]
     },
     {
+      "clientId": "support-approvals",
+      "name": "The approval workflow (service)",
+      "description": "Carries out what a colleague granted. It logs in as itself, because the customer is not there an hour later, and the order system reads whose the call is from the approval it names (T-028).",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${SUPPORT_APPROVALS_CLIENT_SECRET:local-dev-only-approvals-secret}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "support-session",
+        "order-system-audience"
+      ]
+    },
+    {
       "clientId": "order-system",
       "name": "The order system (audience only)",
       "enabled": true,
@@ -274,6 +290,14 @@
       ],
       "realmRoles": [
         "reviewer"
+      ]
+    },
+    {
+      "username": "service-account-support-approvals",
+      "enabled": true,
+      "serviceAccountClientId": "support-approvals",
+      "realmRoles": [
+        "orders:read"
       ]
     }
   ],

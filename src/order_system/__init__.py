@@ -52,6 +52,7 @@ def authoriser(
     approvals: ApprovalRecords,
     required_scopes: Mapping[str, str],
     clock: Callable[[], int],
+    approvals_party: str | None = None,
 ) -> Callable[[str, dict[str, Any], dict[str, object]], Any]:
     """The check a call passes before this system acts, as AgentTwin's
     `authorise` hook takes it.
@@ -59,6 +60,13 @@ def authoriser(
     `required_scopes` is the binding's operation → scope table, the same one the
     agent's tool surface is filtered by. `clock` reads the time approvals are
     judged at; token expiry is the issuer's clock.
+
+    `approvals_party` is the client the approval workflow logs in as (T-028).
+    Its login has no customer, because the customer is not there when a
+    colleague grants a refund an hour later — so for that party alone, **the
+    approval says whose the call is**. That is not a weaker check but a
+    different one: the record it reads is the same record that must already
+    match the call in every other respect.
     """
 
     async def authorise(
@@ -72,17 +80,28 @@ def authoriser(
             principal = verify(token, issuer=issuer)
         except InvalidSession as exc:
             raise CallRefused(f"session refused: {exc}") from None
-        if not principal.customer_id:
-            raise CallRefused("the session has no customer")
+        acting_for = principal.customer_id
+        if not acting_for:
+            if approvals_party is None or principal.party != approvals_party:
+                raise CallRefused("the session has no customer")
+            acting_for = await _for_whom(approvals, meta)
 
         needed = required_scopes.get(operation)
         if needed is not None and not principal.may(needed):
-            await _approved(
-                approvals, meta, operation, arguments, principal.customer_id, now=clock()
-            )
-        return {"customer_id": principal.customer_id, "acting_party": principal.party}
+            await _approved(approvals, meta, operation, arguments, acting_for, now=clock())
+        return {"customer_id": acting_for, "acting_party": principal.party}
 
     return authorise
+
+
+async def _for_whom(approvals: ApprovalRecords, meta: Mapping[str, object]) -> str:
+    """Whose call this is, when the caller is the approval workflow: the customer
+    the approval it names belongs to, and nothing the caller said."""
+    approval_id = meta.get(APPROVAL_META)
+    approval = await approvals.get(approval_id) if isinstance(approval_id, str) else None
+    if approval is None:
+        raise CallRefused("a call with no customer must name an approval")
+    return approval.customer_id
 
 
 async def _approved(

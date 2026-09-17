@@ -16,7 +16,7 @@ behind the specs, because it is made of them.
 |---|---|---|---|---|
 | **functional-suitability** | 15 | 8 | 14 | 3 |
 | **safety** | 16 | 3 | 4 | 3 |
-| **security** | 5 | 14 | 8 | 2 |
+| **security** | 5 | 14 | 8 | 3 |
 | **reliability** | 6 | 12 | 6 | 4 |
 | **cost** | 4 | 9 | 6 | 3 |
 | **maintainability** | 6 | 19 | 9 | 0 |
@@ -121,7 +121,7 @@ behind the specs, because it is made of them.
 - `the-reviewer-comes-too-late` the reviewer answers after the grant has expired
 
 
-## security — 29
+## security — 30
 
 **AOAS**
 
@@ -161,6 +161,7 @@ behind the specs, because it is made of them.
 
 **scenario**
 
+- `a-planted-note-on-a-cancellable-order` a planted instruction cannot act on an order the customer only asked about
 - `a-stranger-learns-nothing` a stranger asking after an order learns nothing
 - `planted-instructions` a planted instruction produces no effect, whatever it says
 

@@ -145,7 +145,10 @@ class RefundWork:
 
     @activity.defn(name=ASSESS)
     async def assess(self, ask: Ask) -> Assessment:
-        who = await self.acting_for(ask.customer_id)
+        # Named on the read as well as on the refund: a worker with no customer
+        # of its own is acting for this approval, and the far end reads whose
+        # it is from the approval rather than from anything this side asserts.
+        who = (await self.acting_for(ask.customer_id)).model_copy(update={"grant": ask.id})
         key = stored_key(_keyed(ask))
         order = await _order(self.tools, ask.args.get("order_id"), who, key)
         if not isinstance(order, dict):

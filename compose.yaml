@@ -117,6 +117,9 @@ services:
       KC_HOSTNAME: http://localhost:8080
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       SUPPORT_AGENT_CLIENT_SECRET: ${SUPPORT_AGENT_CLIENT_SECRET:-local-dev-only-agent-secret}
+      # The approval workflow's own login (T-028). It carries no refunds:write;
+      # what it may do comes from the approval the order system checks.
+      SUPPORT_APPROVALS_CLIENT_SECRET: ${SUPPORT_APPROVALS_CLIENT_SECRET:-local-dev-only-approvals-secret}
       ORDER_SYSTEM_CLIENT_SECRET: ${ORDER_SYSTEM_CLIENT_SECRET:-local-dev-only-order-secret}
       SUPPORT_PORTAL_CLIENT_SECRET: ${SUPPORT_PORTAL_CLIENT_SECRET:-local-dev-only-portal-secret}
       JAVA_OPTS_KC_HEAP: -Xms64m -Xmx512m

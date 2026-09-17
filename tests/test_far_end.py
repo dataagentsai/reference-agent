@@ -49,13 +49,22 @@ class PassThrough:
         return identity.token or ""
 
 
-async def call(caller: Identity, operation: str, arguments: dict, *, exchange, approvals):
+async def call(
+    caller: Identity,
+    operation: str,
+    arguments: dict,
+    *,
+    exchange,
+    approvals,
+    approvals_party: str | None = None,
+):
     world = Live.start(load(WORLD))
     check = authoriser(
         issuer=issuing.issuer(audience="order-system"),
         approvals=approvals,
         required_scopes=SCOPES,
         clock=lambda: T0 + HOUR,
+        approvals_party=approvals_party,
     )
     server = project(world, scopes=SCOPES, authorise=check)
     async with connect(server, ledger=InMemoryLedger(), exchange=exchange) as tools:
@@ -182,3 +191,70 @@ async def test_the_agents_own_elevation_is_not_sent_as_authority(ap_store) -> No
 async def test_granted_identity_names_its_approval() -> None:
     granted = ap.granted_identity(approval(), session("C-1042"), now=T0 + HOUR)
     assert granted.grant == "apr_far"
+
+
+# --------------------------------------------------------------------------- #
+# T-028: the approval workflow calls with its own login and no customer.
+# --------------------------------------------------------------------------- #
+
+WORKER = "support-approvals"
+
+# (why, the approval named, the operation, the party it logs in as, what it
+#  asserts as the customer, served)
+SERVICE = [
+    ("the refund the approval covers", approval(), "issue_refund", WORKER, "C-1042", True),
+    ("the order it is assessing", approval(), "get_order", WORKER, "C-1042", True),
+    ("no approval named at all", None, "get_order", WORKER, "C-1042", False),
+    ("an approval that covers another order", approval(args={"order_id": "AB-10001"}),
+     "issue_refund", WORKER, "C-1042", False),
+    ("a login this system does not know as the approvals worker", approval(), "issue_refund",
+     "support-agent", "C-1042", False),
+    # The asserted customer is not read at all: the record decides.
+    ("asserting somebody else changes nothing", approval(), "issue_refund", WORKER, "C-9999", True),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("why", "stored", "operation", "party", "asserts", "served"),
+    SERVICE,
+    ids=[s[0] for s in SERVICE],
+)
+@pytest.mark.discharges("AAC-0057", "AHC-0057", "P-OWNERSHIP", "AAC-0111")
+async def test_the_approval_workflow_acts_for_the_customer_its_approval_names(
+    ap_store,
+    why: str,
+    stored: Approval | None,
+    operation: str,
+    party: str,
+    asserts: str,
+    served: bool,
+) -> None:
+    """The customer is not there an hour later, so the worker logs in as itself
+    and the far end reads whose the call is from the approval (T-028). Its own
+    token carries no `refunds:write`, so the refund still rests on the record.
+    """
+    if stored is not None:
+        ap_store.add(stored)
+    # What the workflow holds: the customer's scopes, elevated by the grant for
+    # the one call it covers, and the approval named on it.
+    scopes = ident.CUSTOMER_SCOPES | (
+        {ident.SCOPE_REFUNDS_WRITE} if "refund" in operation else set()
+    )
+    caller = Identity(
+        customer_id=asserts,
+        scopes=frozenset(scopes),
+        grant="apr_far" if stored is not None else None,
+    )
+    arguments = {"id": ORDER}
+    result, world = await call(
+        caller,
+        operation,
+        arguments,
+        exchange=issuing.LocalService(party=party),
+        approvals=ap_store,
+        approvals_party=WORKER,
+    )
+
+    assert (not result.is_error) is served, result.text
+    if operation == "issue_refund":
+        assert (("issue_refund", ORDER) in world.effects) is served

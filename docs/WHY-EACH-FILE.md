@@ -105,7 +105,7 @@ traceability gap one level up, and is worth raising against the format.
 |---|---:|---|
 | `approvals/workflow.py` | 149 | AOAS `issue_refund.authority.otherwise: human_approval`, and the `approval` entity with its `outcome` enum. Who may decide, and the elevated identity only a grant mints — both the spec's, neither cited. |
 | `approvals/durable.py` | 261 | The same statement's *wait*: `human_approval` means a decision that may take an hour and must survive the process. Temporal's, with our rules as its validator (T-028). |
-| `approvals/desk.py` | 236 | **AHC-0057** read as a boundary rather than a check: the agent's handle can ask and read, the reviewer's can decide, and no type gives one the other's power. |
+| `approvals/desk.py` | 244 | **AHC-0057** read as a boundary rather than a check: the agent's handle can ask and read, the reviewer's can decide, and no type gives one the other's power. |
 | `escalation/workflow.py` | 208 | P-ESC-TTL (a queued escalation lapses), P-ESC-LAPSE (the conversation returns), P-ESC-OUTCOME (closing records an outcome, once). Raise, resolve, lapse and sweep are those three statements, implemented. |
 | `escalation/__init__.py` | 78 | The AOAS `policies.escalation` block in full — `on_request`, `on_condition`, and the nine statements. |
 | `entrypoint/pending.py` | 119 | The other half of `issue_refund.authority`: what a turn does with a decision made since the last one. |

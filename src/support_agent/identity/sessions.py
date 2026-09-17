@@ -102,6 +102,68 @@ class TokenExchange:
             raise InvalidSession(f"exchange refused: {exc.code}") from exc
 
 
+class ServiceLogin:
+    """The approvals worker's own login: client credentials, no customer (T-028).
+
+    A refund is carried out an hour after the customer left, so there is no
+    session to exchange. This client logs in as itself and the far end reads
+    whose the call is from the approval it names — which is the record that had
+    to match the call anyway.
+
+    Deliberately a separate client from the agent's. The scope that moves money
+    is not on this token either; it is the approval, and this login only proves
+    which system is presenting it.
+    """
+
+    def __init__(
+        self,
+        token_endpoint: str,
+        *,
+        client_id: str,
+        client_secret: str,
+        scope: str,
+        clock: Any = time.time,
+    ) -> None:
+        self._endpoint = token_endpoint
+        self._client = (client_id, client_secret)
+        self._scope, self._clock = scope, clock
+        self._token: tuple[str, float] | None = None
+
+    @classmethod
+    def discover(cls, issuer_url: str, **kwargs: Any) -> ServiceLogin:
+        return cls(str(discovery(issuer_url)["token_endpoint"]), **kwargs)
+
+    async def for_far_end(self, identity: Identity) -> str:
+        """The service's token. The identity is the customer the approval names,
+        and nothing it carries is sent — which is the point."""
+        del identity
+        now = float(self._clock())
+        if self._token is not None and self._token[1] - 30 > now:
+            return self._token[0]
+        body = await asyncio.to_thread(self._post)
+        token = str(body["access_token"])
+        self._token = (token, now + float(body.get("expires_in", 60)))
+        return token
+
+    def _post(self) -> dict[str, Any]:
+        client_id, secret = self._client
+        form = urllib.parse.urlencode(
+            {
+                "grant_type": "client_credentials",
+                "scope": self._scope,
+                "client_id": client_id,
+                "client_secret": secret,
+            }
+        ).encode()
+        try:
+            request = urllib.request.Request(self._endpoint, data=form)
+            with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310
+                body: dict[str, Any] = json.load(response)
+                return body
+        except urllib.error.HTTPError as exc:
+            raise InvalidSession(f"service login refused: {exc.code}") from exc
+
+
 class KeycloakRefresh:
     """The OAuth refresh grant at the realm, as the portal's own client."""
 
@@ -252,4 +314,4 @@ class KeycloakLogin:
         return parsed
 
 
-__all__ = ["KeycloakLogin", "KeycloakRefresh", "Resume", "TokenExchange"]
+__all__ = ["KeycloakLogin", "KeycloakRefresh", "Resume", "ServiceLogin", "TokenExchange"]

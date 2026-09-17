@@ -36,7 +36,14 @@ from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent.binding import SCOPES
-from support_agent.contracts import IdempotencyKey, Identity, ModelResponse, RunId, StoredSession
+from support_agent.contracts import (
+    Approval,
+    IdempotencyKey,
+    Identity,
+    ModelResponse,
+    RunId,
+    StoredSession,
+)
 from support_agent.idempotency import InMemoryLedger
 from support_agent.identity import sessions
 from support_agent.llm import ScriptedClient
@@ -238,6 +245,95 @@ async def test_the_far_end_serves_the_realms_customer_and_nobody_else(
     async with connect(server, ledger=InMemoryLedger(), exchange=exchange()) as tools:
         result = await tools.call("get_order", {"id": "AB-10003"}, customer(user, issuer), key)
     assert (not result.is_error) is served, result.text
+
+
+# --------------------------------------------------------------------------- #
+# T-028: the approval workflow's own login at the realm.
+# --------------------------------------------------------------------------- #
+
+APPROVALS_PARTY = "support-approvals"
+
+
+def service_login() -> sessions.ServiceLogin:
+    return sessions.ServiceLogin.discover(
+        REALM,
+        client_id=APPROVALS_PARTY,
+        client_secret=os.environ.get(
+            "SUPPORT_APPROVALS_CLIENT_SECRET", "local-dev-only-approvals-secret"
+        ),
+        scope="order-system-audience",
+    )
+
+
+@pytest.mark.discharges("AAC-0057", "AHC-0057")
+async def test_the_realm_gives_the_approval_worker_a_login_with_no_customer_and_no_refunds(
+    issuer: ident.Issuer,
+) -> None:
+    """What the realm will and will not put in that token is the control.
+
+    It has no customer, because there is none an hour later; it carries
+    `orders:read` and not `refunds:write`, so the refund rests on the approval
+    the order system checks and never on this login.
+    """
+    token = await service_login().for_far_end(Identity(customer_id=""))
+    far_end = ident.Issuer(url=REALM, audience="order-system", keys=issuer.keys)
+    principal = ident.verify(token, issuer=far_end)
+
+    assert principal.party == APPROVALS_PARTY
+    assert principal.customer_id is None
+    assert principal.may(ident.SCOPE_ORDERS_READ)
+    assert not principal.may(ident.SCOPE_REFUNDS_WRITE)
+
+
+# (why, the approval the call names, whether the refund lands)
+WORKER_CALLS = [
+    ("a granted approval for this order", True, True),
+    ("no approval at all", False, False),
+]
+
+
+@pytest.mark.parametrize(("why", "named", "lands"), WORKER_CALLS, ids=[w[0] for w in WORKER_CALLS])
+@pytest.mark.discharges("AHC-0057", "AAC-0057", "P-OWNERSHIP")
+async def test_a_refund_lands_on_the_realms_service_login_only_through_an_approval(
+    issuer: ident.Issuer, why: str, named: bool, lands: bool
+) -> None:
+    """The whole T-028 path against the realm: the workflow logs in as itself and
+    the far end reads whose the refund is from the approval, or refuses it."""
+    world = Live.start(load(WORLD))
+    key = IdempotencyKey(run_id=RunId("run_kc_ap"), step=2, iteration=1)
+    approvals = durable.Remembered()
+    approval = Approval(
+        id="apr_kc",
+        action="issue_refund",
+        args={"order_id": "AB-10003", "amount": "1899"},
+        reason="over the threshold",
+        customer_id="C-1042",
+        idempotency_key=key.value,
+        created_at=int(time.time()) - 60,
+        expires_at=int(time.time()) + 3600,
+        decided=True,
+        granted=True,
+        decided_by="desk-1",
+    )
+    approvals.add(approval)
+    check = authoriser(
+        issuer=ident.Issuer(url=REALM, audience="order-system", keys=issuer.keys),
+        approvals=approvals,
+        required_scopes=SCOPES,
+        clock=lambda: int(time.time()),
+        approvals_party=APPROVALS_PARTY,
+    )
+    server = project(world, scopes=SCOPES, authorise=check)
+    acting = Identity(
+        customer_id="C-1042",
+        scopes=ident.CUSTOMER_SCOPES | {ident.SCOPE_REFUNDS_WRITE},
+        grant=approval.id if named else None,
+    )
+    async with connect(server, ledger=InMemoryLedger(), exchange=service_login()) as tools:
+        result = await tools.call("issue_refund", {"id": "AB-10003"}, acting, key)
+
+    assert (not result.is_error) is lands, result.text
+    assert (("issue_refund", "AB-10003") in world.effects) is lands
 
 
 # --------------------------------------------------------------------------- #

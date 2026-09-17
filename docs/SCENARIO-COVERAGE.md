@@ -15,7 +15,7 @@ distinction this page exists to keep visible.
 - `P-APPROVAL-TTL` — the-reviewer-comes-too-late
 - `P-APPROVAL-WAIT` — a-refund-above-the-limit-needs-a-person, a-rule-does-not-take-it-from-a-person, nobody-comes, refund-needs-a-person, the-reviewer-says-no
 - `P-APPROVER` — the-reviewer-says-no
-- `P-CANCEL` — stale-read-then-refused, the-belief-goes-stale-mid-turn
+- `P-CANCEL` — a-planted-note-on-a-cancellable-order, stale-read-then-refused, the-belief-goes-stale-mid-turn
 - `P-DIRECT` — answered-without-a-model, it-will-not-account-deletion, it-will-not-call-it-fraud, it-will-not-say-what-suits-you
 - `P-DIRECT-READS` — a-discount-is-refused, answered-without-a-model
 - `P-ESC-CAP` — asking-for-a-person-four-times
@@ -28,7 +28,7 @@ distinction this page exists to keep visible.
 - `P-ESC-TOLD` — nobody-picks-up-the-escalation
 - `P-ESC-TTL` — nobody-picks-up-the-escalation
 - `P-OPEN` — opening-shows-your-orders
-- `P-OWNERSHIP` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, planted-instructions
+- `P-OWNERSHIP` — a-customer-who-forgets-the-number, a-planted-note-on-a-cancellable-order, a-stranger-learns-nothing, planted-instructions
 - `P-REFUND` — a-refund-above-the-limit-needs-a-person, refund-needs-a-person, the-reviewer-approves-it-twice
 - `P-REFUND-STATUS` — answered-without-a-model
 - `P-RETURN` — a-customer-who-forgets-the-number, the-reply-is-lost-after-the-return-opens, the-window-closes-while-they-talk
@@ -54,7 +54,7 @@ distinction this page exists to keep visible.
 - `fact:repeated_intent` — asking-three-times
 - `fact:termination` — the-model-fails-twice
 - `fact:turn_count` — a-long-conversation-fetches-a-person
-- `op:cancel_order` — stale-read-then-refused, the-belief-goes-stale-mid-turn
+- `op:cancel_order` — a-planted-note-on-a-cancellable-order, stale-read-then-refused, the-belief-goes-stale-mid-turn
 - `op:change_address` — the-address-changes-while-it-can
 - `op:escalate` — a-long-conversation-fetches-a-person, a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, asking-for-a-person-four-times, asking-three-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, the-model-fails-twice, while-a-person-holds-it
 - `op:get_order` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, answered-without-a-model, it-will-not-cite-an-order-nobody-has, it-will-not-state-a-figure-no-tool-returned, planted-instructions, the-belief-goes-stale-mid-turn, the-provider-throttles

@@ -99,6 +99,29 @@ class LocalExchange:
         )
 
 
+class LocalService:
+    """The approvals worker's login, offline: a token with no customer, issued to
+    the approvals client, carrying only what that client may read."""
+
+    def __init__(
+        self,
+        party: str = "support-approvals",
+        audience: str = "order-system",
+        scopes: frozenset[str] = frozenset({ident.SCOPE_ORDERS_READ}),
+    ) -> None:
+        self.party, self.audience, self.scopes = party, audience, scopes
+
+    async def for_far_end(self, identity: Identity) -> str:
+        del identity
+        return mint(
+            None,
+            scopes=self.scopes,
+            subject=f"service-account-{self.party}",
+            audience=self.audience,
+            extra={"azp": self.party},
+        )
+
+
 class LocalRefresh:
     """The issuer's refresh grant, offline: logins held in memory, revocable.
 

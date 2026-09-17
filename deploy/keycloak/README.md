@@ -12,6 +12,7 @@ whole identity configuration of cycle 1, written by hand so it can be read:
 | client `support-chat` | public. **Password grant is on for local tests only**; the customer's real login arrives with the channel (T-026) |
 | client scope `order-system-audience` | adds `aud: order-system`. Optional on `support-agent` only, so the agent is the one client that can exchange a customer's session for the order system, and must ask for it by name |
 | client `support-agent` | confidential, the agent's own identity, with standard token exchange on. Exchanges need `audience=order-system` **and** `scope=order-system-audience`; either alone is refused |
+| client `support-approvals` | the approval workflow's own login (T-028). The customer is not there an hour later, so it logs in as itself and the order system reads whose the call is from the approval it names. Its service account holds `orders:read` and nothing else — `refunds:write` is on no token anywhere |
 | client `order-system` | the audience exchanged tokens are addressed to |
 | client `support-portal` | confidential, PKCE S256: the backend that logs a customer in and keeps their session server-side for the chat channel (T-026). Password grant on for local tests only |
 | users `c-1042`, `c-9999`, `desk-1` | two customers, because an ownership defect takes two to see (F-016), and a reviewer with no customer. Password `local-dev-only` |
