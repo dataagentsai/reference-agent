@@ -43,7 +43,7 @@ ADOPTED = [
         "ClickHouse and MinIO are the heaviest pieces",
     ),
     ("workflow", "temporal", "temporal", "durable", "only T-028 needs it"),
-    ("approval", "temporal-signals", "temporal", "durable", "the same Temporal as workflow"),
+    ("approval", "temporal-updates", "temporal", "durable", "the same Temporal as workflow"),
     (
         "channel",
         "chatwoot-agent-bot",
@@ -51,10 +51,14 @@ ADOPTED = [
         "channel",
         "Rails and Sidekiq, only T-026 and T-017 need it",
     ),
+    ("x_store", "saleor", "saleor", "store", "Django, a worker and a dashboard: T-017 only"),
 ]
 
 # Services that are no product's binding, and the product each exists for.
 SUPPORTING = {
+    "saleor-migrate": "saleor",
+    "saleor-worker": "saleor",
+    "saleor-dashboard": "saleor",
     "litellm-keys": "litellm",
     "langfuse-worker": "langfuse-web",
     "clickhouse": "langfuse-web",
@@ -66,9 +70,7 @@ SUPPORTING = {
 }
 
 # Adopted, and not yet in compose. Each row leaves when its item adds the service.
-NOT_YET = [
-    ("x_store", "saleor", "T-017"),
-]
+NOT_YET: list[tuple[str, str, str]] = []
 
 
 @pytest.fixture(scope="module")

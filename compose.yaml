@@ -227,9 +227,9 @@ services:
       retries: 20
 
   redis:
-    # Shared by Langfuse and Chatwoot, so it belongs to both profiles.
+    # Shared by Langfuse, Chatwoot and Saleor, so it belongs to three profiles.
     # `noeviction` is Langfuse's requirement: its queues live here.
-    profiles: [obs, channel]
+    profiles: [obs, channel, store]
     image: redis:8.2
     restart: unless-stopped
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-local-dev-only}", "--maxmemory-policy", "noeviction"]
@@ -260,6 +260,85 @@ services:
     ports:
       - 127.0.0.1:7233:7233
       - 127.0.0.1:8233:8233
+
+  # ------------------------------------------------------------ store: Saleor
+
+  saleor-migrate:
+    # Creates Saleor's schema and leaves. The API waits for it, so nothing
+    # starts against a half-built database.
+    profiles: [store]
+    image: ghcr.io/saleor/saleor:3.21
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: &saleor_env
+      DATABASE_URL: postgres://saleor:${STACK_DB_PASSWORD:-local-dev-only}@postgres:5432/saleor
+      REDIS_URL: redis://:${REDIS_PASSWORD:-local-dev-only}@redis:6379/3
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-local-dev-only}@redis:6379/4
+      SECRET_KEY: ${SALEOR_SECRET_KEY:-local-dev-only-saleor-secret}
+      ALLOWED_HOSTS: "*"
+      ALLOWED_CLIENT_HOSTS: "*"
+      # Saleor's own development compose runs this way, and the alternative is
+      # worse: outside DEBUG it requires an RSA private key for signing its
+      # tokens, and this repository is public — a key committed here would be a
+      # key published. A deployment sets RSA_PRIVATE_KEY and turns this off.
+      DEBUG: "True"
+      DEFAULT_CURRENCY: INR
+      DEFAULT_COUNTRY: IN
+      # The agent reaches Saleor over MCP and never imports it, so what this
+      # store believes about email, storage or payments is its own business.
+      EMAIL_URL: dummy://
+      ENABLE_SSL: "False"
+      PLAYGROUND_ENABLED: "True"
+    command: ["python", "manage.py", "migrate", "--noinput"]
+
+  saleor:
+    # The real store (T-017). Its rules are somebody else's, which is the whole
+    # point of adopting rather than writing one: a store we wrote would carry
+    # the same assumptions as the world file and would ground nothing.
+    profiles: [store]
+    image: ghcr.io/saleor/saleor:3.21
+    restart: unless-stopped
+    depends_on:
+      saleor-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment: *saleor_env
+    ports:
+      - 127.0.0.1:8100:8000
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/graphql/')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  saleor-worker:
+    # Saleor's background work — order events, webhooks, search indexing. Its
+    # own process because that is how Saleor runs, and an order that only
+    # settles when a worker runs is a fact about the real store worth having.
+    profiles: [store]
+    image: ghcr.io/saleor/saleor:3.21
+    restart: unless-stopped
+    depends_on:
+      saleor:
+        condition: service_healthy
+    environment: *saleor_env
+    command: ["celery", "-A", "saleor", "--app=saleor.celeryconf:app", "worker", "--loglevel=info", "-B"]
+
+  saleor-dashboard:
+    # Saleor's own back office: what a shop assistant would use, and how a
+    # person checks what the agent did to a real order.
+    profiles: [store]
+    image: ghcr.io/saleor/saleor-dashboard:3.21
+    restart: unless-stopped
+    depends_on:
+      saleor:
+        condition: service_healthy
+    environment:
+      API_URL: http://localhost:8100/graphql/
+    ports:
+      - 127.0.0.1:9000:80
 
   # ------------------------------------------------------------ channel: Chatwoot
 

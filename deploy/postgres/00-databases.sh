@@ -15,7 +15,7 @@ set -eu
 
 pw="${STACK_DB_PASSWORD:-local-dev-only}"
 
-for svc in agent keycloak litellm langfuse chatwoot; do
+for svc in agent keycloak litellm langfuse chatwoot saleor; do
   psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
     -c "CREATE ROLE $svc LOGIN PASSWORD '$pw'"
 done
@@ -26,6 +26,15 @@ CREATE DATABASE keycloak      OWNER keycloak;
 CREATE DATABASE litellm       OWNER litellm;
 CREATE DATABASE langfuse      OWNER langfuse;
 CREATE DATABASE chatwoot      OWNER chatwoot;
+CREATE DATABASE saleor        OWNER saleor;
+SQL
+
+# Saleor's migrations create these, and only a superuser may. Created here so
+# the role stays unprivileged, exactly as Chatwoot's are below.
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d saleor <<'SQL'
+CREATE EXTENSION IF NOT EXISTS btree_gin;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS hstore;
 SQL
 
 # Chatwoot's schema enables extensions that only a superuser may create
