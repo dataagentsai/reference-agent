@@ -34,13 +34,31 @@ class Rules:
     """Routing rules are versioned configuration, not code you edit casually —
     AAC-0101 gates routing changes like model changes."""
 
-    version: str = "v1"
+    version: str = "v2"
+    """v2 (17 Sep): R-DISCOUNT no longer refuses a customer describing a voucher or
+    coupon they paid with (T-050). A routing change is gated like a model change,
+    so the version moves and the fingerprint with it."""
     refuse: tuple[tuple[str, str, re.Pattern[str]], ...] = field(
         default_factory=lambda: (
             (
                 "R-DISCOUNT",
                 "discount negotiation is not something I can do",
-                re.compile(r"\b(discount|coupon|voucher|price match|cheaper)\b", re.I),
+                # The spec says *negotiating* price or *offering* a discount.
+                # "And if I paid partly with a voucher" is neither: it describes
+                # how an order was paid, and v1 refused it on the noun, live, in
+                # the tenth turn of a returns conversation, which then counted as
+                # the customer's first refusal and fetched a second person
+                # (T-050). Using, paying with or a code that did not apply is
+                # carved out; asking is not.
+                re.compile(
+                    r"^(?!.*\b(?:paid|pay|paying|used|using|applied|redeemed|with)\b"
+                    r"[^.?!]{0,20}\b(?:voucher|coupon|gift card|discount code)\b)"
+                    r"(?!.*\b(?:voucher|coupon|discount)\s+code\s+"
+                    r"(?:did ?n[o'’]?t|does ?n[o'’]?t|won'?t|is ?n[o'’]?t)\b)"
+                    # Plurals too: "any coupons?" slipped past v1 and v2's first draft.
+                    r".*\b(discounts?|coupons?|vouchers?|price match|cheaper)\b",
+                    re.I | re.S,
+                ),
             ),
             (
                 "R-OTHER-CUSTOMER",

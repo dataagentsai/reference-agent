@@ -105,6 +105,32 @@ def test_routing(name: str, text: str, kind: str) -> None:
     assert router.route(text).kind == kind
 
 
+# (why, what the customer says, whether it is refused as discount negotiation)
+DISCOUNT_CASES = [
+    ("asks for a discount", "can I get a discount on this?", True),
+    ("asks for a coupon", "do you have any coupons?", True),
+    ("asks for a voucher", "give me a voucher for the trouble", True),
+    ("asks for a price match", "will you price match the other shop", True),
+    ("asks for it cheaper", "can you do it cheaper", True),
+    # T-050: found live, in the tenth turn of a conversation about returns.
+    ("paid partly with a voucher", "and if I paid partly with a voucher", False),
+    ("used a coupon", "I used a coupon on this order, what do I get back", False),
+    ("paid with a gift card", "I paid with a gift card", False),
+    ("a code that did not apply", "my discount code didn't apply at checkout", False),
+]
+
+
+@pytest.mark.parametrize(
+    ("why", "text", "refused"), DISCOUNT_CASES, ids=[c[0] for c in DISCOUNT_CASES]
+)
+@pytest.mark.discharges("R-DISCOUNT", "AAC-0043")
+def test_a_discount_is_refused_when_asked_for_and_not_when_mentioned(
+    why: str, text: str, refused: bool
+) -> None:
+    route = router.route(text)
+    assert (route.kind == "refuse" and "discount" in str(route)) is refused, route
+
+
 @pytest.mark.discharges("R-DISCOUNT")
 def test_refusal_is_checked_before_intent() -> None:
     """A request out of scope does not become in scope by mentioning an order."""
@@ -141,7 +167,7 @@ def test_the_route_and_its_reason_are_on_the_trace(exporter) -> None:
     attrs = tel.attributes_of(exporter.get_finished_spans()[0])
     assert attrs[tel.ROUTE_KIND] == "refuse"
     assert "discount" in attrs[tel.ROUTE_REASON]
-    assert attrs["agent.router.rules_version"] == "v1"
+    assert attrs["agent.router.rules_version"] == router.Rules().version
 
 
 # --------------------------------------------------------------------------- #

@@ -102,7 +102,7 @@ class Settings(BaseSettings):
     declared world — the agent is byte-identical either way."""
 
     prompt_version: str = "v1"
-    router_rules_version: str = "v1"
+    router_rules_version: str = "v2"
     """Routing changes are gated like model changes — AAC-0101."""
 
     resolution: ResolutionMode = "real"
