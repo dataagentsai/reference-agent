@@ -14,18 +14,18 @@ behind the specs, because it is made of them.
 
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
-| **functional-suitability** | 14 | 8 | 14 | 3 |
+| **functional-suitability** | 15 | 8 | 14 | 3 |
 | **safety** | 16 | 3 | 4 | 3 |
 | **security** | 5 | 14 | 8 | 2 |
 | **reliability** | 6 | 12 | 6 | 4 |
-| **cost** | 3 | 9 | 6 | 2 |
+| **cost** | 4 | 9 | 6 | 3 |
 | **maintainability** | 6 | 19 | 9 | 0 |
 | **performance-efficiency** | 1 | 6 | 0 | 0 |
 | **compatibility** | 3 | 0 | 0 | 0 |
 | **interaction-capability** | 1 | 0 | 0 | 1 |
 | **flexibility** | 0 | 1 | 0 | 0 |
 
-## functional-suitability — 39
+## functional-suitability — 40
 
 **AOAS**
 
@@ -39,6 +39,7 @@ behind the specs, because it is made of them.
 - `R-STYLE` refuses style or fit advice presented as authoritative
 - `Q-TOOL-RESULT` a tool result enters context at most 8000 characters long
 - `op:get_order` read operation on order
+- `op:list_orders` read operation on order
 - `op:open_return_request` reversible operation on order
 - `op:change_address` reversible operation on order
 - `op:request_refund` reversible operation on order
@@ -207,11 +208,12 @@ behind the specs, because it is made of them.
 - `the-reply-is-lost-after-the-return-opens` a lost reply must not open the return twice
 
 
-## cost — 20
+## cost — 22
 
 **AOAS**
 
 - `P-DIRECT` order status and refund status are answered from the order system deterministically, with no model call, when the turn names exactly one intent and exactly one order; a turn naming several orders, several intents, or none of either goes to the loop
+- `P-OPEN` when a signed-in customer opens a conversation, they are shown their own orders and any work of theirs already in flight, with no model call
 - `Q-COST` model spend per task at most USD 0.50
 - `Q-STEPS` at most 12 loop steps per task
 
@@ -239,6 +241,7 @@ behind the specs, because it is made of them.
 **scenario**
 
 - `answered-without-a-model` two questions answered with no model call at all
+- `opening-shows-your-orders` a customer opens the chat and is shown their orders, with no model call
 - `twelve-steps-and-then-a-person` the loop spends its twelve steps and hands over
 
 
