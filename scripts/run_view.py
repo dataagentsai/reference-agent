@@ -58,7 +58,6 @@ from scripts.run_view_html import render  # noqa: E402
 
 from support_agent import approvals as ap  # noqa: E402
 from support_agent import entrypoint as ep  # noqa: E402
-from support_agent import escalation as esc  # noqa: E402
 from support_agent import identity as ident  # noqa: E402
 from support_agent import router  # noqa: E402
 from support_agent.binding import SCOPES  # noqa: E402
@@ -273,18 +272,34 @@ class WatchedApprovals:
         return await self.inner.pending()
 
 
-class WatchedEscalations(esc.InMemoryEscalationStore):
-    def __init__(self, run: Run) -> None:
-        super().__init__()
-        self.run = run
+@dataclass
+class WatchedEscalations:
+    """The same note for an escalation: raised by the workflow now (T-028)."""
 
-    async def put(self, record):
+    inner: object
+    run: Run
+
+    @property
+    def durable(self) -> bool:
+        return self.inner.durable
+
+    async def raise_for(self, **fields):
+        record = await self.inner.raise_for(**fields)
         self.run.saw(
             record.id,
             f"escalation, rule {record.rule_id or '—'}",
-            "minted by the harness — escalation/workflow.py:raise_for",
+            "minted by the escalation workflow — escalation/durable.py",
         )
-        return await super().put(record)
+        return record
+
+    async def get(self, escalation_id: str):
+        return await self.inner.get(escalation_id)
+
+    async def open_for(self, conversation_id: str):
+        return await self.inner.open_for(conversation_id)
+
+    async def pending(self):
+        return await self.inner.pending()
 
 
 async def capture(name: str, live_model: bool) -> Run:
@@ -300,7 +315,6 @@ async def capture(name: str, live_model: bool) -> Run:
     )
 
     inner, config = await _model(name, scenario, live_model)
-    escalations = WatchedEscalations(run)
     clock = Clock(step_s=scenario.step_seconds)
     local = frozenset({ap.REQUEST_REFUND})
 
@@ -321,6 +335,7 @@ async def capture(name: str, live_model: bool) -> Run:
         durable.approvals_for(tools, clock=clock) as waits,
     ):
         approvals = WatchedApprovals(waits.approvals, run)
+        escalations = WatchedEscalations(waits.escalations, run)
         agent = ep.build(
             llm=SeenLLM(ResilientLLM(inner), run, local),
             tools=tools,
@@ -338,7 +353,9 @@ async def capture(name: str, live_model: bool) -> Run:
             else None
         )
         colleague = (
-            RESOLUTIONS[scenario.desk.resolves](escalations, esc.resolve, name=scenario.desk.by)
+            RESOLUTIONS[scenario.desk.resolves](
+                escalations, durable.resolving(waits.colleagues), name=scenario.desk.by
+            )
             if scenario.desk
             else None
         )
