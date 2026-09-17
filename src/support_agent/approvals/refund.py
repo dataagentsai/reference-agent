@@ -1,16 +1,29 @@
-"""The refund request tool — the one action this agent must ask a person about."""
+"""The refund request tool — the one action this agent must ask a person about —
+and the two activities the approval workflow runs for a refund.
+
+The tool is the agent's side: it asks, and reports what the workflow answered.
+`RefundWork` is the workflow's side: it reads the order's total, applies the
+policy, and issues a granted refund. It runs in the approvals worker under that
+worker's own login (T-028), so the agent never holds the path that moves money.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 from typing import Literal
 
+from temporalio import activity
+
 from support_agent import telemetry as tel
+from support_agent.approvals.durable import ASSESS, CARRY_OUT, Ask, Assessment, CarriedOut
 from support_agent.approvals.policy import REFUND_ACTION, Policy, requires_approval
-from support_agent.approvals.workflow import carry_out, decide, request
+from support_agent.approvals.workflow import ApprovalError, carry_out, stored_key
 from support_agent.contracts import (
     Approval,
     ApprovalRequested,
-    ApprovalStore,
+    Approvals,
+    ApprovalState,
     IdempotencyKey,
     Identity,
     LocalTool,
@@ -74,50 +87,99 @@ a refund that did not happen has already done the damage the gate prevents."""
 
 
 def refund_tool(
-    store: ApprovalStore,
+    approvals: Approvals,
     *,
     identity: Identity,
     idempotency_key: IdempotencyKey,
-    tools: ToolClient,
-    policy: Policy | None = None,
-    now: int,
 ) -> LocalTool:
-    """Bind the request tool to one run's identity, key and tool client.
+    """Bind the request tool to one run's identity and key.
 
     The key is bound *here*, at request time, so whatever the model passes as
     arguments cannot influence which key the eventual execution runs under.
 
-    Within the limit the refund is issued now — AOAS `issue_refund.authority`
-    gives the agent that authority — and what comes back is the order system's
-    own answer, so a claim that it happened is grounded in the result that says
-    so. Above it, or when the total cannot be read, a person decides.
+    What comes back is the workflow's answer, and the tool only reports it.
+    Within the limit the refund is already issued — AOAS
+    `issue_refund.authority` gives the agent that authority, and the policy
+    exercises it in the workflow — so the result carries the order system's own
+    words and is named for the action, which is what lets the reply say it
+    happened. Above the limit, or when the total cannot be read, a person decides.
     """
-    policy = policy or Policy()
 
     async def handle(arguments: dict[str, object]) -> ToolResult:
         order_id = arguments.get("order_id")
-        order = await _order(tools, order_id, identity, idempotency_key)
-        if not isinstance(order, dict):
-            return order
-        total = order.get("total")
-        reason = requires_approval(order, policy)
-        approval = await request(
-            store,
+        if not isinstance(order_id, str) or not order_id:
+            return _error(REQUEST_REFUND, "an order id is required")
+        approval = await approvals.request(
             action=REFUND_ACTION,
-            args={"order_id": order_id, "amount": None if total is None else str(total)},
-            reason=reason or "within the automatic limit",
+            args={"order_id": order_id},
             identity=identity,
             idempotency_key=idempotency_key,
-            policy=policy,
-            now=now,
         )
-        if reason is not None:
+        if approval.state is ApprovalState.WAITING:
             raise RefundRequested(approval)
-        with tel.span("agent.approval.automatic", **{"agent.approval.id": approval.id}):
-            granted = await decide(store, approval.id, granted=True, by=POLICY_APPROVER, now=now)
-            return await carry_out(granted, identity, tools, policy=policy, now=now)
+        if approval.state is ApprovalState.DONE:
+            done = {"status": "refunded", "approval_id": approval.id}
+            return ToolResult(name=REFUND_ACTION, text=approval.result or "", structured=done)
+        return _error(REQUEST_REFUND, approval.result or f"the refund is {approval.state.value}")
 
     return LocalTool(spec=REQUEST_REFUND_SPEC, handler=handle)
+
+
+def _error(name: str, text: str) -> ToolResult:
+    return ToolResult(name=name, text=text, is_error=True, error_channel="execution")
+
+
+@dataclass(frozen=True)
+class RefundWork:
+    """The refund's activities, run by the approvals worker.
+
+    `acting_for` is that worker's own login, for the customer an approval
+    names: the order is read as that customer, so an order that is not theirs
+    is not found (P-OWNERSHIP), and a granted refund is issued with the approval
+    named on the call for the far end to check.
+    """
+
+    tools: ToolClient
+    acting_for: Callable[[str], Awaitable[Identity]]
+    policy: Policy = field(default_factory=Policy)
+
+    @activity.defn(name=ASSESS)
+    async def assess(self, ask: Ask) -> Assessment:
+        who = await self.acting_for(ask.customer_id)
+        key = stored_key(_keyed(ask))
+        order = await _order(self.tools, ask.args.get("order_id"), who, key)
+        if not isinstance(order, dict):
+            return Assessment(args=ask.args, reason=None, failed=order.text)
+        total = order.get("total")
+        args = {**ask.args, "amount": None if total is None else str(total)}
+        reason = requires_approval(order, self.policy)
+        return Assessment(args=args, reason=reason, approver=POLICY_APPROVER)
+
+    @activity.defn(name=CARRY_OUT)
+    async def carry_out(self, approval: Approval) -> CarriedOut:
+        who = await self.acting_for(approval.customer_id)
+        # Judged at the moment the workflow scheduled this, which is the
+        # workflow's clock and not this machine's.
+        now = int(activity.info().current_attempt_scheduled_time.timestamp())
+        with tel.span("agent.approval.carry_out", **{"agent.approval.id": approval.id}):
+            try:
+                result = await carry_out(approval, who, self.tools, policy=self.policy, now=now)
+            except ApprovalError as exc:
+                return CarriedOut(ok=False, text=str(exc))
+        return CarriedOut(ok=not result.is_error, text=result.text)
+
+
+def _keyed(ask: Ask) -> Approval:
+    """Enough of a record to rebuild the key an assessment reads under."""
+    return Approval(
+        id=ask.id,
+        action=ask.action,
+        reason="",
+        customer_id=ask.customer_id,
+        idempotency_key=ask.idempotency_key,
+        created_at=0,
+        expires_at=0,
+    )
 
 
 async def _order(
@@ -148,6 +210,7 @@ async def _order(
 
 
 __all__ = [
+    "RefundWork",
     "ORDER_LOOKUP",
     "POLICY_APPROVER",
     "REFUND_WAIT_REPLY",

@@ -4,7 +4,8 @@ L14 · P6 and P8, and the sibling of `approvals`. The split between them is the
 one the import contract already forced once: this module is *policy* — what a
 raise means, how long it stays open, what the customer is told — while the
 durable substrate belongs to `state`. `PostgresEscalationStore` therefore lives
-in `state.postgres`, exactly where `PostgresApprovalStore` does.
+in `state.postgres`, where `PostgresApprovalStore` did until approvals moved to
+a Temporal workflow (T-028).
 
 What that policy **is** comes from the AOAS `policies.escalation` block entire:
 `on_request` and `on_condition` are the two tiers, and the statements are the

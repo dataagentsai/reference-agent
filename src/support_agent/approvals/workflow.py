@@ -1,10 +1,9 @@
-"""Request, decide, and the elevated identity only a granted decision mints.
+"""Who may decide, and the elevated identity only a granted decision mints.
 
 **AOAS `issue_refund.authority`** — `otherwise: human_approval` is the whole of
 this module: the spec says a refund the agent may not decide alone goes to a
-person, and every step of getting it there and back is here. The `approval`
-entity and its `outcome` enum are declared beside it, which is why `decide`
-writes one of four stated values and not a boolean.
+person. The waiting is Temporal's (`approvals/durable.py`); the rules it waits
+under are these, and they are ours.
 
 The elevated scope is the part the spec does not say and the harness must:
 **AHC-0057** asks that a run cannot grant itself authority over an irreversible
@@ -14,13 +13,10 @@ the agent that asked for it.
 
 from __future__ import annotations
 
-import uuid
-
-from support_agent import telemetry as tel
 from support_agent.approvals.policy import Policy
 from support_agent.contracts import (
     Approval,
-    ApprovalStore,
+    ApprovalState,
     IdempotencyKey,
     Identity,
     ToolClient,
@@ -37,56 +33,17 @@ class ApprovalError(AgentFailure):
     fault = Fault.REFUSED
 
 
-async def request(
-    store: ApprovalStore,
-    *,
-    action: str,
-    args: dict[str, object],
-    reason: str,
-    identity: Identity,
-    idempotency_key: IdempotencyKey,
-    policy: Policy | None = None,
-    now: int,
-) -> Approval:
-    """Record a pending decision and hand back the record.
+def refusal(approval: Approval, *, by: str, by_customer: str | None = None, now: int) -> str | None:
+    """Why this person may not decide this approval now, or `None`.
 
-    The idempotency key is stored, not regenerated later. That is the whole
-    reason a grant an hour from now still produces one effect.
-    """
-    policy = policy or Policy()
-    approval = Approval(
-        id=f"apr_{uuid.uuid4().hex[:12]}",
-        action=action,
-        args=dict(args),
-        reason=reason,
-        customer_id=identity.customer_id,
-        idempotency_key=idempotency_key.value,
-        created_at=now,
-        expires_at=now + policy.ttl_s,
-    )
-    tel.counters.approvals.add(1, {"outcome": "requested"})
-    with tel.span(
-        "agent.approval.request",
-        **{"agent.approval.id": approval.id, "agent.approval.action": action},
-    ):
-        await store.put(approval)
-    return approval
-
-
-async def decide(
-    store: ApprovalStore,
-    approval_id: str,
-    *,
-    granted: bool,
-    by: str,
-    now: int,
-) -> Approval:
-    """A reviewer answers. Three refusals, all fail-closed.
+    Three refusals, all fail-closed, and the workflow runs them before a
+    decision is accepted, so they hold whoever calls:
 
     **Nobody approves their own request.** `by` may not be the customer the
     approval belongs to — which is the confused deputy of the human path, and the
-    control against "your colleague already approved this" (T-AD-04). The claim
-    would have to be true in the store, and the store is not persuadable.
+    control against "your colleague already approved this" (T-AD-04). `by` is
+    the login and `by_customer` the customer that login is linked to, if any
+    (T-002); a reviewer who is also this customer is refused under either name.
 
     **A decision is terminal.** Re-deciding a decided approval is refused rather
     than overwritten, because a grant that can be re-granted is a grant that can
@@ -95,23 +52,17 @@ async def decide(
     **An expired request cannot be decided.** It must be raised again against
     today's facts.
     """
-    approval = await store.get(approval_id)
-    if approval is None:
-        raise ApprovalError(f"no approval {approval_id!r}")
-    if approval.decided:
-        raise ApprovalError(f"approval {approval_id!r} was already decided")
+    if approval.decided or approval.state is not ApprovalState.WAITING:
+        if approval.state is ApprovalState.EXPIRED:
+            return f"approval {approval.id!r} has expired"
+        if approval.state is ApprovalState.ASSESSING:
+            return f"approval {approval.id!r} is still being assessed"
+        return f"approval {approval.id!r} was already decided"
     if now >= approval.expires_at:
-        raise ApprovalError(f"approval {approval_id!r} has expired")
-    if by == approval.customer_id:
-        raise ApprovalError("an approval cannot be granted by the customer it belongs to")
-
-    decided = approval.model_copy(update={"decided": True, "granted": granted, "decided_by": by})
-    with tel.span(
-        "agent.approval.decide",
-        **{"agent.approval.id": approval_id, "agent.approval.granted": granted},
-    ):
-        await store.put(decided)
-    return decided
+        return f"approval {approval.id!r} has expired"
+    if approval.customer_id in (by, by_customer):
+        return "an approval cannot be granted by the customer it belongs to"
+    return None
 
 
 def is_executable(approval: Approval, *, now: int) -> bool:
@@ -160,7 +111,8 @@ async def carry_out(
     now: int,
 ) -> ToolResult:
     """Execute a granted approval's action — the only path that uses the elevated
-    scope, whoever granted it: a reviewer on a later turn, or the policy at once.
+    scope, whoever granted it: a reviewer, or the policy at once. Called by the
+    approval workflow, never by the agent (T-028).
 
     Raises `ApprovalError` when the grant is not executable; every other failure
     is the result, so the caller decides what the customer is told.
@@ -190,9 +142,8 @@ async def carry_out(
 __all__ = [
     "ApprovalError",
     "carry_out",
-    "decide",
     "granted_identity",
     "is_executable",
-    "request",
+    "refusal",
     "stored_key",
 ]

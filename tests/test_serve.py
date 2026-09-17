@@ -310,12 +310,12 @@ def test_the_desk_and_the_agent_share_one_escalation_store(
 # --------------------------------------------------------------------------- #
 
 DURABILITY = [
-    # (name, conversation store, approval store, must raise)
+    # (name, conversation store, approval queue, must raise)
     ("everything in memory is a whole row", "memory", "memory", False),
-    ("everything durable is a whole row", "file", "postgres", False),
-    ("a durable folder beside a volatile approval store is refused", "file", "memory", True),
-    ("a volatile folder beside a durable approval store is refused", "memory", "postgres", True),
-    ("an approval store that states nothing is not second-guessed", "file", "silent", False),
+    ("everything durable is a whole row", "file", "temporal", False),
+    ("a durable folder beside a volatile approval queue is refused", "file", "memory", True),
+    ("a volatile folder beside a durable approval queue is refused", "memory", "temporal", True),
+    ("an approval queue that states nothing is not second-guessed", "file", "silent", False),
 ]
 
 
@@ -337,22 +337,20 @@ def test_the_stores_agree_about_what_a_restart_costs(
     caller's behalf here would refuse perfectly good wiring, and the check would
     be switched off within a week.
     """
-    from support_agent.approvals.store import InMemoryApprovalStore
+    from evals.durable import Remembered
+
     from support_agent.state import FileCheckpointStore
 
     class Silent:
         """No opinion about restarts, and none invented for it."""
-
-    class DurableApprovals(InMemoryApprovalStore):
-        durable = True
 
     folder = {
         "memory": InMemoryCheckpointStore,
         "file": lambda: FileCheckpointStore(tmp_path),
     }[conversation]()
     queue = {
-        "memory": InMemoryApprovalStore,
-        "postgres": DurableApprovals,
+        "memory": Remembered,
+        "temporal": lambda: Remembered(durable=True),
         "silent": Silent,
     }[approvals]()
 

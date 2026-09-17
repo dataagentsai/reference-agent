@@ -30,7 +30,6 @@ import functools
 import inspect
 import pathlib
 import sys
-import time
 
 # `agenttwin` sits at the repo root, outside the installed package, so a plain
 # `uv run python scripts/...` cannot see it. Tests get it from pytest's
@@ -38,8 +37,8 @@ import time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from agenttwin import Live, load, project
+from evals import durable
 
-from support_agent import approvals as ap
 from support_agent import context as ctx
 from support_agent import entrypoint as ep
 from support_agent import identity as ident
@@ -62,6 +61,10 @@ WORLD = "worlds/clothing.yaml"
 TRACE: list[str] = []
 DEPTH = [0]
 ON = [True]
+
+
+RAISED: list[str] = []
+"""Every approval this run raised, in order. Nothing lists them for us."""
 
 
 def watch(obj: object, name: str, label: str, note: str = "") -> None:
@@ -125,7 +128,7 @@ async def main() -> None:
     exporter = tel.configure()
     world = Live.start(load(WORLD))
     store, ledger = InMemoryCheckpointStore(), InMemoryLedger()
-    approvals, deliveries = ap.InMemoryApprovalStore(), trg.InMemoryDeliveryLog()
+    deliveries = trg.InMemoryDeliveryLog()
     who = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
 
     llm = ScriptedClient(
@@ -138,7 +141,12 @@ async def main() -> None:
         ]
     )
 
-    async with toolmod.connect(project(world), ledger=ledger) as tools:
+    async with (
+        toolmod.connect(project(world), ledger=ledger) as tools,
+        # The approval is a Temporal workflow (T-028), here on the test server.
+        durable.approvals_for(tools) as waits,
+    ):
+        approvals = waits.approvals
         agent = ep.build(
             llm=llm, tools=tools, store=store, approvals=approvals, deliveries=deliveries
         )
@@ -161,8 +169,8 @@ async def main() -> None:
         watch(tools._transport, "invoke", "transport.invoke", "over MCP")
         watch(ledger, "record", "ledger.record", "write the action down")
         watch(pol, "enforce", "policy.enforce", "screen the reply before it is sent")
-        watch(refund_mod, "request", "approvals.request", "raise it for a person")
-        watch(ap, "carry_out", "approvals.carry_out", "execute the granted refund")
+        watch(approvals, "request", "approvals.request", "raise it for a person")
+        watch(refund_mod.RefundWork, "carry_out", "approvals.carry_out", "the workflow refunds")
         watch(
             approval_workflow,
             "granted_identity",
@@ -177,9 +185,8 @@ async def main() -> None:
             if n == 7:
                 ON[0] = False
                 waiting = (await approvals.pending())[0]
-                decided = await ap.decide(
-                    approvals, waiting.id, granted=True, by="ops-7", now=int(time.time())
-                )
+                RAISED.append(waiting.id)
+                decided = await waits.desk.decide(waiting.id, granted=True, by="ops-7")
                 ON[0] = True
                 print(f"\n{'─' * 76}")
                 print(f"  OUT OF BAND — a colleague opens the queue and grants {decided.id}")
@@ -236,13 +243,14 @@ async def state(conversation, ledger, approvals, deliveries, world) -> None:
     print(f"    ledger         {len(entries)} action(s) recorded")
     for key, value in entries.items():
         print(f"                     {key}  ->  {value.name}")
-    items = approvals._items
-    print(f"    approvals      {len(items)}")
-    for a in items.values():
-        state_word = "waiting" if not a.decided else ("granted" if a.granted else "refused")
+    # Read, never listed from inside: the approvals are a workflow's, and what
+    # this process holds is a handle that can ask and look (T-028).
+    raised = [await approvals.get(i) for i in RAISED]
+    print(f"    approvals      {len(raised)}")
+    for a in [a for a in raised if a is not None]:
         print(
             f"                     {a.id}  {a.action} {a.args.get('amount')}  "
-            f"{state_word}  by={a.decided_by}  key={a.idempotency_key}"
+            f"{a.state.value}  by={a.decided_by}  key={a.idempotency_key}"
         )
     print(f"    deliveries     {sorted(deliveries._seen)}")
     print(f"    world          {world.effects or '(nothing has changed)'}")

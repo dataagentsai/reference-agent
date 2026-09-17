@@ -71,12 +71,14 @@ MECHANISM = {
     "telemetry/redaction.py",
     "tools/__init__.py",
     "trigger/__init__.py",
-    "approvals/store.py",
     "approvals/workflow.py",
+    "approvals/durable.py",
+    "approvals/desk.py",
 }
 """Kept whole by a second agent. The escalation and approval *workflows* are here
 and their *policies* are not: how an approval expires is universal, what needs
-one is this shop's."""
+one is this shop's. `approvals/durable.py` is the same division inside Temporal:
+the workflow waits for any action, and `approvals/refund.py` says which."""
 
 PARAMETERISED = {
     "approvals/__init__.py",  # re-exports the universal workflow *and* this shop's refund tool

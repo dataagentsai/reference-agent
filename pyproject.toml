@@ -29,6 +29,9 @@ dependencies = [
     # and a real integration surface start paying, so that is where it lands.
     "fastapi>=0.115",
     "opentelemetry-exporter-otlp-proto-http>=1.27",
+    # The approval wait (T-028). Adopted: the timer, the decision and the record
+    # outlive the process, and a granted action runs when it is granted.
+    "temporalio>=1.18",
 ]
 
 [project.optional-dependencies]
@@ -197,6 +200,16 @@ type = "forbidden"
 source_modules = ["support_agent"]
 forbidden_modules = ["mcp"]
 ignore_imports = ["support_agent.tools -> mcp", "support_agent.tools.* -> mcp"]
+unmatched_ignore_imports_alerting = "none"
+
+[[tool.importlinter.contracts]]
+# T-028. Durable waits are Temporal's, and only the package that waits knows it:
+# the agent's turn sees `Approvals`, a protocol, and never a workflow.
+name = "Only approvals knows Temporal"
+type = "forbidden"
+source_modules = ["support_agent"]
+forbidden_modules = ["temporalio"]
+ignore_imports = ["support_agent.approvals.* -> temporalio.*", "support_agent.approvals.* -> temporalio"]
 unmatched_ignore_imports_alerting = "none"
 
 [[tool.importlinter.contracts]]

@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from support_agent.contracts import ApprovalStore
+from support_agent.contracts import ApprovalRecords
 from support_agent.contracts.failures import AgentFailure, Fault
 from support_agent.identity import InvalidSession, Issuer, verify
 
@@ -49,7 +49,7 @@ class CallRefused(AgentFailure):
 def authoriser(
     *,
     issuer: Issuer,
-    approvals: ApprovalStore,
+    approvals: ApprovalRecords,
     required_scopes: Mapping[str, str],
     clock: Callable[[], int],
 ) -> Callable[[str, dict[str, Any], dict[str, object]], Any]:
@@ -86,7 +86,7 @@ def authoriser(
 
 
 async def _approved(
-    approvals: ApprovalStore,
+    approvals: ApprovalRecords,
     meta: Mapping[str, object],
     operation: str,
     arguments: Mapping[str, Any],

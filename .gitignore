@@ -12,3 +12,4 @@ __pycache__/
 # docs/SUPPORT-AGENT.html, and scripts/single_page.py builds it; these are for
 # iterating on one part without paying for the rest.
 docs/.preview/
+.DS_Store

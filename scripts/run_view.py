@@ -52,6 +52,7 @@ from agenttwin import (  # noqa: E402
     timeline_for,
 )
 from agenttwin.record import diff  # noqa: E402
+from evals import durable  # noqa: E402
 from evals.simulation import DECISIONS, RESOLUTIONS  # noqa: E402
 from scripts.run_view_html import render  # noqa: E402
 
@@ -238,25 +239,38 @@ def watching_tools(run: Run):
     return wrap
 
 
-class WatchedApprovals(ap.InMemoryApprovalStore):
+@dataclass
+class WatchedApprovals:
     """Records the identifier at the moment it is minted, and where.
 
     An approval id is the one identifier in a run that nothing outside the
     harness could have supplied, which is what makes it the answer to *"which
-    decision is this?"* a day later when a reviewer opens the queue.
+    decision is this?"* a day later when a reviewer opens the queue. It is
+    minted by the approval workflow now (T-028), so this notes it as the
+    request comes back rather than as a row is written.
     """
 
-    def __init__(self, run: Run) -> None:
-        super().__init__()
-        self.run = run
+    inner: object
+    run: Run
 
-    async def put(self, approval):
+    @property
+    def durable(self) -> bool:
+        return self.inner.durable
+
+    async def request(self, **kwargs):
+        approval = await self.inner.request(**kwargs)
         self.run.saw(
             approval.id,
             f"approval for {approval.action}",
-            "minted by the harness — approvals/workflow.py:request",
+            "minted by the approval workflow — approvals/durable.py",
         )
-        return await super().put(approval)
+        return approval
+
+    async def get(self, approval_id: str):
+        return await self.inner.get(approval_id)
+
+    async def pending(self):
+        return await self.inner.pending()
 
 
 class WatchedEscalations(esc.InMemoryEscalationStore):
@@ -286,7 +300,7 @@ async def capture(name: str, live_model: bool) -> Run:
     )
 
     inner, config = await _model(name, scenario, live_model)
-    approvals, escalations = WatchedApprovals(run), WatchedEscalations(run)
+    escalations = WatchedEscalations(run)
     clock = Clock(step_s=scenario.step_seconds)
     local = frozenset({ap.REQUEST_REFUND})
 
@@ -302,7 +316,11 @@ async def capture(name: str, live_model: bool) -> Run:
     def wrap(tool: str, handler):
         return watch(tool, faults(tool, handler))
 
-    async with connect(project(world, scopes=SCOPES, wrap=wrap), ledger=InMemoryLedger()) as tools:
+    async with (
+        connect(project(world, scopes=SCOPES, wrap=wrap), ledger=InMemoryLedger()) as tools,
+        durable.approvals_for(tools, clock=clock) as waits,
+    ):
+        approvals = WatchedApprovals(waits.approvals, run)
         agent = ep.build(
             llm=SeenLLM(ResilientLLM(inner), run, local),
             tools=tools,
@@ -313,7 +331,9 @@ async def capture(name: str, live_model: bool) -> Run:
             config=config,
         )
         reviewer = (
-            DECISIONS[scenario.approver.decides](approvals, ap.decide, name=scenario.approver.by)
+            DECISIONS[scenario.approver.decides](
+                approvals, durable.decide(waits.desk), name=scenario.approver.by
+            )
             if scenario.approver
             else None
         )

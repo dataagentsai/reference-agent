@@ -2,10 +2,11 @@
 
 L14 · P6 and P8. The queue, the decision, and resumption.
 
-**The approval returns; it never blocks.** L14's own question is what the system
-does while it waits, and the answer is: it checkpoints and hands back a typed
-`NeedsApproval`. Nothing is held open, nothing is promised to the customer that
-the approver has not granted.
+**The approval returns; it never blocks the turn.** L14's own question is what
+the system does while it waits, and the answer is: the turn checkpoints and hands
+back a typed `NeedsApproval`, and the wait itself is a Temporal workflow that
+outlives the process (T-028). Nothing is promised to the customer that the
+approver has not granted.
 
 ### Why not MCP elicitation
 
@@ -21,7 +22,8 @@ customer whose refund it is.
 approval may take an hour, span a process restart, and be decided by someone who
 was not present when it was requested.
 
-So the decision and its audit trail are business state and live in `agent_state`.
+So the decision and its audit trail are business state, and live in the
+approval workflow's history.
 How a resumption is *signalled* — a poll, a webhook, elicitation on a different
 connection — remains a detail that can change without touching this module.
 
@@ -30,12 +32,22 @@ connection — remains a detail that can change without touching this module.
 `CUSTOMER_SCOPES` deliberately excludes `refunds:write`, so an agent acting as the
 customer cannot refund at all. That is not an oversight to work around: the
 elevated scope exists **only** inside `granted_identity`, which refuses to mint it
-without a granted, unexpired approval. The gate is not the only control; it is the
-second one, and this is the first.
+without a granted, unexpired approval, and only the approvals worker calls it.
+The agent is handed `TemporalApprovals`, which can ask and read; a reviewer is
+handed `ApprovalDesk`, which can decide. The gate is not the only control; it is
+the second one, and this is the first.
 """
 
 from __future__ import annotations
 
+from support_agent.approvals.desk import (
+    TASK_QUEUE,
+    ApprovalDesk,
+    TemporalApprovals,
+    approval_id,
+    connect_temporal,
+    worker,
+)
 from support_agent.approvals.policy import (
     REFUND_ACTION,
     Policy,
@@ -48,20 +60,18 @@ from support_agent.approvals.refund import (
     REQUEST_REFUND,
     REQUEST_REFUND_SPEC,
     RefundRequested,
+    RefundWork,
     refund_tool,
-)
-from support_agent.approvals.store import (
-    InMemoryApprovalStore,
 )
 from support_agent.approvals.workflow import (
     ApprovalError,
     carry_out,
-    decide,
     granted_identity,
     is_executable,
-    request,
+    refusal,
     stored_key,
 )
+from support_agent.contracts import Approval, ApprovalState
 
 __all__ = [
     "ORDER_LOOKUP",
@@ -70,16 +80,23 @@ __all__ = [
     "REFUND_WAIT_REPLY",
     "REQUEST_REFUND",
     "REQUEST_REFUND_SPEC",
-    "RefundRequested",
-    "refund_tool",
+    "TASK_QUEUE",
+    "Approval",
+    "ApprovalDesk",
     "ApprovalError",
-    "InMemoryApprovalStore",
+    "ApprovalState",
     "Policy",
-    "decide",
+    "RefundRequested",
+    "RefundWork",
+    "TemporalApprovals",
+    "approval_id",
     "carry_out",
+    "connect_temporal",
     "granted_identity",
     "is_executable",
-    "request",
+    "refusal",
+    "refund_tool",
     "requires_approval",
     "stored_key",
+    "worker",
 ]

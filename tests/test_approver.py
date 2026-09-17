@@ -12,10 +12,12 @@ and the customer comes back to find out what happened.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
 from agenttwin import Approver, Clock, Live, Scenario, ScriptedActor, load, project, run_scenario
+from evals import durable
 
 from support_agent import approvals as ap
 from support_agent import entrypoint as ep
@@ -62,24 +64,32 @@ def asks_for_refund() -> ScriptedClient:
     )
 
 
-async def conversation(approver, *, turns: int = 3, step_s: int = HOUR):
-    """A customer who asks, then follows up, while a reviewer does or does not act."""
+@asynccontextmanager
+async def conversation(decision: str, *, by: str = "ops-7", turns: int = 3, step_s: int = HOUR):
+    """A customer who asks, then follows up, while a reviewer does or does not act.
+
+    The approval is a Temporal workflow on the test server, on the scenario's
+    clock (T-028), so *takes an hour*, *walks away* and *answers too late* are
+    the workflow's own timer rather than a number in a store.
+    """
     world = Live.start(load(WORLD))
-    scenario = Scenario(
-        name="a refund that needs a human",
-        max_turns=turns,
-        predicates={
-            "no refund without a grant": lambda w, t: True,  # replaced per test
-        },
-    )
+    clock = Clock(step_s=step_s)
+    scenario = Scenario(name="a refund that needs a human", max_turns=turns, predicates={})
     actor = ScriptedActor([f"please refund my order {ORDER}", "any update?", "any update?"][:turns])
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with (
+        connect(project(world), ledger=InMemoryLedger()) as tools,
+        durable.approvals_for(tools, clock=clock) as waits,
+    ):
+        approver = DECISIONS[decision](
+            waits.approvals, durable.decide(waits.desk), name=by, delay_s=DELAYS[decision]
+        )
         agent = ep.build(
             llm=asks_for_refund(),
             tools=tools,
             store=InMemoryCheckpointStore(),
-            approvals=approver.store,
+            approvals=waits.approvals,
+            clock=clock,
         )
         record = await run_scenario(
             scenario,
@@ -88,13 +98,19 @@ async def conversation(approver, *, turns: int = 3, step_s: int = HOUR):
             agent=agent,
             identity=who(),
             approver=approver,
-            clock=Clock(step_s=step_s),
+            clock=clock,
         )
-    return world, record
+        yield world, record, approver
 
 
-def store() -> ap.InMemoryApprovalStore:
-    return ap.InMemoryApprovalStore()
+DECISIONS = {
+    "grants": Approver.grants,
+    "denies": Approver.denies,
+    "silent": Approver.silent,
+    "too late": Approver.grants,
+    "slow": Approver.grants,
+}
+DELAYS = {"grants": 0, "denies": 0, "silent": 0, "too late": 2 * DAY, "slow": 3 * HOUR}
 
 
 def _flatten(error: BaseException) -> str:
@@ -110,33 +126,54 @@ def _flatten(error: BaseException) -> str:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AHC-0057", "P-REFUND", "op:issue_refund")
-async def test_a_granted_refund_executes_against_a_projected_world() -> None:
-    """**F-013, fixed.** It used to crash here.
+# (why, which reviewer, turns, seconds a turn, their record, refunds, left queued)
+REVIEWERS = [
+    ("says yes, and the world moves", "grants", 3, HOUR, "granted", 1, 0),
+    ("says no, and nothing moves", "denies", 3, HOUR, "denied", 0, 0),
+    ("walks away, and it waits", "silent", 3, HOUR, "waiting", 0, 1),
+    ("answers after the window, and is refused", "too late", 3, DAY, "refused", 0, 0),
+    # Two turns, a reviewer who takes three hours: the customer asks twice and
+    # both times there is genuinely nothing to tell them.
+    ("takes longer than the customer waits", "slow", 2, HOUR, "waiting", 0, 1),
+]
 
-    `issue_refund` as projected from the world takes the entity's declared key,
-    `id`. `request_refund` is harness-local, hard-codes `order_id`, and stores
-    its arguments verbatim — so resumption replayed `{order_id, amount}` into a
-    tool that declared neither, and `jsonschema.validate` raised through three
-    nested task groups. The grant was recorded, the elevated identity was minted,
-    and *then* it died: the one path where money moves.
 
-    The fix is `_bind` on the resume path, which `_direct` had already been doing
-    since F-005. The binding has to happen **here** rather than at request time,
-    because `issue_refund` only appears on the elevated surface and the customer
-    identity that raises the request cannot see it.
+@pytest.mark.parametrize(
+    ("why", "reviewer", "turns", "step_s", "outcome", "refunds", "queued"),
+    REVIEWERS,
+    ids=[r[0] for r in REVIEWERS],
+)
+@pytest.mark.discharges("AHC-0057", "AAC-0078", "P-REFUND", "ext:approval_queue", "op:issue_refund")
+async def test_the_four_reviewers(
+    why: str, reviewer: str, turns: int, step_s: int, outcome: str, refunds: int, queued: int
+) -> None:
+    """The four things a real reviewer does, and what each costs.
+
+    *Yes* moves the money — **F-013**, which used to crash here: the stored
+    arguments are the harness tool's and the executing tool is projected from
+    the world, so the two are bound at execution rather than replayed. *No* must
+    move nothing. *Walking away* is the common case in any operations queue and
+    leaves an approval nobody is alerted about. *Too late* is a third outcome,
+    distinct from yes and no: the reviewer says yes and is told the authority is
+    gone, because treating it as a grant would refund on a decision nobody made
+    about today's facts.
     """
-    approver = Approver.grants(store(), ap.decide)
-    world, record = await conversation(approver)
+    async with conversation(reviewer, turns=turns, step_s=step_s) as (world, record, approver):
+        left = len(await approver.store.pending())
 
-    assert [r.outcome for r in approver.reviewed if r.outcome != "waiting"] == ["granted"]
-    assert ("issue_refund", ORDER) in world.effects, world.effects
-    assert world.get("order", ORDER)["status"] == "refunded"
+    outcomes = [r.outcome for r in approver.reviewed]
+    assert outcome in outcomes, outcomes
+    if outcome == "refused":
+        assert "expired" in next(r.detail for r in approver.reviewed if r.outcome == "refused")
+    assert len([e for e in world.effects if e[0] == "issue_refund"]) == refunds, world.effects
+    assert left == queued
+    if refunds:
+        assert world.get("order", ORDER)["status"] == "refunded"
 
 
 @pytest.mark.discharges("AHC-0037")
 async def test_a_refund_the_world_cannot_take_fails_with_something_readable() -> None:
-    """The other half of the fix, and the reason it raises rather than guesses.
+    """The other half of F-013, and the reason it raises rather than guesses.
 
     Two spare arguments and one empty required slot is a coin toss, and a coin
     toss on the refund path is worse than a stop. What the customer gets is a
@@ -154,56 +191,12 @@ async def test_a_refund_the_world_cannot_take_fails_with_something_readable() ->
         _bind(Spec(), {"reference": "AB-1", "amount": "24000"})
 
 
-@pytest.mark.discharges("AHC-0057")
-async def test_a_reviewer_who_denies_produces_no_refund() -> None:
-    """The customer must be told something true — and the world must not move."""
-    approver = Approver.denies(store(), ap.decide)
-    world, record = await conversation(approver)
-
-    assert "denied" in [r.outcome for r in approver.reviewed]
-    assert world.effects == [], "a denial that still refunded would be the worst outcome"
-
-
-@pytest.mark.discharges("AHC-0057", "ext:approval_queue")
-async def test_a_reviewer_who_walks_away_leaves_it_pending_forever() -> None:
-    """The common case in any real operations queue, and the one never tested.
-
-    Nothing happens, which is correct — and the point is that *nothing happens
-    quietly*. The approval is still sitting there after the customer has given
-    up, and no part of the system says so.
-    """
-    approver = Approver.silent(store(), ap.decide)
-    world, record = await conversation(approver)
-
-    assert {r.outcome for r in approver.reviewed} == {"waiting"}
-    assert world.effects == []
-    assert await approver.store.pending(), "still queued, and nobody is alerted"
-
-
-@pytest.mark.discharges("AHC-0057", "AAC-0078")
-async def test_a_reviewer_who_answers_after_the_window_is_refused() -> None:
-    """The third outcome, distinct from yes and no.
-
-    The reviewer says *yes* — and is told they are too late. A system that
-    treated this as a grant would refund on a decision nobody made about today's
-    facts; one that treated it as a denial would tell the customer their reviewer
-    said no, which is untrue.
-    """
-    approver = Approver.grants(store(), ap.decide, delay_s=2 * DAY)
-    world, record = await conversation(approver, turns=3, step_s=DAY)
-
-    outcomes = [r.outcome for r in approver.reviewed]
-    assert "refused" in outcomes, outcomes
-    assert "expired" in next(r.detail for r in approver.reviewed if r.outcome == "refused")
-    assert world.effects == []
-
-
 @pytest.mark.discharges("AHC-0057", "AAC-0056")
 async def test_a_reviewer_cannot_approve_their_own_customer_s_request() -> None:
     """The confused deputy of the human path, driven by an actor rather than a
     direct call — a reviewer whose account *is* the customer's."""
-    approver = Approver.grants(store(), ap.decide, name="C-1042")
-    world, record = await conversation(approver)
+    async with conversation("grants", by="C-1042") as (world, record, approver):
+        pass
 
     refused = [r for r in approver.reviewed if r.outcome == "refused"]
     assert refused, [str(r) for r in approver.reviewed]
@@ -216,26 +209,19 @@ async def test_a_reviewer_cannot_approve_their_own_customer_s_request() -> None:
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.discharges("AHC-0057", "ext:approval_queue")
-async def test_a_slow_reviewer_is_still_waiting_when_the_customer_follows_up() -> None:
-    """An hour per turn, a reviewer who takes three. The customer asks twice and
-    both times there is genuinely nothing to tell them."""
-    approver = Approver.grants(store(), ap.decide, delay_s=3 * HOUR)
-    world, record = await conversation(approver, turns=2, step_s=HOUR)
-
-    assert {r.outcome for r in approver.reviewed} == {"waiting"}
-    assert world.effects == []
-
-
 @pytest.mark.tooling
 def test_the_reviewer_is_a_declared_actor() -> None:
     """It has a determinism class like any other actor, because a run is only as
     reproducible as its weakest participant."""
-    approver = Approver.grants(store(), ap.decide)
+    approver = Approver.grants(durable.Remembered(), _never_decides)
     assert approver.determinism.value == "scripted"
 
 
 @pytest.mark.tooling
 async def test_reviewing_an_empty_queue_is_silent() -> None:
-    approver = Approver.grants(store(), ap.decide)
+    approver = Approver.grants(durable.Remembered(), _never_decides)
     assert await approver.review(at=1) == ()
+
+
+async def _never_decides(*args: object, **kwargs: object) -> None:
+    raise AssertionError("nothing to decide")

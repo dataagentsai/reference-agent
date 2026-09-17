@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 from agenttwin import Live, load, project
+from evals import durable
 
-from support_agent import approvals as ap
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
 from support_agent import identity as ident
@@ -161,7 +161,7 @@ async def test_a_pending_approval_is_in_the_record_before_anybody_reads_it() -> 
     """The thing a transcript states least reliably, because the sentence that
     mentions it is the one most likely to have been compacted away."""
     world = Live.start(load(WORLD))
-    approvals = ap.InMemoryApprovalStore()
+    approvals = durable.Remembered()
     plan = ModelResponse(
         tool_calls=(ToolCall(id="c1", name="request_refund", arguments={"order_id": "AB-10003"}),),
         usage=Usage(input_tokens=5, output_tokens=2),

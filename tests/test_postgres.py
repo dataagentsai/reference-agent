@@ -1,7 +1,9 @@
 """Durability, against a real Postgres.
 
 Skipped when no database is reachable, so the suite stays runnable anywhere. The
-gate for B2 is the last test: an approval outlives the process that raised it.
+What is here is what a restart must not lose: the conversation, the ledger and
+the escalation queue. Approvals left this file with T-028 — they are Temporal
+workflows, and their restart is tested in `test_approvals.py`.
 """
 
 from __future__ import annotations
@@ -10,7 +12,6 @@ import os
 
 import pytest
 
-from support_agent import approvals as ap
 from support_agent import identity as ident
 from support_agent.contracts import (
     ConversationId,
@@ -43,7 +44,6 @@ async def pool():
     p = await _pool()
     async with p.connection() as conn:
         await conn.execute("TRUNCATE agent_state.checkpoints, agent_state.idempotency")
-        await conn.execute("TRUNCATE agent_state.approvals")
         await conn.execute("TRUNCATE agent_state.escalations")
     yield p
     await p.close()
@@ -166,132 +166,9 @@ async def test_the_first_outcome_for_a_key_is_the_outcome(pool) -> None:
     assert stored is not None and stored.structured["which"] == "first"
 
 
-# --------------------------------------------------------------------------- #
-# B2's gate: an approval outlives the process that raised it.
-# --------------------------------------------------------------------------- #
-
-
-@pytest.mark.discharges("AAC-0056", "AAC-0047", "AHC-0057", "ext:approval_queue")
-async def test_an_approval_survives_a_process_restart(pool) -> None:
-    """The whole reason P6 exists.
-
-    A human takes an hour to decide. The process that asked is long gone. The
-    grant must still execute under the *original* idempotency key, or the
-    restart becomes a second refund.
-    """
-    from support_agent.state.postgres import PostgresApprovalStore
-
-    approval = await ap.request(
-        PostgresApprovalStore(pool),
-        action=ap.REFUND_ACTION,
-        args={"order_id": "AB-1", "amount": "12400"},
-        reason="above threshold",
-        identity=customer(),
-        idempotency_key=key(),
-        now=T0,
-    )
-
-    # Everything above is discarded — a new pool and a new store, as close to a
-    # restart as a test can stage.
-    reborn = await _pool()
-    try:
-        store = PostgresApprovalStore(reborn)
-        recovered = await store.get(approval.id)
-        assert recovered is not None
-        assert not recovered.decided
-
-        granted = await ap.decide(store, approval.id, granted=True, by="ops-7", now=T0 + HOUR)
-        assert ap.is_executable(granted, now=T0 + HOUR)
-        assert ap.stored_key(granted) == key()
-
-        elevated = ap.granted_identity(granted, customer(), now=T0 + HOUR)
-        assert elevated.may(ident.SCOPE_REFUNDS_WRITE)
-    finally:
-        await reborn.close()
-
-
-@pytest.mark.discharges("AAC-0056")
-async def test_a_decision_is_terminal_across_processes(pool) -> None:
-    """The rule has to hold in the store, not only in the module that wrote it."""
-    from support_agent.state.postgres import PostgresApprovalStore
-
-    store = PostgresApprovalStore(pool)
-    approval = await ap.request(
-        store,
-        action=ap.REFUND_ACTION,
-        args={"amount": "12400"},
-        reason="above threshold",
-        identity=customer(),
-        idempotency_key=key(),
-        now=T0,
-    )
-    await ap.decide(store, approval.id, granted=True, by="ops-7", now=T0 + HOUR)
-
-    other = await _pool()
-    try:
-        with pytest.raises(ap.ApprovalError, match="already decided"):
-            await ap.decide(
-                PostgresApprovalStore(other), approval.id, granted=False, by="ops-9", now=T0 + HOUR
-            )
-    finally:
-        await other.close()
-
-
-@pytest.mark.discharges("P-APPROVAL-QUEUE")
-async def test_the_pending_queue_is_what_a_reviewer_sees(pool) -> None:
-    from support_agent.state.postgres import PostgresApprovalStore
-
-    store = PostgresApprovalStore(pool)
-    first = await ap.request(
-        store,
-        action=ap.REFUND_ACTION,
-        args={"amount": "12400"},
-        reason="r",
-        identity=customer(),
-        idempotency_key=key(1, 0),
-        now=T0,
-    )
-    await ap.request(
-        store,
-        action=ap.REFUND_ACTION,
-        args={"amount": "20000"},
-        reason="r",
-        identity=customer(),
-        idempotency_key=key(2, 0),
-        now=T0 + 1,
-    )
-
-    assert len(await store.pending()) == 2
-    await ap.decide(store, first.id, granted=True, by="ops-7", now=T0 + HOUR)
-    remaining = await store.pending()
-    assert len(remaining) == 1
-    assert remaining[0].id != first.id
-
-
-@pytest.mark.discharges("AAC-0056", "AHC-0057")
-async def test_the_action_and_key_cannot_change_after_the_request(pool) -> None:
-    """An approval granted for one thing must not be executable as another."""
-    from support_agent.state.postgres import PostgresApprovalStore
-
-    store = PostgresApprovalStore(pool)
-    approval = await ap.request(
-        store,
-        action=ap.REFUND_ACTION,
-        args={"amount": "12400"},
-        reason="r",
-        identity=customer(),
-        idempotency_key=key(),
-        now=T0,
-    )
-    tampered = approval.model_copy(
-        update={"action": "dispatch_replacement", "args": {"amount": "1"}}
-    )
-    await store.put(tampered)
-
-    stored = await store.get(approval.id)
-    assert stored is not None
-    assert stored.action == ap.REFUND_ACTION
-    assert stored.args == {"amount": "12400"}
+# B2's gate — an approval outlives the process that raised it — moved to
+# `test_approvals.py` with T-028. The approval is a Temporal workflow now, and
+# the restart it survives is the *worker's*, not this database's.
 
 
 # --------------------------------------------------------------------------- #
@@ -302,18 +179,9 @@ async def test_the_action_and_key_cannot_change_after_the_request(pool) -> None:
 @pytest.mark.discharges("AHC-0102")
 def test_every_postgres_store_declares_itself_durable() -> None:
     from support_agent.idempotency.postgres import PostgresLedger
-    from support_agent.state.postgres import (
-        PostgresApprovalStore,
-        PostgresCheckpointStore,
-        PostgresEscalationStore,
-    )
+    from support_agent.state.postgres import PostgresCheckpointStore, PostgresEscalationStore
 
-    for cls in (
-        PostgresCheckpointStore,
-        PostgresLedger,
-        PostgresApprovalStore,
-        PostgresEscalationStore,
-    ):
+    for cls in (PostgresCheckpointStore, PostgresLedger, PostgresEscalationStore):
         assert cls.durable is True
 
 

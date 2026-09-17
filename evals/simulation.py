@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 
 from agenttwin import Approver, Desk, Live, Subject, project
 
-from support_agent import approvals as ap
+from evals import durable
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
 from support_agent import identity as ident
@@ -120,7 +120,6 @@ async def subject_for(
     perturbation happens to the system the agent depends on, so the world owns
     it and this side neither interprets it nor knows it is there. Forwarded
     to the projection and never inspected."""
-    approvals = ap.InMemoryApprovalStore()
     escalations = esc.InMemoryEscalationStore()
     # A meter is made per unit of work, so the only way to know what a scenario
     # cost is to keep the ones this run made. Kept here rather than on the
@@ -147,7 +146,13 @@ async def subject_for(
     llm = ResilientLLM(llm)
 
     projected = project(live, scopes=SCOPES, wrap=wrap)  # type: ignore[arg-type]
-    async with connect(projected, ledger=InMemoryLedger()) as tools:
+    async with (
+        connect(projected, ledger=InMemoryLedger()) as tools,
+        # The approval workflow runs on Temporal's test server, on this
+        # scenario's clock, and acts on the same projected world (T-028).
+        durable.approvals_for(tools, clock=clock) as waits,
+    ):
+        approvals = waits.approvals
         agent = ep.build(
             llm=llm,
             tools=tools,
@@ -171,7 +176,8 @@ async def subject_for(
             return reply, held
 
         def reviewer(decision: str, by: str, delay_s: int = 0) -> Approver:
-            return DECISIONS[decision](approvals, ap.decide, name=by, delay_s=delay_s)
+            deciding = durable.decide(waits.desk)
+            return DECISIONS[decision](approvals, deciding, name=by, delay_s=delay_s)
 
         def colleague(resolution: str, by: str, delay_s: int = 0) -> Desk:
             return RESOLUTIONS[resolution](escalations, esc.resolve, name=by, delay_s=delay_s)

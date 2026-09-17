@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 from agenttwin import Live, load, project
+from evals import durable
 
-from support_agent import approvals as ap
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
 from support_agent import identity as ident
@@ -77,9 +77,10 @@ async def open_as(who: str, *, setup=(), approvals=(), escalations=(), down: boo
     live = Live.start(load(WORLD))
     for step in setup:
         step(live)
-    approval_store, escalation_store = ap.InMemoryApprovalStore(), esc.InMemoryEscalationStore()
+    approval_store = durable.Remembered()
+    escalation_store = esc.InMemoryEscalationStore()
     for a in approvals:
-        await approval_store.put(a)
+        approval_store.add(a)
     for e in escalations:
         await escalation_store.put(e)
 

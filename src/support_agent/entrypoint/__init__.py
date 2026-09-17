@@ -35,7 +35,7 @@ from support_agent import trigger as trg
 from support_agent.config import Budgets, RunConfig
 from support_agent.contracts import (
     Agentic,
-    ApprovalStore,
+    Approvals,
     CheckpointStore,
     Clock,
     Completed,
@@ -79,7 +79,7 @@ class Agent:
     llm: LLMClient
     tools: ToolClient
     store: CheckpointStore
-    approvals: ApprovalStore | None = None
+    approvals: Approvals | None = None
     escalations: EscalationStore | None = None
     """Absent means the agent cannot escalate at all, and it says so rather than
     pretending: with no store the request is refused and nothing is claimed.
@@ -301,7 +301,7 @@ class Agent:
         """Read at call time, like `desk`."""
         if self.approvals is None:
             return NoApprovals()
-        return ApprovalFlow(self.approvals, now=self._now)
+        return ApprovalFlow(self.approvals)
 
     @property
     def desk(self) -> Handoff:
@@ -362,7 +362,7 @@ def build(
     llm: LLMClient,
     tools: ToolClient,
     store: CheckpointStore,
-    approvals: ApprovalStore | None = None,
+    approvals: Approvals | None = None,
     escalations: EscalationStore | None = None,
     capacity: esc.Capacity | None = None,
     deliveries: trg.DeliveryLog | None = None,

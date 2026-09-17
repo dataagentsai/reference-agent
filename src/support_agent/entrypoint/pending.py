@@ -9,7 +9,7 @@ One responsibility, behind one protocol: what the turn needs from the approval
 workflow. Two questions, and the agent never branches on whether a store exists:
 
     offer   which harness-answered tools this turn may use to *request* approval
-    resume  a decision made since the last turn, carried out or reported
+    resume  what became of a decision made since the last turn
 
 The approval **returns; it never blocks**. A request checkpoints and hands back
 a typed `NeedsApproval`; the next turn resumes from here.
@@ -17,14 +17,14 @@ a typed `NeedsApproval`; the next turn resumes from here.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
 from support_agent import approvals as ap
 from support_agent import telemetry as tel
 from support_agent.contracts import (
-    ApprovalStore,
+    Approvals,
+    ApprovalState,
     Completed,
     Failed,
     IdempotencyKey,
@@ -37,6 +37,8 @@ from support_agent.contracts import (
 from support_agent.state import Conversation
 
 REFUND_FAILED = "The refund could not be completed."
+STILL_WAITING = "That is still with a colleague to authorise."
+CARRYING_OUT = "That has been authorised and is being processed now."
 
 
 class PendingWork(Protocol):
@@ -65,58 +67,54 @@ class NoApprovals:
 
 @dataclass(frozen=True)
 class ApprovalFlow:
-    store: ApprovalStore
-    now: Callable[[], int]
-    """The agent's clock — the only time this flow reads. An approval minted or
-    checked against the wall clock while everything else reads an injected one
-    gets a different expiry on every replay of the same run (F-021)."""
+    approvals: Approvals
 
     def offer(self, identity: Identity, run_id: RunId, tools: ToolClient) -> dict[str, LocalTool]:
         tool = ap.refund_tool(
-            self.store,
+            self.approvals,
             identity=identity,
             idempotency_key=IdempotencyKey(run_id=run_id, step=0, iteration=0),
-            tools=tools,
-            now=self.now(),
         )
         return {tool.spec.name: tool}
 
     async def resume(
         self, conversation: Conversation, identity: Identity, run_id: RunId, tools: ToolClient
     ) -> tuple[TurnResult, Conversation] | None:
-        """Pick up a decision made since the last turn.
+        """Say what became of an approval since the last turn.
 
-        `None` when there is nothing to resume. A still-pending approval
-        short-circuits: continuing would let the customer's next message start
-        work the outstanding decision may make pointless.
+        Only says: the workflow carried out a granted refund the moment it was
+        granted (T-028), so there is nothing here to execute and no clock to
+        judge it by. `None` when there is nothing to resume. A still-pending
+        approval short-circuits: continuing would let the customer's next
+        message start work the outstanding decision may make pointless.
         """
         assert conversation.pending_approval_id is not None
-        approval = await self.store.get(conversation.pending_approval_id)
+        approval = await self.approvals.get(conversation.pending_approval_id)
         if approval is None:
             return None
 
         with tel.span("agent.approval.resume", **{"agent.approval.id": approval.id}):
-            if not approval.decided:
-                return Completed(reply="That is still with a colleague to authorise."), conversation
+            state = approval.state
+            if state in (ApprovalState.ASSESSING, ApprovalState.WAITING):
+                return Completed(reply=STILL_WAITING), conversation
+            if state is ApprovalState.CARRYING_OUT:
+                return Completed(reply=CARRYING_OUT), conversation
 
             cleared = conversation.model_copy(update={"pending_approval_id": None})
-            if not approval.granted:
+            if state is ApprovalState.REFUSED:
                 refused = Completed(reply="A colleague reviewed this and could not authorise it.")
                 return refused, cleared.recording(Completed(reply=""))
-
-            try:
-                result = await ap.carry_out(approval, identity, tools, now=self.now())
-            except ap.ApprovalError as exc:
+            if state is ApprovalState.EXPIRED:
                 expired = Failed(
                     customer_message=(
                         "That authorisation is no longer valid — "
                         "please ask again and I will raise it afresh."
                     ),
-                    detail=str(exc),
+                    detail=f"approval {approval.id} expired before anyone decided",
                 )
                 return expired, cleared
-            if result.is_error:
-                return Failed(customer_message=REFUND_FAILED, detail=result.text), cleared
+            if state is ApprovalState.FAILED:
+                return Failed(customer_message=REFUND_FAILED, detail=approval.result or ""), cleared
             done = Completed(reply="That has been authorised and the refund is on its way.")
             return done, cleared
 

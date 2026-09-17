@@ -26,10 +26,10 @@ from pathlib import Path
 
 import pytest
 from agenttwin import Live, load, project
+from evals import durable
 from starlette.testclient import TestClient
 
 from order_system import authoriser
-from support_agent import approvals as ap
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
 from support_agent import identity as ident
@@ -229,7 +229,7 @@ async def test_the_far_end_serves_the_realms_customer_and_nobody_else(
     world = Live.start(load(WORLD))
     check = authoriser(
         issuer=ident.Issuer(url=REALM, audience="order-system", keys=issuer.keys),
-        approvals=ap.InMemoryApprovalStore(),
+        approvals=durable.Remembered(),
         required_scopes=SCOPES,
         clock=lambda: int(time.time()),
     )

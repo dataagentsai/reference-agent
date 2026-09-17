@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from agenttwin import ChannelError, Live, Slow, StaleRead, Timeline, load, perturbed, project
 from agenttwin.record import diff
+from evals import durable
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis.stateful import (
@@ -271,7 +272,7 @@ async def test_a_planted_instruction_to_refund_reaches_nobody() -> None:
 
     world = live()
     before = world.snapshot()
-    approvals = ap.InMemoryApprovalStore()
+    approvals = durable.Remembered()
     async with connect(project(world), ledger=InMemoryLedger()) as tools:
         agent = ep.build(
             llm=ScriptedClient(

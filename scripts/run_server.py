@@ -33,8 +33,11 @@ import uvicorn
 from agenttwin import Live, load, project
 from starlette.applications import Starlette
 from starlette.routing import Mount
+from temporalio.contrib.pydantic import pydantic_data_converter as _CONVERTER
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from collections.abc import AsyncIterator
+
 from evals import issuer as local_issuer  # noqa: E402
 
 from support_agent import approvals as ap
@@ -47,7 +50,7 @@ from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
 from support_agent.config import RunConfig, Settings, resolve
-from support_agent.contracts import LLMClient, ModelResponse
+from support_agent.contracts import Identity, LLMClient, ModelResponse, ToolClient
 from support_agent.idempotency import InMemoryLedger
 from support_agent.identity import REVIEWER_SCOPES
 from support_agent.identity.sessions import KeycloakLogin, KeycloakRefresh, Resume
@@ -188,12 +191,53 @@ async def _model(settings: Settings | None) -> tuple[LLMClient, RunConfig | None
     return ResilientLLM(client), config
 
 
+@contextlib.asynccontextmanager
+async def approvals_running(tools: ToolClient) -> AsyncIterator[ap.TemporalApprovals]:
+    """Temporal, and the worker that carries out what a colleague grants.
+
+    The address in `AGENT_TEMPORAL_ADDRESS` is the compose `durable` profile,
+    whose dev server keeps its state on a volume; with none, this starts an
+    ephemeral one in this process, which is why it says it is not durable —
+    the same honesty the in-memory stores beside it practise.
+
+    The worker runs here because this is a demo. A deployment runs it as its own
+    process under its own login, which is the point of moving refunds into it.
+    """
+    address = os.environ.get("AGENT_TEMPORAL_ADDRESS")
+    if address:
+        client, durable, shutdown = await ap.connect_temporal(address), True, None
+    else:
+        from temporalio.testing import WorkflowEnvironment
+
+        env = await WorkflowEnvironment.start_local(data_converter=_CONVERTER)
+        client, durable, shutdown = env.client, False, env.shutdown
+    print(f"  approvals      Temporal at {client.service_client.config.target_host}", end="")
+    print(" (durable)" if durable else " (in this process, lost on exit)")
+
+    work = ap.RefundWork(tools, acting_for=_acting_for)
+    try:
+        async with ap.worker(client, activities=[work.assess, work.carry_out]):
+            yield ap.TemporalApprovals(client, durable=durable)
+    finally:
+        if shutdown is not None:
+            await shutdown()
+
+
+async def _acting_for(customer_id: str) -> Identity:
+    """The approvals worker's login. Its own in a deployment; here, the
+    customer's scopes, which only a granted approval elevates."""
+    return Identity(customer_id=customer_id, scopes=ident.CUSTOMER_SCOPES)
+
+
 async def main(real: bool, port: int) -> None:
     settings = Settings() if real else None
     _telemetry(settings)
     world = Live.start(load(WORLD))
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with (
+        connect(project(world), ledger=InMemoryLedger()) as tools,
+        approvals_running(tools) as approvals,
+    ):
         # The real provider sits behind retries, a shared throttle and a breaker
         # (F-022: those existed, passed their tests, and nothing called them).
         # The scripted model cannot fail, so it has nothing to be resilient about.
@@ -214,7 +258,7 @@ async def main(real: bool, port: int) -> None:
             # implementation at all (T-003), so `--postgres` would trip the same
             # check. That is the check doing its job rather than a gap in it.
             store=InMemoryCheckpointStore(),
-            approvals=ap.InMemoryApprovalStore(),
+            approvals=approvals,
             escalations=escalations,
             # A measured desk, so the demo shows a real wait rather than a
             # promise. Twelve an hour is invented for the demo and would be

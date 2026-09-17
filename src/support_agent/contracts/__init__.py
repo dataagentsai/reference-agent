@@ -38,7 +38,8 @@ from support_agent.contracts.model import (
     Usage,
 )
 from support_agent.contracts.protocols import (
-    ApprovalStore,
+    ApprovalRecords,
+    Approvals,
     CheckpointStore,
     Clock,
     EscalationStore,
@@ -63,6 +64,7 @@ from support_agent.contracts.results import (
 from support_agent.contracts.tools import (
     Approval,
     ApprovalRequested,
+    ApprovalState,
     LocalTool,
     MissingIdempotencyKey,
     ToolRegistry,
@@ -85,7 +87,9 @@ __all__ = [
     "bind_arguments",
     "Agentic",
     "Approval",
-    "ApprovalStore",
+    "ApprovalRecords",
+    "Approvals",
+    "ApprovalState",
     "CheckpointStore",
     "Clock",
     "Completed",

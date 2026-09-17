@@ -1,6 +1,6 @@
 -- Two schemas, and the split is load-bearing.
 --
--- `agent_state` belongs to the agent: conversation, checkpoints, approvals, the
+-- `agent_state` belongs to the agent: conversation, checkpoints, escalations, the
 -- idempotency ledger. It is the **oracle** — what assertions read — and
 -- AgentTwin never projects it. An oracle that can be faked is not one.
 --
@@ -45,22 +45,10 @@ CREATE TABLE IF NOT EXISTS agent_state.idempotency (
 -- database refuses a second row for the same key, not because the application
 -- remembered to check first — two processes racing on a retry both lose.
 
-CREATE TABLE IF NOT EXISTS agent_state.approvals (
-    id              text PRIMARY KEY,
-    action          text        NOT NULL,
-    args            jsonb       NOT NULL DEFAULT '{}'::jsonb,
-    reason          text        NOT NULL,
-    customer_id     text        NOT NULL,
-    idempotency_key text        NOT NULL,
-    created_at      bigint      NOT NULL,
-    expires_at      bigint      NOT NULL,
-    decided         boolean     NOT NULL DEFAULT false,
-    granted         boolean     NOT NULL DEFAULT false,
-    decided_by      text
-);
-
-CREATE INDEX IF NOT EXISTS approvals_pending
-    ON agent_state.approvals (decided) WHERE NOT decided;
+-- Approvals lived here until T-028. They are Temporal workflows now: the wait,
+-- the decision and the record are the workflow's history, and nothing the agent
+-- holds can write them.
+DROP TABLE IF EXISTS agent_state.approvals;
 
 -- An escalation is a conversation changing hands, and this row is the only thing
 -- that makes that real. Without it the agent said "let me pass you to a

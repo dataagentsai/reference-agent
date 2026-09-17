@@ -206,7 +206,7 @@ CONTRACT: dict[str, SpanSpec] = {
     "agent.approval.resume": SpanSpec(required=frozenset({"agent.approval.id"})),
     # Granted by the policy and carried out in the same call — a refund that is
     # owed and within the limit (F-014). The decide span inside it names no person.
-    "agent.approval.automatic": SpanSpec(required=frozenset({"agent.approval.id"})),
+    "agent.approval.carry_out": SpanSpec(required=frozenset({"agent.approval.id"})),
     "agent.flow.fanout": SpanSpec(
         required=frozenset({"agent.flow.count"}), optional=frozenset({"agent.flow.peak"})
     ),

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -167,9 +168,34 @@ class ApprovalRequested(Exception):  # noqa: N818 — control flow, not a failur
         super().__init__(approval.id)
 
 
+class ApprovalState(StrEnum):
+    """Where an approval is in its workflow (T-028).
+
+    The workflow owns every move between these, so no caller can write one: a
+    person's decision reaches it as a request the workflow may refuse, and the
+    action is carried out by the workflow itself, not by the agent that asked.
+    """
+
+    ASSESSING = "assessing"
+    """Reading what the action would do, to decide whether a person is needed."""
+    WAITING = "waiting"
+    """With a person, until they decide or the approval expires."""
+    CARRYING_OUT = "carrying_out"
+    DONE = "done"
+    """Granted and carried out. `result` is what the far end said."""
+    FAILED = "failed"
+    """Could not be assessed, or was granted and the far end refused it."""
+    REFUSED = "refused"
+    """A person said no."""
+    EXPIRED = "expired"
+    """Nobody decided in time. A grant that arrives later is refused."""
+
+
 class Approval(BaseModel):
-    """A pending human decision. Lives in agent-owned state, never in the
-    simulated world — if the oracle can be faked, it is not an oracle."""
+    """A human decision about one action, and what became of it.
+
+    Lives in the approval workflow, never in the simulated world — if the
+    oracle can be faked, it is not an oracle."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -191,6 +217,9 @@ class Approval(BaseModel):
     decided: bool = False
     granted: bool = False
     decided_by: str | None = None
+    state: ApprovalState = ApprovalState.WAITING
+    result: str | None = None
+    """What carrying it out produced, or why it could not be assessed."""
 
 
 @dataclass(frozen=True)

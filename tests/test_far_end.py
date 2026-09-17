@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 from agenttwin import Live, load, project
+from evals import durable
 from evals import issuer as issuing
 
 from order_system import authoriser
@@ -95,8 +96,9 @@ async def test_the_far_end_believes_the_token_and_not_the_assertion(
 
 
 @pytest.fixture
-def ap_store() -> ap.InMemoryApprovalStore:
-    return ap.InMemoryApprovalStore()
+def ap_store() -> durable.Remembered:
+    """Approvals as records to check against: the far end only ever reads them."""
+    return durable.Remembered()
 
 
 def approval(**changes: object) -> Approval:
@@ -145,7 +147,7 @@ async def test_a_refund_lands_only_on_an_approval_the_far_end_checked(
     and a grant naming `apr_far`. What differs is the record the far end loads,
     and only that decides."""
     if stored is not None:
-        await ap_store.put(stored)
+        ap_store.add(stored)
     elevated = session("C-1042").model_copy(
         update={"scopes": ident.CUSTOMER_SCOPES | {ident.SCOPE_REFUNDS_WRITE}, "grant": "apr_far"}
     )

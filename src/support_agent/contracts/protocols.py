@@ -114,13 +114,34 @@ class IdempotencyLedger(Protocol):
 
 
 @runtime_checkable
-class ApprovalStore(Protocol):
-    """Where a pending decision waits — P6, because a human may take an hour and
-    a store that dies with the process is absent exactly when it was needed."""
-
-    async def put(self, approval: Approval) -> None: ...
+class ApprovalRecords(Protocol):
+    """What the far end reads to check a call names a live grant (T-002)."""
 
     async def get(self, approval_id: str) -> Approval | None: ...
+
+
+@runtime_checkable
+class Approvals(ApprovalRecords, Protocol):
+    """What the agent may do with approvals: ask, and read — P6 and P8.
+
+    **No write** (T-028). It was a store with `put`, so the agent that asked for
+    a refund could also record it granted, and granted small refunds itself. Now
+    a request starts a workflow that assesses the action, waits for a person or
+    an expiry, and carries the action out; a decision goes to that workflow
+    through a separate desk the agent is never handed.
+    """
+
+    async def request(
+        self,
+        *,
+        action: str,
+        args: dict[str, object],
+        identity: Identity,
+        idempotency_key: IdempotencyKey,
+    ) -> Approval:
+        """Start (or find) the approval for this call, and return it once it is
+        assessed: carried out already, waiting for a person, or failed."""
+        ...
 
     async def pending(self) -> tuple[Approval, ...]:
         """The queue a reviewer sees — P8."""
@@ -146,7 +167,7 @@ class SessionStore(Protocol):
 @runtime_checkable
 class EscalationStore(Protocol):
     """Where a conversation waits for a person — P6, same argument as
-    `ApprovalStore` and one step larger: a lost approval loses one action, a lost
+    `Approvals` and one step larger: a lost approval loses one action, a lost
     escalation loses a customer nobody knows is waiting.
 
     `open_for` rather than `get` on the read path the agent uses. The agent never

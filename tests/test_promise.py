@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 from agenttwin import Live, load, project
+from evals import durable
 
 from support_agent import approvals as ap
 from support_agent import entrypoint as ep
@@ -184,7 +185,7 @@ async def test_a_turn_waiting_on_an_approval_is_never_touched() -> None:
     being careful again.
     """
     world = Live.start(load(WORLD))
-    approvals = ap.InMemoryApprovalStore()
+    approvals = durable.Remembered()
     plan = ModelResponse(
         tool_calls=(ToolCall(id="c1", name="request_refund", arguments={"order_id": "AB-10002"}),),
         usage=Usage(input_tokens=5, output_tokens=3),
