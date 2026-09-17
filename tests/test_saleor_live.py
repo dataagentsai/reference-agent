@@ -118,8 +118,10 @@ def test_the_customer_owns_exactly_the_orders_the_world_gave_them(api: seeding.A
                email orders(first: 20) { edges { node { externalReference } } } } }""",
         r="C-1042",
     )["user"]
-    theirs = sorted(edge["node"]["externalReference"] for edge in found["orders"]["edges"])
-    assert theirs == sorted(ORDERS)
+    theirs = {edge["node"]["externalReference"] for edge in found["orders"]["edges"]}
+    # A superset, because a store accumulates: tests that spend an order seed
+    # one of their own rather than spending the world's.
+    assert theirs >= set(ORDERS)
     assert found["email"] == WORLD["records"]["customer"][0]["email"]
 
 

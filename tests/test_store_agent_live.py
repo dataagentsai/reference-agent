@@ -7,8 +7,9 @@
 the whole path a customer's message takes, with nothing simulated but the model.
 Skipped when no Saleor answers.
 
-These write to a store other tests read, so each one is written to be true on a
-second run — the store keeps what happened, which is the point of it.
+A store keeps what happened, which is the point of it — so the test that opens
+a return seeds an order of its own rather than spending one the reading tests
+assert on. Anything that only reads is safe on a second run.
 """
 
 from __future__ import annotations
@@ -102,6 +103,36 @@ async def test_the_store_refuses_a_cancellation_and_the_agent_says_so() -> None:
     assert after["status"] == "shipped", "a refusal that still changed the order is not one"
 
 
+def an_order_of_its_own(shop: Store) -> str:
+    """A delivered order this test may spend.
+
+    Through the same seed the world crosses by, because a test that built orders
+    its own way would be testing its own way of building them.
+    """
+    # Six digits, because the router recognises an order id by its shape and a
+    # customer who cannot name their order is a customer the gate refuses.
+    external = f"RT-{int(time.time()) % 1_000_000:06d}"
+    api = seeding.login(URL, shop.api.email, shop.api.password)
+    world = {
+        "records": {
+            "customer": [{"id": CUSTOMER, "email": "basant@example.com"}],
+            "order": [
+                {
+                    "id": external,
+                    "customer_id": CUSTOMER,
+                    "address": "5 Park Street, Kolkata 700016",
+                    "total": 4999,
+                    "status": "delivered",
+                    "days_since_delivery": 5,
+                    "final_sale": False,
+                }
+            ],
+        }
+    }
+    seeding.seed(api, world, now=int(time.time()))
+    return external
+
+
 async def returns_on(shop: Store, external: str) -> int:
     """How many fulfilments of this order have gone back, as the store holds it."""
     found = await shop.order(external)
@@ -119,22 +150,23 @@ async def test_a_second_return_request_is_refused_by_the_store_itself() -> None:
     store, whatever the agent believes.
     """
     shop = store()
-    llm = ScriptedClient([calls("open_return_request", id="AB-10003"), ModelResponse(text="Done.")])
+    order = an_order_of_its_own(shop)
+    llm = ScriptedClient([calls("open_return_request", id=order), ModelResponse(text="Done.")])
     async with talking(shop, llm) as tools:
         agent = ep.build(llm=llm, tools=tools, store=InMemoryCheckpointStore())
-        before = await returns_on(shop, "AB-10003")
-        await agent.handle("I want to return AB-10003", identity=who())
-        opened = await shop.get_order("AB-10003")
-        after_first = await returns_on(shop, "AB-10003")
+        assert await returns_on(shop, order) == 0
+        await agent.handle(f"I want to return {order}", identity=who())
+        opened = await shop.get_order(order)
+        after_first = await returns_on(shop, order)
 
         # A second run, a second conversation: nothing the agent remembers can
         # be what refuses this one.
         agent.llm = ScriptedClient(
-            [calls("open_return_request", id="AB-10003"), ModelResponse(text="Already open.")]
+            [calls("open_return_request", id=order), ModelResponse(text="Already open.")]
         )
-        await agent.handle("I want to return AB-10003", identity=who())
-        after_second = await returns_on(shop, "AB-10003")
+        await agent.handle(f"I want to return {order}", identity=who())
+        after_second = await returns_on(shop, order)
 
     assert opened["return_open"] is True, "the store holds that a return is open"
-    assert after_first == max(before, 1), "the first request opened one return"
-    assert after_second == after_first, "and the second opened none"
+    assert after_first == 1, "the first request opened one return"
+    assert after_second == 1, "and the second opened none"
