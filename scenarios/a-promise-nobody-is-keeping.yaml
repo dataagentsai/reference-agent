@@ -20,6 +20,9 @@ objective: >-
 concern: functional-suitability
 discharges: [AHC-0106, AAC-0112, AHC-0070, op:escalate, ext:escalation_desk]
 max_turns: 3
+# Live, the model asked for a refund approval instead of promising and doing
+# nothing, which is better, and the desk was never needed (T-050).
+forces: a model that promises to check and calls nothing
 
 actor:
   says:

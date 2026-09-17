@@ -125,15 +125,17 @@ async def main(runs: int) -> int:
                 f"{sum(o.passed for o in outcomes)}/{len(outcomes)} checks"
             )
 
+    forced = {p.stem: load_scenario(p).forces for p in SCENARIOS if load_scenario(p).forces}
     DEST.write_text(
-        render(results, failures, spend, crashed, runs, settings) + _unscripted(unscripted)
+        render(results, failures, spend, crashed, runs, settings, forced) + _unscripted(unscripted)
     )
     total = sum(spend.values())
     print(f"\n{DEST}  {len(SCENARIOS)} scenarios × {runs} runs, ${total:.4f}")
     return 0
 
 
-def render(results, failures, spend, crashed, runs, settings) -> str:
+def render(results, failures, spend, crashed, runs, settings, forced=None) -> str:
+    forced = forced or {}
     config = resolve(settings)
     lines = [
         "# Simulation report",
@@ -164,12 +166,32 @@ def render(results, failures, spend, crashed, runs, settings) -> str:
         passed = sum(sum(v) for v in checks.values())
         total = sum(len(v) for v in checks.values())
         rate = passed / total if total else 0.0
-        mark = "" if rate == 1.0 else " ⚠"
+        mark = "" if rate == 1.0 else " · guard" if scenario in forced else " ⚠"
         lines.append(
             f"| `{scenario}` | {len(checks)} | **{rate:.2f}**{mark} | ${spend[scenario]:.4f} |"
         )
 
-    return "\n".join(lines + _per_check(results) + _crashed(crashed) + _failures(failures))
+    return "\n".join(
+        lines + _guards(forced) + _per_check(results) + _crashed(crashed) + _failures(failures)
+    )
+
+
+def _guards(forced) -> list[str]:
+    """Scenarios that need the model to misbehave, so their guard fires.
+
+    Marked `· guard`, not `⚠`: below 1.00 there means the live model did not
+    commit the misbehaviour and the guard was not needed. The guard itself is
+    proven by the scripted suite, where the model is made to commit it (T-050).
+    """
+    if not forced:
+        return []
+    lines = ["", "## Guards a live model did not need", ""]
+    lines += [
+        "Each forces a misbehaviour so its guard fires. Scripted, it is proven; live,",
+        "a check waiting on the guard reads below 1.00 when the model behaved.",
+        "",
+    ]
+    return lines + [f"- `{name}` forces {why}" for name, why in sorted(forced.items())] + [""]
 
 
 def _unscripted(conversations) -> str:

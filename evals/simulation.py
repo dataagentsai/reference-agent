@@ -195,7 +195,13 @@ def voice_of(client: LLMClient) -> Callable[[str, str], Awaitable[str]]:
     it happens to be the same client here because there is only one provider
     configured, and a report that used the agent's own model to judge it would
     be worth nothing. It is used to *speak*, never to grade.
+
+    Behind `ResilientLLM`, like the agent's own calls. Unwrapped, a provider rate
+    limit on the *customer's* turn raised out of the run and the scenario was
+    reported as crashed, which says nothing about the agent: live, 17 Sep, on
+    Groq's free tier (T-050).
     """
+    client = ResilientLLM(client)
 
     async def speak(brief: str, heard: str) -> str:
         opening = "Open the conversation — say what you want, in your own words."
