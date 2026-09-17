@@ -72,17 +72,26 @@ class FaultyProvider:
     """
 
     inner: LLMClient
-    faults: dict[int, tuple[str, float | None]]
+    faults: dict[int, tuple[str, float | None, int]]
+    clock: Clock | None = None
     calls: int = 0
     fired: list[int] = field(default_factory=list)
+    outage: tuple[str, float | None, int] | None = None
+    """A fault that lasts (`lasts_s`): what it is, and the clock time it ends."""
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
         self.calls += 1
+        now = self.clock() if self.clock is not None else 0
         fault = self.faults.get(self.calls)
-        if fault is None:
+        if fault is not None:
+            self.fired.append(self.calls)
+            kind, retry_after, lasts_s = fault
+            if lasts_s:
+                self.outage = (kind, retry_after, now + lasts_s)
+        elif self.outage is not None and now < self.outage[2]:
+            kind, retry_after, _ = self.outage
+        else:
             return await self.inner.complete(request)
-        kind, retry_after = fault
-        self.fired.append(self.calls)
         if kind == "provider_throttled":
             raise ModelThrottled("the provider is rate limiting", retry_after=retry_after)
         if kind == "provider_unavailable":
@@ -101,7 +110,7 @@ async def subject_for(
     llm: LLMClient,
     clock: Clock | None = None,
     wrap: object = None,
-    provider_faults: tuple[tuple[int, str, float | None], ...] = (),
+    provider_faults: tuple[tuple[int, str, float | None, int], ...] = (),
     config: RunConfig | None = None,
     meters: list[Meter] | None = None,
 ) -> AsyncIterator[Subject]:
@@ -128,7 +137,8 @@ async def subject_for(
             return made
 
     if provider_faults:
-        llm = FaultyProvider(llm, {call: (kind, after) for call, kind, after in provider_faults})
+        faults = {call: (kind, after, lasts) for call, kind, after, lasts in provider_faults}
+        llm = FaultyProvider(llm, faults, clock=clock)
     # Wrapped exactly as the deployment wraps it (F-029). A simulation that
     # composes the agent differently from production is simulating a different
     # agent, and the difference is invisible until a scenario asks the provider

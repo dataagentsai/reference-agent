@@ -22,9 +22,13 @@ actor:
     - are you still there
     - hello?
 
+# An outage of two turns' clock, not two failed calls. Two calls was what this
+# said until 17 Sep, and it tested nothing: the agent's own retries absorbed
+# both in the first turn, and the scenario passed only because its scripted
+# model had no answers and failed every turn by itself. Live, with a model that
+# answered, no person was ever fetched (T-050).
 perturbations:
-  - {kind: provider_unavailable, at_call: 1}
-  - {kind: provider_unavailable, at_call: 2}
+  - {kind: provider_unavailable, at_call: 1, lasts_s: 1200}
 
 desk:
   resolves: handled
