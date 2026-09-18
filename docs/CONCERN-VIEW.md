@@ -14,18 +14,18 @@ behind the specs, because it is made of them.
 
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
-| **functional-suitability** | 15 | 8 | 14 | 3 |
+| **functional-suitability** | 15 | 8 | 15 | 3 |
 | **safety** | 16 | 3 | 4 | 3 |
 | **security** | 5 | 14 | 8 | 3 |
-| **reliability** | 6 | 12 | 6 | 4 |
+| **reliability** | 6 | 13 | 7 | 4 |
 | **cost** | 4 | 9 | 6 | 3 |
-| **maintainability** | 6 | 19 | 9 | 0 |
+| **maintainability** | 6 | 21 | 10 | 0 |
 | **performance-efficiency** | 1 | 6 | 0 | 0 |
 | **compatibility** | 3 | 0 | 0 | 0 |
 | **interaction-capability** | 1 | 0 | 0 | 1 |
 | **flexibility** | 0 | 1 | 0 | 0 |
 
-## functional-suitability — 40
+## functional-suitability — 41
 
 **AOAS**
 
@@ -72,6 +72,7 @@ behind the specs, because it is made of them.
 - `AAC-0110` A claimed action is supported by that action's result
 - `AAC-0112` A completed outcome contains the answer
 - `AAC-0113` Action on a stale read
+- `AAC-0115` Later outcomes are joined to the run that produced them
 
 **scenario**
 
@@ -166,7 +167,7 @@ behind the specs, because it is made of them.
 - `planted-instructions` a planted instruction produces no effect, whatever it says
 
 
-## reliability — 28
+## reliability — 30
 
 **AOAS**
 
@@ -191,6 +192,7 @@ behind the specs, because it is made of them.
 - `AHC-0102` Persisted state is written whole, and every substrate declares whether it survives the process *(recoverability)*
 - `AHC-0103` Reduction never separates a call from its result *(faultlessness)*
 - `AHC-0104` What may run concurrently is declared by class, not decided by convenience *(faultlessness)*
+- `AHC-0113` A synthetic run exercises the serving path, as an identity that touches no real data *(availability)*
 
 **AAC**
 
@@ -200,6 +202,7 @@ behind the specs, because it is made of them.
 - `AAC-0047` Retried steps are idempotent
 - `AAC-0055` Hard termination under every condition
 - `AAC-0076` Triggers fire once and only once
+- `AAC-0116` A synthetic run exercises the deployed system on a schedule
 
 **scenario**
 
@@ -246,7 +249,7 @@ behind the specs, because it is made of them.
 - `twelve-steps-and-then-a-person` the loop spends its twelve steps and hands over
 
 
-## maintainability — 34
+## maintainability — 37
 
 **AOAS**
 
@@ -278,6 +281,8 @@ behind the specs, because it is made of them.
 - `AHC-0090` Segment labels are attached at the boundary, not derived later *(analysability)*
 - `AHC-0105` A recorded interaction replays only against the request that produced it, and a miss fails the run *(testability)*
 - `AHC-0110` Every failure declares what kind of failure it is, from one vocabulary *(analysability)*
+- `AHC-0111` The numbers the system is judged on are emitted as metrics, apart from traces *(analysability)*
+- `AHC-0112` An outcome that arrives later can be attached to the run it judges *(analysability)*
 
 **AAC**
 
@@ -290,6 +295,7 @@ behind the specs, because it is made of them.
 - `AAC-0060` The full trajectory is reconstructable from the trace
 - `AAC-0100` The serving route is recorded, with its reason and its cost
 - `AAC-0101` Routing changes are gated like model changes
+- `AAC-0114` Behaviour rates are watched in production against a baseline
 
 
 ## performance-efficiency — 7

@@ -237,7 +237,7 @@ def namespace_keyframes(css: str, js: str, prefix: str) -> tuple[str, str]:
 _DROP = re.compile(r"<!doctype[^>]*>|</?html[^>]*>|</?head[^>]*>|</?body[^>]*>|<meta[^>]*>", re.I)
 
 # What a reader can jump to: a prose section, or one scenario's collapsed run.
-_LANDMARK = re.compile(r'<(section|details)\b[^>]*\bid="([^"]+)"[^>]*>', re.I)
+_LANDMARK = re.compile(r'<(section|details|h2)\b[^>]*\bid="([^"]+)"[^>]*>', re.I)
 _HEADING = re.compile(r"<h2[^>]*>(.*?)</h2>|<summary[^>]*>(.*?)</summary>", re.S | re.I)
 
 
@@ -328,13 +328,15 @@ class Part:
         The four parts name their landmarks differently — a section whose
         heading is wrapped in a numbering div, a section whose h2 is a direct
         child, and one collapsed `details` per scenario. Anchor on whatever
-        carries the id, then take the first heading inside it.
+        carries the id, then take the first heading inside it — or, for a part
+        written as flat headings with no sections, the heading itself.
         """
         out = []
         marks = list(_LANDMARK.finditer(self.body))
         for k, m in enumerate(marks):
             end = marks[k + 1].start() if k + 1 < len(marks) else len(self.body)
-            head = _HEADING.search(self.body, m.end(), end)
+            start = m.start() if m.group(1).lower() == "h2" else m.end()
+            head = _HEADING.search(self.body, start, end)
             if not head:
                 continue
             raw = head.group(1) or head.group(2) or ""

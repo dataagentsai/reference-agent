@@ -1,6 +1,6 @@
-"""The seven parts survive being put in one document.
+"""The nine parts survive being put in one document.
 
-Merging seven separately-designed pages is not concatenation: each brought its
+Merging nine separately-designed pages is not concatenation: each brought its
 own palette, its own `:root`, its own element ids and its own top-level script.
 Every test here stands for a way the merge can look finished and be broken —
 the page renders, nothing throws, and something is silently wrong.
@@ -24,7 +24,7 @@ from scripts.single_page import build, scope_css
 pytestmark = pytest.mark.tooling
 
 # In reading order, which is the order build() assembles them in.
-PARTS = ("agent", "review", "flow", "escalation", "context", "runs", "stacks")
+PARTS = ("now", "tutorial", "agent", "review", "flow", "escalation", "context", "runs", "stacks")
 FAST = [p for p in PARTS if p != "runs"]
 
 

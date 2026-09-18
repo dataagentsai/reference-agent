@@ -188,7 +188,7 @@
   </div>
 </header>
 
-<h2>What changed, in one table</h2>
+<h2 id="now-what-changed-in-one-table">What changed, in one table</h2>
 <p class="measure">Every row replaced something the agent used to do for itself. That is the goal's rule — adopt open source, build only the delta — applied one concern at a time.</p>
 <div class="scroll"><table>
   <tr><th>Concern</th><th>Before (13 Sep)</th><th>Now</th><th>Item</th></tr>
@@ -203,7 +203,7 @@
   <tr><td>A note planted in an order</td><td>Could make the agent cancel the order (F-041, critical)</td><td>An action runs only on an order the customer asked for it on; otherwise the agent asks first</td><td class="item">T-050</td></tr>
 </table></div>
 
-<h2>The flow of a message</h2>
+<h2 id="now-the-flow-of-a-message">The flow of a message</h2>
 <p class="measure">Left to right is one customer message. The coloured boxes are the products; the agent's own code is the teal column in the middle. Below the main line, the two waits that can outlive the conversation, and what watches all of it.</p>
 
 <div class="diagram" role="img" aria-label="A customer message goes from the portal or Chatwoot, through Keycloak, into the agent's router and loop, out to LiteLLM for the model and to the store's MCP server for tools, which checks the call and acts on Saleor. Approvals and escalations are Temporal workflows. Every turn is traced to Langfuse; conversations are in Postgres.">
@@ -306,7 +306,7 @@
   <span><i style="background: var(--watch)"></i>observability</span>
 </div>
 
-<h2>Three messages, step by step</h2>
+<h2 id="now-three-messages-step-by-step">Three messages, step by step</h2>
 <div class="flows">
   <div class="flow">
     <h3>A question it answers alone</h3>
@@ -604,7 +604,126 @@
   <tr><td class="mono">agenttwin/projection.py</td><td>server, in tests</td><td>the same tool surface built from a world file, for scenarios</td></tr>
 </table></div>
 
-<h2>The stack</h2>
+
+<h2 id="now-watching">Knowing first: watching the agent in production</h2>
+<p class="measure">The question: if the agent stops doing its job in production, does the person running it find out before a customer does? Today, no. Every trace is in Langfuse and a complaint can be investigated in a minute, but nothing <i>tells</i> anyone. This section is what is there, what is missing, and the three items that close it.</p>
+
+<h3>Three kinds of eval, and what each needs</h3>
+<div class="scroll"><table>
+  <tr><th>Eval</th><th>When it runs</th><th>What it needs</th><th>Here</th></tr>
+  <tr><td><b>Offline</b></td><td>before a release, on fixed cases (AAC stages S1–S3)</td><td>a world that answers the same way every time, and recorded model answers</td><td><span class="pill done">have</span> AgentTwin scenarios, golden files, cassettes, <code>baseline.json</code>, shadow mode against Saleor</td></tr>
+  <tr><td><b>Inline</b></td><td>inside the request, before the reply goes out (S4)</td><td>checks fast and certain enough to block on</td><td><span class="pill part">half</span> policy, schemas, the store's own refusals, the unbacked-promise check. The inline grader (AHC-0028) is not built — G0.11</td></tr>
+  <tr><td><b>Online</b></td><td>after the fact, on production (S5), and on a schedule (S6)</td><td>what was said, what the tools returned, what happened afterwards, somewhere to write scores, and rates somebody alerts on</td><td><span class="pill open">missing</span> the rest of this section</td></tr>
+</table></div>
+
+<h3>Is what we send to OpenTelemetry enough?</h3>
+<div class="two">
+  <div class="card"><div class="who">What is sent</div>
+  <p>35 span types, each held to a contract (<code>telemetry/contract.py</code>): the route and why, each tool with its side effect and idempotency key, the escalation rule and outcome, approvals, tokens, model, cost per call and per run, why a run ended, context size, unbacked promises, breaker and retries, and <code>user.id</code> / <code>session.id</code> on the root so Langfuse groups by conversation.</p>
+  <p>And seven counters with bounded labels (<code>telemetry/counters.py</code>): turns, escalations, refusals, approvals, unbacked promises, spend, model calls.</p></div>
+  <div class="card"><div class="who">What is missing</div>
+  <ol style="margin:0;padding-left:18px">
+    <li><b>The counters go nowhere.</b> No <code>MeterProvider</code> is configured, so all seven record into a no-op.</li>
+    <li>The approvals counter counts only <code>requested</code> since the move to Temporal.</li>
+    <li>No latency histogram: turn, model call, time to first token, each tool.</li>
+    <li>Prompts and replies are captured only when switched on, so a judge has nothing to read.</li>
+    <li>Nothing writes a score back to Langfuse.</li>
+    <li>Nothing joins what happened later to the run: the customer came back, a refund was reversed.</li>
+    <li>The trace stops at the MCP hop (T-020).</li>
+  </ol></div>
+</div>
+<p class="caption">Enough to <b>investigate</b> one run. Not enough to <b>notice</b> that many runs have gone wrong.</p>
+
+<h3>What an operator asks, and how easily it is answered today</h3>
+<div class="scroll"><table>
+  <tr><th>Question</th><th>Where the answer is</th><th>Today</th></tr>
+  <tr><td>A customer complained. What happened?</td><td>Langfuse, by <code>user.id</code> or <code>session.id</code></td><td><span class="pill done">easy</span></td></tr>
+  <tr><td>What does a conversation cost?</td><td>Langfuse, cost per trace (T-052)</td><td><span class="pill done">easy</span></td></tr>
+  <tr><td>What does a <i>resolved</i> conversation cost?</td><td>needs outcomes joined to runs</td><td><span class="pill open">no</span></td></tr>
+  <tr><td>Is it up? What is the error rate?</td><td><code>http.status_code</code> on the root span</td><td><span class="pill part">by hand</span></td></tr>
+  <tr><td>How slow is it, p95, per turn and per tool?</td><td>span durations, one trace at a time</td><td><span class="pill part">by hand</span></td></tr>
+  <tr><td>Is it escalating or refusing more than last week? Which rule?</td><td>the counters — not exported</td><td><span class="pill open">no</span></td></tr>
+  <tr><td>Is the model returning junk, or the provider failing?</td><td>the model-call counter — not exported</td><td><span class="pill open">no</span></td></tr>
+  <tr><td>Are approvals expiring with nobody deciding?</td><td>open workflows in Temporal's UI</td><td><span class="pill part">by hand</span></td></tr>
+  <tr><td>Is spend this hour on track against budget?</td><td>the spend histogram — not exported</td><td><span class="pill open">no</span></td></tr>
+  <tr><td>Did the last release change its behaviour?</td><td><code>agent.config.fingerprint</code> on the turn span</td><td><span class="pill part">by hand</span></td></tr>
+  <tr><td>Are answers getting worse?</td><td>nothing</td><td><span class="pill open">no</span></td></tr>
+</table></div>
+
+<h3>Why Prometheus and Grafana beside OpenTelemetry and Langfuse</h3>
+<p class="measure">OpenTelemetry is a format and a way to ship data, not a place to keep it. A <b>trace</b> is everything about one request — large, often sampled, slow to count across thousands. A <b>metric</b> is a number already counted — tiny, kept for months, and checked against alert rules every few seconds. Langfuse is built to read and score traces; Prometheus is built to hold numbers and alert on them; Grafana puts every source on one screen, including Temporal, Postgres and Keycloak, which already publish Prometheus metrics. An <b>exemplar</b> joins the two: a spike on a chart links to one trace that was in it.</p>
+<div class="diagram" role="img" aria-label="The agent's OpenTelemetry SDK sends to an OpenTelemetry Collector. Traces go on to Langfuse, where runs are investigated and scored. Metrics go to Prometheus, which Grafana charts and Alertmanager turns into a page or a Slack message. Scores from Langfuse and outcomes from the channel come back as metrics too.">
+<svg viewBox="0 0 1000 250" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Sans, sans-serif">
+  <defs><marker id="now-w-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill: var(--ink-muted)"/></marker></defs>
+  <rect x="14" y="92" width="160" height="62" rx="8" style="fill: var(--wash-agent); stroke: var(--agent)"/>
+  <text x="94" y="119" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--agent)">Agent</text>
+  <text x="94" y="138" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">OTel SDK: spans + metrics</text>
+  <rect x="230" y="92" width="170" height="62" rx="8" style="fill: var(--surface-2); stroke: var(--rule-strong)"/>
+  <text x="315" y="119" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--ink)">OTel Collector</text>
+  <text x="315" y="138" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">receives, samples, routes</text>
+  <rect x="470" y="22" width="220" height="70" rx="8" style="fill: var(--surface-2); stroke: var(--rule-strong)"/>
+  <text x="580" y="48" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--ink)">Langfuse · traces</text>
+  <text x="580" y="67" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">investigate one run · score samples</text>
+  <rect x="470" y="156" width="220" height="70" rx="8" style="fill: var(--surface-2); stroke: var(--rule-strong)"/>
+  <text x="580" y="182" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--ink)">Prometheus · metrics</text>
+  <text x="580" y="201" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">rates · alert rules every 30 s</text>
+  <rect x="770" y="126" width="214" height="46" rx="8" style="fill: var(--surface-2); stroke: var(--rule-strong)"/>
+  <text x="877" y="154" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--ink)">Grafana · one screen</text>
+  <rect x="770" y="186" width="214" height="46" rx="8" style="fill: var(--wash-store); stroke: var(--store)"/>
+  <text x="877" y="214" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--store)">Alertmanager → page / Slack</text>
+  <g style="stroke: var(--ink-muted); fill: none" stroke-width="1.4" marker-end="url(#now-w-arrow)">
+    <path d="M174 123 H226"/>
+    <path d="M400 110 C 430 110, 430 57, 466 57"/>
+    <path d="M400 136 C 430 136, 430 191, 466 191"/>
+    <path d="M690 180 C 730 180, 730 149, 766 149"/>
+    <path d="M690 200 C 730 200, 730 209, 766 209"/>
+    <path d="M580 94 V 152" stroke-dasharray="4 4"/>
+  </g>
+  <text x="590" y="128" font-size="11" style="fill: var(--ink-muted)">scores, as metrics</text>
+  <text x="877" y="112" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">exemplar: chart → trace</text>
+</svg>
+</div>
+<p class="caption">None of the right-hand side is in <code>compose.yaml</code> yet. T-055 adds the Collector, Prometheus, Grafana and Alertmanager.</p>
+
+<h3>Catching it automatically: six levels</h3>
+<p class="measure">An agent that has stopped doing its job usually still answers every request with a 200. So the levels that matter most are the ones above “is it up”.</p>
+<div class="scroll"><table>
+  <tr><th>Level</th><th>What it catches</th><th>How</th><th>Tells someone by</th></tr>
+  <tr><td><b>L0 · Up</b></td><td>a dependency down: Temporal, Keycloak, Saleor, LiteLLM, the provider</td><td>health checks, the breaker's state</td><td>page</td></tr>
+  <tr><td><b>L1 · Speed and errors</b></td><td>slow or failing turns, model calls, tools</td><td>latency and error metrics against an SLO, alert on burn rate</td><td>page</td></tr>
+  <tr><td><b>L2 · Behaviour rates</b> ★</td><td>working and wrong: escalations from 8% to 30% after a release, one rule refusing everything, the step limit hit, junk from the model, approvals expiring, p95 cost doubling</td><td>the seven counters, exported, against last week's baseline — <b>AAC-0114</b></td><td>page on a sharp shift, Slack on a drift</td></tr>
+  <tr><td><b>L3 · Canary</b> ★</td><td>broken while nobody is using it: a rotated key, an expired secret, a store change</td><td>eight scenarios every ten minutes through the <i>deployed</i> edge, as a test customer in a namespace only it owns — <b>AAC-0116</b></td><td>page</td></tr>
+  <tr><td><b>L4 · Online quality</b></td><td>worse answers: a reply that contradicts its tool's result, the wrong policy, tone</td><td>score a sample: certain checks first, a validated judge second, and later outcomes — came back within a day, asked for a person, refund reversed — <b>AAC-0014, AAC-0115</b></td><td>a trend to Slack, <b>never a page</b>: a judge is noisy</td></tr>
+  <tr><td><b>L5 · Release drift</b></td><td>a release behaves differently</td><td>L2 and L4 by config fingerprint, rolled out behind a flag (T-047)</td><td>stop the rollout</td></tr>
+</table></div>
+<p class="caption">★ First: cheap, certain, and between them they catch most “the agent stopped doing its job” before a customer does. L4 then says whether it is doing it <i>well</i>, slowly.</p>
+
+<h3>Cassettes, VCR, and the rest of the reliability kit</h3>
+<div class="scroll"><table>
+  <tr><th>Tool</th><th>What it is</th><th>Here</th></tr>
+  <tr><td><b>Cassette</b></td><td>a recording of a real exchange, played back later so a test gets the same answer every time, costs nothing and needs no network</td><td><code>support_agent/cassette</code>: records at the <code>LLMClient</code> boundary rather than raw HTTP, replays in order, and a miss fails the test instead of calling the model (AHC-0105). T-049: the replay script is broken</td></tr>
+  <tr><td><b>VCR.py</b></td><td>the same idea for HTTP, named after Ruby's VCR; <code>pytest-recording</code> wraps it</td><td>T-027: adopt it behind the same boundary</td></tr>
+  <tr><td><b>Fake model</b></td><td>a script of model answers</td><td><code>ScriptedClient</code></td></tr>
+  <tr><td><b>Simulation</b></td><td>a world with scenarios, faults and a clock you control</td><td>AgentTwin; shadow mode runs the same scenarios against real Saleor</td></tr>
+  <tr><td><b>pass^k</b></td><td>the chance a scenario passes on every one of k runs — the reliability number (τ-bench)</td><td>T-007</td></tr>
+  <tr><td><b>Contracts</b></td><td>checks that telemetry, tools and failures keep their shape</td><td>the span contract, required <code>outputSchema</code>, one failure vocabulary</td></tr>
+  <tr><td><b>Elsewhere</b></td><td colspan="2">promptfoo (T-046), DeepEval and Inspect (T-040), Ragas, Braintrust, LangSmith, Arize Phoenix for evals; NeMo Guardrails, Guardrails AI, Llama Guard for guardrails; Toxiproxy for faults; k6 and Locust for load; LiteLLM budgets, fallbacks and rate limits at the gateway</td></tr>
+</table></div>
+
+<h3>Did the specs say any of this?</h3>
+<p class="measure">Partly. AAC already had the right stages — S5 online eval, S6 scheduled regression — and AAC-0014 (score sampled traffic), AAC-0016 (re-run frozen cases), AAC-0007 (latency) and AAC-0008 (cost per task). What nothing required was the part this section is about: noticing that the system has stopped working. So, spec first, these went in on 19 September:</p>
+<div class="scroll"><table>
+  <tr><th>Statement</th><th>Says</th><th>Built by</th></tr>
+  <tr><td class="mono">AAC-0114</td><td>behaviour rates are watched in production against a baseline, and a shift alerts</td><td>T-055</td></tr>
+  <tr><td class="mono">AAC-0115</td><td>outcomes that arrive later are joined to the run that produced them</td><td>T-057</td></tr>
+  <tr><td class="mono">AAC-0116</td><td>a synthetic run exercises the <i>deployed</i> system on a schedule</td><td>T-056</td></tr>
+  <tr><td class="mono">AHC-0111</td><td>the numbers the system is judged on are metrics with bounded labels, exported apart from traces; no exporter in a deployment is an error</td><td>T-055</td></tr>
+  <tr><td class="mono">AHC-0112</td><td>one path by which a later outcome is recorded against its run</td><td>T-057</td></tr>
+  <tr><td class="mono">AHC-0113</td><td>the eval entrypoint can drive the serving path as an identity that touches no real data</td><td>T-056</td></tr>
+</table></div>
+<p class="caption">Each is an accepted gap in <code>harness-profile.yaml</code> until its item lands. One question is left open: AAC-0084 (validate a judge against human labels) applies only to A10, and an A6 agent scored by a judge online needs it too.</p>
+
+<h2 id="now-the-stack">The stack</h2>
 <p class="measure">One compose file, with profiles, because the laptop has 3.8 GB for Docker and cannot run everything at once. Start the profiles a task needs.</p>
 <div class="scroll"><table>
   <tr><th>Port (AHC)</th><th>Product</th><th>Profile</th><th>Where</th><th>Status</th></tr>
@@ -621,7 +740,7 @@
   <tr><td>Release flags</td><td>OpenFeature</td><td>—</td><td>—</td><td><span class="pill open">T-047</span></td></tr>
 </table></div>
 
-<h2>How it is tested now</h2>
+<h2 id="now-how-it-is-tested-now">How it is tested now</h2>
 <div class="scroll"><table>
   <tr><th>Layer</th><th>What runs</th><th>What it proves</th></tr>
   <tr><td>Scenarios, simulated shop</td><td>38 scenario files through AgentTwin, scripted model</td><td>The agent does what the spec says, deterministically</td></tr>
@@ -632,7 +751,7 @@
   <tr><td>Traces</td><td>A turn over HTTP, found in Langfuse by its conversation</td><td>What happened can be seen, and what it cost</td></tr>
 </table></div>
 
-<h2>Where this sits in the goal</h2>
+<h2 id="now-where-this-sits-in-the-goal">Where this sits in the goal</h2>
 <p class="measure"><b>Goal:</b> every spec and every binding production grade, proven by agents of different shapes. Four tiers; this agent is Tier 1.</p>
 <div class="scroll"><table>
   <tr><th>Tier</th><th>Exit</th><th>State</th></tr>
@@ -642,7 +761,7 @@
   <tr><td><b>4</b> · Specs harden</td><td>each spec a versioned release</td><td><span class="pill part">in the background</span> AOAS, AHC, AgentTwin already changed by Tier 1</td></tr>
 </table></div>
 
-<h2>Findings from the real store and the real person</h2>
+<h2 id="now-findings-from-the-real-store-and-the-real-person">Findings from the real store and the real person</h2>
 <div class="scroll"><table>
   <tr><th></th><th>Found</th><th>Fixed by</th></tr>
   <tr><td class="item">F-042</td><td>Saleor's token expired after five minutes and the agent handed a cancellation to a colleague</td><td>signing in again on expiry</td></tr>
@@ -652,7 +771,7 @@
   <tr><td class="item">—</td><td>“What are my options for AB-10004?” got only its status</td><td>open — a question the router answers too literally</td></tr>
 </table></div>
 
-<h2>Run it</h2>
+<h2 id="now-run-it">Run it</h2>
 <pre class="run">docker compose --profile store --profile obs up -d     # Saleor and Langfuse
 uv run python deploy/saleor/seed.py                   # the clothing world, in Saleor
 uv run python deploy/langfuse/models.py               # prices, so traces show cost

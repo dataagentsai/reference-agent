@@ -2,8 +2,8 @@
   "source": "github.com/dataagentsai/ai-assurance-catalog",
   "archetype": "A6",
   "note": "Identifiers and metadata only. The normative `statement` of each obligation is deliberately NOT copied \u2014 cite, don't restate.",
-  "catalog_version": "0.15.0",
-  "generated": "2026-09-13",
+  "catalog_version": "0.16.0",
+  "generated": "2026-09-18",
   "obligations": [
     {
       "id": "AAC-0001",
@@ -747,6 +747,47 @@
       "stages": [
         "S2",
         "S3"
+      ],
+      "mechanisms": [
+        "M1",
+        "M5"
+      ]
+    },
+    {
+      "id": "AAC-0114",
+      "title": "Behaviour rates are watched in production against a baseline",
+      "dimension": "observability",
+      "level": "SHOULD",
+      "gate": false,
+      "stages": [
+        "S5"
+      ],
+      "mechanisms": [
+        "M2"
+      ]
+    },
+    {
+      "id": "AAC-0115",
+      "title": "Later outcomes are joined to the run that produced them",
+      "dimension": "correctness",
+      "level": "SHOULD",
+      "gate": false,
+      "stages": [
+        "S5"
+      ],
+      "mechanisms": [
+        "M2",
+        "M1"
+      ]
+    },
+    {
+      "id": "AAC-0116",
+      "title": "A synthetic run exercises the deployed system on a schedule",
+      "dimension": "reliability",
+      "level": "SHOULD",
+      "gate": false,
+      "stages": [
+        "S6"
       ],
       "mechanisms": [
         "M1",
