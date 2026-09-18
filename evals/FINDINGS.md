@@ -1738,3 +1738,17 @@ with the customer taken from the verified session.
 **Also found** that day: the seed chose an Indian state by city, and the first
 city missing from its table (Pune) was filed under Karnataka and refused. States
 now come from the PIN code's first two digits, which is how India assigns them.
+
+## F-045 · "What are my options?" got a status, not options
+
+**Found** 2026-09-18, while checking traces against the real store. Asked *can
+you explain what options I have for AB-10004? it arrived a while ago*, the agent
+answered only *Order AB-10004 is currently delivered.* The router matched an
+order id and a status-shaped question and took the direct route, with no model
+call — correct, and no use to a customer who wanted to know whether they can
+still return it (they cannot: it is outside the window, and the agent should say
+so and say what is left).
+
+**Open.** Routed to the router's rules: "options", "what can I do", "can I
+still" are asks for eligibility, not status. Belongs with the person's session
+(T-017), where more of this kind will surface.

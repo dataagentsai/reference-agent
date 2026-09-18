@@ -1,0 +1,400 @@
+<title>The Agent After Tier 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  :root {
+    --ground: #F4F6F8;
+    --surface: #FFFFFF;
+    --surface-2: #E9EDF2;
+    --ink: #141C25;
+    --ink-muted: #56646F;
+    --rule: #D7DFE7;
+    --rule-strong: #B4C0CB;
+    --edge: #4A53B4;
+    --agent: #0D6A64;
+    --store: #A6620A;
+    --wait: #7A3FA0;
+    --watch: #9C3850;
+    --wash-agent: #E3F2F0;
+    --wash-store: #FAEFDC;
+    --wash-wait: #F1E7F7;
+    --wash-edge: #E7E9F7;
+    --wash-watch: #F7E6EA;
+    --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #10151B;
+      --surface: #171D25;
+      --surface-2: #1E2630;
+      --ink: #E3E9EF;
+      --ink-muted: #94A2B0;
+      --rule: #2A333E;
+      --rule-strong: #3C4854;
+      --edge: #9098EF;
+      --agent: #47B5AA;
+      --store: #EDA94A;
+      --wait: #C39BE0;
+      --watch: #E2839A;
+      --wash-agent: #16302D;
+      --wash-store: #2B2213;
+      --wash-wait: #2A1F33;
+      --wash-edge: #1E2140;
+      --wash-watch: #34181F;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #10151B;
+    --surface: #171D25;
+    --surface-2: #1E2630;
+    --ink: #E3E9EF;
+    --ink-muted: #94A2B0;
+    --rule: #2A333E;
+    --rule-strong: #3C4854;
+    --edge: #9098EF;
+    --agent: #47B5AA;
+    --store: #EDA94A;
+    --wait: #C39BE0;
+    --watch: #E2839A;
+    --wash-agent: #16302D;
+    --wash-store: #2B2213;
+    --wash-wait: #2A1F33;
+    --wash-edge: #1E2140;
+    --wash-watch: #34181F;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+  }
+
+  .page { max-width: 1080px; margin: 0 auto; padding: 0 16px 96px; }
+  .measure { max-width: 68ch; }
+
+  header.masthead {
+    padding: 56px 0 28px;
+    border-bottom: 1px solid var(--rule);
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-muted);
+  }
+  h1 {
+    font-family: var(--sans); font-weight: 700;
+    font-size: clamp(32px, 5vw, 48px); line-height: 1.05;
+    letter-spacing: -.022em; margin: 0; text-wrap: balance;
+  }
+  h2 {
+    font-family: var(--sans); font-weight: 700; font-size: 26px;
+    letter-spacing: -.01em; margin: 56px 0 8px; text-wrap: balance;
+  }
+  h3 { font-family: var(--sans); font-weight: 600; font-size: 18px; margin: 28px 0 6px; }
+  .standfirst { font-size: 20px; line-height: 1.5; color: var(--ink-muted); max-width: 60ch; margin: 0; }
+  p { margin: 10px 0; }
+  code, .mono { font-family: var(--mono); font-size: .86em; }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-top: 8px;
+  }
+  .stat { background: var(--surface); padding: 14px 16px; }
+  .stat b { display: block; font-family: var(--sans); font-size: 26px; line-height: 1.1; }
+  .stat span { font-family: var(--sans); font-size: 13px; color: var(--ink-muted); }
+
+  .diagram {
+    background: var(--surface); border: 1px solid var(--rule);
+    padding: 12px; margin: 16px 0 6px; overflow-x: auto;
+  }
+  .diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+  .caption { font-family: var(--sans); font-size: 13px; color: var(--ink-muted); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 8px 0 0; font-family: var(--sans); font-size: 13px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); background: var(--surface); margin: 12px 0; }
+  table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  td.item { font-family: var(--mono); font-size: 12px; white-space: nowrap; color: var(--ink-muted); }
+
+  .pill {
+    display: inline-block; font-family: var(--mono); font-size: 11px;
+    padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+  }
+  .pill.done { background: var(--wash-agent); color: var(--agent); }
+  .pill.part { background: var(--wash-store); color: var(--store); }
+  .pill.open { background: var(--surface-2); color: var(--ink-muted); }
+
+  ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 12px 0; }
+  ol.steps li {
+    counter-increment: s; position: relative; padding: 10px 12px 10px 48px;
+    border-left: 3px solid var(--rule-strong); background: var(--surface); margin-bottom: 6px;
+  }
+  ol.steps li::before {
+    content: counter(s); position: absolute; left: 12px; top: 10px;
+    font-family: var(--mono); font-size: 13px; color: var(--ink-muted);
+  }
+  ol.steps li.agent { border-left-color: var(--agent); }
+  ol.steps li.store { border-left-color: var(--store); }
+  ol.steps li.wait { border-left-color: var(--wait); }
+  ol.steps li.edge { border-left-color: var(--edge); }
+
+  .flows { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .flow { background: var(--surface); border: 1px solid var(--rule); padding: 14px 16px; }
+  .flow h3 { margin-top: 0; }
+  .flow .say { font-family: var(--mono); font-size: 13px; color: var(--edge); }
+
+  pre.run {
+    font-family: var(--mono); font-size: 13px; line-height: 1.55;
+    background: var(--surface); border: 1px solid var(--rule); padding: 14px 16px; overflow-x: auto;
+  }
+  .note { border-left: 3px solid var(--store); background: var(--wash-store); padding: 10px 14px; margin: 14px 0; }
+</style>
+
+<div class="page">
+
+<header class="masthead">
+  <div class="eyebrow">Support agent · after Tier 1 · 18 September 2026</div>
+  <h1>The agent now: the flow and the stack</h1>
+  <p class="standfirst">Between 13 and 18 September the agent stopped running on stand-ins. It now signs customers in through Keycloak, answers from a real store, waits for people on Temporal, and every turn is a trace in Langfuse. This part is what it looks like today; the parts after it were written before, and each says so.</p>
+  <div class="stats">
+    <div class="stat"><b>1,149</b><span>tests passing</span></div>
+    <div class="stat"><b>38 / 38</b><span>scenarios pass against the simulated shop</span></div>
+    <div class="stat"><b>29 / 33</b><span>say the same against real Saleor (shadow mode)</span></div>
+    <div class="stat"><b>0.98</b><span>live pass rate with the real model (T-050)</span></div>
+    <div class="stat"><b>5</b><span>real products behind it, each in its own Docker profile</span></div>
+  </div>
+</header>
+
+<h2>What changed, in one table</h2>
+<p class="measure">Every row replaced something the agent used to do for itself. That is the goal's rule — adopt open source, build only the delta — applied one concern at a time.</p>
+<div class="scroll"><table>
+  <tr><th>Concern</th><th>Before (13 Sep)</th><th>Now</th><th>Item</th></tr>
+  <tr><td>Who the customer is</td><td>A token signed with a shared secret; the agent trusted the customer id it was told</td><td><b>Keycloak</b> realm. The agent only verifies (RS256, JWKS); the store verifies a token exchanged for it and ignores anything asserted</td><td class="item">T-002</td></tr>
+  <tr><td>How a customer reaches it</td><td>A test page with a token in the URL</td><td>A <b>portal</b> login kept server-side, and <b>Chatwoot</b>'s widget; a person takes over on escalation</td><td class="item">T-026</td></tr>
+  <tr><td>The model</td><td>Groq, called directly</td><td><b>LiteLLM</b> proxy with the agent's own key, a rate limit and a budget; the provider is checked at startup</td><td class="item">T-029, T-018</td></tr>
+  <tr><td>Waiting for a person</td><td>A row the agent wrote, polled on the customer's next message; a sweeper loop lapsed escalations</td><td><b>Temporal</b> workflows. The agent can ask and read, never grant; a granted refund is issued the moment it is granted; lapses are timers</td><td class="item">T-028</td></tr>
+  <tr><td>A message delivered twice</td><td>An in-memory log, one process only</td><td>A <b>Temporal</b> claim shared across processes, with an expiry so a crash cannot wedge a message</td><td class="item">T-003</td></tr>
+  <tr><td>The store</td><td>A world projected from YAML</td><td><b>Saleor</b>, a real store somebody else wrote, behind the store's own MCP server that checks every call</td><td class="item">T-017</td></tr>
+  <tr><td>Being tested against reality</td><td>Scenarios against the projection only</td><td><b>Shadow mode</b>: the same scenario files against Saleor, each with a private copy of the world</td><td class="item">T-042</td></tr>
+  <tr><td>Seeing what it did</td><td>An exporter nobody had pointed anywhere</td><td><b>Langfuse</b>: every turn a trace, found by customer or conversation, every model call priced</td><td class="item">T-052</td></tr>
+  <tr><td>A note planted in an order</td><td>Could make the agent cancel the order (F-041, critical)</td><td>An action runs only on an order the customer asked for it on; otherwise the agent asks first</td><td class="item">T-050</td></tr>
+</table></div>
+
+<h2>The flow of a message</h2>
+<p class="measure">Left to right is one customer message. The coloured boxes are the products; the agent's own code is the teal column in the middle. Below the main line, the two waits that can outlive the conversation, and what watches all of it.</p>
+
+<div class="diagram" role="img" aria-label="A customer message goes from the portal or Chatwoot, through Keycloak, into the agent's router and loop, out to LiteLLM for the model and to the store's MCP server for tools, which checks the call and acts on Saleor. Approvals and escalations are Temporal workflows. Every turn is traced to Langfuse; conversations are in Postgres.">
+<svg viewBox="0 0 1000 520" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Sans, sans-serif">
+  <defs>
+    <marker id="now-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill: var(--ink-muted)"/>
+    </marker>
+  </defs>
+
+  <!-- lane labels -->
+  <text x="14" y="20" font-size="11" letter-spacing="1.2" style="fill: var(--ink-muted)">WAY IN</text>
+  <text x="240" y="20" font-size="11" letter-spacing="1.2" style="fill: var(--ink-muted)">THE AGENT (OUR CODE)</text>
+  <text x="560" y="20" font-size="11" letter-spacing="1.2" style="fill: var(--ink-muted)">THE FAR END</text>
+  <text x="820" y="20" font-size="11" letter-spacing="1.2" style="fill: var(--ink-muted)">SYSTEMS OF RECORD</text>
+
+  <!-- way in -->
+  <rect x="14" y="44" width="180" height="62" rx="6" style="fill: var(--wash-edge); stroke: var(--edge)"/>
+  <text x="104" y="70" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--ink)">Customer</text>
+  <text x="104" y="90" text-anchor="middle" font-size="12" style="fill: var(--ink-muted)">portal · Chatwoot · /chat</text>
+
+  <rect x="14" y="132" width="180" height="62" rx="6" style="fill: var(--wash-edge); stroke: var(--edge)"/>
+  <text x="104" y="158" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--ink)">Keycloak</text>
+  <text x="104" y="178" text-anchor="middle" font-size="12" style="fill: var(--ink-muted)">signs in · agent only verifies</text>
+
+  <!-- agent column -->
+  <rect x="240" y="44" width="270" height="250" rx="8" style="fill: var(--wash-agent); stroke: var(--agent)"/>
+  <text x="375" y="68" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--agent)">support_agent</text>
+  <rect x="258" y="82" width="234" height="40" rx="5" style="fill: var(--surface); stroke: var(--rule-strong)"/>
+  <text x="375" y="107" text-anchor="middle" font-size="13" style="fill: var(--ink)">edge · verify token · run once</text>
+  <rect x="258" y="130" width="234" height="40" rx="5" style="fill: var(--surface); stroke: var(--rule-strong)"/>
+  <text x="375" y="155" text-anchor="middle" font-size="13" style="fill: var(--ink)">router: direct · escalate · refuse</text>
+  <rect x="258" y="178" width="234" height="40" rx="5" style="fill: var(--surface); stroke: var(--rule-strong)"/>
+  <text x="375" y="203" text-anchor="middle" font-size="13" style="fill: var(--ink)">loop: model ↔ tools, bounded</text>
+  <rect x="258" y="226" width="234" height="52" rx="5" style="fill: var(--surface); stroke: var(--rule-strong)"/>
+  <text x="375" y="248" text-anchor="middle" font-size="13" style="fill: var(--ink)">policy: asked-else-confirm,</text>
+  <text x="375" y="266" text-anchor="middle" font-size="13" style="fill: var(--ink)">no claim without a result</text>
+
+  <!-- far end -->
+  <rect x="560" y="44" width="220" height="62" rx="6" style="fill: var(--wash-edge); stroke: var(--edge)"/>
+  <text x="670" y="70" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--ink)">LiteLLM → Groq</text>
+  <text x="670" y="90" text-anchor="middle" font-size="12" style="fill: var(--ink-muted)">own key · rate · budget</text>
+
+  <rect x="560" y="132" width="220" height="100" rx="6" style="fill: var(--wash-store); stroke: var(--store)"/>
+  <text x="670" y="156" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--store)">order_system (MCP)</text>
+  <text x="670" y="178" text-anchor="middle" font-size="12" style="fill: var(--ink)">token addressed to it?</text>
+  <text x="670" y="196" text-anchor="middle" font-size="12" style="fill: var(--ink)">whose order? approval?</text>
+  <text x="670" y="214" text-anchor="middle" font-size="12" style="fill: var(--ink)">seen this key before?</text>
+
+  <!-- systems of record -->
+  <rect x="820" y="132" width="166" height="100" rx="6" style="fill: var(--wash-store); stroke: var(--store)"/>
+  <text x="903" y="170" text-anchor="middle" font-size="15" font-weight="600" style="fill: var(--store)">Saleor</text>
+  <text x="903" y="192" text-anchor="middle" font-size="12" style="fill: var(--ink-muted)">orders · returns</text>
+  <text x="903" y="210" text-anchor="middle" font-size="12" style="fill: var(--ink-muted)">refunds granted</text>
+
+  <rect x="820" y="44" width="166" height="62" rx="6" style="fill: var(--surface-2); stroke: var(--rule-strong)"/>
+  <text x="903" y="70" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--ink)">Postgres</text>
+  <text x="903" y="90" text-anchor="middle" font-size="12" style="fill: var(--ink-muted)">conversations · ledger</text>
+
+  <!-- waits -->
+  <rect x="240" y="330" width="540" height="92" rx="8" style="fill: var(--wash-wait); stroke: var(--wait)"/>
+  <text x="510" y="354" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--wait)">Temporal — the waits that outlive a conversation</text>
+  <text x="380" y="380" text-anchor="middle" font-size="12" style="fill: var(--ink)">Approval: assess → person or expiry → refund</text>
+  <text x="380" y="399" text-anchor="middle" font-size="12" style="fill: var(--ink-muted)">worker logs in as support-approvals</text>
+  <text x="660" y="380" text-anchor="middle" font-size="12" style="fill: var(--ink)">Escalation: queued → resolved or lapsed</text>
+  <text x="660" y="399" text-anchor="middle" font-size="12" style="fill: var(--ink-muted)">a colleague closes it on /ops</text>
+
+  <!-- watch -->
+  <rect x="240" y="446" width="540" height="56" rx="8" style="fill: var(--wash-watch); stroke: var(--watch)"/>
+  <text x="510" y="470" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--watch)">Langfuse</text>
+  <text x="510" y="490" text-anchor="middle" font-size="12" style="fill: var(--ink)">every turn a trace · customer and conversation on the root · model calls priced</text>
+
+  <!-- arrows -->
+  <g style="stroke: var(--ink-muted); fill: none" stroke-width="1.4">
+    <!-- the message: customer, sign-in, into the agent -->
+    <path d="M104 106 V128" marker-end="url(#now-arrow)"/>
+    <path d="M194 163 H236" marker-end="url(#now-arrow)"/>
+    <!-- the loop calls the model and the tools -->
+    <path d="M492 192 H532 Q542 192 542 182 V85 Q542 75 552 75 H556" marker-end="url(#now-arrow)"/>
+    <path d="M492 204 H556" marker-end="url(#now-arrow)"/>
+    <!-- the store server acts on Saleor -->
+    <path d="M780 182 H816" marker-end="url(#now-arrow)"/>
+    <!-- a refund over the limit goes to a person -->
+    <path d="M492 252 H520 Q530 252 530 262 V326" marker-end="url(#now-arrow)"/>
+    <!-- later: the approval worker acts on the store -->
+    <path d="M690 330 V240" stroke-dasharray="4 4" marker-end="url(#now-arrow)"/>
+    <!-- the conversation is written down -->
+    <path d="M430 44 V36 H903 V40" stroke-dasharray="4 4" marker-end="url(#now-arrow)"/>
+  </g>
+  <text x="698" y="292" font-size="11" style="fill: var(--ink-muted)">worker issues a granted refund</text>
+  <text x="536" y="300" font-size="11" style="fill: var(--ink-muted)">needs a person</text>
+</svg>
+</div>
+<p class="caption">Solid arrows: the path of a message. Dashed: the approval worker issuing a granted refund later, possibly hours after the customer left, and every turn's conversation written to Postgres. Everything in the agent column emits spans to Langfuse.</p>
+<div class="legend">
+  <span><i style="background: var(--edge)"></i>ways in and out</span>
+  <span><i style="background: var(--agent)"></i>our code</span>
+  <span><i style="background: var(--store)"></i>the store and its guard</span>
+  <span><i style="background: var(--wait)"></i>waits</span>
+  <span><i style="background: var(--watch)"></i>observability</span>
+</div>
+
+<h2>Three messages, step by step</h2>
+<div class="flows">
+  <div class="flow">
+    <h3>A question it answers alone</h3>
+    <div class="say">“where is AB-10001?”</div>
+    <ol class="steps">
+      <li class="edge">Keycloak's token is verified; the customer id comes from it, never from the text.</li>
+      <li class="agent">The router sees an order-status question and takes the <b>direct</b> route: no model call.</li>
+      <li class="store">One read, <code>get_order</code>, to the store server, which checks the token and that AB-10001 is this customer's.</li>
+      <li class="store">Saleor answers <i>fulfilled</i>; the server says <i>shipped</i> — Saleor records dispatch, not arrival.</li>
+      <li class="agent">“Order AB-10001 is currently shipped.” Cost: one read, no tokens.</li>
+    </ol>
+  </div>
+  <div class="flow">
+    <h3>An action it confirms first</h3>
+    <div class="say">“I don't need AB-10002 anymore” · “yes”</div>
+    <ol class="steps">
+      <li class="agent">The model proposes <code>cancel_order</code>. The customer never said <i>cancel</i>, so the policy refuses the call and the agent asks.</li>
+      <li class="edge">The customer says “yes”: that turns the pending question into consent for exactly this order.</li>
+      <li class="agent">The call runs, with an idempotency key the store remembers.</li>
+      <li class="store">The store checks the order is still pending, and cancels it in Saleor.</li>
+      <li class="agent">The reply says <i>cancelled</i> only because the store's result says so.</li>
+    </ol>
+  </div>
+  <div class="flow">
+    <h3>A refund that needs a person</h3>
+    <div class="say">“refund AB-10003 please”</div>
+    <ol class="steps">
+      <li class="wait">The agent asks Temporal for an approval. The workflow reads the order's total itself, and it is over the limit.</li>
+      <li class="agent">The customer is told a colleague will authorise it, and that nothing is refunded yet.</li>
+      <li class="wait">A colleague grants it, or the 24-hour timer expires. The customer can leave; the wait survives restarts.</li>
+      <li class="store">On a grant, the workflow's worker — its own Keycloak login, no refund scope of its own — calls the store, naming the approval. The store checks the approval, then grants the refund against the order's payment.</li>
+      <li class="agent">Next time the customer writes, the agent reads the approval and says what became of it.</li>
+    </ol>
+  </div>
+</div>
+
+<h2>The stack</h2>
+<p class="measure">One compose file, with profiles, because the laptop has 3.8 GB for Docker and cannot run everything at once. Start the profiles a task needs.</p>
+<div class="scroll"><table>
+  <tr><th>Port (AHC)</th><th>Product</th><th>Profile</th><th>Where</th><th>Status</th></tr>
+  <tr><td>Model</td><td>LiteLLM proxy → Groq, <code>openai/gpt-oss-120b</code></td><td>default</td><td class="mono">:4000</td><td><span class="pill done">current</span></td></tr>
+  <tr><td>Identity</td><td>Keycloak, realm <code>support</code></td><td>default</td><td class="mono">:8080</td><td><span class="pill done">current</span></td></tr>
+  <tr><td>State</td><td>Postgres (+ pgvector)</td><td>default</td><td class="mono">:5433</td><td><span class="pill done">current</span></td></tr>
+  <tr><td>Store (<code>x_store</code>)</td><td>Saleor API, dashboard, worker</td><td><code>store</code></td><td class="mono">:8100 · :9000</td><td><span class="pill done">current</span></td></tr>
+  <tr><td>Workflow, approval</td><td>Temporal</td><td><code>durable</code></td><td class="mono">:7233 · UI :8233</td><td><span class="pill done">current</span></td></tr>
+  <tr><td>Telemetry</td><td>Langfuse (+ ClickHouse, MinIO, Redis)</td><td><code>obs</code></td><td class="mono">:3000</td><td><span class="pill done">current</span></td></tr>
+  <tr><td>Channel</td><td>Chatwoot</td><td><code>channel</code></td><td class="mono">:3100</td><td><span class="pill done">current</span></td></tr>
+  <tr><td>Tools</td><td>MCP (official SDK), the store's own server</td><td>—</td><td class="mono">in process</td><td><span class="pill done">current</span></td></tr>
+  <tr><td>Evaluation</td><td>AgentTwin (ours); DeepEval / Inspect, LangWatch Scenario, promptfoo planned</td><td>—</td><td>—</td><td><span class="pill part">AgentTwin only</span></td></tr>
+  <tr><td>PII</td><td>Presidio in place of our patterns</td><td>—</td><td>—</td><td><span class="pill open">T-030</span></td></tr>
+  <tr><td>Release flags</td><td>OpenFeature</td><td>—</td><td>—</td><td><span class="pill open">T-047</span></td></tr>
+</table></div>
+
+<h2>How it is tested now</h2>
+<div class="scroll"><table>
+  <tr><th>Layer</th><th>What runs</th><th>What it proves</th></tr>
+  <tr><td>Scenarios, simulated shop</td><td>38 scenario files through AgentTwin, scripted model</td><td>The agent does what the spec says, deterministically</td></tr>
+  <tr><td>Shadow mode</td><td>The same files against Saleor, a private copy of the world each</td><td>The spec describes a real store — 29 of 33; four need a way to perturb a real store (T-051)</td></tr>
+  <tr><td>Live model</td><td>All scenarios through LiteLLM with the real model</td><td>0.98 pass rate; each failure routed (T-050)</td></tr>
+  <tr><td>Real engines</td><td>Temporal's test server in every approval test; a live test restarts the Temporal container mid-approval</td><td>A wait survives the process holding it</td></tr>
+  <tr><td>A person</td><td>You, in the chat, against Saleor</td><td>Behaviour that is correct but useless — found F-042 in minutes</td></tr>
+  <tr><td>Traces</td><td>A turn over HTTP, found in Langfuse by its conversation</td><td>What happened can be seen, and what it cost</td></tr>
+</table></div>
+
+<h2>Where this sits in the goal</h2>
+<p class="measure"><b>Goal:</b> every spec and every binding production grade, proven by agents of different shapes. Four tiers; this agent is Tier 1.</p>
+<div class="scroll"><table>
+  <tr><th>Tier</th><th>Exit</th><th>State</th></tr>
+  <tr><td><b>1</b> · One agent, production grade</td><td>passes the gates, a person has used it against a real store, reliability measured</td><td><span class="pill part">nearly</span> left: your session, T-007 reliability, T-051, T-053</td></tr>
+  <tr><td><b>2</b> · The cycle, repeatable</td><td>a new agent goes from specs to a verdict in days</td><td><span class="pill open">not started</span> T-033, T-034, T-035, T-044 first</td></tr>
+  <tr><td><b>3</b> · Vary one axis</td><td>each axis passes once with no new spec change</td><td><span class="pill open">waiting on Tier 2</span></td></tr>
+  <tr><td><b>4</b> · Specs harden</td><td>each spec a versioned release</td><td><span class="pill part">in the background</span> AOAS, AHC, AgentTwin already changed by Tier 1</td></tr>
+</table></div>
+
+<h2>Findings from the real store and the real person</h2>
+<div class="scroll"><table>
+  <tr><th></th><th>Found</th><th>Fixed by</th></tr>
+  <tr><td class="item">F-042</td><td>Saleor's token expired after five minutes and the agent handed a cancellation to a colleague</td><td>signing in again on expiry</td></tr>
+  <tr><td class="item">F-043</td><td>A real store will not refund an order nobody paid for</td><td>orders paid at checkout; refunds granted against the payment</td></tr>
+  <tr><td class="item">F-044</td><td>A customer's orders were found by searching the whole store</td><td>reading the customer's own record</td></tr>
+  <tr><td class="item">—</td><td>Saleor records dispatch, never arrival; has no final-sale flag</td><td>metadata the seed writes, read by the store server</td></tr>
+  <tr><td class="item">—</td><td>“What are my options for AB-10004?” got only its status</td><td>open — a question the router answers too literally</td></tr>
+</table></div>
+
+<h2>Run it</h2>
+<pre class="run">docker compose --profile store --profile obs up -d     # Saleor and Langfuse
+uv run python deploy/saleor/seed.py                   # the clothing world, in Saleor
+uv run python deploy/langfuse/models.py               # prices, so traces show cost
+
+AGENT_PROVIDER_BASE_URL=http://localhost:4000/v1 \
+AGENT_PROVIDER_API_KEY=sk-support-agent-local-dev-only AGENT_PROVIDER=groq \
+AGENT_OTLP_ENDPOINT=http://localhost:3000/api/public/otel/v1/traces \
+AGENT_OTLP_HEADERS="Authorization=Basic $(printf pk-lf-local-dev-only:sk-lf-local-dev-only | base64)" \
+uv run python scripts/run_server.py --store --real    # prints the chat link
+
+# Saleor dashboard  http://localhost:9000   admin@example.com / local-dev-only
+# Langfuse          http://localhost:3000   dev@localhost.test / local-dev-only</pre>
+
+</div>

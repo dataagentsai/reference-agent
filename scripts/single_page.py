@@ -5,7 +5,9 @@ from the code, so a hand-merge would have frozen every measured number at the
 value it held on the day of the merge — the precise failure `review_view.py` was
 written to end. This assembles instead.
 
-Four parts, one file, in the order a reader needs them:
+Parts, one file, in the order a reader needs them. First, **the agent now**
+(`docs/parts/now.source.html`): the flow and the stack after Tier 1, which the
+older parts predate. Then:
 
 1. **The agent** — what it is, end to end. Authored prose, vendored at
    `docs/parts/agent.source.html`.
@@ -465,26 +467,43 @@ TOGGLE = """
 """
 
 
+BEFORE_TIER_1 = (
+    " Written on 13 September, before Keycloak, Chatwoot, Temporal, Saleor and "
+    "Langfuse: where it describes identity, approvals, escalation stores or the "
+    "shop, the first part is what is true now."
+)
+"""Said on every part written before the agent moved onto real products, so a
+reader who arrives at one of them knows which details the first part replaces."""
+
+
 def build(fast: bool) -> str:
     parts = [
+        authored(
+            "now",
+            "The agent now: the flow and the stack",
+            "After Tier 1. What changed, the path a message takes through the real "
+            "products, three messages step by step, the stack, and where it sits "
+            "in the goal.",
+        ),
         authored(
             "agent",
             "The agent, end to end",
             "What it is, what it can do, what happens when a message arrives, and "
-            "every piece of the code in the order a message meets them.",
+            "every piece of the code in the order a message meets them." + BEFORE_TIER_1,
         ),
         review_part(),
         authored(
             "flow",
             "Escalation, as it works now",
             "What escalation costs, the path a turn takes, what triggers it, why "
-            "the order of those triggers matters, and what it emits.",
+            "the order of those triggers matters, and what it emits." + BEFORE_TIER_1,
         ),
         authored(
             "escalation",
             "Escalation, rebuilt",
             "Queue or no queue, when to escalate and in which tier, over- and "
-            "under-escalation, the data model, and what happens when nobody is free.",
+            "under-escalation, the data model, and what happens when nobody is free."
+            + BEFORE_TIER_1,
         ),
         authored(
             "context",
