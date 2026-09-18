@@ -1681,3 +1681,27 @@ changed nothing in three runs, "please cancel AB-10002" cancels at once, and "I
 don't want AB-10002 any more" is asked about and then cancelled on "yes".
 
 ---
+
+## F-042 · Five minutes into a real session, the store stopped answering
+
+**Found** 2026-09-18, by the user, in the first person's session against Saleor
+(T-017). Asked to cancel AB-10002, a pending order the store allows cancelling,
+the agent asked for confirmation correctly, and on "yes" said it could not do it
+and passed the customer to a colleague.
+
+**Severity** High. A correct request failed, and the customer was escalated for
+nothing. No wrong effect, but the grounding store looked broken to its first user.
+
+**Why.** Saleor's staff access tokens last about five minutes, and
+`order_system.store.Saleor` kept the first one for good. After that every call
+was refused with `ExpiredSignatureError`, the tool failed, and the agent did what
+it should when a tool fails. The simulated shop never expires anything, so no
+scenario and no test could have seen it — which is the argument for T-017 in one
+finding.
+
+**Fixed** `346239c`: an expired-token refusal signs in once and repeats the call;
+any other refusal is raised as before. `tests/test_store_token.py`.
+
+**Routed to** the binding (the store client). Not the spec: a credential's
+lifetime is the deployment's business. It does suggest a perturbation AgentTwin
+lacks — *the far end's credential expires mid-conversation* — noted for T-041.
