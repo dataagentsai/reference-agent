@@ -15,6 +15,7 @@ assert on. Anything that only reads is safe on a second run.
 from __future__ import annotations
 
 import os
+import re
 import time
 import urllib.error
 
@@ -79,7 +80,9 @@ async def test_opening_shows_the_customer_their_real_orders() -> None:
         agent = ep.build(llm=ScriptedClient([]), tools=tools, store=InMemoryCheckpointStore())
         opening = await agent.opening(who())
 
-    assert "AB-" in opening, opening
+    # An order id by its shape, not by its prefix: a store accumulates, and the
+    # newest five may well be orders other tests seeded.
+    assert re.search(r"\b[A-Z]{2}-\d{3,}\b", opening), opening
     assert "Which one can I help with" in opening
 
 

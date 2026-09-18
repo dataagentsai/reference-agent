@@ -1,19 +1,15 @@
--- Two schemas, and the split is load-bearing.
+-- One schema here, and the split it used to hold is now a database boundary.
 --
 -- `agent_state` belongs to the agent: conversation, checkpoints, sessions, the
 -- idempotency ledger. It is the **oracle** — what assertions read — and
 -- AgentTwin never projects it. An oracle that can be faked is not one.
 --
--- `ecom` is the business world: customers, orders, shipments, refunds. This is
--- what a simulation replaces, and in a simulated run the agent reaches it only
--- through a projection server that never touches this schema at all.
---
--- Separate schemas rather than separate tables in one, so the boundary can be
--- enforced by a grant rather than by remembering. A role that can read `ecom`
--- and write `agent_state` cannot accidentally do the reverse.
+-- `ecom` was the business world in this database until T-017. The store is
+-- Saleor now, with its own schema in its own database and its own role, so the
+-- boundary is a grant the agent's role does not have rather than one this file
+-- argues for. The agent reaches either store only over MCP.
 
 CREATE SCHEMA IF NOT EXISTS agent_state;
-CREATE SCHEMA IF NOT EXISTS ecom;
 
 -- --------------------------------------------------------------------------
 -- agent_state — never simulated
@@ -63,45 +59,11 @@ CREATE TABLE IF NOT EXISTS agent_state.sessions (
 );
 
 -- --------------------------------------------------------------------------
--- ecom — the world AgentTwin projects
---
--- The DDL here is the ontology: `orders.customer_id REFERENCES customers(id)`
--- is the join, stated once and machine-readable, rather than written a second
--- time in a world file. Phase D reads this rather than duplicating it.
+-- `ecom` held a store's ontology — customers, orders, shipments, refunds — and
+-- nothing ever read it. With T-017 the store is Saleor, which owns its own
+-- schema in its own database, and the world AgentTwin projects is a YAML file.
+-- A DDL nobody reads is a claim nobody checks, so it is dropped rather than
+-- kept as decoration.
 -- --------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS ecom.customers (
-    id         text PRIMARY KEY,
-    email      text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS ecom.orders (
-    id          text PRIMARY KEY,
-    customer_id text NOT NULL REFERENCES ecom.customers(id),
-    status      text NOT NULL,
-    total       numeric(12,2) NOT NULL,
-    placed_at   timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT orders_status_known CHECK (status IN (
-        'pending','confirmed','picked','shipped','out_for_delivery',
-        'delivered','cancelled','returned','refunded'
-    ))
-);
-
-CREATE TABLE IF NOT EXISTS ecom.shipments (
-    id           text PRIMARY KEY,
-    order_id     text NOT NULL REFERENCES ecom.orders(id),
-    carrier      text NOT NULL,
-    delivered_at timestamptz
-);
-
-CREATE TABLE IF NOT EXISTS ecom.refunds (
-    id              text PRIMARY KEY,
-    order_id        text NOT NULL REFERENCES ecom.orders(id),
-    amount          numeric(12,2) NOT NULL,
-    idempotency_key text UNIQUE,
-    issued_at       timestamptz NOT NULL DEFAULT now()
-);
--- `idempotency_key UNIQUE` is the second half of the double-refund control, and
--- the half that survives us being wrong. The ledger prevents the second call;
--- this makes the second row impossible even if it is somehow made.
+DROP SCHEMA IF EXISTS ecom CASCADE;

@@ -2,6 +2,7 @@
 
     uv run python scripts/run_server.py           # mock model, no network, free
     uv run python scripts/run_server.py --real    # a real provider call per turn
+    uv run python scripts/run_server.py --store   # against the composed Saleor (T-017)
 
 Then open the printed URL. The token is in it — the page cannot mint one, so a
 link without it is a page that can talk to nothing. The token is signed by the
@@ -16,8 +17,10 @@ same schemas, same two error channels. So this runs with no ecommerce backend,
 no credentials, and no way to charge anybody — while exercising the identical
 code path a deployment would.
 
-`--real` swaps only the model. Everything else stays simulated, which is the
-resolution seam doing its job: one exit at a time.
+`--real` swaps only the model, and `--store` only the shop — one exit at a time,
+which is what the resolution seam is for. With `--store` the agent talks to the
+composed Saleor through the store's own MCP server, and every call is checked by
+the far end rather than trusted.
 """
 
 from __future__ import annotations
@@ -27,6 +30,7 @@ import asyncio
 import contextlib
 import os
 import sys
+import time
 
 import uvicorn
 from agenttwin import Live, load, project
@@ -36,6 +40,7 @@ from temporalio.contrib.pydantic import pydantic_data_converter as _CONVERTER
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from collections.abc import AsyncIterator
+from typing import Any
 
 from evals import issuer as local_issuer  # noqa: E402
 
@@ -49,9 +54,9 @@ from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
 from support_agent.config import RunConfig, Settings, resolve
-from support_agent.contracts import Identity, LLMClient, ModelResponse, ToolClient
+from support_agent.contracts import Approvals, Identity, LLMClient, ModelResponse, ToolClient
 from support_agent.idempotency import InMemoryLedger
-from support_agent.identity import REVIEWER_SCOPES
+from support_agent.identity import REVIEWER_SCOPES, Exchange, sessions
 from support_agent.identity.sessions import KeycloakLogin, KeycloakRefresh, Resume
 from support_agent.llm import ScriptedClient, connect_model
 from support_agent.resilience import ResilientLLM
@@ -158,14 +163,15 @@ def _with_chatwoot(app: Starlette, agent: ep.Agent, issuer: ident.Issuer) -> Sta
     )
 
 
-def _announce(port: int, settings: Settings | None, *, local: bool) -> None:
+def _announce(port: int, settings: Settings | None, *, local: bool, store: bool = False) -> None:
     """The links a person needs, with tokens from the process-local issuer."""
     if not local:
         print(f"\n  Support agent on http://127.0.0.1:{port}, sessions from the realm.")
         print("  A token: POST the realm's token endpoint as client support-chat.\n")
         return
     token = local_issuer.mint("C-1042", ttl_s=8 * 3600)
-    print("\n  Support agent running against the simulated clothing shop")
+    shop = "Saleor, the real store" if store else "the simulated clothing shop"
+    print(f"\n  Support agent running against {shop}")
     print(
         f"  model: {'REAL — ' + settings.model if settings is not None else 'scripted (free, offline)'}"
     )
@@ -188,6 +194,84 @@ async def _model(settings: Settings | None) -> tuple[LLMClient, RunConfig | None
     client, verified = await connect_model(config, api_key=settings.provider_api_key)
     print(f"  provider {config.provider}: {'verified' if verified else 'UNVERIFIED'}")
     return ResilientLLM(client), config
+
+
+class LateTools:
+    """The approvals worker's tool client, connected once the shop is up.
+
+    The real store checks every call against the approvals, and the approvals
+    worker acts on the store, so one of them has to be wired after the other. A
+    deployment has no such knot: the worker is its own process with its own
+    connection, which is the point of it (T-028). This is the demo's honest
+    version of that.
+    """
+
+    def __init__(self) -> None:
+        self.inner: ToolClient | None = None
+
+    async def list_tools(self, identity: Identity) -> Any:
+        assert self.inner is not None, "the shop is not up yet"
+        return await self.inner.list_tools(identity)
+
+    async def call(self, *args: Any, **kwargs: Any) -> Any:
+        assert self.inner is not None, "the shop is not up yet"
+        return await self.inner.call(*args, **kwargs)
+
+
+@contextlib.asynccontextmanager
+async def shop_running(
+    real_store: bool, issuer: ident.Issuer, approvals: Approvals
+) -> AsyncIterator[ToolClient]:
+    """The tools, from the simulated shop or the real one (T-017).
+
+    The only difference the agent can see is which MCP server answers. The real
+    store checks every call itself — the token addressed to it, and the approval
+    for anything the token does not already allow — so the far end here is a far
+    end rather than a courtesy.
+    """
+    if not real_store:
+        async with connect(project(Live.start(load(WORLD))), ledger=InMemoryLedger()) as tools:
+            print("  shop           the simulated clothing shop, projected from worlds/")
+            yield tools
+        return
+
+    from order_system import server as store_server
+    from order_system.store import Saleor, Store
+
+    url = os.environ.get("SALEOR_URL", "http://localhost:8100/graphql/")
+    shop = Store(
+        Saleor(
+            url,
+            os.environ.get("SALEOR_ADMIN_EMAIL", "admin@example.com"),
+            os.environ.get("SALEOR_ADMIN_PASSWORD", "local-dev-only"),
+        )
+    )
+    server = store_server.build(
+        shop,
+        issuer=ident.Issuer(url=issuer.url, audience="order-system", keys=issuer.keys),
+        clock=lambda: int(time.time()),
+        approvals=approvals,
+        approvals_party=os.environ.get("AGENT_APPROVALS_PARTY"),
+    )
+    async with connect(server, ledger=InMemoryLedger(), exchange=_exchange(issuer)) as tools:
+        print(f"  shop           Saleor at {url}  (seed it with deploy/saleor/seed.py)")
+        yield tools
+
+
+def _exchange(issuer: ident.Issuer) -> Exchange:
+    """How a session is addressed to the store. The realm's exchange when the
+    agent has one, else the local issuer's — the store verifies either."""
+    if issuer.url != local_issuer.URL:
+        return sessions.TokenExchange.discover(
+            issuer.url,
+            client_id="support-agent",
+            client_secret=os.environ.get(
+                "SUPPORT_AGENT_CLIENT_SECRET", "local-dev-only-agent-secret"
+            ),
+            audience="order-system",
+            scope="order-system-audience",
+        )
+    return local_issuer.LocalExchange()
 
 
 @contextlib.asynccontextmanager
@@ -220,8 +304,8 @@ async def waits_running(
     print(f"  waits          Temporal at {client.service_client.config.target_host}", end="")
     print(" (durable)" if durable else " (in this process, lost on exit)")
 
-    work = ap.RefundWork(tools, acting_for=_acting_for)
     queue = ap.TASK_QUEUE
+    work = ap.RefundWork(tools, acting_for=_acting_for)
     running = ap.worker(
         client,
         activities=[work.assess, work.carry_out],
@@ -246,15 +330,19 @@ async def _acting_for(customer_id: str) -> Identity:
     return Identity(customer_id=customer_id, scopes=ident.CUSTOMER_SCOPES)
 
 
-async def main(real: bool, port: int) -> None:
+async def main(real: bool, port: int, store: bool = False) -> None:
     settings = Settings() if real else None
     _telemetry(settings)
-    world = Live.start(load(WORLD))
+    issuer = _issuer()
 
+    # The waits come up first, because the real store checks every call against
+    # the approvals — so the shop needs a handle on them before it can answer.
+    late = LateTools()
     async with (
-        connect(project(world), ledger=InMemoryLedger()) as tools,
-        waits_running(tools) as (approvals, escalations, colleagues),
+        waits_running(late) as (approvals, escalations, colleagues),
+        shop_running(store, issuer, approvals) as tools,
     ):
+        late.inner = tools
         # The real provider sits behind retries, a shared throttle and a breaker
         # (F-022: those existed, passed their tests, and nothing called them).
         # The scripted model cannot fail, so it has nothing to be resilient about.
@@ -291,10 +379,9 @@ async def main(real: bool, port: int) -> None:
         # handle. Sessions come from Keycloak when AGENT_ISSUER_URL names a
         # realm, else from the process-local issuer. Nothing sweeps: an
         # escalation nobody comes to lapses on the workflow's timer (T-028).
-        issuer = _issuer()
         app = _with_chatwoot(serve.build(agent, issuer=issuer, desk=colleagues), agent, issuer)
 
-        _announce(port, settings, local=issuer.url == local_issuer.URL)
+        _announce(port, settings, local=issuer.url == local_issuer.URL, store=store)
 
         config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
         await uvicorn.Server(config).serve()
@@ -304,7 +391,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--real", action="store_true", help="use a real model provider")
     parser.add_argument("--port", type=int, default=8077)
+    parser.add_argument(
+        "--store",
+        action="store_true",
+        help="talk to the composed Saleor instead of the simulated shop (T-017)",
+    )
     args = parser.parse_args()
     with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(main(args.real, args.port))
+        asyncio.run(main(args.real, args.port, args.store))
     sys.exit(0)
