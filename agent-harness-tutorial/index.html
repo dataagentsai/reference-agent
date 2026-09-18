@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Harness Tutorial</title>
+<style>
+:root{--ink:#16181d;--dim:#646b79;--rule:#e2e5ea;--bg:#fbfaf8;--card:#fff;
+ --accent:#2f5d50;--shade:#f3f4f7}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;--bg:#111318;--card:#181b21;
+ --accent:#6fc0a6;--shade:#20242b}}
+:root[data-theme="dark"]{--ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;
+ --bg:#111318;--card:#181b21;--accent:#6fc0a6;--shade:#20242b}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.shell{max-width:820px;margin:0 auto;padding:64px 28px 40px}
+.eyebrow{font:600 11px/1 ui-monospace,monospace;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--accent);margin:0 0 16px}
+h1{font:600 40px/1.1 "Iowan Old Style",Palatino,Georgia,serif;margin:0 0 14px;
+ letter-spacing:-.02em;text-wrap:balance}
+.lede{color:var(--dim);font-size:17px;max-width:64ch;margin:0}
+.contents{margin:40px 0 0;padding:24px 0 0;border-top:1px solid var(--rule)}
+.contents h2{font:600 10px/1 ui-monospace,monospace;letter-spacing:.12em;
+ text-transform:uppercase;color:var(--accent);margin:0 0 12px}
+.contents ol{margin:0;padding:0;list-style:none;font-size:14.5px}
+.contents li{margin:0 0 8px;display:flex;gap:10px}
+.contents li span{font:600 11px/1.9 ui-monospace,monospace;color:var(--dim);flex:none;width:3ch}
+.contents a{color:var(--ink);text-decoration:none;border-bottom:1px solid transparent}
+.contents a:hover{border-bottom-color:var(--accent);color:var(--accent)}
+.contents .empty{color:var(--dim);font-style:italic}
+.qa{border-top:1px solid var(--rule);padding:48px 0 8px;scroll-margin-top:12px}
+.qa .n{font:600 11px/1 ui-monospace,monospace;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--accent)}
+.qa h2{font:600 28px/1.2 "Iowan Old Style",Palatino,Georgia,serif;
+ margin:12px 0 18px;letter-spacing:-.015em;text-wrap:balance}
+.qa p,.qa li{max-width:68ch}
+.qa h3{font-size:16px;margin:28px 0 8px}
+code{font:14px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--shade);
+ padding:1px 5px;border-radius:4px}
+pre{background:var(--card);border:1px solid var(--rule);border-radius:8px;
+ padding:16px 18px;overflow-x:auto;font:13.5px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre code{background:none;padding:0}
+.note{background:var(--shade);border-left:3px solid var(--accent);
+ padding:12px 16px;border-radius:0 6px 6px 0;margin:20px 0}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:16px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:600;color:var(--dim)}
+.table-wrap{overflow-x:auto}
+footer{max-width:820px;margin:0 auto;padding:40px 28px 90px;
+ border-top:1px solid var(--rule);color:var(--dim);font-size:13px}
+@media (max-width:560px){.shell{padding:40px 16px 30px}h1{font-size:31px}
+ .qa h2{font-size:23px}footer{padding:30px 16px 70px}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <p class="eyebrow">Tutorial</p>
+  <h1>Agent Harness Tutorial</h1>
+  <p class="lede">What an agent harness is, what goes in one, and how to build it, one question at a time.</p>
+
+  <nav class="contents">
+    <h2>Questions</h2>
+    <ol id="toc">
+      <!-- TOC: add one <li> per question, e.g.
+      <li><span>01</span><a href="#q01">Question text</a></li> -->
+      <li><span>01</span><a href="#q01">What are the different kinds and shapes of AI application?</a></li>
+    </ol>
+  </nav>
+
+  <!-- QUESTIONS: append each new <section class="qa" id="qNN"> below this line -->
+
+  <section class="qa" id="q01">
+    <p class="n">Question 01</p>
+    <h2>What are the different kinds and shapes of AI application?</h2>
+
+    <p>AI applications come in ten shapes. The industry you're in, which model you use and how big it is don't set the shape. Two questions do:</p>
+    <ol>
+      <li><strong>Who owns control flow?</strong> Your code, or the model?</li>
+      <li><strong>What does the output touch?</strong> A person reading it, code consuming it, or the real world?</li>
+    </ol>
+    <p>The shape matters because it decides what the harness around the model has to do. Each shape adds a new way to fail, so each one needs more from the harness.</p>
+
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Shape</th><th>What it is</th><th>Control flow</th><th>Examples</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>A1</td><td><strong>Single-Turn Transform</strong></td>
+          <td>One call in, one answer out. No tools, no retrieval, no memory. The model reworks the text it was given.</td>
+          <td>Your code</td><td>Classify, summarise, translate, rewrite</td></tr>
+        <tr><td>A2</td><td><strong>Structured Extractor</strong></td>
+          <td>Output is a typed object read by downstream code, not by a person. A schema turns quality failures into type failures.</td>
+          <td>Your code</td><td>Entity extraction, form filling, function arguments</td></tr>
+        <tr><td>A3</td><td><strong>Grounded Answerer</strong></td>
+          <td>Search a set of documents, then write an answer from what came back. The search step and the writing step fail independently, so each is tested on its own.</td>
+          <td>Your code</td><td>RAG, document Q&amp;A, knowledge assistant</td></tr>
+        <tr><td>A4</td><td><strong>Conversational Assistant</strong></td>
+          <td>Multi-turn and stateful. Keeps context, memory and user history across turns, but takes no action on its own.</td>
+          <td>Your code</td><td>Support chat, tutoring, guided intake</td></tr>
+        <tr><td>A5</td><td><strong>Deterministic Workflow</strong></td>
+          <td>A fixed graph of steps with an LLM call at each node. The handoffs between steps are where new failures appear.</td>
+          <td>Your code</td><td>Chains, pipelines, batch enrichment</td></tr>
+        <tr><td>A6</td><td><strong>Tool-Using Agent</strong></td>
+          <td>The model picks which tools to call, in what order, and when to stop. This is the biggest jump in what you have to test.</td>
+          <td>The model</td><td>ReAct loops, function-calling agents</td></tr>
+        <tr><td>A7</td><td><strong>Multi-Agent System</strong></td>
+          <td>Several agents hand work to each other, under a supervisor or by passing it along. On top of A6, it adds failures in who is allowed to do what, how much each may spend, and how far one agent's mistake can spread.</td>
+          <td>Several models</td><td>Supervisor/worker, specialist handoff</td></tr>
+        <tr><td>A8</td><td><strong>Artifact Producer</strong></td>
+          <td>Output is code, SQL, config or a document that will be run or shipped. You can check it by running it, which is the strongest check any shape gets.</td>
+          <td>Either</td><td>Code generation, text-to-SQL, infrastructure-as-code</td></tr>
+        <tr><td>A9</td><td><strong>Autonomous Operator</strong></td>
+          <td>Runs unattended on a trigger or schedule, with real side effects and nobody watching live.</td>
+          <td>The model, unattended</td><td>Scheduled agents, auto-remediation, background workers</td></tr>
+        <tr><td>A10</td><td><strong>Classifier · Router · Judge</strong></td>
+          <td>The model's output steers other machinery: a routing decision, a guardrail verdict, a quality score. You won't see its errors unless you evaluate the evaluator.</td>
+          <td>Your code</td><td>LLM-as-judge, safety classifiers, model routers</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>Shapes are tags, not a tree</h3>
+    <p>A real system usually has more than one shape. A support agent like the one in this repo is a Conversational Assistant (A4), a Tool-Using Agent (A6) and a Grounded Answerer (A3) all at once. It may also use a Router (A10) to decide when to hand off to a human. Give a system every shape that applies and build the harness for all of them.</p>
+
+    <h3>Why this matters for the harness</h3>
+    <p>Every shape needs a common core from the harness: input handling, output checks, tracing, cost limits, evaluation. Beyond that core, each shape adds what is new about it. The line that matters most runs between A5 and A6. Up to A5, your code decides what happens next. From A6 on, the model decides, so the harness has to supply the limits your code used to enforce: which tools are allowed, step and cost budgets, stop conditions, and approval before irreversible actions.</p>
+
+    <div class="note">In the AI Harness Catalog (AHC), a single-turn transform (A1) needs about 50 harness capabilities, while a multi-agent system (A7) needs about 75. The more control the model has, the more the harness has to do.</div>
+  </section>
+
+</main>
+<footer>Agent Harness Tutorial · reference-agent</footer>
+</body>
+</html>
