@@ -62,6 +62,11 @@ th{font-weight:600;color:var(--dim)}
 .diagram .back{stroke:var(--accent);stroke-width:1.4;fill:none;stroke-dasharray:4 3}
 .diagram .up{stroke:var(--dim);stroke-width:1.2;fill:none;stroke-dasharray:3 3}
 .diagram .ah-go{fill:var(--ink)}.diagram .ah-back{fill:var(--accent)}.diagram .ah-up{fill:var(--dim)}
+.areas td:first-child{font:600 12px ui-monospace,Menlo,monospace;color:var(--dim);white-space:nowrap}
+.areas .own{color:var(--dim);font-size:13.5px}
+.areas .rule{display:block;margin-top:6px;color:var(--accent);font:12px/1.4 ui-monospace,Menlo,monospace}
+.areas tr.group td{font:600 11px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;
+ color:var(--accent);padding:22px 10px 8px;border-bottom:1px solid var(--accent)}
 footer{max-width:820px;margin:0 auto;padding:40px 28px 90px;
  border-top:1px solid var(--rule);color:var(--dim);font-size:13px}
 @media (max-width:560px){.shell{padding:40px 16px 30px}h1{font-size:31px}
@@ -81,6 +86,7 @@ footer{max-width:820px;margin:0 auto;padding:40px 28px 90px;
       <li><span>01</span><a href="#q01">Question text</a></li> -->
       <li><span>01</span><a href="#q01">What are the different kinds and shapes of AI application?</a></li>
       <li><span>02</span><a href="#q02">What layers make up a whole AI application?</a></li>
+      <li><span>03</span><a href="#q03">What does an agent harness have to take care of?</a></li>
     </ol>
   </nav>
 
@@ -324,6 +330,99 @@ footer{max-width:820px;margin:0 auto;padding:40px 28px 90px;
 
     <h3>Where the harness sits</h3>
     <p>The model is one box on the far right, and you rent it. Most of the engineering, and every failure from Question 01, lives in the outlined parts: <strong>orchestration &amp; context</strong> and the <strong>cross-cutting band</strong>. That is the <em>agent harness</em>, everything around the model that makes it safe and dependable to run. The gateway is drawn dashed because it's optional. When you have one, it enforces some of the harness's controls, such as budgets and key management, at a single shared point.</p>
+  </section>
+
+  <section class="qa" id="q03">
+    <p class="n">Question 03</p>
+    <h2>What does an agent harness have to take care of?</h2>
+
+    <p>The harness is everything that is <em>neither the model nor your business logic</em>: the ordinary, predictable code that turns a model into a system. The AI Harness Catalog (AHC) splits it into <strong>16 areas</strong>. Each one owns a single question, such as "what is the model told?" or "when does the system stop?"</p>
+    <p>Most teams build two of them, observability and evals, and call the harness done. The other fourteen are where agents fail in production.</p>
+
+    <p>Five groups make the sixteen easier to remember:</p>
+
+    <div class="table-wrap">
+    <table class="areas">
+      <thead><tr><th>#</th><th>Area · the question it owns</th><th>What it covers</th><th>What breaks without it</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="4">What goes in and out of the model</td></tr>
+        <tr><td>L1</td><td><strong>Context assembly</strong><br><span class="own">What is the model told?</span></td>
+          <td>Prompt templates and versions, where retrieved text goes, ordering, compaction, token budget, fencing untrusted content.<span class="rule">AHC-0011 · Untrusted content is fenced and labelled at assembly</span></td>
+          <td>Text inside a support ticket is read as an instruction. The budget silently truncates the evidence the answer needed.</td></tr>
+        <tr><td>L2</td><td><strong>Model invocation</strong><br><span class="own">How is the call made?</span></td>
+          <td>One client, explicit parameters, streaming, timeouts, which models can be reached, processing region.<span class="rule">AHC-0004 · One choke point for every model call</span></td>
+          <td>Calls are scattered, so there is no single place to add limits, logging or a new provider. Parameters change when the SDK default changes.</td></tr>
+        <tr><td>L6</td><td><strong>I/O contracts</strong><br><span class="own">What can the caller rely on?</span></td>
+          <td>Input validation, typed parsing of every response, a typed outcome that includes "failed" and "abstained".<span class="rule">AHC-0001 · Every model response crosses a typed boundary</span></td>
+          <td>A malformed response surfaces as a KeyError three layers away. The caller can't tell "no answer" from "error".</td></tr>
+
+        <tr class="group"><td colspan="4">What the agent can do, remember, and when it stops</td></tr>
+        <tr><td>L3</td><td><strong>Tool layer</strong><br><span class="own">What can the model do?</span></td>
+          <td>Tool schemas, argument validation before dispatch, sandboxing, size limits on results, reversibility class, authority checked where the tool runs.<span class="rule">AHC-0039 · Tools are classified by reversibility, and the class gates dispatch</span></td>
+          <td>The model invents arguments. A 2 MB tool result floods the context. A delete runs as easily as a read.</td></tr>
+        <tr><td>L4</td><td><strong>Control loop</strong><br><span class="own">When does the system stop?</span></td>
+          <td>Iteration, step and budget accounting, stop conditions, no-progress detection, bounds on delegation depth and fan-out.<span class="rule">AHC-0042 · The loop has a no-progress condition, not only a step ceiling</span></td>
+          <td>The agent calls the same tool forever. Sub-agents delegate in a cycle. Cost climbs until someone notices.</td></tr>
+        <tr><td>L5</td><td><strong>State &amp; memory</strong><br><span class="own">What is remembered?</span></td>
+          <td>Conversation state, checkpoints, history compaction, long-term memory, isolation between sessions and tenants, what survives a crash.<span class="rule">AHC-0069 · Memory writes go through a gate, not straight from the model</span></td>
+          <td>A crash loses half-done work. One customer's memory leaks into another's session. The model saves a false "fact" that persists.</td></tr>
+
+        <tr class="group"><td colspan="4">Keeping it safe</td></tr>
+        <tr><td>L7</td><td><strong>Policy enforcement</strong><br><span class="own">Where does a rule become real?</span></td>
+          <td>Guardrail checks on input and output, closed by default, redaction before data leaves, policies applied in a declared order, every decision recorded.<span class="rule">AHC-0008 · One enforcement position, defaulting closed</span></td>
+          <td>The guardrail exists in a design doc but no code path enforces it. Personal data is sent to the provider.</td></tr>
+        <tr><td>L16</td><td><strong>Identity &amp; authorization</strong><br><span class="own">Who is the system acting as?</span></td>
+          <td>The end user's identity carried to every tool, authorization of each action, secrets kept out of prompts, entitlement filtering in retrieval.<span class="rule">AHC-0034 · The end user's identity reaches every downstream decision</span></td>
+          <td>The agent acts with an admin service account for every user. An API key ends up in a prompt. RAG shows documents the user may not see.</td></tr>
+        <tr><td>L14</td><td><strong>Human-in-the-loop</strong><br><span class="own">Where can a person step in?</span></td>
+          <td>Approval gates, escalation that carries context, a stop button outside the run, what the system does while it waits.<span class="rule">AHC-0057 · Irreversible actions require an approval the run cannot grant</span></td>
+          <td>A refund or delete goes through with nobody approving. A human gets the escalation with none of the context.</td></tr>
+
+        <tr class="group"><td colspan="4">Keeping it running and affordable</td></tr>
+        <tr><td>L8</td><td><strong>Concurrency &amp; flow control</strong><br><span class="own">What happens under load?</span></td>
+          <td>Bounded parallelism and fan-out, queueing, backpressure, throttling (429) handled separately from failure, deadlines passed down.<span class="rule">AHC-0021 · Throttling is handled as a distinct condition from failure</span></td>
+          <td>A burst of traffic trips rate limits. Retries turn a slowdown into an outage. Work runs past the caller's deadline.</td></tr>
+        <tr><td>L10</td><td><strong>Failure handling</strong><br><span class="own">What happens when something breaks?</span></td>
+          <td>Bounded retries, fallback, idempotency, compensating actions, typed partial results, a declared degradation path.<span class="rule">AHC-0074 · Every step declares whether repeating it is safe</span></td>
+          <td>A provider outage becomes your outage. A retry charges a customer twice. A truncated answer is shown as complete.</td></tr>
+        <tr><td>L13</td><td><strong>Cost accounting</strong><br><span class="own">What does it cost, and who pays?</span></td>
+          <td>Spend tracked per unit of work, attribution tags, a declared price table, ceilings that can stop work already in flight.<span class="rule">AHC-0030 · A ceiling exists that can stop work already in flight</span></td>
+          <td>The bill is the first you hear of it. One runaway run burns the month's budget, and nobody can say which feature spent it.</td></tr>
+
+        <tr class="group"><td colspan="4">Knowing what happened, and changing it safely</td></tr>
+        <tr><td>L11</td><td><strong>Observability</strong><br><span class="own">Can a past run be explained?</span></td>
+          <td>A span per call, one trace ID across the whole unit of work, which route served each call, payload capture with redaction.<span class="rule">AHC-0026 · One identifier spans the whole unit of work</span></td>
+          <td>A customer complains and you can't see what the agent saw, decided or did.</td></tr>
+        <tr><td>L12</td><td><strong>Eval harness</strong><br><span class="own">Can the system be measured at all?</span></td>
+          <td>A task entrypoint an eval can call, datasets, versioned pluggable graders, CI wiring, production traces turned into test cases.<span class="rule">AHC-0010 · A task entrypoint an evaluation can drive</span></td>
+          <td>Every prompt change is a guess. Quality drifts and nobody notices until users do.</td></tr>
+        <tr><td>L9</td><td><strong>Determinism &amp; replay</strong><br><span class="own">Can yesterday be reproduced?</span></td>
+          <td>Pinned parameters, recorded fixtures, a swappable fake provider, replaying a past run without the network.<span class="rule">AHC-0022 · Provider interaction is substitutable without changing the system</span></td>
+          <td>A bug can't be reproduced. Tests hit the real API, so they're slow, flaky and cost money.</td></tr>
+        <tr><td>L15</td><td><strong>Release &amp; configuration</strong><br><span class="own">Which version is running?</span></td>
+          <td>Model pins, prompt versions, feature flags, canary, rollback, and one recorded, resolved configuration per run.<span class="rule">AHC-0032 · Rollback restores prompt, model and policy together</span></td>
+          <td>"What changed?" has no answer. A rollback reverts the prompt but leaves the new model.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>Not every shape needs all sixteen</h3>
+    <p>Thirteen areas apply to every shape from Question 01. Three appear only as the model gains control:</p>
+    <ul>
+      <li><strong>Tool layer (L3)</strong>: tool-using agents, multi-agent systems and autonomous operators (A6, A7, A9), plus the sandbox for artifact producers (A8).</li>
+      <li><strong>Control loop (L4)</strong>: from deterministic workflows (A5) upward. A single-turn transform has no loop to stop.</li>
+      <li><strong>Human-in-the-loop (L14)</strong>: approvals for agents that act (A6, A7, A9), escalation for assistants (A4), rejection for artifact producers (A8).</li>
+    </ul>
+    <p>State &amp; memory (L5) is a similar case. Every shape owes one core rule about how state is saved, and the rest arrive with conversations (A4) and agents.</p>
+
+    <h3>Where the areas sit in the Question 02 diagram</h3>
+    <ul>
+      <li><strong>Orchestration &amp; context box:</strong> context assembly, tools, control loop, state &amp; memory, I/O contracts, human-in-the-loop.</li>
+      <li><strong>AI gateway, if you have one:</strong> it can carry part of model invocation, concurrency, cost accounting and failure handling (fallback) for every app at once.</li>
+      <li><strong>Cross-cutting band:</strong> policy enforcement, identity, observability, evals, determinism, release &amp; configuration.</li>
+    </ul>
+
+    <div class="note">In AHC, <strong>layers</strong> and <strong>concerns</strong> are different things. The 16 above are <em>layers</em>: which part of the harness a rule belongs to. <em>Concerns</em> are a separate tag for which quality a rule serves: the nine ISO/IEC 25010 qualities (reliability, security, safety, maintainability…) plus <strong>cost</strong>. The catalog holds about 110 rules, and each has one layer and one concern.</div>
   </section>
 
 </main>
