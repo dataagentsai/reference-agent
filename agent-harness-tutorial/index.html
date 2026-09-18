@@ -52,6 +52,7 @@ th{font-weight:600;color:var(--dim)}
 .diagram svg{display:block;width:100%;min-width:760px;height:auto}
 .diagram .box{fill:var(--card);stroke:var(--rule);stroke-width:1.2}
 .diagram .hz{fill:var(--card);stroke:var(--accent);stroke-width:1.8}
+.diagram .opt{stroke-dasharray:6 4}
 .diagram .sub{fill:var(--shade);stroke:none}
 .diagram .t{fill:var(--ink);font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .diagram .s{fill:var(--ink);font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -149,12 +150,12 @@ footer{max-width:820px;margin:0 auto;padding:40px 28px 90px;
     <p class="n">Question 02</p>
     <h2>What layers make up a whole AI application?</h2>
 
-    <p>Six layers. A request travels left to right, from the person to the model, and the answer comes back right to left. Underneath sit the lab that trained the model and the compute everything runs on. A set of concerns such as guardrails and observability cut across every layer.</p>
+    <p>A request travels left to right: from the person, through your application and your harness, optionally through an AI gateway, to the model provider that runs the model. The answer comes back the same way. Underneath, a lab trained the model and a cloud runs every box. Each box is a <em>role</em>. One company can fill several roles, which is where most of the confusion comes from.</p>
 
     <div class="diagram">
-    <svg viewBox="0 0 1000 440" role="img" aria-labelledby="q02-title q02-desc">
+    <svg viewBox="0 0 1000 470" role="img" aria-labelledby="q02-title q02-desc">
       <title id="q02-title">The layers of an AI application, left to right</title>
-      <desc id="q02-desc">A person uses an application (layer 6), which calls orchestration and context (layer 5: prompt assembly, RAG, memory and cache, tools and MCP), which calls model access (layer 4: API or gateway), which calls the foundation model (layer 3). The answer flows back the same way. Labs (layer 2) train the model; compute and cloud (layer 1) host layers 3 and 4. Guardrails, evaluation and observability, cost limits and permissions cut across every layer. Layer 5 and the cross-cutting concerns are the harness.</desc>
+      <desc id="q02-desc">A person uses (1) the application, which calls (2) orchestration and context, the harness: agent loop, prompt assembly, RAG, memory and cache, tools and MCP. That calls (3) an optional AI gateway such as LiteLLM or Portkey, which forwards to (4) a model provider such as the Anthropic API, Bedrock, Vertex or a self-hosted vLLM, which runs (5) the model such as Claude, GPT or Llama. The answer flows back the same way. A lab trains the model. Guardrails, evaluation, budgets and permissions cut across the application, harness and gateway. Cloud and compute run every box.</desc>
       <defs>
         <marker id="m-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker>
         <marker id="m-back" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-back" d="M0,0 L10,5 L0,10 z"/></marker>
@@ -165,117 +166,164 @@ footer{max-width:820px;margin:0 auto;padding:40px 28px 90px;
       <line class="go" x1="10" y1="20" x2="40" y2="20" marker-end="url(#m-go)"/><text class="d" x="48" y="24">request</text>
       <line class="back" x1="120" y1="20" x2="150" y2="20" marker-end="url(#m-back)"/><text class="d" x="158" y="24">answer</text>
       <rect class="hz" x="232" y="12" width="22" height="16" rx="3"/><text class="d" x="262" y="24">the harness</text>
+      <rect class="hz opt" x="352" y="12" width="22" height="16" rx="3"/><text class="d" x="382" y="24">optional</text>
 
       <!-- person -->
-      <rect class="box" x="10" y="120" width="80" height="100" rx="8"/>
-      <text class="t" x="50" y="165" text-anchor="middle">Person</text>
-      <text class="d" x="50" y="183" text-anchor="middle">or trigger</text>
+      <rect class="box" x="10" y="120" width="70" height="100" rx="8"/>
+      <text class="t" x="45" y="165" text-anchor="middle">Person</text>
+      <text class="d" x="45" y="183" text-anchor="middle">or trigger</text>
 
-      <!-- 6 application -->
-      <rect class="box" x="120" y="40" width="150" height="260" rx="8"/>
-      <text class="n" x="134" y="62">LAYER 6</text>
-      <text class="t" x="134" y="80">Application</text>
-      <text class="s" x="134" y="108">Chat UI · IDE</text>
-      <text class="s" x="134" y="126">API · Slack · CLI</text>
-      <text class="s" x="134" y="144">Scheduler, webhook</text>
-      <text class="d" x="134" y="270">Claude Code, Cursor,</text>
-      <text class="d" x="134" y="286">your own app</text>
+      <!-- 1 application -->
+      <rect class="box" x="102" y="40" width="130" height="260" rx="8"/>
+      <text class="n" x="114" y="62">1 · YOU BUILD</text>
+      <text class="t" x="114" y="80">Application</text>
+      <text class="s" x="114" y="108">Chat UI · IDE</text>
+      <text class="s" x="114" y="126">API · Slack · CLI</text>
+      <text class="s" x="114" y="144">Scheduler</text>
+      <text class="d" x="114" y="270">Claude Code, Cursor,</text>
+      <text class="d" x="114" y="286">your own app</text>
 
-      <!-- 5 orchestration & context -->
-      <rect class="hz" x="300" y="40" width="270" height="260" rx="8"/>
-      <text class="n" x="314" y="62">LAYER 5</text>
-      <text class="t" x="314" y="80">Orchestration &amp; context</text>
-      <rect class="sub" x="314" y="94" width="242" height="38" rx="5"/>
-      <text class="s" x="326" y="112">Agent loop / workflow</text><text class="d" x="326" y="126">decides the next step</text>
-      <rect class="sub" x="314" y="138" width="242" height="38" rx="5"/>
-      <text class="s" x="326" y="156">Prompt &amp; context assembly</text><text class="d" x="326" y="170">system prompt, examples, fencing</text>
-      <rect class="sub" x="314" y="182" width="242" height="38" rx="5"/>
-      <text class="s" x="326" y="200">RAG · retriever + vector store</text><text class="d" x="326" y="214">your documents, at query time</text>
-      <rect class="sub" x="314" y="226" width="116" height="38" rx="5"/>
-      <text class="s" x="324" y="244">Memory</text><text class="d" x="324" y="258">+ prompt cache</text>
-      <rect class="sub" x="440" y="226" width="116" height="38" rx="5"/>
-      <text class="s" x="450" y="244">Tools · MCP</text><text class="d" x="450" y="258">live data, actions</text>
-      <text class="d" x="314" y="286">Agent SDK, LangGraph, plain code</text>
+      <!-- 2 orchestration & context -->
+      <rect class="hz" x="254" y="40" width="240" height="260" rx="8"/>
+      <text class="n" x="268" y="62">2 · YOU BUILD</text>
+      <text class="t" x="268" y="80">Orchestration &amp; context</text>
+      <rect class="sub" x="268" y="94" width="212" height="38" rx="5"/>
+      <text class="s" x="280" y="112">Agent loop / workflow</text><text class="d" x="280" y="126">decides the next step</text>
+      <rect class="sub" x="268" y="138" width="212" height="38" rx="5"/>
+      <text class="s" x="280" y="156">Prompt &amp; context assembly</text><text class="d" x="280" y="170">system prompt, examples</text>
+      <rect class="sub" x="268" y="182" width="212" height="38" rx="5"/>
+      <text class="s" x="280" y="200">RAG · retriever + vector store</text><text class="d" x="280" y="214">your documents</text>
+      <rect class="sub" x="268" y="226" width="102" height="38" rx="5"/>
+      <text class="s" x="277" y="244">Memory</text><text class="d" x="277" y="258">+ prompt cache</text>
+      <rect class="sub" x="378" y="226" width="102" height="38" rx="5"/>
+      <text class="s" x="387" y="244">Tools · MCP</text><text class="d" x="387" y="258">data, actions</text>
+      <text class="d" x="268" y="286">Agent SDK, LangGraph, plain code</text>
 
-      <!-- 4 model access -->
-      <rect class="box" x="600" y="40" width="160" height="260" rx="8"/>
-      <text class="n" x="614" y="62">LAYER 4</text>
-      <text class="t" x="614" y="80">Model access</text>
-      <text class="s" x="614" y="108">API or AI gateway</text>
-      <text class="s" x="614" y="126">Keys · budgets</text>
-      <text class="s" x="614" y="144">Routing · fallback</text>
-      <text class="s" x="614" y="162">Rate limits</text>
-      <text class="d" x="614" y="254">Anthropic API, Bedrock,</text>
-      <text class="d" x="614" y="270">Vertex, Azure Foundry,</text>
-      <text class="d" x="614" y="286">LiteLLM</text>
+      <!-- 3 AI gateway (optional) -->
+      <rect class="hz opt" x="516" y="40" width="135" height="260" rx="8"/>
+      <text class="n" x="528" y="62">3 · YOU RUN</text>
+      <text class="t" x="528" y="80">AI gateway</text>
+      <text class="d" x="528" y="96">optional</text>
+      <text class="s" x="528" y="120">One API for all</text>
+      <text class="s" x="528" y="138">Keys · budgets</text>
+      <text class="s" x="528" y="156">Routing · fallback</text>
+      <text class="s" x="528" y="174">Logs · caching</text>
+      <text class="d" x="528" y="254">Runs no model.</text>
+      <text class="d" x="528" y="270">LiteLLM, Portkey,</text>
+      <text class="d" x="528" y="286">Kong, Azure APIM</text>
 
-      <!-- 3 foundation model -->
-      <rect class="box" x="790" y="40" width="200" height="260" rx="8"/>
-      <text class="n" x="804" y="62">LAYER 3</text>
-      <text class="t" x="804" y="80">Foundation model</text>
-      <text class="s" x="804" y="108">LLM inference</text>
-      <text class="s" x="804" y="126">Embedding model</text>
-      <text class="s" x="804" y="144">Tokens in, tokens out</text>
-      <text class="d" x="804" y="270">Claude, GPT, Gemini,</text>
-      <text class="d" x="804" y="286">Llama, Mistral</text>
+      <!-- 4 model provider -->
+      <rect class="box" x="673" y="40" width="155" height="260" rx="8"/>
+      <text class="n" x="685" y="62">4 · YOU RENT</text>
+      <text class="t" x="685" y="80">Model provider</text>
+      <text class="s" x="685" y="108">Runs the model</text>
+      <text class="s" x="685" y="126">Serves the API</text>
+      <text class="s" x="685" y="144">Bills per token</text>
+      <text class="d" x="685" y="222">Anthropic API,</text>
+      <text class="d" x="685" y="238">OpenAI API,</text>
+      <text class="d" x="685" y="254">Bedrock, Vertex,</text>
+      <text class="d" x="685" y="270">Azure AI Foundry,</text>
+      <text class="d" x="685" y="286">vLLM (self-host)</text>
+
+      <!-- 5 model -->
+      <rect class="box" x="850" y="40" width="140" height="260" rx="8"/>
+      <text class="n" x="862" y="62">5 · YOU CHOOSE</text>
+      <text class="t" x="862" y="80">Model</text>
+      <text class="s" x="862" y="108">The weights</text>
+      <text class="s" x="862" y="126">LLM + embeddings</text>
+      <text class="d" x="862" y="270">Claude, GPT,</text>
+      <text class="d" x="862" y="286">Gemini, Llama</text>
 
       <!-- request / answer arrows -->
-      <line class="go" x1="90" y1="150" x2="118" y2="150" marker-end="url(#m-go)"/>
-      <line class="go" x1="270" y1="110" x2="298" y2="110" marker-end="url(#m-go)"/>
-      <line class="go" x1="570" y1="110" x2="598" y2="110" marker-end="url(#m-go)"/>
-      <line class="go" x1="760" y1="110" x2="788" y2="110" marker-end="url(#m-go)"/>
-      <line class="back" x1="788" y1="200" x2="762" y2="200" marker-end="url(#m-back)"/>
-      <line class="back" x1="598" y1="200" x2="572" y2="200" marker-end="url(#m-back)"/>
-      <line class="back" x1="298" y1="200" x2="272" y2="200" marker-end="url(#m-back)"/>
-      <line class="back" x1="118" y1="190" x2="92" y2="190" marker-end="url(#m-back)"/>
+      <line class="go" x1="80" y1="150" x2="100" y2="150" marker-end="url(#m-go)"/>
+      <line class="go" x1="232" y1="110" x2="252" y2="110" marker-end="url(#m-go)"/>
+      <line class="go" x1="494" y1="110" x2="514" y2="110" marker-end="url(#m-go)"/>
+      <line class="go" x1="651" y1="110" x2="671" y2="110" marker-end="url(#m-go)"/>
+      <line class="go" x1="828" y1="110" x2="848" y2="110" marker-end="url(#m-go)"/>
+      <line class="back" x1="848" y1="200" x2="830" y2="200" marker-end="url(#m-back)"/>
+      <line class="back" x1="671" y1="200" x2="653" y2="200" marker-end="url(#m-back)"/>
+      <line class="back" x1="514" y1="200" x2="496" y2="200" marker-end="url(#m-back)"/>
+      <line class="back" x1="252" y1="200" x2="234" y2="200" marker-end="url(#m-back)"/>
+      <line class="back" x1="100" y1="190" x2="82" y2="190" marker-end="url(#m-back)"/>
 
       <!-- cross-cutting -->
-      <rect class="hz" x="120" y="330" width="450" height="96" rx="8"/>
-      <text class="n" x="134" y="352">ACROSS EVERY LAYER</text>
-      <text class="s" x="134" y="374">Guardrails in and out · evaluation · tracing &amp; observability</text>
-      <text class="s" x="134" y="394">Cost and step budgets · identity &amp; permissions</text>
-      <text class="s" x="134" y="414">Human approval for irreversible actions</text>
+      <rect class="hz" x="102" y="322" width="549" height="66" rx="8"/>
+      <text class="n" x="116" y="344">ACROSS YOUR SIDE</text>
+      <text class="s" x="116" y="364">Guardrails in and out · evaluation · tracing · cost and step budgets</text>
+      <text class="s" x="116" y="381">Identity &amp; permissions · human approval for irreversible actions</text>
 
-      <!-- 2 labs, 1 compute -->
-      <rect class="box" x="790" y="322" width="200" height="44" rx="8"/>
-      <text class="n" x="804" y="340">LAYER 2</text>
-      <text class="s" x="804" y="357">Labs · train the model</text>
-      <line class="up" x1="890" y1="322" x2="890" y2="302" marker-end="url(#m-up)"/>
-      <rect class="box" x="600" y="382" width="390" height="44" rx="8"/>
-      <text class="n" x="614" y="400">LAYER 1</text>
-      <text class="s" x="614" y="417">Compute &amp; cloud · hosts 3 and 4 · AWS, Azure, GCP, GPUs</text>
-      <line class="up" x1="680" y1="382" x2="680" y2="302" marker-end="url(#m-up)"/>
+      <!-- labs -->
+      <rect class="box" x="850" y="322" width="140" height="66" rx="8"/>
+      <text class="n" x="862" y="344">LAB</text>
+      <text class="s" x="862" y="364">Trains the model</text>
+      <text class="d" x="862" y="381">Anthropic, Meta, …</text>
+      <line class="up" x1="920" y1="322" x2="920" y2="302" marker-end="url(#m-up)"/>
+
+      <!-- cloud -->
+      <rect class="box" x="10" y="404" width="980" height="56" rx="8"/>
+      <text class="n" x="24" y="426">CLOUD &amp; COMPUTE · RUNS EVERY BOX ABOVE</text>
+      <text class="s" x="24" y="446">Your app, harness and gateway run in your cloud account. The provider runs the model on its own GPUs. AWS, Azure, GCP, Databricks.</text>
     </svg>
     </div>
 
     <div class="table-wrap">
     <table>
-      <thead><tr><th>Layer</th><th>What it does</th><th>Examples</th><th>You usually…</th></tr></thead>
+      <thead><tr><th>Layer</th><th>What it does</th><th>Examples</th><th>You…</th></tr></thead>
       <tbody>
-        <tr><td><strong>6 · Application</strong></td><td>Where a person, or a trigger, starts the work and sees the result.</td><td>Chat UI, IDE, Slack bot, API, scheduler</td><td>Build</td></tr>
-        <tr><td><strong>5 · Orchestration &amp; context</strong></td><td>Decides the steps, assembles what the model sees, retrieves documents, keeps memory, and calls tools.</td><td>Claude Agent SDK, LangGraph, LlamaIndex, plain code, MCP servers, pgvector</td><td>Build</td></tr>
-        <tr><td><strong>4 · Model access</strong></td><td>The front door to the model: authentication, budgets, routing, rate limits, fallback.</td><td>Anthropic API, Bedrock, Vertex, Azure AI Foundry, LiteLLM, Portkey</td><td>Choose</td></tr>
-        <tr><td><strong>3 · Foundation model</strong></td><td>Turns tokens into tokens: the LLM, plus embedding models for search.</td><td>Claude, GPT, Gemini, Llama, Voyage embeddings</td><td>Choose (a config value)</td></tr>
-        <tr><td><strong>2 · Labs</strong></td><td>Train the models.</td><td>Anthropic, OpenAI, Google DeepMind, Meta, Mistral</td><td>Nothing</td></tr>
-        <tr><td><strong>1 · Compute &amp; cloud</strong></td><td>Where the model and gateway physically run.</td><td>AWS, Azure, GCP, Databricks, NVIDIA GPUs</td><td>Rent</td></tr>
-        <tr><td><strong>Across every layer</strong></td><td>Keeps the whole thing safe, measured and affordable.</td><td>Guardrails, eval suites, tracing, budgets, permissions, human approval</td><td>Build</td></tr>
+        <tr><td><strong>1 · Application</strong></td><td>Where a person, or a trigger, starts the work and sees the result.</td><td>Chat UI, IDE, Slack bot, API, scheduler</td><td>Build</td></tr>
+        <tr><td><strong>2 · Orchestration &amp; context</strong></td><td>Decides the steps, assembles what the model sees, retrieves documents, keeps memory, and calls tools.</td><td>Claude Agent SDK, LangGraph, LlamaIndex, plain code, MCP servers, pgvector</td><td>Build</td></tr>
+        <tr><td><strong>3 · AI gateway</strong> <em>(optional)</em></td><td>A proxy in front of the providers. It gives all your apps one API and enforces keys, budgets, rate limits, routing and fallback. It runs no model itself.</td><td>LiteLLM Proxy, Portkey, Kong AI Gateway, Azure APIM, Databricks AI Gateway</td><td>Run, or buy as a service</td></tr>
+        <tr><td><strong>4 · Model provider</strong></td><td>Runs the model on its GPUs and serves it through an API. You pay per token.</td><td>Anthropic API, OpenAI API, AWS Bedrock, Google Vertex AI, Azure AI Foundry, Databricks Model Serving, self-hosted vLLM</td><td>Rent</td></tr>
+        <tr><td><strong>5 · Model</strong></td><td>The trained weights: the LLM, plus embedding models for search.</td><td>Claude, GPT, Gemini, Llama, Mistral, Voyage embeddings</td><td>Choose (a config value)</td></tr>
+        <tr><td><strong>Lab</strong></td><td>Trains the model. Not in the request path.</td><td>Anthropic, OpenAI, Google DeepMind, Meta, Mistral</td><td>Nothing</td></tr>
+        <tr><td><strong>Cloud &amp; compute</strong></td><td>The machines under every box: yours and the provider's.</td><td>AWS, Azure, GCP, Databricks, NVIDIA GPUs</td><td>Rent</td></tr>
+        <tr><td><strong>Across your side</strong></td><td>Keeps your side of the line safe, measured and affordable.</td><td>Guardrails, eval suites, tracing, budgets, permissions, human approval</td><td>Build</td></tr>
       </tbody>
     </table>
     </div>
 
+    <h3>Four pairs people confuse</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Pair</th><th>The difference</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Gateway vs provider</strong></td><td>A gateway <em>forwards</em> requests. A provider <em>runs</em> the model. LiteLLM or Portkey on its own can't answer a single prompt; it needs a provider behind it. If you remove the gateway, your harness calls the provider directly. That's fine for one app and one provider. Add a gateway when several apps, teams or providers need one set of keys, budgets and logs.</td></tr>
+        <tr><td><strong>Provider vs lab</strong></td><td>A lab <em>trains</em> the model. A provider <em>serves</em> it. Anthropic is both: the lab that trains Claude and the provider behind the Anthropic API. AWS trains no Claude model, yet Bedrock serves Claude. Meta trains Llama but serves it to almost nobody; you get Llama from Bedrock, Databricks or your own vLLM.</td></tr>
+        <tr><td><strong>Provider vs cloud</strong></td><td>AWS the <em>cloud</em> rents you machines (EC2, GPUs). AWS <em>Bedrock</em> is a model provider that happens to run on that cloud. Same company, different layers. Choosing AWS as your cloud doesn't force Bedrock. Your app on AWS can still call the Anthropic API.</td></tr>
+        <tr><td><strong>Model vs provider</strong></td><td>One model, many front doors. The same Claude model is served by the Anthropic API, Bedrock, Vertex and Azure AI Foundry. Features, prices and release timing can differ slightly between them. The model is what thinks; the provider is where you call it.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>One company, several roles</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Company</th><th>Lab</th><th>Model</th><th>Provider</th><th>Gateway</th><th>Cloud</th><th>Harness tooling</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Anthropic</strong></td><td>✓</td><td>Claude</td><td>Anthropic API</td><td>–</td><td>–</td><td>Claude Agent SDK, MCP</td></tr>
+        <tr><td><strong>OpenAI</strong></td><td>✓</td><td>GPT</td><td>OpenAI API</td><td>–</td><td>–</td><td>Agents SDK</td></tr>
+        <tr><td><strong>Google</strong></td><td>✓ DeepMind</td><td>Gemini</td><td>Vertex AI, Gemini API</td><td>Apigee</td><td>GCP</td><td>ADK</td></tr>
+        <tr><td><strong>Amazon</strong></td><td>✓</td><td>Nova</td><td>Bedrock</td><td>–</td><td>AWS</td><td>Bedrock AgentCore</td></tr>
+        <tr><td><strong>Microsoft</strong></td><td>✓</td><td>Phi</td><td>Azure AI Foundry</td><td>Azure APIM</td><td>Azure</td><td>Semantic Kernel</td></tr>
+        <tr><td><strong>Meta</strong></td><td>✓</td><td>Llama (open weights)</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+        <tr><td><strong>Databricks</strong></td><td>✓</td><td>DBRX (older)</td><td>Model Serving</td><td>AI Gateway</td><td>runs on AWS/Azure/GCP</td><td>Mosaic AI Agent Framework</td></tr>
+        <tr><td><strong>LiteLLM · Portkey · Kong</strong></td><td>–</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>So when someone says "we use Anthropic", ask which role they mean. It could be the model (Claude), the provider (the Anthropic API) or the framework (the Agent SDK). Each is a separate choice.</p>
+
     <h3>How one request flows</h3>
     <ol>
       <li>A person, or a trigger, sends a request through the <strong>application</strong>.</li>
-      <li>The <strong>orchestration</strong> layer builds the prompt. It pulls relevant documents through RAG, recalls memory, and lists the tools the model may use.</li>
-      <li>The prompt goes through <strong>model access</strong>, where the API or gateway checks keys and budgets and routes it to a model.</li>
-      <li>The <strong>model</strong> either answers or asks for a tool. If it asks for a tool, orchestration runs the tool, feeds the result back, and loops to step 3.</li>
+      <li>The <strong>harness</strong> (orchestration &amp; context) builds the prompt. It pulls relevant documents through RAG, recalls memory, and lists the tools the model may use.</li>
+      <li>If there is a <strong>gateway</strong>, it checks the key and budget, logs the call, and picks a provider.</li>
+      <li>The <strong>provider</strong> runs the <strong>model</strong>, which either answers or asks for a tool. If it asks for a tool, the harness runs the tool, feeds the result back, and loops to step 3.</li>
       <li>The answer passes back through output guardrails to the person. Tracing and cost records are written along the way.</li>
     </ol>
 
     <h3>Where the harness sits</h3>
-    <p>The model is one box on the right. Most of the engineering, and every failure from Question 01, lives in the outlined parts: <strong>layer 5</strong> and the <strong>cross-cutting band</strong>. That is the <em>agent harness</em>, everything around the model that makes it safe and dependable to run. Layers 1 to 4 you mostly choose or rent. The harness you build.</p>
-
-    <div class="note">The same name can sit on several layers. "Claude" is a model on layer 3, the Anthropic API on layer 4, and the Claude Agent SDK on layer 5. You can use the model without the SDK, and you can reach the same model through Bedrock or Vertex instead of the Anthropic API.</div>
+    <p>The model is one box on the far right, and you rent it. Most of the engineering, and every failure from Question 01, lives in the outlined parts: <strong>orchestration &amp; context</strong> and the <strong>cross-cutting band</strong>. That is the <em>agent harness</em>, everything around the model that makes it safe and dependable to run. The gateway is drawn dashed because it's optional. When you have one, it enforces some of the harness's controls, such as budgets and key management, at a single shared point.</p>
   </section>
 
 </main>
