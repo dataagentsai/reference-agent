@@ -626,13 +626,31 @@
     <li><b>The counters go nowhere.</b> No <code>MeterProvider</code> is configured, so all seven record into a no-op.</li>
     <li>The approvals counter counts only <code>requested</code> since the move to Temporal.</li>
     <li>No latency histogram: turn, model call, time to first token, each tool.</li>
-    <li>Prompts and replies are captured only when switched on, so a judge has nothing to read.</li>
+    <li><b>No words are ever captured.</b> <code>set_payload</code> is off by default and called from nowhere, so switching it on changes nothing. A judge has nothing to read.</li>
+    <li>Tool arguments and results are not on the tool span.</li>
     <li>Nothing writes a score back to Langfuse.</li>
     <li>Nothing joins what happened later to the run: the customer came back, a refund was reversed.</li>
     <li>The trace stops at the MCP hop (T-020).</li>
   </ol></div>
 </div>
 <p class="caption">Enough to <b>investigate</b> one run. Not enough to <b>notice</b> that many runs have gone wrong.</p>
+
+
+<h3>The record online eval needs: AHC-0114, field by field</h3>
+<p class="measure">AHC-0114 names the minimum a unit of work must leave so it can be judged later without re-running it: nine groups, each answering one question. Structure is recorded for every turn; the words, for a declared sample, redacted.</p>
+<div class="scroll"><table>
+  <tr><th>Group</th><th>Answers</th><th>What it holds</th><th>Here</th></tr>
+  <tr><td>1 · Join keys</td><td>whose, and which turn?</td><td>run id, session, pseudonymous user, tenant, position in the session</td><td><span class="pill done">have</span> <code>agent.run.id</code>, <code>session.id</code>, <code>user.id</code>, <code>agent.tenant</code></td></tr>
+  <tr><td>2 · Versions</td><td>which release?</td><td>config fingerprint, model asked for and model that answered, each rule set's version</td><td><span class="pill done">have</span> fingerprint, <code>gen_ai.request/response.model</code>, router, escalation and promise rule versions</td></tr>
+  <tr><td>3 · Input</td><td>what was asked?</td><td>the customer's message, redacted — sampled</td><td><span class="pill open">missing</span> <code>set_payload</code> is never called</td></tr>
+  <tr><td>4 · What it was shown</td><td>what did it know?</td><td>each tool result, redacted, with its source — sampled</td><td><span class="pill open">missing</span> only whether a result was truncated</td></tr>
+  <tr><td>5 · What it did</td><td>what path?</td><td>model calls; tool calls with arguments, side effect and outcome; policy decisions</td><td><span class="pill part">most</span> tool name, side effect, key, route, policy — not the arguments</td></tr>
+  <tr><td>6 · Output and ending</td><td>what came out, and how did it end?</td><td>the reply, redacted — sampled; completed · refused · escalated · waiting · failed, and the rule</td><td><span class="pill part">half</span> the ending and rule, yes; the reply, no</td></tr>
+  <tr><td>7 · Cost and time</td><td>what did it cost?</td><td>tokens, cost, duration, per turn and per call</td><td><span class="pill done">have</span> on spans; as metrics after T-055</td></tr>
+  <tr><td>8 · Markers</td><td>what kind of run?</td><td>synthetic or real, content captured or not, resolution mode</td><td><span class="pill part">one of three</span> <code>agent.resolution</code> only</td></tr>
+  <tr><td>9 · Later outcomes</td><td>was it right?</td><td>kind, source and time of what happened afterwards</td><td><span class="pill part">one</span> escalation verdict only — AHC-0112</td></tr>
+</table></div>
+<p class="caption">Groups 1, 2, 5 and 7 are why a complaint is easy to investigate today. Groups 3, 4 and 6 are why nothing can be scored.</p>
 
 <h3>What an operator asks, and how easily it is answered today</h3>
 <div class="scroll"><table>
@@ -720,6 +738,7 @@
   <tr><td class="mono">AHC-0111</td><td>the numbers the system is judged on are metrics with bounded labels, exported apart from traces; no exporter in a deployment is an error</td><td>T-055</td></tr>
   <tr><td class="mono">AHC-0112</td><td>one path by which a later outcome is recorded against its run</td><td>T-057</td></tr>
   <tr><td class="mono">AHC-0113</td><td>the eval entrypoint can drive the serving path as an identity that touches no real data</td><td>T-056</td></tr>
+  <tr><td class="mono">AHC-0114</td><td>each unit of work leaves one evaluation record with a declared minimum — the nine groups above</td><td>T-057</td></tr>
 </table></div>
 <p class="caption">Each is an accepted gap in <code>harness-profile.yaml</code> until its item lands. One question is left open: AAC-0084 (validate a judge against human labels) applies only to A10, and an A6 agent scored by a judge online needs it too.</p>
 

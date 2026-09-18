@@ -19,7 +19,7 @@ behind the specs, because it is made of them.
 | **security** | 5 | 14 | 8 | 3 |
 | **reliability** | 6 | 13 | 7 | 4 |
 | **cost** | 4 | 9 | 6 | 3 |
-| **maintainability** | 6 | 21 | 10 | 0 |
+| **maintainability** | 6 | 22 | 10 | 0 |
 | **performance-efficiency** | 1 | 6 | 0 | 0 |
 | **compatibility** | 3 | 0 | 0 | 0 |
 | **interaction-capability** | 1 | 0 | 0 | 1 |
@@ -249,7 +249,7 @@ behind the specs, because it is made of them.
 - `twelve-steps-and-then-a-person` the loop spends its twelve steps and hands over
 
 
-## maintainability — 37
+## maintainability — 38
 
 **AOAS**
 
@@ -283,6 +283,7 @@ behind the specs, because it is made of them.
 - `AHC-0110` Every failure declares what kind of failure it is, from one vocabulary *(analysability)*
 - `AHC-0111` The numbers the system is judged on are emitted as metrics, apart from traces *(analysability)*
 - `AHC-0112` An outcome that arrives later can be attached to the run it judges *(analysability)*
+- `AHC-0114` Each unit of work leaves one evaluation record, with a declared minimum *(testability)*
 
 **AAC**
 
