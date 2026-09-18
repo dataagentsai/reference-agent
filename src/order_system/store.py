@@ -76,9 +76,24 @@ class Saleor:
     token: str | None = field(default=None, repr=False)
 
     async def __call__(self, query: str, **variables: Any) -> dict[str, Any]:
+        """One call, signing in again once if the store's token has expired.
+
+        Saleor's access tokens last minutes, and this held the first one for
+        ever — so five minutes into a real session every call failed, and the
+        agent handed a customer to a colleague over a cancellation the store
+        would have allowed (found in the first person's session, T-017). The
+        simulated shop never expires anything, which is why no test saw it.
+        """
         if self.token is None:
             await asyncio.to_thread(self._sign_in)
-        return await asyncio.to_thread(self._post, query, variables)
+        try:
+            return await asyncio.to_thread(self._post, query, variables)
+        except StoreUnavailable as exc:
+            if not _expired(exc):
+                raise
+            self.token = None
+            await asyncio.to_thread(self._sign_in)
+            return await asyncio.to_thread(self._post, query, variables)
 
     def _sign_in(self) -> None:
         answer = self._post(
@@ -105,6 +120,14 @@ class Saleor:
         if answer.get("errors"):
             raise StoreUnavailable(json.dumps(answer["errors"])[:300])
         return answer["data"]
+
+
+EXPIRED = ("ExpiredSignatureError", "Signature has expired", "JSONWebTokenExpired")
+
+
+def _expired(exc: Exception) -> bool:
+    """Whether the store refused the call only because our token is stale."""
+    return any(marker in str(exc) for marker in EXPIRED)
 
 
 def as_order(found: dict[str, Any], *, now: int) -> dict[str, Any]:
