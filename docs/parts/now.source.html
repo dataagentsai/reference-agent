@@ -457,6 +457,153 @@
   <li class="agent">Ask about an order again: the agent answers.</li>
 </ol>
 
+
+<h2 id="now-mcp">MCP, explained like you're five</h2>
+<div class="two">
+  <div class="card"><div class="who">The picture</div>
+  <p>The agent is someone who <b>cannot cook</b>. The store is a <b>kitchen</b>. MCP is the <b>menu and the order ticket</b> that every waiter and every kitchen agree on, so any agent can order from any kitchen without learning its language first.</p></div>
+  <div class="card"><div class="who">What happens</div>
+  <ol class="steps" style="margin:0">
+    <li class="edge"><b>Read the menu</b> — <code>tools/list</code>. The kitchen says what it can make and what each dish needs.</li>
+    <li class="agent"><b>Write a ticket</b> — <code>tools/call</code> with a dish and its details, e.g. <code>cancel_order {id: AB-10002}</code>.</li>
+    <li class="wait"><b>Clip your ID to the ticket</b> — <code>_meta</code>. The kitchen checks it itself and ignores what you <i>say</i> you are.</li>
+    <li class="store"><b>Get the plate and a receipt</b> — the result, as text and as structured data the agent can check.</li>
+  </ol></div>
+</div>
+<p class="measure">Two kinds of “no”, and MCP keeps them apart: the kitchen tried and could not (<i>an execution error</i> — “that order has shipped”), or the ticket never reached a kitchen that understood it (<i>a protocol error</i> — no such dish). The agent treats them differently: the first it can explain to the customer, the second is a fault.</p>
+
+<h3>One tool call, on the wire</h3>
+<div class="diagram" role="img" aria-label="The agent's MCP client asks the order system's MCP server for its tools and gets six with schemas and side effects. It then calls cancel_order with the order id as the argument and, in _meta, the customer's exchanged token and an idempotency key. The server verifies the token, checks ownership and the key, changes Saleor, and returns structured content.">
+<svg viewBox="0 0 1000 430" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Sans, sans-serif">
+  <defs>
+    <marker id="now-mcp-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill: var(--ink-muted)"/>
+    </marker>
+  </defs>
+  <rect x="14" y="14" width="220" height="400" rx="8" style="fill: var(--wash-agent); stroke: var(--agent)"/>
+  <text x="124" y="40" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--agent)">Agent · MCP client</text>
+  <text x="124" y="60" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">support_agent/tools</text>
+  <text x="30" y="96" font-size="12" style="fill: var(--ink)">shows the model only the</text>
+  <text x="30" y="112" font-size="12" style="fill: var(--ink)">tools this customer may use</text>
+  <text x="30" y="226" font-size="12" style="fill: var(--ink)">the model wrote the arguments;</text>
+  <text x="30" y="242" font-size="12" style="fill: var(--ink)">the harness wrote <tspan font-family="IBM Plex Mono, monospace">_meta</tspan></text>
+  <text x="30" y="358" font-size="12" style="fill: var(--ink)">checks the schema, keeps it</text>
+  <text x="30" y="374" font-size="12" style="fill: var(--ink)">in the ledger, bounds its size</text>
+
+  <rect x="766" y="14" width="220" height="400" rx="8" style="fill: var(--wash-store); stroke: var(--store)"/>
+  <text x="876" y="40" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--store)">Order system · MCP server</text>
+  <text x="876" y="60" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">order_system/server.py → Saleor</text>
+  <text x="782" y="96" font-size="12" style="fill: var(--ink)">six tools, each with an input</text>
+  <text x="782" y="112" font-size="12" style="fill: var(--ink)">and output schema, a side effect</text>
+  <text x="782" y="128" font-size="12" style="fill: var(--ink)">and the scope it needs</text>
+  <text x="782" y="226" font-size="12" style="fill: var(--ink)">1 is the token for this store?</text>
+  <text x="782" y="244" font-size="12" style="fill: var(--ink)">2 is AB-10002 this customer's?</text>
+  <text x="782" y="262" font-size="12" style="fill: var(--ink)">3 seen this key before?</text>
+  <text x="782" y="280" font-size="12" style="fill: var(--ink)">4 pending? → cancel in Saleor</text>
+
+  <g font-family="IBM Plex Mono, monospace" font-size="11.5" style="fill: var(--ink)">
+    <text x="252" y="92">① tools/list</text>
+    <text x="252" y="146">← [get_order, list_orders, cancel_order, …]</text>
+    <text x="252" y="162" style="fill: var(--ink-muted)">   inputSchema · outputSchema · side_effect · scope</text>
+    <text x="252" y="206">② tools/call  name: "cancel_order"</text>
+    <text x="252" y="222">   arguments: {"id": "AB-10002"}</text>
+    <text x="252" y="238">   _meta: {"aoas/session": {"token": "eyJ…"},</text>
+    <text x="252" y="254">           "aoas/idempotency-key": "run_…:1:1"}</text>
+    <text x="252" y="320">← structuredContent: {"allowed": true,</text>
+    <text x="252" y="336">     "status": "cancelled", …}   isError: false</text>
+  </g>
+  <g style="stroke: var(--ink-muted); fill: none" stroke-width="1.4" marker-end="url(#now-mcp-arrow)">
+    <path d="M236 100 H762"/>
+    <path d="M762 172 H238" stroke-dasharray="4 4"/>
+    <path d="M236 266 H762"/>
+    <path d="M762 346 H238" stroke-dasharray="4 4"/>
+  </g>
+  <text x="500" y="398" text-anchor="middle" font-size="11.5" style="fill: var(--ink-muted)">JSON-RPC 2.0 messages. Today they cross an in-memory pipe in one process; with T-054, HTTP.</text>
+</svg>
+</div>
+<p class="caption">The model chooses <i>which</i> tool and writes its arguments. Everything that decides <i>whether it is allowed</i> — the token, the approval, the idempotency key — travels in <code>_meta</code>, which the model never sees or writes.</p>
+
+<h3>Today, and after T-054</h3>
+<div class="diagram" role="img" aria-label="Today the agent, its MCP client, the order system's MCP server and the approvals worker all run in one Python process, joined by an in-memory transport. After T-054 the order system is its own service in the store profile, reached over streamable HTTP, with its own Saleor credentials.">
+<svg viewBox="0 0 1000 300" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Sans, sans-serif">
+  <defs>
+    <marker id="now-mcp-arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill: var(--ink-muted)"/>
+    </marker>
+  </defs>
+  <text x="14" y="24" font-size="11" letter-spacing="1.2" style="fill: var(--ink-muted)">TODAY</text>
+  <rect x="14" y="34" width="640" height="96" rx="8" style="fill: var(--surface-2); stroke: var(--rule-strong)" stroke-dasharray="5 4"/>
+  <text x="26" y="52" font-size="11" style="fill: var(--ink-muted)">one Python process · run_server.py</text>
+  <rect x="30" y="62" width="180" height="54" rx="6" style="fill: var(--wash-agent); stroke: var(--agent)"/>
+  <text x="120" y="93" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--agent)">Agent + MCP client</text>
+  <rect x="440" y="62" width="200" height="54" rx="6" style="fill: var(--wash-store); stroke: var(--store)"/>
+  <text x="540" y="93" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--store)">Order system server</text>
+  <text x="325" y="82" text-anchor="middle" font-size="11.5" style="fill: var(--ink)">in-memory transport</text>
+  <text x="325" y="98" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">(the SDK's, for tests)</text>
+  <rect x="820" y="62" width="160" height="54" rx="6" style="fill: var(--wash-store); stroke: var(--store)"/>
+  <text x="900" y="93" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--store)">Saleor</text>
+
+  <text x="14" y="176" font-size="11" letter-spacing="1.2" style="fill: var(--ink-muted)">AFTER T-054</text>
+  <rect x="14" y="186" width="260" height="96" rx="8" style="fill: var(--surface-2); stroke: var(--rule-strong)" stroke-dasharray="5 4"/>
+  <text x="26" y="204" font-size="11" style="fill: var(--ink-muted)">the agent's container</text>
+  <rect x="30" y="214" width="180" height="54" rx="6" style="fill: var(--wash-agent); stroke: var(--agent)"/>
+  <text x="120" y="245" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--agent)">Agent + MCP client</text>
+  <rect x="420" y="186" width="250" height="96" rx="8" style="fill: var(--surface-2); stroke: var(--rule-strong)" stroke-dasharray="5 4"/>
+  <text x="432" y="204" font-size="11" style="fill: var(--ink-muted)">its own service · store profile</text>
+  <rect x="440" y="214" width="200" height="54" rx="6" style="fill: var(--wash-store); stroke: var(--store)"/>
+  <text x="540" y="238" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--store)">Order system server</text>
+  <text x="540" y="256" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">own Saleor credentials</text>
+  <text x="345" y="226" text-anchor="middle" font-size="11.5" style="fill: var(--ink)">streamable HTTP</text>
+  <text x="345" y="242" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">connection: OAuth</text>
+  <text x="345" y="256" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">each call: customer token</text>
+  <rect x="820" y="214" width="160" height="54" rx="6" style="fill: var(--wash-store); stroke: var(--store)"/>
+  <text x="900" y="245" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--store)">Saleor</text>
+
+  <g style="stroke: var(--ink-muted); fill: none" stroke-width="1.4" marker-end="url(#now-mcp-arrow2)">
+    <path d="M210 108 H436"/>
+    <path d="M640 89 H816"/>
+    <path d="M210 262 H436"/>
+    <path d="M640 241 H816"/>
+  </g>
+  <text x="728" y="82" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">GraphQL</text>
+  <text x="728" y="234" text-anchor="middle" font-size="11" style="fill: var(--ink-muted)">GraphQL</text>
+</svg>
+</div>
+<p class="caption">The code already behaves as if the two were apart: the store verifies a token addressed to itself and trusts nothing the caller asserts. T-054 makes the process boundary real.</p>
+
+<h3>How it follows the MCP standard</h3>
+<div class="scroll"><table>
+  <tr><th>The specification</th><th>What we do</th><th>Status</th></tr>
+  <tr><td>JSON-RPC 2.0, an <code>initialize</code> handshake agreeing capabilities</td><td>the official SDK does both, on each side</td><td><span class="pill done">follows</span></td></tr>
+  <tr><td><code>tools/list</code>: name, description, <code>inputSchema</code> (JSON Schema)</td><td>six tools, schemas generated from the Python signatures</td><td><span class="pill done">follows</span></td></tr>
+  <tr><td><code>outputSchema</code> and <code>structuredContent</code> (optional)</td><td><b>required</b> by our client: a tool without one is refused, so results are compared, not parsed</td><td><span class="pill done">stricter</span></td></tr>
+  <tr><td><code>tools/call</code>; a failed tool returns <code>isError: true</code>, a bad request is a JSON-RPC error</td><td>both kept apart as <code>execution</code> and <code>protocol</code> errors</td><td><span class="pill done">follows</span></td></tr>
+  <tr><td><code>_meta</code> for extension data, keys with a prefix</td><td>request keys are <code>aoas/session</code>, <code>aoas/approval</code>, <code>aoas/idempotency-key</code>; the tool-level <code>side_effect</code> and <code>required_scope</code> have no prefix</td><td><span class="pill part">mostly · T-054</span></td></tr>
+  <tr><td>Tool annotations: <code>readOnlyHint</code>, <code>destructiveHint</code>, <code>idempotentHint</code></td><td>not set; our <code>side_effect</code> says the same and more (reversible vs irreversible), but only our client reads it</td><td><span class="pill part">missing · T-054</span></td></tr>
+  <tr><td>Transports: stdio, or streamable HTTP</td><td>the SDK's in-memory transport, in one process</td><td><span class="pill part">not yet · T-054</span></td></tr>
+  <tr><td>Authorization: OAuth 2.1 on the HTTP connection</td><td>no connection auth (no HTTP); the customer's exchanged token rides <b>per call</b> in <code>_meta</code>, because one connection serves many customers and the store must know whose each call is</td><td><span class="pill part">T-054: both</span></td></tr>
+  <tr><td>Resources, prompts, sampling, roots</td><td>not used: the agent needs tools, nothing else</td><td><span class="pill open">not needed</span></td></tr>
+  <tr><td>Elicitation (the server asks the user a question mid-call)</td><td>considered for approvals and rejected: the approver is not the caller, and an approval can take a day — a Temporal workflow instead</td><td><span class="pill open">chosen not to</span></td></tr>
+</table></div>
+
+<h3>Are we using FastMCP?</h3>
+<div class="two">
+  <div class="card"><div class="who">Yes — the one in the official SDK</div>
+  <p>FastMCP 1.0 was merged into the official MCP Python SDK, and in SDK 2.x (we run <code>mcp 2.1.1</code>) it was renamed <code>MCPServer</code>. That is what <code>order_system/server.py</code> and AgentTwin's projection build on: the <code>@server.tool</code> decorator, schemas from type hints, <code>Context</code> for <code>_meta</code>. Importing <code>mcp.server.fastmcp</code> in this SDK raises an error pointing at the rename.</p></div>
+  <div class="card"><div class="who">No — the separate <code>fastmcp</code> package</div>
+  <p>The standalone FastMCP 2.x project adds server composition, proxies, servers generated from OpenAPI, auth providers and a richer client. We need none of that yet: one server, six hand-written tools, one client. The official SDK is one dependency, versioned with the specification, and our import contract keeps MCP inside one module, so moving later is a small change. Worth another look at T-054 if its auth helpers save writing the connection's OAuth.</p></div>
+</div>
+
+<h3>Where it lives</h3>
+<div class="scroll"><table>
+  <tr><th>File</th><th>Side</th><th>What it does</th></tr>
+  <tr><td class="mono">src/order_system/server.py</td><td>server</td><td>the six tools; every call: check the token and approval, ownership, the idempotency key</td></tr>
+  <tr><td class="mono">src/order_system/store.py</td><td>server</td><td>what each tool does, against Saleor's GraphQL; the eligibility rules, stated by the store</td></tr>
+  <tr><td class="mono">src/order_system/__init__.py</td><td>server</td><td><code>authoriser</code>: who is calling, on whose approval</td></tr>
+  <tr><td class="mono">src/support_agent/tools/__init__.py</td><td>client</td><td><code>connect</code>, <code>MCPTransport</code> (the only class that speaks MCP — an import contract enforces it), <code>GatedTools</code>' four checks</td></tr>
+  <tr><td class="mono">agenttwin/projection.py</td><td>server, in tests</td><td>the same tool surface built from a world file, for scenarios</td></tr>
+</table></div>
+
 <h2>The stack</h2>
 <p class="measure">One compose file, with profiles, because the laptop has 3.8 GB for Docker and cannot run everything at once. Start the profiles a task needs.</p>
 <div class="scroll"><table>
