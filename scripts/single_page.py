@@ -7,7 +7,9 @@ written to end. This assembles instead.
 
 Parts, one file, in the order a reader needs them. First, **the agent now**
 (`docs/parts/now.source.html`): the flow and the stack after Tier 1, which the
-older parts predate. Then:
+older parts predate. Second, **the agent harness tutorial**, read from
+`agent-harness-tutorial/index.html` itself rather than vendored, so the page
+has every question as it stands. Then:
 
 1. **The agent** — what it is, end to end. Authored prose, vendored at
    `docs/parts/agent.source.html`.
@@ -345,8 +347,10 @@ class Part:
 # ------------------------------------------------------------------- sources
 
 
-def authored(key: str, title: str, standfirst: str) -> Part:
-    path = PARTS / f"{key}.source.html"
+def authored(key: str, title: str, standfirst: str, path: pathlib.Path | None = None) -> Part:
+    """A hand-written part. Vendored under `docs/parts/` unless `path` names the
+    file it is written in, which is read as it stands on every build."""
+    path = path or PARTS / f"{key}.source.html"
     if not path.exists():
         raise SystemExit(f"single_page: missing authored source {path}")
     return Part(key, title, standfirst, path.read_text(encoding="utf-8"))
@@ -484,6 +488,14 @@ def build(fast: bool) -> str:
             "After Tier 1. What changed, the path a message takes through the real "
             "products, three messages step by step, the stack, and where it sits "
             "in the goal.",
+        ),
+        authored(
+            "tutorial",
+            "Agent harness tutorial",
+            "What an agent harness is, what goes in one, and how to build it, one "
+            "question at a time — from the kinds of AI application down to this "
+            "agent's function stack.",
+            path=ROOT / "agent-harness-tutorial" / "index.html",
         ),
         authored(
             "agent",

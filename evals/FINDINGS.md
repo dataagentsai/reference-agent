@@ -1752,3 +1752,16 @@ so and say what is left).
 **Open.** Routed to the router's rules: "options", "what can I do", "can I
 still" are asks for eligibility, not status. Belongs with the person's session
 (T-017), where more of this kind will surface.
+
+## F-046 · A resolved escalation stays in the conversation's facts
+
+**Found** 2026-09-18, by the capture behind the tutorial's scenario 2. After a
+colleague resolves an escalation and the agent takes the conversation back,
+`pending_escalation_id` is cleared, but `facts.awaiting` still lists
+`escalation:E-…`. Nothing reads it wrongly today; the hand-off context of any
+later escalation in the same conversation would say the customer is still
+waiting on the first one.
+
+**Open.** Routed to `HandoffDesk.hold`: when it finds the escalation resolved it
+returns `None`, and nothing settles the fact. The lapse path already records the
+hand-back; the resolved path should settle `escalation:E-…` the same way.

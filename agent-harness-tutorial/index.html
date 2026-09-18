@@ -1281,6 +1281,376 @@ ON CONFLICT (run_id) DO UPDATE
       <li><strong>Postgres was written once:</strong> a single checkpoint row at the end. Nothing was written during the loop.</li>
       <li><strong>Cached tokens are billed as full input.</strong> Groq reported 256 cached prompt tokens on call 1, but <code>_from_wire</code> doesn't read <code>prompt_tokens_details.cached_tokens</code>, so the meter prices them at the full input rate. The cost is slightly overstated, never understated.</li>
     </ul>
+
+    <h3 class="scenario">Scenario 2 · Human escalation: "Connect me to a human"</h3>
+    <p>The same customer opens a new conversation and asks for a person. This is not one turn but a conversation and a colleague: the agent raises an escalation, holds the line while it is open, a colleague closes it from the desk, and the agent takes the conversation back. The wait in the middle is a <b>Temporal workflow</b>, <code>EscalationWorkflow</code>, with a 30-minute timer that lapses it if nobody comes.</p>
+    <div class="note">Captured the same way as scenario 1, by <code>agent-harness-tutorial/capture/capture_escalation.py</code>: four steps through the real HTTP edge and the desk's routes, every function in <code>src/</code> recorded, plus the workflow's own history read back from Temporal. The tracer runs inside Temporal's sandbox too, which made two workflow tasks fail and retry during the capture (without it: none), so Temporal's timings below are inflated.</div>
+
+    <div class="stats">
+      <div><b>4</b><span>steps · 3 turns + the desk</span></div>
+      <div><b>202</b><span>HTTP while a person has it; 200 once served</span></div>
+      <div><b>0</b><span>model calls</span></div>
+      <div><b>1</b><span>tool call, after the hand-back</span></div>
+      <div><b>2 s</b><span>until a colleague resolved E-6C40E1D0</span></div>
+      <div><b>6.4 s</b><span>across the four steps</span></div>
+    </div>
+
+    <h4>The escalation at a glance</h4>
+    <p>Time runs downward, one band per step. Solid arrows are calls, dashed are answers. The colleague never talks to the agent: both only read and write the workflow.</p>
+    <div class="diagram"><svg class="seq" viewBox="0 0 1000 944" role="img" aria-labelledby="s2-title s2-desc">
+<title id="s2-title">Scenario 2 sequence: connect me to a human</title>
+<desc id="s2-desc">23 messages in four steps between the customer, the edge, the agent, Temporal, Postgres, the store and a colleague, top to bottom in time order.</desc>
+<defs><marker id="m5b-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker><marker id="m5b-back" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-back" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="box" x="4" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="60" y="31" text-anchor="middle">Customer</text>
+<text class="d" x="60" y="47" text-anchor="middle" style="font-size:9.5px">chat page</text>
+<line class="up" x1="60" y1="56" x2="60" y2="938"/>
+<rect class="hz" x="124" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="180" y="31" text-anchor="middle">Edge</text>
+<text class="d" x="180" y="47" text-anchor="middle" style="font-size:9.5px">serve · reviewer</text>
+<line class="up" x1="180" y1="56" x2="180" y2="938"/>
+<rect class="hz" x="249" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="305" y="31" text-anchor="middle">Agent</text>
+<text class="d" x="305" y="47" text-anchor="middle" style="font-size:9.5px">entrypoint · handoff</text>
+<line class="up" x1="305" y1="56" x2="305" y2="938"/>
+<rect class="hz" x="384" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="440" y="31" text-anchor="middle">Temporal</text>
+<text class="d" x="440" y="47" text-anchor="middle" style="font-size:9.5px">escalation workflow</text>
+<line class="up" x1="440" y1="56" x2="440" y2="938"/>
+<rect class="hz" x="519" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="575" y="31" text-anchor="middle">Postgres</text>
+<text class="d" x="575" y="47" text-anchor="middle" style="font-size:9.5px">checkpoints</text>
+<line class="up" x1="575" y1="56" x2="575" y2="938"/>
+<rect class="hz" x="654" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="710" y="31" text-anchor="middle">Store</text>
+<text class="d" x="710" y="47" text-anchor="middle" style="font-size:9.5px">order_system · Saleor</text>
+<line class="up" x1="710" y1="56" x2="710" y2="938"/>
+<rect class="box" x="824" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="880" y="31" text-anchor="middle">Colleague</text>
+<text class="d" x="880" y="47" text-anchor="middle" style="font-size:9.5px">desk on /ops</text>
+<line class="up" x1="880" y1="56" x2="880" y2="938"/>
+<line class="up" x1="4" y1="78" x2="996" y2="78"/>
+<text class="d" x="8" y="92" style="font-size:10.5px">Step 1 · the customer asks for a person</text>
+<line class="go" x1="60" y1="124" x2="177" y2="124" marker-end="url(#m5b-go)"/>
+<text class="s" x="65" y="118"><tspan class="n">1.</tspan> POST /chat “Connect me to a human”</text>
+<line class="go" x1="180" y1="154" x2="302" y2="154" marker-end="url(#m5b-go)"/>
+<text class="s" x="185" y="148"><tspan class="n">2.</tspan> token verified · Agent.handle</text>
+<line class="go" x1="305" y1="184" x2="437" y2="184" marker-end="url(#m5b-go)"/>
+<text class="s" x="310" y="178"><tspan class="n">3.</tspan> claim the delivery</text>
+<path class="go" d="M305,210 h18 v12 h-16" marker-end="url(#m5b-go)"/>
+<text class="s" x="331" y="220"><tspan class="n">4.</tspan> router: asked-for-human → Escalate · no model</text>
+<line class="go" x1="305" y1="244" x2="437" y2="244" marker-end="url(#m5b-go)"/>
+<text class="s" x="310" y="238"><tspan class="n">5.</tspan> start EscalationWorkflow E-6C40E1D0 · 30-min timer</text>
+<line class="back" x1="440" y1="274" x2="308" y2="274" marker-end="url(#m5b-back)"/>
+<text class="s" x="310" y="268"><tspan class="n">6.</tspan> record: queued · wait ≈ 5 min from the queue</text>
+<line class="go" x1="305" y1="304" x2="572" y2="304" marker-end="url(#m5b-go)"/>
+<text class="s" x="310" y="298"><tspan class="n">7.</tspan> checkpoint · pending_escalation_id</text>
+<line class="back" x1="180" y1="334" x2="63" y2="334" marker-end="url(#m5b-back)"/>
+<text class="s" x="65" y="328"><tspan class="n">8.</tspan> 202 “your reference is E-6C40E1D0”</text>
+<line class="up" x1="4" y1="358" x2="996" y2="358"/>
+<text class="d" x="8" y="372" style="font-size:10.5px">Step 2 · the customer writes again</text>
+<line class="go" x1="60" y1="404" x2="177" y2="404" marker-end="url(#m5b-go)"/>
+<text class="s" x="65" y="398"><tspan class="n">9.</tspan> “hello? anyone there?”</text>
+<line class="go" x1="180" y1="434" x2="572" y2="434" marker-end="url(#m5b-go)"/>
+<text class="s" x="185" y="428"><tspan class="n">10.</tspan> load the conversation</text>
+<line class="go" x1="305" y1="464" x2="437" y2="464" marker-end="url(#m5b-go)"/>
+<text class="s" x="310" y="458"><tspan class="n">11.</tspan> hold: get E-6C40E1D0</text>
+<line class="back" x1="440" y1="494" x2="308" y2="494" marker-end="url(#m5b-back)"/>
+<text class="s" x="310" y="488"><tspan class="n">12.</tspan> queued → hold the line · no route, no model</text>
+<line class="back" x1="180" y1="524" x2="63" y2="524" marker-end="url(#m5b-back)"/>
+<text class="s" x="65" y="518"><tspan class="n">13.</tspan> 202 “still with a colleague”</text>
+<line class="up" x1="4" y1="548" x2="996" y2="548"/>
+<text class="d" x="8" y="562" style="font-size:10.5px">Step 3 · a colleague closes it</text>
+<line class="go" x1="880" y1="594" x2="183" y2="594" marker-end="url(#m5b-go)"/>
+<text class="s" x="185" y="588"><tspan class="n">14.</tspan> GET /ops/escalations · reviewer token</text>
+<line class="go" x1="180" y1="624" x2="437" y2="624" marker-end="url(#m5b-go)"/>
+<text class="s" x="185" y="618"><tspan class="n">15.</tspan> pending → queue workflow → [record]</text>
+<line class="go" x1="880" y1="654" x2="183" y2="654" marker-end="url(#m5b-go)"/>
+<text class="s" x="185" y="648"><tspan class="n">16.</tspan> POST …/resolve {outcome: resolved}</text>
+<line class="go" x1="180" y1="684" x2="437" y2="684" marker-end="url(#m5b-go)"/>
+<text class="s" x="185" y="678"><tspan class="n">17.</tspan> update resolve · validator: refusal() = none</text>
+<line class="back" x1="440" y1="714" x2="183" y2="714" marker-end="url(#m5b-back)"/>
+<text class="s" x="185" y="708"><tspan class="n">18.</tspan> resolved · timer cancelled · leaves the queue</text>
+<line class="up" x1="4" y1="738" x2="996" y2="738"/>
+<text class="d" x="8" y="752" style="font-size:10.5px">Step 4 · the agent takes the conversation back</text>
+<line class="go" x1="60" y1="784" x2="177" y2="784" marker-end="url(#m5b-go)"/>
+<text class="s" x="65" y="778"><tspan class="n">19.</tspan> “where is AB-10001?”</text>
+<line class="go" x1="305" y1="814" x2="437" y2="814" marker-end="url(#m5b-go)"/>
+<text class="s" x="310" y="808"><tspan class="n">20.</tspan> hold: get E-6C40E1D0 → resolved</text>
+<line class="go" x1="305" y1="844" x2="707" y2="844" marker-end="url(#m5b-go)"/>
+<text class="s" x="310" y="838"><tspan class="n">21.</tspan> router: direct · get_order over MCP</text>
+<line class="back" x1="710" y1="874" x2="308" y2="874" marker-end="url(#m5b-back)"/>
+<text class="s" x="310" y="868"><tspan class="n">22.</tspan> verified · Saleor: shipped</text>
+<line class="back" x1="180" y1="904" x2="63" y2="904" marker-end="url(#m5b-back)"/>
+<text class="s" x="65" y="898"><tspan class="n">23.</tspan> 200 “Order AB-10001 is currently shipped”</text>
+</svg></div>
+
+    <h4>Where the time went</h4>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Step</th><th>Time</th><th>Mostly</th></tr></thead>
+      <tbody>
+        <tr><td>1 · raise</td><td>0.33 s</td><td>starting the workflow 104 ms · checkpoint 77 ms · delivery claim and settle 118 ms · routing 0.3 ms</td></tr>
+        <tr><td>2 · held</td><td>0.15 s</td><td>one query to the workflow 54 ms · loading the conversation 34 ms</td></tr>
+        <tr><td>3 · the desk</td><td>1.94 s</td><td>the <code>resolve</code> update 1912 ms, inflated by the two tracer-induced task retries</td></tr>
+        <tr><td>4 · handed back</td><td>3.97 s</td><td>Saleor sign-in 1739 ms (the store server's first call in this process) · a slow delivery claim 1526 ms</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>The stack, frame by frame</h4>
+    <p>As in scenario 1: indentation is call depth, only this repo's code, paths relative to <code>src/support_agent/</code>. Frames Temporal runs in its worker thread are shown separately; they are the same process, the other side of the workflow.</p>
+    <h4>1 · The customer asks: route, raise, reply</h4><div class="table-wrap"><table class="stack"><thead><tr><th>Function · file</th><th>Receives</th><th>Returns</th><th>Side effect</th></tr></thead><tbody><tr><td class="fn" style="padding-left:8px"><code>serve.chat</code><span class="loc">serve/__init__.py:200</span></td><td>POST /chat</td><td><code>JSONResponse</code> <b>202</b></td><td>span <b>http.chat</b>; <code>user.id</code> on the root</td></tr><tr><td class="fn" style="padding-left:19px"><code>decode → _customer → identity.verify</code><span class="loc">serve/__init__.py:144 · identity/__init__.py:200</span></td><td>request, issuer</td><td><code>Identity(customer_id='C-1042')</code></td><td>RS256 against JWKS; identity from the token</td></tr><tr><td class="fn" style="padding-left:19px"><code>_conversation_for</code><span class="loc">serve/__init__.py:226</span></td><td>store, inbound</td><td><code>None</code></td><td>a new conversation</td></tr><tr><td class="fn" style="padding-left:30px"><code>Agent.handle</code><span class="loc">entrypoint/__init__.py:137</span></td><td>text, identity, delivery_id</td><td><code>(Escalated, Conversation)</code></td><td></td></tr><tr><td class="fn" style="padding-left:41px"><code>trigger.once → TemporalDeliveries.claim</code><span class="loc">trigger/log.py:99 · trigger/durable.py:106</span></td><td><code>dlv-d5c6af120d</code></td><td><code>Delivery(in_flight)</code></td><td>Temporal: start <code>DeliveryClaim</code> (39 ms)</td></tr><tr><td class="fn" style="padding-left:41px"><code>Agent._turn</code><span class="loc">entrypoint/__init__.py:161</span></td><td></td><td></td><td>span <b>agent.turn</b></td></tr><tr><td class="fn" style="padding-left:52px"><code>Agent._gates</code><span class="loc">entrypoint/__init__.py:208</span></td><td>conversation</td><td><code>(None, conversation)</code></td><td>nothing pending: no approval, no escalation held</td></tr><tr><td class="fn" style="padding-left:52px"><code>router.route</code><span class="loc">router/__init__.py:208</span></td><td>“Connect me to a human”</td><td><code>Escalate(rule_id='asked-for-human', tier=1)</code></td><td>span <b>agent.route</b>; 0.3 ms, <b>no model</b></td></tr><tr><td class="fn" style="padding-left:52px"><code>consent.granting</code><span class="loc">entrypoint/consent.py:45</span></td><td>identity, conversation</td><td>identity, <code>consented=∅</code></td><td>nothing to act on, nothing granted</td></tr><tr><td class="fn" style="padding-left:52px"><code>Agent._dispatch</code><span class="loc">entrypoint/__init__.py:235</span></td><td>Escalate</td><td><code>Escalated</code></td><td></td></tr><tr><td class="fn" style="padding-left:63px"><code>HandoffDesk.raise_requested</code><span class="loc">entrypoint/handoff.py:129</span></td><td>decision, conversation, identity, run_id</td><td><code>Escalated(ticket_id='E-6C40E1D0')</code></td><td>cap checked: 0 of 2 raised in this conversation</td></tr><tr><td class="fn" style="padding-left:74px"><code>Facts.as_handoff</code><span class="loc">state/facts.py:99</span></td><td>facts</td><td><code>'They asked: Connect me to a human\nNothing done yet.'</code></td><td>what the colleague is handed, built from the record</td></tr><tr><td class="fn" style="padding-left:74px"><code>TemporalEscalations.raise_for</code><span class="loc">escalation/desk.py:59</span></td><td>conversation, run, customer, reason, rule, context</td><td><code>Escalation(state='queued')</code></td><td>span <b>agent.escalation.raise</b>; Temporal: start workflow, query it (104 ms)</td></tr><tr><td class="fn" style="padding-left:85px"><code>new_escalation_id</code><span class="loc">escalation/workflow.py:29</span></td><td>—</td><td><code>'E-6C40E1D0'</code></td><td>short, so it can be read out loud</td></tr><tr><td class="fn" style="padding-left:74px"><code>HandoffDesk._handoff_text</code><span class="loc">entrypoint/handoff.py:198</span></td><td>ticket</td><td>“…the wait is about 5 minutes”</td><td>reads the queue: 1 waiting</td></tr><tr><td class="fn" style="padding-left:85px"><code>Capacity.estimate_s → humanise</code><span class="loc">escalation/capacity.py:33 · wording.py:62</span></td><td>depth 1, 12 an hour</td><td><code>300</code> → “5 minutes”</td><td>a measured wait, not a promise</td></tr><tr><td class="fn" style="padding-left:52px"><code>HandoffDesk.raise_on_condition</code><span class="loc">entrypoint/handoff.py:164</span></td><td>…, Escalated</td><td><code>None</code></td><td>Tier 2 never overrides a Tier 1 escalation</td></tr><tr><td class="fn" style="padding-left:52px"><code>promise.honest → _screened → policy.enforce</code><span class="loc">entrypoint/promise.py:123 · policy/__init__.py:357</span></td><td>Escalated</td><td>unchanged</td><td>reply screen passes: the reference is backed by a record</td></tr><tr><td class="fn" style="padding-left:52px"><code>Agent._persist → PostgresCheckpointStore.checkpoint</code><span class="loc">entrypoint/__init__.py:319 · state/postgres.py:41</span></td><td>conversation</td><td>—</td><td>INSERT checkpoint with <code>pending_escalation_id='E-6C40E1D0'</code> (77 ms)</td></tr><tr><td class="fn" style="padding-left:41px"><code>TemporalDeliveries.settle</code><span class="loc">trigger/durable.py:121</span></td><td>delivery id</td><td>—</td><td>signal the claim closed</td></tr></tbody></table></div>
+    <h4>1b · Meanwhile, inside Temporal</h4><div class="table-wrap"><table class="stack"><thead><tr><th>Function · file</th><th>Receives</th><th>Returns</th><th>Side effect</th></tr></thead><tbody><tr><td class="fn" style="padding-left:8px"><code>EscalationWorkflow.run</code><span class="loc">escalation/durable.py:72</span></td><td><code>Raise(ttl_s=1800, queue=…)</code></td><td>(runs until closed)</td><td>in Temporal's worker thread; state = the record</td></tr><tr><td class="fn" style="padding-left:19px"><code>_now</code><span class="loc">escalation/durable.py:63</span></td><td>—</td><td>workflow time</td><td>never the wall clock</td></tr><tr><td class="fn" style="padding-left:19px"><code>EscalationQueue.opened</code><span class="loc">escalation/durable.py:160</span></td><td><code>['E-6C40E1D0', 'cnv_083f63ff395f46ef']</code></td><td>—</td><td>signal: listed for the desk</td></tr><tr><td class="fn" style="padding-left:19px"><code>workflow.wait_condition(not open, timeout=30 min)</code><span class="loc">escalation/durable.py</span></td><td>—</td><td>—</td><td><b>the lapse timer</b>; nobody polls it</td></tr></tbody></table></div>
+    <h4>2 · The customer writes again: held</h4><div class="table-wrap"><table class="stack"><thead><tr><th>Function · file</th><th>Receives</th><th>Returns</th><th>Side effect</th></tr></thead><tbody><tr><td class="fn" style="padding-left:8px"><code>serve.chat → _conversation_for</code><span class="loc">serve/__init__.py:200 · 226</span></td><td>POST /chat, conversation_id</td><td><code>Conversation</code></td><td>SELECT the latest checkpoint (34 ms)</td></tr><tr><td class="fn" style="padding-left:30px"><code>Agent.handle → trigger.once</code><span class="loc">entrypoint/__init__.py:137</span></td><td>text, identity, conversation</td><td><code>(Escalated, Conversation)</code></td><td>a new delivery claim</td></tr><tr><td class="fn" style="padding-left:52px"><code>Agent._gates</code><span class="loc">entrypoint/__init__.py:208</span></td><td>conversation</td><td><code>(Escalated, conversation)</code></td><td><b>returns before the router</b></td></tr><tr><td class="fn" style="padding-left:63px"><code>HandoffDesk.hold</code><span class="loc">entrypoint/handoff.py:86</span></td><td>conversation</td><td><code>Escalated(reply='That is still with a colleague…')</code></td><td>span <b>agent.escalation.wait</b></td></tr><tr><td class="fn" style="padding-left:74px"><code>TemporalEscalations.get</code><span class="loc">escalation/desk.py:112</span></td><td><code>'E-6C40E1D0'</code></td><td><code>Escalation(state='queued')</code></td><td>Temporal: query <code>current</code> (54 ms)</td></tr><tr><td class="fn" style="padding-left:52px"><code>Agent._persist</code><span class="loc">entrypoint/__init__.py:319</span></td><td>conversation</td><td>—</td><td>checkpoint: still pending</td></tr></tbody></table></div>
+    <h4>3 · The colleague: queue, then close</h4><div class="table-wrap"><table class="stack"><thead><tr><th>Function · file</th><th>Receives</th><th>Returns</th><th>Side effect</th></tr></thead><tbody><tr><td class="fn" style="padding-left:8px"><code>reviewer (dependency) → identity.verify</code><span class="loc">reviewer/__init__.py:139 · identity/__init__.py:200</span></td><td>Bearer token</td><td><code>Principal(subject='desk-1', customer_id=None)</code></td><td>a login with no customer behind it</td></tr><tr><td class="fn" style="padding-left:19px"><code>requires.guard → Principal.may</code><span class="loc">reviewer/__init__.py:164</span></td><td><code>escalations:read</code></td><td><code>True</code></td><td></td></tr><tr><td class="fn" style="padding-left:8px"><code>reviewer.queue</code><span class="loc">reviewer/__init__.py:182</span></td><td>GET /ops/escalations</td><td><code>[Queued(id='E-6C40E1D0', waiting_s=0)]</code></td><td>span <b>agent.escalation.queue</b></td></tr><tr><td class="fn" style="padding-left:19px"><code>TemporalEscalations.pending</code><span class="loc">escalation/desk.py:133</span></td><td>—</td><td>one record</td><td>Temporal: query the queue workflow, then each record</td></tr><tr><td class="fn" style="padding-left:8px"><code>reviewer.close</code><span class="loc">reviewer/__init__.py:205</span></td><td>POST …/resolve {outcome, note}</td><td><code>Closed(state='resolved', waited_s=2)</code></td><td>409 if the workflow refuses</td></tr><tr><td class="fn" style="padding-left:19px"><code>EscalationDesk.resolve</code><span class="loc">escalation/desk.py:160</span></td><td><code>'E-6C40E1D0', outcome='resolved', by='desk-1'</code></td><td><code>Escalation(state='resolved')</code></td><td>Temporal: <b>update</b> <code>resolve</code>; span <b>agent.escalation.resolve</b></td></tr><tr><td class="fn" style="padding-left:30px"><code>EscalationWorkflow.check → refusal</code><span class="loc">escalation/durable.py:114 · workflow.py:61</span></td><td>the record, the decision, workflow time</td><td><code>None</code></td><td>our rules, run by Temporal before the update is accepted</td></tr><tr><td class="fn" style="padding-left:41px"><code>outcome_of</code><span class="loc">escalation/workflow.py:45</span></td><td><code>'resolved'</code></td><td><code>EscalationOutcome.RESOLVED</code></td><td>from the declared set only</td></tr><tr><td class="fn" style="padding-left:30px"><code>EscalationWorkflow.resolve</code><span class="loc">escalation/durable.py:102</span></td><td>decision</td><td>record, resolved</td><td>the wait condition is met; the timer is cancelled</td></tr><tr><td class="fn" style="padding-left:30px"><code>EscalationQueue.closed</code><span class="loc">escalation/durable.py:165</span></td><td><code>['E-6C40E1D0', …]</code></td><td>—</td><td>signal: leaves the desk's queue</td></tr></tbody></table></div>
+    <h4>4 · The customer again: handed back</h4><div class="table-wrap"><table class="stack"><thead><tr><th>Function · file</th><th>Receives</th><th>Returns</th><th>Side effect</th></tr></thead><tbody><tr><td class="fn" style="padding-left:8px"><code>serve.chat → _conversation_for</code><span class="loc">serve/__init__.py:200</span></td><td>POST /chat</td><td><code>Conversation</code></td><td>SELECT the latest checkpoint</td></tr><tr><td class="fn" style="padding-left:52px"><code>Agent._gates → HandoffDesk.hold</code><span class="loc">entrypoint/handoff.py:86</span></td><td>conversation</td><td><code>None</code></td><td>resolved by a colleague: nothing to hold</td></tr><tr><td class="fn" style="padding-left:74px"><code>TemporalEscalations.get</code><span class="loc">escalation/desk.py:112</span></td><td><code>'E-6C40E1D0'</code></td><td><code>Escalation(state='resolved')</code></td><td>Temporal: query the closed workflow</td></tr><tr><td class="fn" style="padding-left:52px"><code>router.route</code><span class="loc">router/__init__.py:208</span></td><td>“where is AB-10001?”</td><td><code>Direct(intent='order_status')</code></td><td>no model</td></tr><tr><td class="fn" style="padding-left:63px"><code>direct.answer → order_status → _order</code><span class="loc">entrypoint/direct.py:130 · 82 · 43</span></td><td>identity, AB-10001</td><td>the order row</td><td></td></tr><tr><td class="fn" style="padding-left:74px"><code>GatedTools.call → MCPTransport.invoke</code><span class="loc">tools/__init__.py:253 · 161</span></td><td>get_order {id}</td><td><code>ToolResult(found=True, status='shipped')</code></td><td>exchanged token in MCP <code>_meta</code></td></tr><tr><td class="fn" style="padding-left:85px"><code>order_system: authorise → Store.get_order</code><span class="loc">order_system/__init__.py · store.py</span></td><td>token, AB-10001</td><td>the order in the agent's words</td><td>Saleor: sign in again (1739 ms), GraphQL <code>order(externalReference)</code></td></tr><tr><td class="fn" style="padding-left:52px"><code>HandoffDesk.raise_on_condition → rules.evaluate</code><span class="loc">entrypoint/handoff.py:164 · escalation/rules.py:182</span></td><td>facts</td><td><code>None</code></td><td>no Tier 2 rule holds</td></tr><tr><td class="fn" style="padding-left:52px"><code>Agent._persist</code><span class="loc">entrypoint/__init__.py:319</span></td><td>conversation</td><td>—</td><td>checkpoint: <code>pending_escalation_id=None</code></td></tr></tbody></table></div>
+
+    <h4>What crossed each boundary</h4>
+    <details open><summary>1 · HTTP, all five exchanges</summary>
+    <pre><code>[
+  {
+    &quot;request&quot;: {
+      &quot;POST&quot;: &quot;/chat&quot;,
+      &quot;Idempotency-Key&quot;: &quot;dlv-d5c6af120d&quot;,
+      &quot;body&quot;: {
+        &quot;text&quot;: &quot;Connect me to a human&quot;
+      }
+    },
+    &quot;status&quot;: 202,
+    &quot;response&quot;: {
+      &quot;conversation_id&quot;: &quot;cnv_083f63ff395f46ef&quot;,
+      &quot;reply&quot;: &quot;Let me pass you to a colleague — your reference is E-6C40E1D0, and the wait is about 5 minutes.&quot;,
+      &quot;outcome&quot;: &quot;escalated&quot;
+    }
+  },
+  {
+    &quot;request&quot;: {
+      &quot;POST&quot;: &quot;/chat&quot;,
+      &quot;Idempotency-Key&quot;: &quot;dlv-7fe3a76bee&quot;,
+      &quot;body&quot;: {
+        &quot;text&quot;: &quot;hello? anyone there?&quot;,
+        &quot;conversation_id&quot;: &quot;cnv_083f63ff395f46ef&quot;
+      }
+    },
+    &quot;status&quot;: 202,
+    &quot;response&quot;: {
+      &quot;conversation_id&quot;: &quot;cnv_083f63ff395f46ef&quot;,
+      &quot;reply&quot;: &quot;That is still with a colleague — your reference is E-6C40E1D0. I have not forgotten about it.&quot;,
+      &quot;outcome&quot;: &quot;escalated&quot;
+    }
+  },
+  {
+    &quot;request&quot;: {
+      &quot;GET&quot;: &quot;/ops/escalations&quot;
+    },
+    &quot;status&quot;: 200,
+    &quot;response&quot;: [
+      {
+        &quot;id&quot;: &quot;E-6C40E1D0&quot;,
+        &quot;conversation_id&quot;: &quot;cnv_083f63ff395f46ef&quot;,
+        &quot;customer_id&quot;: &quot;C-1042&quot;,
+        &quot;reason&quot;: &quot;the customer asked for a human&quot;,
+        &quot;rule_id&quot;: &quot;asked-for-human&quot;,
+        &quot;tier&quot;: 1,
+        &quot;created_at&quot;: 1789733164,
+        &quot;expires_at&quot;: 1789734964,
+        &quot;waiting_s&quot;: 0
+      }
+    ]
+  },
+  {
+    &quot;request&quot;: {
+      &quot;POST&quot;: &quot;/ops/escalations/E-6C40E1D0/resolve&quot;,
+      &quot;body&quot;: {
+        &quot;outcome&quot;: &quot;resolved&quot;,
+        &quot;note&quot;: &quot;called the customer back&quot;
+      }
+    },
+    &quot;status&quot;: 200,
+    &quot;response&quot;: {
+      &quot;id&quot;: &quot;E-6C40E1D0&quot;,
+      &quot;state&quot;: &quot;resolved&quot;,
+      &quot;outcome&quot;: &quot;resolved&quot;,
+      &quot;outcome_by&quot;: &quot;desk-1&quot;,
+      &quot;waited_s&quot;: 2
+    }
+  },
+  {
+    &quot;request&quot;: {
+      &quot;POST&quot;: &quot;/chat&quot;,
+      &quot;Idempotency-Key&quot;: &quot;dlv-4c6b16467b&quot;,
+      &quot;body&quot;: {
+        &quot;text&quot;: &quot;where is AB-10001?&quot;,
+        &quot;conversation_id&quot;: &quot;cnv_083f63ff395f46ef&quot;
+      }
+    },
+    &quot;status&quot;: 200,
+    &quot;response&quot;: {
+      &quot;conversation_id&quot;: &quot;cnv_083f63ff395f46ef&quot;,
+      &quot;reply&quot;: &quot;Order AB-10001 is currently shipped. It is on its way.&quot;,
+      &quot;outcome&quot;: &quot;completed&quot;
+    }
+  }
+]</code></pre>
+    </details>
+    <details><summary>2 · Temporal: the escalation record the workflow holds</summary>
+    <p>Everything the colleague sees comes from here, including <code>context</code>: assembled from the conversation's facts, not summarised by a model.</p>
+    <pre><code>{
+  &quot;id&quot;: &quot;E-6C40E1D0&quot;,
+  &quot;conversation_id&quot;: &quot;cnv_083f63ff395f46ef&quot;,
+  &quot;run_id&quot;: &quot;run_94b50e3148634878&quot;,
+  &quot;customer_id&quot;: &quot;C-1042&quot;,
+  &quot;context&quot;: &quot;They asked: Connect me to a human\nNothing done yet.&quot;,
+  &quot;tier&quot;: 1,
+  &quot;rule_id&quot;: &quot;asked-for-human&quot;,
+  &quot;rules_version&quot;: &quot;v2&quot;,
+  &quot;reason&quot;: &quot;the customer asked for a human&quot;,
+  &quot;state&quot;: &quot;resolved&quot;,
+  &quot;created_at&quot;: 1789733164,
+  &quot;expires_at&quot;: 1789734964,
+  &quot;resolved_at&quot;: 1789733166,
+  &quot;outcome&quot;: &quot;resolved&quot;,
+  &quot;outcome_by&quot;: &quot;desk-1&quot;,
+  &quot;outcome_note&quot;: &quot;called the customer back&quot;
+}</code></pre>
+    </details>
+    <details><summary>3 · Temporal: the workflow's history</summary>
+    <p>What Temporal recorded, in order. The timer starts after the queue is signalled; the update is accepted and completed; the timer is <b>cancelled</b> because a colleague came; the queue is signalled again; the workflow completes. The two <code>workflow_task_failed</code> events are the tracer's, and Temporal retried them without losing anything — replay doing its job.</p>
+    <pre><code>[
+  &quot;workflow_execution_started&quot;,
+  &quot;workflow_task_scheduled&quot;,
+  &quot;workflow_task_started&quot;,
+  &quot;workflow_task_completed&quot;,
+  &quot;signal_external_workflow_execution_initiated&quot;,
+  &quot;external_workflow_execution_signaled&quot;,
+  &quot;workflow_task_scheduled&quot;,
+  &quot;workflow_task_started&quot;,
+  &quot;workflow_task_completed&quot;,
+  &quot;timer_started&quot;,
+  &quot;workflow_task_scheduled&quot;,
+  &quot;workflow_task_started&quot;,
+  &quot;workflow_task_failed&quot;,
+  &quot;workflow_task_scheduled&quot;,
+  &quot;workflow_task_started&quot;,
+  &quot;workflow_task_completed&quot;,
+  &quot;workflow_execution_update_accepted&quot;,
+  &quot;workflow_execution_update_completed&quot;,
+  &quot;timer_canceled&quot;,
+  &quot;signal_external_workflow_execution_initiated&quot;,
+  &quot;external_workflow_execution_signaled&quot;,
+  &quot;workflow_task_scheduled&quot;,
+  &quot;workflow_task_started&quot;,
+  &quot;workflow_task_failed&quot;,
+  &quot;workflow_task_scheduled&quot;,
+  &quot;workflow_task_started&quot;,
+  &quot;workflow_task_completed&quot;,
+  &quot;workflow_execution_completed&quot;
+]</code></pre>
+    </details>
+    <details><summary>4 · Postgres: the three checkpoints</summary>
+    <p>One row per turn. The conversation points at the escalation until the turn that hands it back.</p>
+    <pre><code>[
+  {
+    &quot;run_id&quot;: &quot;run_94b50e3148634878&quot;,
+    &quot;pending_escalation_id&quot;: &quot;E-6C40E1D0&quot;,
+    &quot;escalations_raised&quot;: 1,
+    &quot;messages&quot;: 2,
+    &quot;facts&quot;: {
+      &quot;asked&quot;: &quot;Connect me to a human&quot;,
+      &quot;records&quot;: [],
+      &quot;done&quot;: [],
+      &quot;awaiting&quot;: [
+        &quot;escalation:E-6C40E1D0&quot;
+      ]
+    }
+  },
+  {
+    &quot;run_id&quot;: &quot;run_36678bc46c784cd9&quot;,
+    &quot;pending_escalation_id&quot;: &quot;E-6C40E1D0&quot;,
+    &quot;escalations_raised&quot;: 1,
+    &quot;messages&quot;: 2,
+    &quot;facts&quot;: {
+      &quot;asked&quot;: &quot;Connect me to a human&quot;,
+      &quot;records&quot;: [],
+      &quot;done&quot;: [],
+      &quot;awaiting&quot;: [
+        &quot;escalation:E-6C40E1D0&quot;
+      ]
+    }
+  },
+  {
+    &quot;run_id&quot;: &quot;run_24d79deea80642f2&quot;,
+    &quot;pending_escalation_id&quot;: null,
+    &quot;escalations_raised&quot;: 1,
+    &quot;messages&quot;: 4,
+    &quot;facts&quot;: {
+      &quot;asked&quot;: &quot;where is AB-10001?&quot;,
+      &quot;records&quot;: [],
+      &quot;done&quot;: [],
+      &quot;awaiting&quot;: [
+        &quot;escalation:E-6C40E1D0&quot;
+      ]
+    }
+  }
+]</code></pre>
+    </details>
+    <details><summary>5 · Store: the one call after the hand-back</summary>
+    <p>MCP <code>tools/call get_order</code> with an exchanged token in <code>_meta</code>, then Saleor's GraphQL. The admin password in the sign-in is not shown.</p>
+    <pre><code>{
+  &quot;query&quot;: &quot;query($r: String!) { order(externalReference: $r) { id status externalReference customerNote total { gross { amount } } shippingAddress { streetAddress1 city countryArea postalCode …&quot;,
+  &quot;variables&quot;: {
+    &quot;r&quot;: &quot;AB-10001&quot;
+  },
+  &quot;response&quot;: {
+    &quot;order&quot;: {
+      &quot;status&quot;: &quot;FULFILLED&quot;,
+      &quot;externalReference&quot;: &quot;AB-10001&quot;
+    }
+  }
+}</code></pre>
+    </details>
+    <details><summary>6 · Spans, per trace</summary>
+    <pre><code>{
+  &quot;1 · raise&quot;: [
+    &quot;http.chat&quot;,
+    &quot;agent.turn&quot;,
+    &quot;agent.route&quot;,
+    &quot;agent.escalation.raise&quot;,
+    &quot;agent.policy&quot;
+  ],
+  &quot;2 · held&quot;: [
+    &quot;http.chat&quot;,
+    &quot;agent.turn&quot;,
+    &quot;agent.escalation.wait&quot;
+  ],
+  &quot;3 · desk&quot;: [
+    &quot;agent.escalation.queue&quot;,
+    &quot;agent.escalation.resolve&quot;
+  ],
+  &quot;4 · handed back&quot;: [
+    &quot;http.chat&quot;,
+    &quot;agent.turn&quot;,
+    &quot;agent.route&quot;,
+    &quot;agent.direct&quot;,
+    &quot;agent.tools.list&quot;,
+    &quot;tools/list&quot;,
+    &quot;tools/call get_order&quot;,
+    &quot;agent.tool&quot;,
+    &quot;agent.policy&quot;
+  ]
+}</code></pre>
+    </details>
+
+    <h4>What to notice</h4>
+    <ul>
+      <li><strong>No model, anywhere.</strong> A request for a person is recognised by the router's rule, and the hold in step 2 returns before the router is even consulted. The whole escalation cost no tokens.</li>
+      <li><strong>The record comes before the words.</strong> <code>raise_for</code> starts the workflow and reads it back before <code>_handoff_text</code> writes the reply, so the reference the customer is given always exists.</li>
+      <li><strong>The wait is measured, not promised.</strong> “About 5 minutes” is the queue's depth (1) at the desk's capacity (12 an hour). With no capacity configured the reply promises a reference and no time.</li>
+      <li><strong>The agent and the colleague never talk.</strong> Each reads and writes the workflow: the agent through <code>TemporalEscalations</code> (raise, read), the desk through <code>EscalationDesk</code> (close). Neither handle can do the other's job.</li>
+      <li><strong>Our rules, Temporal's enforcement.</strong> <code>refusal()</code> runs as the update's validator: a customer closing their own case, a second close, or a close after the lapse is refused inside the workflow, whoever calls.</li>
+      <li><strong>Temporal owned the clock.</strong> The 30-minute lapse is a timer in the workflow, cancelled here because a colleague came. Before T-028 it was a sweeper loop only the demo server ran.</li>
+      <li><strong>A stale fact, found by this capture.</strong> After the hand-back, <code>pending_escalation_id</code> is cleared, but <code>facts.awaiting</code> still lists <code>escalation:E-6C40E1D0</code>. Harmless today; wrong in the hand-off context of any later escalation in the same conversation. Recorded as F-046.</li>
+    </ul>
+
   </section>
 
 </main>
