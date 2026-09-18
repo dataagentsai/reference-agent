@@ -308,15 +308,24 @@ def customer(api: Api, row: dict[str, Any]) -> str:
 
 
 STATES = {
-    "Bengaluru": "Karnataka",
-    "Mumbai": "Maharashtra",
-    "Kolkata": "West Bengal",
-    "Chennai": "Tamil Nadu",
-    "Noida": "Uttar Pradesh",
+    "11": "Delhi",
+    "20": "Uttar Pradesh",
+    "40": "Maharashtra",
+    "41": "Maharashtra",
+    "56": "Karnataka",
+    "60": "Tamil Nadu",
+    "70": "West Bengal",
 }
-"""Saleor validates an Indian address against its own list of states, and the
-world's addresses carry none — the first place a real store asked for something
-the simulation never had to."""
+"""State by the first two digits of the PIN code, which is how Indian postal
+codes are assigned. Saleor validates an Indian address against its own list of
+states, and the world's addresses carry none — the first place a real store
+asked for something the simulation never had to. It was a table by city, and
+the first city missing from it (Pune) was filed under Karnataka and refused
+(T-042)."""
+
+
+def state_of(postal: str) -> str:
+    return STATES.get(postal[:2], "Karnataka")
 
 
 def address(text: str) -> dict[str, str]:
@@ -330,7 +339,7 @@ def address(text: str) -> dict[str, str]:
         "lastName": "Kumar",
         "streetAddress1": street,
         "city": city or "Bengaluru",
-        "countryArea": STATES.get(city, "Karnataka"),
+        "countryArea": state_of(postal or "560001"),
         "postalCode": postal or "560001",
         "country": COUNTRY,
     }
@@ -354,6 +363,52 @@ def fulfil(api: Api, order_id: str, warehouse_id: str) -> None:
             ],
             "notifyCustomer": False,
             "allowStockToBeExceeded": True,
+        },
+    )
+
+
+def paid(api: Api, order_id: str, total: int) -> None:
+    """The customer paid, as a transaction on the order.
+
+    The world never said so because it never had to: it answered `issue_refund`
+    by changing a status. Saleor will only grant a refund against a payment it
+    can name, so an order nobody paid for is an order nobody can be refunded
+    for (T-042). Once per order, however often the seed runs.
+    """
+    found = api("query($id: ID!) { order(id: $id) { transactions { id } } }", id=order_id)
+    if found["order"]["transactions"]:
+        return
+    api(
+        """mutation($id: ID!, $t: TransactionCreateInput!) {
+             transactionCreate(id: $id, transaction: $t) { errors { field message } } }""",
+        id=order_id,
+        t={
+            "name": "Paid at checkout",
+            "pspReference": f"seed-{order_id[-8:]}",
+            "amountCharged": {"amount": total, "currency": CURRENCY},
+        },
+    )
+
+
+def send_back(api: Api, order_id: str) -> None:
+    """A return already received: the fulfilment goes back, as the store's own
+    return does."""
+    found = api(
+        "query($id: ID!) { order(id: $id) { fulfillments { lines { id quantity } } } }",
+        id=order_id,
+    )
+    lines = (found["order"]["fulfillments"] or [{}])[0].get("lines", [])
+    api(
+        """mutation($o: ID!, $i: OrderReturnProductsInput!) {
+             orderFulfillmentReturnProducts(order: $o, input: $i) {
+               errors { field message } } }""",
+        o=order_id,
+        i={
+            "fulfillmentLines": [
+                {"fulfillmentLineId": line["id"], "quantity": line["quantity"]} for line in lines
+            ],
+            "refund": False,
+            "includeShippingCosts": False,
         },
     )
 
@@ -382,6 +437,7 @@ def place(
         "order"
     ]
     if found and found["status"] != "DRAFT":
+        paid(api, found["id"], int(row["total"]))
         return found["id"]
 
     where = address(row["address"])
@@ -425,12 +481,15 @@ def place(
         id=draft,
     )
 
+    paid(api, draft, int(row["total"]))
     status = row["status"]
     keep = {WORLD_STATUS: status, FINAL_SALE: str(bool(row.get("final_sale"))).lower()}
-    if status in ("shipped", "delivered"):
+    if status in ("shipped", "delivered", "returned"):
         fulfil(api, draft, warehouse_id)
-    if status == "delivered":
+    if status in ("delivered", "returned"):
         keep[DELIVERED_AT] = str(now - int(row.get("days_since_delivery", 0)) * 86_400)
+    if status == "returned":
+        send_back(api, draft)
     if status == "cancelled":
         api(
             "mutation($id: ID!) { orderCancel(id: $id) { errors { field message } } }",
@@ -440,14 +499,29 @@ def place(
     return draft
 
 
-def seed(api: Api, world: dict[str, Any], *, now: int) -> dict[str, str]:
+SEPARATOR = "~"
+"""Between a world id and the run it was seeded for: `AB-10003~r7`. Saleor
+cannot delete a completed order, so a scenario that changes one cannot be
+undone — each shadow run (T-042) gets its own copy instead, and the store
+server strips the suffix so the agent and the customer still say `AB-10003`."""
+
+
+def scoped(identifier: str, namespace: str) -> str:
+    return f"{identifier}{SEPARATOR}{namespace}" if namespace else identifier
+
+
+def seed(api: Api, world: dict[str, Any], *, now: int, namespace: str = "") -> dict[str, str]:
+    """Load the world's customers and orders. With a `namespace`, a private
+    copy of them that no other run can see or spend."""
     channel_id = channel(api)
     warehouse_id = warehouse(api, channel_id)
     shipping(api, channel_id, warehouse_id)
     kind = product_type(api)
     group = category(api)
 
-    people = {row["id"]: customer(api, row) for row in world["records"]["customer"]}
+    people = {
+        row["id"]: customer(api, _private(row, namespace)) for row in world["records"]["customer"]
+    }
     placed: dict[str, str] = {}
     for row in world["records"]["order"]:
         variant = item(
@@ -460,7 +534,7 @@ def seed(api: Api, world: dict[str, Any], *, now: int) -> dict[str, str]:
         )
         placed[row["id"]] = place(
             api,
-            row,
+            {**row, "id": scoped(row["id"], namespace)},
             user=people[row["customer_id"]],
             channel_id=channel_id,
             warehouse_id=warehouse_id,
@@ -468,6 +542,15 @@ def seed(api: Api, world: dict[str, Any], *, now: int) -> dict[str, str]:
             now=now,
         )
     return placed
+
+
+def _private(row: dict[str, Any], namespace: str) -> dict[str, Any]:
+    """A customer for one run: their own id, and an email Saleor will accept as
+    new, because it holds emails unique."""
+    if not namespace:
+        return row
+    local, _, domain = str(row["email"]).partition("@")
+    return {**row, "id": scoped(row["id"], namespace), "email": f"{local}+{namespace}@{domain}"}
 
 
 def main() -> int:

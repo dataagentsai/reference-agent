@@ -115,7 +115,7 @@ def _reads(server: MCPServer, store: Store, *, acting: Any, theirs: Any) -> None
     async def list_orders(ctx: Context | None = None) -> dict[str, Any]:
         """List this customer's orders, newest first."""
         customer = await acting("list_orders", {}, ctx)
-        found = await store.list_orders()
+        found = await store.list_orders(customer)
         return {
             "found": True,
             "items": [row for row in found["items"] if row.get("customer_id") == customer],

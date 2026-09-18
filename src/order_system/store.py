@@ -53,6 +53,8 @@ ORDER_FIELDS = """
   metadata { key value }
   fulfillments { status }
   user { externalReference }
+  transactions { id }
+  totalGrantedRefund { amount }
 """
 
 
@@ -122,6 +124,17 @@ class Saleor:
         return answer["data"]
 
 
+SEPARATOR = "~"
+"""Between a world id and the run its copy belongs to (`AB-10003~r7`, T-042).
+Saleor cannot delete a completed order, so a scenario that spends one cannot be
+undone; each shadow run gets a private copy instead, and nothing past this
+module ever sees the suffix."""
+
+
+def _unscoped(identifier: str) -> str:
+    return identifier.split(SEPARATOR, 1)[0]
+
+
 EXPIRED = ("ExpiredSignatureError", "Signature has expired", "JSONWebTokenExpired")
 
 
@@ -143,8 +156,8 @@ def as_order(found: dict[str, Any], *, now: int) -> dict[str, Any]:
     delivered_at = int(meta.get(DELIVERED_AT, 0))
     fulfilments = {row["status"] for row in found.get("fulfillments", [])}
     return {
-        "id": found["externalReference"],
-        "customer_id": (found.get("user") or {}).get("externalReference", ""),
+        "id": _unscoped(found["externalReference"]),
+        "customer_id": _unscoped((found.get("user") or {}).get("externalReference") or ""),
         "address": ", ".join(part for part in (where.get("streetAddress1"), _city(where)) if part),
         "total": int(float(found["total"]["gross"]["amount"])),
         "status": _status(found, delivered_at=delivered_at),
@@ -173,7 +186,9 @@ def _status(found: dict[str, Any], *, delivered_at: int) -> str:
     fulfilments = {row["status"] for row in found.get("fulfillments", [])}
     if saleor == "CANCELED":
         return "cancelled"
-    if fulfilments & {"REFUNDED", "REFUNDED_AND_RETURNED"}:
+    granted = float((found.get("totalGrantedRefund") or {}).get("amount") or 0)
+    total = float(found["total"]["gross"]["amount"])
+    if fulfilments & {"REFUNDED", "REFUNDED_AND_RETURNED"} or (total and granted >= total):
         return "refunded"
     if fulfilments & {"RETURNED"}:
         return "returned"
@@ -189,14 +204,30 @@ class Store:
 
     api: Saleor
     clock: Any = time.time
+    namespace: str = ""
+    """Which run's copy of the world this store answers for (T-042). Empty is
+    the shared store a person talks to."""
+    effects: list[tuple[str, str]] = field(default_factory=list)
+    """Every write that landed, as `(operation, order)`: what a scenario's
+    `effect` checks read, the same record the projected world keeps."""
 
     def now(self) -> int:
         return int(self.clock())
 
+    def scoped(self, external: str) -> str:
+        return f"{external}{SEPARATOR}{self.namespace}" if self.namespace else external
+
+    def mine(self, raw: str | None) -> bool:
+        """Whether a Saleor order belongs to this store's run."""
+        if not raw:
+            return False
+        _, sep, space = raw.partition(SEPARATOR)
+        return space == self.namespace if sep else not self.namespace
+
     async def order(self, external: str) -> dict[str, Any] | None:
         found = await self.api(
             f"query($r: String!) {{ order(externalReference: $r) {{ {ORDER_FIELDS} }} }}",
-            r=external,
+            r=self.scoped(external),
         )
         return found["order"]
 
@@ -206,16 +237,33 @@ class Store:
             return {"found": False, "id": id}
         return {"found": True, **as_order(found, now=self.now())}
 
-    async def list_orders(self) -> dict[str, Any]:
-        """Every order in the store. *Whose* they are is the authoriser's
-        answer, not this query's — the caller's identity never reaches here as
-        an argument, so filtering happens above, where the session is."""
+    async def list_orders(self, customer_id: str) -> dict[str, Any]:
+        """One customer's orders, newest first, from the customer's own record.
+
+        `customer_id` is the verified session's, handed down by the server —
+        never an argument the model wrote. It used to list the store's newest
+        hundred orders and filter them, which stopped finding a customer's
+        orders the moment the store held a hundred newer ones (T-042).
+        """
         found = await self.api(
-            "{ orders(first: 100, sortBy: {field: CREATION_DATE, direction: DESC})"
-            f" {{ edges {{ node {{ {ORDER_FIELDS} }} }} }} }}"
+            "query($r: String!) { user(externalReference: $r) {"
+            " orders(first: 100)"
+            f" {{ edges {{ node {{ created {ORDER_FIELDS} }} }} }} }} }}",
+            r=self.scoped(customer_id),
         )
+        user = found["user"]
         now = self.now()
-        rows = [as_order(edge["node"], now=now) for edge in found["orders"]["edges"]]
+        # Newest first, sorted here: a customer's orders take no sort argument.
+        edges = sorted(
+            user["orders"]["edges"] if user else [],
+            key=lambda edge: edge["node"]["created"],
+            reverse=True,
+        )
+        rows = [
+            as_order(edge["node"], now=now)
+            for edge in edges
+            if self.mine(edge["node"]["externalReference"])
+        ]
         return {"found": True, "items": rows}
 
     async def cancel_order(self, id: str) -> dict[str, Any]:
@@ -231,7 +279,7 @@ class Store:
             "mutation($id: ID!) { orderCancel(id: $id) { errors { field message } } }",
             id=found["id"],
         )
-        return await self._after(id, "allowed")
+        return await self._after(id, "cancel_order")
 
     async def change_address(self, id: str, address: str) -> dict[str, Any]:
         found = await self.order(id)
@@ -261,7 +309,7 @@ class Store:
                 }
             },
         )
-        return await self._after(id, "allowed")
+        return await self._after(id, "change_address")
 
     async def open_return_request(self, id: str) -> dict[str, Any]:
         """The AOAS's four preconditions, checked where the state is.
@@ -307,7 +355,7 @@ class Store:
                 "includeShippingCosts": False,
             },
         )
-        return await self._after(id, "allowed")
+        return await self._after(id, "open_return_request")
 
     async def issue_refund(self, id: str) -> dict[str, Any]:
         """A refund, as a store with no payment gateway can mean it: a *granted*
@@ -319,24 +367,35 @@ class Store:
         row = as_order(found, now=self.now())
         if row["status"] == "refunded":
             return self._refused(row, "this order has already been refunded")
+        # Saleor grants a refund only against a payment it can name: money goes
+        # back the way it came. An order nobody paid for cannot be refunded,
+        # which the simulated world never had to say (T-042).
+        payments = found.get("transactions") or []
+        if not payments:
+            return self._refused(row, "this order has no payment to refund")
         await self.api(
             """mutation($i: OrderGrantRefundCreateInput!, $o: ID!) {
                  orderGrantRefundCreate(id: $o, input: $i) {
                    errors { field message } } }""",
             o=found["id"],
-            i={"amount": row["total"], "reason": "refund issued through the support agent"},
+            i={
+                "amount": row["total"],
+                "reason": "refund issued through the support agent",
+                "transactionId": payments[0]["id"],
+            },
         )
-        return await self._after(id, "allowed")
+        return await self._after(id, "issue_refund")
 
     def _refused(self, row: dict[str, Any], reason: str) -> dict[str, Any]:
         return {"allowed": False, "reason": reason, **row}
 
-    async def _after(self, external: str, reason: str) -> dict[str, Any]:
+    async def _after(self, external: str, operation: str) -> dict[str, Any]:
         """What the order is now, read back rather than assumed. A write that
         reported the state it intended would be the stale belief F-002 is about."""
+        self.effects.append((operation, external))
         found = await self.order(external)
         assert found is not None
-        return {"allowed": True, "reason": reason, **as_order(found, now=self.now())}
+        return {"allowed": True, "reason": "allowed", **as_order(found, now=self.now())}
 
 
 __all__ = [

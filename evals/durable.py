@@ -229,9 +229,11 @@ class Durable:
     colleagues: ColleagueDesk
     task_queue: str
 
-    def worker(self, tools: ToolClient, **kwargs: object):
-        """Another worker on the same server: a restart, from the workflow's side."""
-        work = ap.RefundWork(tools, acting_for=as_customer, **kwargs)  # type: ignore[arg-type]
+    def worker(self, tools: ToolClient, acting_for: object = None, **kwargs: object):
+        """Another worker on the same server: a restart, from the workflow's side.
+        `acting_for` is the worker's login; a real store needs a signed one."""
+        login = acting_for or as_customer
+        work = ap.RefundWork(tools, acting_for=login, **kwargs)  # type: ignore[arg-type]
         # One worker for both: the approval workflows with their activities, and
         # the escalation workflows, which have none.
         return ap.worker(
@@ -344,12 +346,16 @@ async def escalations_for(clock: Clock | None = None) -> AsyncIterator[Durable]:
 
 @asynccontextmanager
 async def approvals_for(
-    tools: ToolClient, *, clock: Clock | None = None, policy: ap.Policy | None = None
+    tools: ToolClient,
+    *,
+    clock: Clock | None = None,
+    policy: ap.Policy | None = None,
+    acting_for: object = None,
 ) -> AsyncIterator[Durable]:
     """A test server with a worker acting on `tools`."""
     async with server(clock) as durable:
         extra = {} if policy is None else {"policy": policy}
-        async with durable.worker(tools, **extra):
+        async with durable.worker(tools, acting_for=acting_for, **extra):
             yield durable
 
 

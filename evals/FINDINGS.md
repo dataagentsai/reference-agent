@@ -1705,3 +1705,36 @@ any other refusal is raised as before. `tests/test_store_token.py`.
 **Routed to** the binding (the store client). Not the spec: a credential's
 lifetime is the deployment's business. It does suggest a perturbation AgentTwin
 lacks — *the far end's credential expires mid-conversation* — noted for T-041.
+
+## F-043 · A real store will not refund an order nobody paid for
+
+**Found** 2026-09-18, by shadow mode (T-042), on its first run. Two scenarios
+whose refund a colleague granted passed against the projected world and failed
+against Saleor: the refund never landed. The projected world answered
+`issue_refund` by changing a status; Saleor grants a refund only against a
+payment it can name — money goes back the way it came — and the seed had created
+orders with no payment at all.
+
+**Fixed.** The seed pays every order at checkout (a transaction on the order),
+and the store server grants the refund against that payment and reads an order
+as `refunded` once its grants cover the total. An order with no payment is
+refused as having nothing to refund, rather than crashing the tool.
+
+**Routed to** the binding and the seed. It is also a question for the AOAS:
+`refunded` there means the store has recorded the debt, and a store that settles
+through a payment provider would have a later state, *refund settled*, that the
+spec has no word for.
+
+## F-044 · A customer's orders were found by searching the whole store
+
+**Found** 2026-09-18, the same afternoon. `list_orders` read the store's newest
+hundred orders and kept the customer's, so once shadow runs had put a hundred
+orders in the store, the customer's opening said *I cannot see your orders*.
+Correct against the projection, which only ever holds one customer's handful.
+
+**Fixed.** The store lists a customer's orders from the customer's own record,
+with the customer taken from the verified session.
+
+**Also found** that day: the seed chose an Indian state by city, and the first
+city missing from its table (Pune) was filed under Karnataka and refused. States
+now come from the PIN code's first two digits, which is how India assigns them.

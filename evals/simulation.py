@@ -22,7 +22,7 @@ contract is three callables and this module is the only thing that changes.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass, field
 
 from agenttwin import Approver, Desk, Live, Subject, project
@@ -42,6 +42,7 @@ from support_agent.contracts import (
     ModelResponse,
     ModelThrottled,
     ModelUnavailable,
+    ToolClient,
 )
 from support_agent.cost import Meter
 from support_agent.idempotency import InMemoryLedger
@@ -112,6 +113,9 @@ async def subject_for(
     provider_faults: tuple[tuple[int, str, float | None, int], ...] = (),
     config: RunConfig | None = None,
     meters: list[Meter] | None = None,
+    shop: Callable[[durable.Durable], AbstractAsyncContextManager[ToolClient]] | None = None,
+    who: Callable[[str], Identity] | None = None,
+    acting_for: Callable[[str], Awaitable[Identity]] | None = None,
 ) -> AsyncIterator[Subject]:
     """Wire this agent against a live world and hand back what a scenario drives.
 
@@ -143,12 +147,21 @@ async def subject_for(
     # agent degrading.
     llm = ResilientLLM(llm)
 
-    projected = project(live, scopes=SCOPES, wrap=wrap)  # type: ignore[arg-type]
+    def projected(_waits: durable.Durable) -> AbstractAsyncContextManager[ToolClient]:
+        world = project(live, scopes=SCOPES, wrap=wrap)  # type: ignore[arg-type]
+        return connect(world, ledger=InMemoryLedger())
+
+    # `shop` is which store answers the tools: the projected world by default,
+    # or a real one (T-042). It is handed the waits because a real store checks
+    # every call against the approvals, so it needs them before it can answer.
+    # `who` is how a customer id becomes a session: a real store verifies one.
+    customer = who or (lambda cid: Identity(customer_id=cid, scopes=ident.CUSTOMER_SCOPES))
     async with (
-        connect(projected, ledger=InMemoryLedger()) as tools,
         # The approval workflow runs on Temporal's test server, on this
-        # scenario's clock, and acts on the same projected world (T-028).
-        durable.approvals_for(tools, clock=clock) as waits,
+        # scenario's clock, and acts on the same store the agent does (T-028).
+        durable.server(clock) as waits,
+        (shop or projected)(waits) as tools,
+        waits.worker(tools, acting_for=acting_for),
     ):
         approvals, escalations = waits.approvals, waits.escalations
         agent = ep.build(
@@ -167,9 +180,10 @@ async def subject_for(
         ) -> tuple[str, Conversation]:
             """The customer speaks and reads a reply. Which typed result produced
             that reply is this implementation's business, not the scenario's."""
-            who = Identity(customer_id=customer_id, scopes=ident.CUSTOMER_SCOPES)
             held = conversation if isinstance(conversation, Conversation) else None
-            result, held = await agent.handle(text, identity=who, conversation=held)
+            result, held = await agent.handle(
+                text, identity=customer(customer_id), conversation=held
+            )
             reply = getattr(result, "reply", "") or getattr(result, "customer_message", "")
             return reply, held
 
@@ -182,8 +196,7 @@ async def subject_for(
             return RESOLUTIONS[resolution](escalations, resolving, name=by, delay_s=delay_s)
 
         async def opens(customer_id: str) -> str:
-            who = Identity(customer_id=customer_id, scopes=ident.CUSTOMER_SCOPES)
-            return await agent.opening(who)
+            return await agent.opening(customer(customer_id))
 
         yield Subject(say=say, reviewer=reviewer, colleague=colleague, opens=opens)
 

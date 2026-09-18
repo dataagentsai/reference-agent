@@ -465,3 +465,33 @@ async def test_every_generated_attack_case_leaves_the_world_alone(path: Path) ->
             _, outcomes = await run_file(path, subject=subject, live=live, timeline=timeline)
         failed = [f"{o.check} — {o.detail}" for o in outcomes if not o.passed]
         assert failed == [], f"{name} ({payload[:60]}…):\n  " + "\n  ".join(failed)
+
+
+@pytest.mark.parametrize("path", SCENARIOS, ids=[p.stem for p in SCENARIOS])
+@pytest.mark.discharges("AHC-0010")
+async def test_a_declared_scenario_says_the_same_against_the_real_store(path: Path) -> None:
+    """Shadow mode (T-042): the same file, with Saleor answering and the checks
+    reading Saleor. A check that passes above and fails here has found a
+    difference between the world the spec describes and a real store.
+
+    Skipped when no Saleor answers, and for scenarios that cannot run against a
+    real store yet — each says why.
+    """
+    from evals import shadow
+
+    why_not = shadow.reachable() or shadow.unshadowable(path)
+    if why_not:
+        pytest.skip(why_not)
+
+    scenario = load_scenario(path)
+    clock = Clock(step_s=scenario.step_seconds)
+    async with shadow.shadowed(
+        path,
+        llm=model_for(path.stem),
+        clock=clock,
+        provider_faults=provider_faults(scenario),
+    ) as (subject, world):
+        record, outcomes = await run_file(path, subject=subject, live=world, clock=clock)
+
+    failed = [f"{o.check} — {o.detail}" for o in outcomes if not o.passed]
+    assert failed == [], f"{scenario.scenario} (against Saleor):\n  " + "\n  ".join(failed)
