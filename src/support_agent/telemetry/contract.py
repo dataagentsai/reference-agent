@@ -94,7 +94,18 @@ CONTRACT: dict[str, SpanSpec] = {
         # has no tenant to record, and demanding one would force the edge to
         # invent a value for exactly the requests it knows least about.
         required=frozenset(),
-        optional=frozenset({TENANT, "http.status_code", "http.refusal_detail", "agent.result"}),
+        # `user.id` and `session.id` on the root as well as the turn: a trace
+        # backend groups and filters by the root span (T-052, Langfuse).
+        optional=frozenset(
+            {
+                TENANT,
+                USER_ID,
+                SESSION_ID,
+                "http.status_code",
+                "http.refusal_detail",
+                "agent.result",
+            }
+        ),
     ),
     "agent.step": SpanSpec(
         required=frozenset({STEP, RUN_ID}),

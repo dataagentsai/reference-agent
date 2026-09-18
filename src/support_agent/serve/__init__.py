@@ -210,6 +210,10 @@ async def chat(request: Request) -> Response:
             return JSONResponse({"error": exc.detail}, status_code=exc.status)
 
         span.set_attribute(tel.TENANT, inbound.identity.customer_id)
+        # On the root span too, not only the turn's: a trace backend groups and
+        # filters by the root, so a trace whose root names nobody cannot be found
+        # by customer (seen in Langfuse, T-052).
+        span.set_attribute(tel.USER_ID, inbound.identity.customer_id)
         try:
             conversation = await _conversation_for(state.store, inbound)
         except _NotYours:
@@ -259,6 +263,7 @@ async def _run_turn(
         return JSONResponse({"error": "this message is already being handled"}, status_code=409)
 
     span.set_attribute("agent.result", type(result).__name__)
+    span.set_attribute(tel.SESSION_ID, conversation.conversation_id)
     reply = getattr(result, "reply", "") or getattr(result, "customer_message", "")
     return JSONResponse(
         {

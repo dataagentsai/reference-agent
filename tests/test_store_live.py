@@ -16,8 +16,11 @@ from __future__ import annotations
 import os
 import time
 import urllib.error
+import uuid
+from pathlib import Path
 
 import pytest
+import yaml
 from deploy.saleor import seed as seeding
 from evals import durable
 from evals import issuer as issuing
@@ -44,11 +47,16 @@ def saleor() -> Saleor:
 
 @pytest.fixture(scope="module")
 def store() -> Store:
+    """A private copy of the world: the shared one is a person's, and they
+    change it (AB-10002 was cancelled in the first session)."""
     try:
-        seeding.login(URL, saleor().email, saleor().password)
+        api = seeding.login(URL, saleor().email, saleor().password)
     except (urllib.error.URLError, seeding.SaleorError, OSError) as exc:
         pytest.skip(f"no Saleor at {URL}: {exc}")
-    return Store(saleor())
+    namespace = f"t{uuid.uuid4().hex[:6]}"
+    world = yaml.safe_load((Path(__file__).parent.parent / "worlds" / "clothing.yaml").read_text())
+    seeding.seed(api, world, now=int(time.time()), namespace=namespace)
+    return Store(saleor(), namespace=namespace)
 
 
 def session(customer: str) -> Identity:
