@@ -163,6 +163,14 @@
     background: var(--surface); border: 1px solid var(--rule); padding: 14px 16px; overflow-x: auto;
   }
   .note { border-left: 3px solid var(--store); background: var(--wash-store); padding: 10px 14px; margin: 14px 0; }
+  .yes { color: var(--agent); font-weight: 600; }
+  .some { color: var(--store); font-weight: 600; }
+  .no { color: var(--watch); font-weight: 600; }
+  .quote { font-family: var(--mono); font-size: 13px; }
+  .who { font-family: var(--mono); font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: .08em; }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--rule); padding: 14px 16px; }
+  .card h3 { margin-top: 0; }
 </style>
 
 <div class="page">
@@ -334,6 +342,120 @@
     </ol>
   </div>
 </div>
+
+
+<h2 id="now-compare">Temporal, LangGraph, a queue, or just Postgres</h2>
+<p class="measure">All four can take part in <i>"wait for a person, then do something"</i>. They differ in what they do on their own, and so in what you would have to write yourself. The rows are what the refund approval and the escalation actually need.</p>
+<div class="scroll"><table>
+  <tr><th>What the wait needs</th><th>Postgres table</th><th>A job queue (Celery, pg-boss)</th><th>LangGraph interrupt</th><th>Temporal</th></tr>
+  <tr><td>Remember that something is waiting</td><td class="yes">yes, a row</td><td class="some">a pending job</td><td class="yes">yes, a checkpoint</td><td class="yes">yes, a workflow</td></tr>
+  <tr><td>Survive the process restarting</td><td class="yes">yes</td><td class="yes">yes, if the broker is durable</td><td class="yes">yes, with a durable checkpointer</td><td class="yes">yes — tested by restarting the container</td></tr>
+  <tr><td>Fire a deadline with nobody polling (expire at 24 h, lapse at 30 min)</td><td class="no">no — someone must check</td><td class="some">a delayed job, cancelled by hand if decided first</td><td class="no">no — it waits to be resumed</td><td class="yes">yes, a timer in the workflow</td></tr>
+  <tr><td>Act the moment the decision arrives, not when the customer next writes</td><td class="no">no</td><td class="some">if the decider enqueues a job</td><td class="some">if the decider resumes the graph</td><td class="yes">yes, an update wakes the workflow</td></tr>
+  <tr><td>Retry the side effect after a crash, exactly where it stopped</td><td class="no">no</td><td class="some">retries the whole job</td><td class="some">re-runs the node</td><td class="yes">yes, the activity is retried, the steps before it are not</td></tr>
+  <tr><td>One owner of the state, with rules checked on every change</td><td class="no">anyone who can write the row</td><td class="no">no state, only jobs</td><td class="some">the graph, but the caller supplies the resume value</td><td class="yes">yes — the update's validator is our rule</td></tr>
+  <tr><td>A queue a colleague can see</td><td class="yes">a query</td><td class="some">the broker's own view</td><td class="no">build it</td><td class="yes">a queue workflow (and Temporal's UI)</td></tr>
+  <tr><td>Act under a separate login from the agent</td><td class="no">build it</td><td class="yes">a separate worker</td><td class="no">it is the agent's process</td><td class="yes">a separate worker</td></tr>
+  <tr><td>Extra infrastructure</td><td class="yes">none</td><td class="some">a broker (or none, with pg-boss)</td><td class="yes">none beyond the checkpointer</td><td class="no">a server (~100 MB here)</td></tr>
+</table></div>
+<div class="two">
+  <div class="card"><div class="who">Postgres</div><p><b>Remembers</b> that something is waiting. Everything that should <i>happen</i> — the expiry, the refund when granted, the retry — is code you write, schedule and keep correct.</p></div>
+  <div class="card"><div class="who">A job queue</div><p><b>Runs work later</b>, with retries. It does not know an approval exists between jobs, so "who decided, and is it still valid" lives somewhere else.</p></div>
+  <div class="card"><div class="who">LangGraph interrupt</div><p><b>Pauses the agent's graph</b> and resumes it later with a human's answer. Natural inside LangGraph; it has no timers and acts in the agent's own process.</p></div>
+  <div class="card"><div class="who">Temporal</div><p><b>Runs the wait itself</b>: it holds the state, fires the deadline, wakes on the decision, retries the effect, in a process of its own. We keep only the rules. The cost is one more server to run.</p></div>
+</div>
+<p class="measure">That is why the Open Stack uses Temporal and keeps conversations in Postgres. The LangGraph cycle (T-036) will test whether an interrupt can do the same job there; Postgres-native engines (DBOS, Hatchet) are the lighter option worth evaluating.</p>
+
+<h2 id="now-scenario-2">Scenario 2 — "Connect me to a human"</h2>
+<p class="measure">Yes, this uses Temporal: every escalation is an <code>EscalationWorkflow</code>. Run live on 18 September against the app on Saleor; the replies below are the real ones, and every turn is a trace in Langfuse.</p>
+
+<div class="diagram" role="img" aria-label="Sequence: the customer asks for a human; the agent's router escalates without the model and starts an escalation workflow in Temporal with a 30 minute timer; the customer is given reference E-AAF59125. A second message is held. A colleague sees it in the queue on /ops and resolves it. The next message is served by the agent again. If nobody had come in 30 minutes the timer would have lapsed it.">
+<svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Sans, sans-serif">
+  <defs>
+    <marker id="now-seq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill: var(--ink-muted)"/>
+    </marker>
+  </defs>
+  <!-- lifelines -->
+  <rect x="30" y="14" width="140" height="40" rx="6" style="fill: var(--wash-edge); stroke: var(--edge)"/>
+  <text x="100" y="39" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--ink)">Customer</text>
+  <rect x="270" y="14" width="160" height="40" rx="6" style="fill: var(--wash-agent); stroke: var(--agent)"/>
+  <text x="350" y="39" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--agent)">Agent</text>
+  <rect x="520" y="14" width="200" height="40" rx="6" style="fill: var(--wash-wait); stroke: var(--wait)"/>
+  <text x="620" y="39" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--wait)">Temporal · E-AAF59125</text>
+  <rect x="810" y="14" width="160" height="40" rx="6" style="fill: var(--wash-edge); stroke: var(--edge)"/>
+  <text x="890" y="39" text-anchor="middle" font-size="14" font-weight="600" style="fill: var(--ink)">Colleague · /ops</text>
+  <g style="stroke: var(--rule-strong)" stroke-dasharray="3 5">
+    <path d="M100 54 V540"/><path d="M350 54 V540"/><path d="M620 54 V540"/><path d="M890 54 V540"/>
+  </g>
+  <!-- the workflow's life -->
+  <rect x="612" y="138" width="16" height="262" style="fill: var(--wash-wait); stroke: var(--wait)"/>
+
+  <g font-size="12" style="fill: var(--ink)">
+    <text x="112" y="84">"Connect me to a human"</text>
+    <text x="362" y="112" style="fill: var(--ink-muted)">router: rule asked-for-human — no model call</text>
+    <text x="362" y="136">start EscalationWorkflow, 30-min timer</text>
+    <text x="112" y="170">"reference E-AAF59125, about 5 min"</text>
+    <text x="112" y="214">"hello? anyone there?"</text>
+    <text x="362" y="238">get E-AAF59125 → queued</text>
+    <text x="112" y="270">"still with a colleague"</text>
+    <text x="640" y="304">queue: E-AAF59125, waited 10 s</text>
+    <text x="640" y="344">resolve: outcome "resolved"</text>
+    <text x="640" y="362" style="fill: var(--ink-muted)">validator: not the customer, not twice, not lapsed</text>
+    <text x="112" y="428">"where is AB-10001?"</text>
+    <text x="362" y="452">get E-AAF59125 → resolved: hand back</text>
+    <text x="112" y="486">"AB-10001 is shipped"</text>
+  </g>
+  <g style="stroke: var(--ink-muted); fill: none" stroke-width="1.3" marker-end="url(#now-seq)">
+    <path d="M100 90 H346"/>
+    <path d="M350 142 H608"/>
+    <path d="M350 176 H104"/>
+    <path d="M100 220 H346"/>
+    <path d="M350 244 H608"/>
+    <path d="M350 276 H104"/>
+    <path d="M886 310 H632"/>
+    <path d="M886 350 H632"/>
+    <path d="M100 434 H346"/>
+    <path d="M350 458 H608"/>
+    <path d="M350 492 H104"/>
+  </g>
+  <!-- the other ending -->
+  <rect x="640" y="410" width="340" height="64" rx="6" style="fill: var(--surface); stroke: var(--wait)" stroke-dasharray="4 4"/>
+  <text x="652" y="432" font-size="12" font-weight="600" style="fill: var(--wait)">If nobody had come in 30 minutes</text>
+  <text x="652" y="450" font-size="12" style="fill: var(--ink)">the timer lapses it; the next message gets</text>
+  <text x="652" y="466" font-size="12" style="fill: var(--ink)">"Nobody has picked up E-…", and the agent serves again</text>
+</svg>
+</div>
+<p class="caption">The purple bar is the workflow's life: from the customer's request to the colleague's close. Nothing polls it; Temporal holds it and its timer.</p>
+
+<h3>What each piece did</h3>
+<div class="scroll"><table>
+  <tr><th>Step</th><th>Who</th><th>What happened</th></tr>
+  <tr><td>1</td><td>Agent · router</td><td>Recognised a request for a person (rule <code>asked-for-human</code>). Deterministic: <b>no model call, no cost</b>.</td></tr>
+  <tr><td>2</td><td>Agent → Temporal</td><td>Started <code>EscalationWorkflow</code> with the reason, the rule, and a hand-off built from the conversation's facts, so the colleague need not ask again. The record exists before the customer is told anything.</td></tr>
+  <tr><td>3</td><td>Agent</td><td>Told the customer the reference, and a wait estimated from the desk's capacity — not a promise it cannot back.</td></tr>
+  <tr><td>4</td><td>Agent</td><td>On the next message, asked the workflow: still queued, so it <b>did not answer over the colleague</b>.</td></tr>
+  <tr><td>5</td><td>Colleague · /ops</td><td>Saw it in the queue (the reviewer's own Keycloak login, read-only scope) and closed it with an outcome. The workflow's validator refused nothing here; it would have refused the customer closing their own case, a second close, or a close after the lapse.</td></tr>
+  <tr><td>6</td><td>Agent</td><td>Next message: the workflow says resolved, so the conversation is the agent's again.</td></tr>
+  <tr><td>—</td><td>Temporal</td><td>Held the escalation, would have lapsed it at 30 minutes, and kept it across restarts. <b>Our code</b> decided what escalation means: the rule, the wording, the outcome labels, who may close.</td></tr>
+</table></div>
+
+<h3>The same run in Langfuse</h3>
+<div class="scroll"><table>
+  <tr><th>Time</th><th>Customer said</th><th>Spans in the trace</th></tr>
+  <tr><td class="mono">11:49:05</td><td>Connect me to a human</td><td class="mono">http.chat → agent.turn → agent.route → agent.escalation.raise → agent.policy</td></tr>
+  <tr><td class="mono">11:49:07</td><td>hello? anyone there?</td><td class="mono">http.chat → agent.turn → agent.escalation.wait</td></tr>
+  <tr><td class="mono">11:49:17</td><td>where is AB-10001?</td><td class="mono">http.chat → agent.turn → agent.route → agent.direct → … → get_order → agent.policy</td></tr>
+</table></div>
+<p class="measure">Filter Langfuse by session <code>cnv_bcf43b3d861c4d8f</code> to see all of them together. The colleague's close is its own span, <code>agent.escalation.resolve</code>, with the outcome and how long the customer waited.</p>
+
+<h3>Try it yourself</h3>
+<ol class="steps">
+  <li class="edge">In the chat, type <span class="quote">Connect me to a human</span>. Note the E- reference.</li>
+  <li class="edge">Type anything else: it is held — <span class="quote">still with a colleague</span>.</li>
+  <li class="wait">As the colleague: <span class="quote">GET /ops/escalations</span> with the reviewer token the app printed, then <span class="quote">POST /ops/escalations/E-…/resolve</span> with <span class="quote">{"outcome": "resolved"}</span>.</li>
+  <li class="agent">Ask about an order again: the agent answers.</li>
+</ol>
 
 <h2>The stack</h2>
 <p class="measure">One compose file, with profiles, because the laptop has 3.8 GB for Docker and cannot run everything at once. Start the profiles a task needs.</p>
