@@ -108,11 +108,14 @@ svg.seq text{paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoi
 .cn>.tag{font:700 11px/1 ui-monospace,monospace;letter-spacing:.1em;color:var(--accent)}
 .cn>h3{margin:10px 0 2px;font:600 21px/1.2 "Iowan Old Style",Palatino,Georgia,serif}
 .cn>.owns{color:var(--dim);font-size:14.5px;margin:0 0 4px}
-.cn dl{margin:16px 0 0;display:grid;grid-template-columns:132px 1fr;gap:0}
+.cn .deeper{font-size:13.5px;color:var(--dim);margin:8px 0 0}
+.cn .deeper a{border-bottom-color:transparent}
+.cn .deeper a:hover{border-bottom-color:var(--accent)}
+.cn dl{margin:16px 0 0;display:grid;grid-template-columns:132px minmax(0,1fr);gap:0}
 .cn dt{font:600 10.5px/1.5 ui-monospace,monospace;letter-spacing:.06em;
  text-transform:uppercase;color:var(--accent);padding:11px 0;
  border-top:1px solid var(--rule)}
-.cn dd{margin:0;padding:11px 0;border-top:1px solid var(--rule);font-size:14.5px}
+.cn dd{margin:0;padding:11px 0;border-top:1px solid var(--rule);font-size:14.5px;min-width:0}
 .cn dd p{margin:0 0 7px;max-width:none}.cn dd p:last-child{margin:0}
 .cn dd ul{margin:0;padding-left:18px}
 .cn dd li{max-width:none;margin:0 0 3px}
@@ -147,7 +150,7 @@ footer a{color:var(--accent)}
  .shell{padding:40px 16px 30px}h1{font-size:30px}
  section.part>h2{font-size:24px}
  .cn{padding:16px;border-radius:10px}
- .cn dl{grid-template-columns:1fr;gap:0}
+ .cn dl{grid-template-columns:minmax(0,1fr);gap:0}
  .cn dt{padding:12px 0 2px;border-top:1px solid var(--rule)}
  .cn dd{padding:0 0 12px;border-top:none}
  footer{padding:30px 16px 70px}
@@ -170,12 +173,16 @@ footer a{color:var(--accent)}
       <li><span>02</span><a href="#arch">Where it sits: guest to model</a> <em>— the harness as one box</em></li>
       <li><span>03</span><a href="#zoom">Inside that one box</a> <em>— the sixteen slots</em></li>
       <li><span>04</span><a href="#passes">Three passes over the sixteen</a> <em>— the reading order</em></li>
-      <li><span>05</span><a href="#pass1">Pass 1 · Make it work</a> <em>— context, model, tools, loop</em></li>
-      <li><span>06</span><a href="#pass2">Pass 2 · Make it trustworthy</a> <em>— contracts, memory, policy, identity, people</em></li>
-      <li><span>07</span><a href="#pass3">Pass 3 · Make it survive production</a> <em>— load, failure, cost, tracing, evals, replay, release</em></li>
-      <li><span>08</span><a href="#temporal">Temporal, on its own</a> <em>— waiting for a human, properly</em></li>
-      <li><span>09</span><a href="#stack">One message, function by function</a> <em>— two real turns</em></li>
-      <li><span>10</span><a href="#next">Where to go next</a> <em>— and a glossary</em></li>
+      <li><span>05</span><a href="#path">The path of one message</a> <em>— the low-level design: <a href="#path-ui">UI</a> · <a href="#path-first">the first function</a> · <a href="#path-router">the router</a> · <a href="#path-loop">the loop</a> · <a href="#path-context">context</a></em></li>
+      <li><span>06</span><a href="#pass1">Pass 1 · Make it work</a> <em>— context, model, tools, loop</em></li>
+      <li><span>07</span><a href="#pass2">Pass 2 · Make it trustworthy</a> <em>— contracts, memory, policy, identity, people</em></li>
+      <li><span>08</span><a href="#pass3">Pass 3 · Make it survive production</a> <em>— load, failure, cost, tracing, evals, replay, release</em></li>
+      <li><span>09</span><a href="#tools">The tools, in full</a> <em>— six, and why so few</em></li>
+      <li><span>10</span><a href="#postgres">The data model</a> <em>— three tables, <a href="#pg-checkpoint">checkpointing</a>, <a href="#pg-idem">idempotency</a></em></li>
+      <li><span>11</span><a href="#temporal">Temporal, on its own</a> <em>— waiting for a human, properly</em></li>
+      <li><span>12</span><a href="#otel">OpenTelemetry, Langfuse and the rules</a> <em>— 34 spans, 22 rules, 18 alerts</em></li>
+      <li><span>13</span><a href="#stack">One message, function by function</a> <em>— two real turns</em></li>
+      <li><span>14</span><a href="#next">Where to go next</a> <em>— and a glossary</em></li>
     </ol>
   </nav>
 
@@ -618,8 +625,542 @@ footer a{color:var(--accent)}
     <p>The honest summary of the whole exercise: <strong>roughly 80% of what this repository builds is available off the shelf and better.</strong> The value is the remaining 20% — and you cannot see which 20% it is without having built the 80% once.</p>
   </section>
 
+    <section class="part" id="path">
+    <p class="n">Section 05</p>
+    <h2>The path of one message</h2>
+    <p>Everything so far has been the shape of the subject. This section is the <strong>low-level design</strong>: the actual front doors, the actual first function, the actual branch, the actual loop. Read it once and the sixteen concerns stop being abstract, because you will have seen where each of them gets its hands on the message.</p>
+    <p>Five stops, in the order the message reaches them.</p>
+
+    <h3 id="path-ui">5.1 · The UI layer — four front doors, one turn</h3>
+    <p>There is no single "the UI". There are four ways work arrives, and they are deliberately not the same thing. Three of them end in the same function; the fourth deliberately does not.</p>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 470" role="img" aria-labelledby="ui-t ui-d">
+<title id="ui-t">The four front doors and where each one leads</title>
+<desc id="ui-d">A customer can use the built-in chat page or the Chatwoot widget behind a portal that keeps the login server-side; a machine can post directly; a colleague uses the ops desk. The first three converge on the chat handler and then Agent.handle. The ops desk goes to the reviewer routes and Temporal instead, and never runs a turn.</desc>
+<defs>
+  <marker id="ui-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+<text class="n" x="14" y="24">WHO STARTS IT</text>
+<text class="n" x="264" y="24">THE ASGI APP · scripts/run_server.py</text>
+<text class="n" x="628" y="24">WHAT IT REACHES</text>
+
+<rect class="box" x="14" y="38" width="196" height="78" rx="8"/>
+<text class="t" x="26" y="60">Customer · /chat</text>
+<text class="d" x="26" y="78">the built-in page, served</text>
+<text class="d" x="26" y="93">as a string — no build step</text>
+<text class="d" x="26" y="108">mints an Idempotency-Key</text>
+
+<rect class="box" x="14" y="126" width="196" height="94" rx="8"/>
+<text class="t" x="26" y="148">Customer · Chatwoot</text>
+<text class="d" x="26" y="166">the widget a shop already</text>
+<text class="d" x="26" y="181">has. Logs in at /portal,</text>
+<text class="d" x="26" y="196">which keeps the token</text>
+<text class="d" x="26" y="211">server-side (a BFF)</text>
+
+<rect class="box" x="14" y="230" width="196" height="72" rx="8"/>
+<text class="t" x="26" y="252">Machine · POST /chat</text>
+<text class="d" x="26" y="270">a script, a test, the canary</text>
+<text class="d" x="26" y="285">— the same door, no UI</text>
+
+<rect class="box" x="14" y="312" width="196" height="94" rx="8"/>
+<text class="t" x="26" y="334">Colleague · /ops</text>
+<text class="d" x="26" y="352">the reviewer desk: the</text>
+<text class="d" x="26" y="367">escalation queue and the</text>
+<text class="d" x="26" y="382">approval queue. A different</text>
+<text class="d" x="26" y="397">login, a different job</text>
+
+<rect class="hz" x="258" y="38" width="286" height="368" rx="9"/>
+<text class="n" x="272" y="60">ROUTES, IN ORDER</text>
+<rect class="sub" x="272" y="72" width="258" height="34" rx="5"/>
+<text class="s" x="282" y="94">Mount("/portal") · login, PKCE, cookie</text>
+<rect class="sub" x="272" y="112" width="258" height="34" rx="5"/>
+<text class="s" x="282" y="134">Mount("/chatwoot") · signed webhook</text>
+<rect class="subl" x="272" y="152" width="258" height="52" rx="5"/>
+<text class="s" x="282" y="174">Route("/chat", POST) → chat()</text>
+<text class="d" x="282" y="192">the only door a turn comes through</text>
+<rect class="sub" x="272" y="210" width="258" height="34" rx="5"/>
+<text class="s" x="282" y="232">Route("/feedback", POST)</text>
+<rect class="sub" x="272" y="250" width="258" height="34" rx="5"/>
+<text class="s" x="282" y="272">Route("/") · the chat page</text>
+<rect class="sub" x="272" y="290" width="258" height="34" rx="5"/>
+<text class="s" x="282" y="312">Route("/healthz") · liveness only</text>
+<rect class="sub" x="272" y="330" width="258" height="34" rx="5"/>
+<text class="s" x="282" y="352">Mount("/ops") · reviewer desk</text>
+<text class="d" x="272" y="386">One store per concern, wired once.</text>
+<text class="d" x="272" y="400">A mismatch fails at startup, not in production.</text>
+
+<rect class="hz" x="622" y="108" width="234" height="130" rx="9" stroke-width="2.4"/>
+<text class="n" x="636" y="130">THE TURN STARTS HERE</text>
+<text class="t" x="636" y="151">Agent.handle()</text>
+<text class="d" x="636" y="169">entrypoint/__init__.py:137</text>
+<text class="d" x="636" y="191">One entry point for every</text>
+<text class="d" x="636" y="206">channel, so a rule cannot</text>
+<text class="d" x="636" y="221">apply to one door only</text>
+
+<rect class="box" x="622" y="300" width="234" height="94" rx="9"/>
+<text class="n" x="636" y="322">NOT A TURN</text>
+<text class="t" x="636" y="343">The reviewer routes</text>
+<text class="d" x="636" y="361">GET /ops/escalations · /approvals</text>
+<text class="d" x="636" y="376">POST to resolve or decide</text>
+<text class="d" x="636" y="391">→ straight to Temporal</text>
+
+<g marker-end="url(#ui-go)">
+  <path class="go" d="M210 77 C238 77 240 176 255 176"/>
+  <path class="go" d="M210 173 C238 173 240 176 255 176"/>
+  <path class="go" d="M210 266 C238 266 240 182 255 182"/>
+  <path class="go" d="M210 359 C238 359 240 347 255 347"/>
+  <path class="go" d="M544 176 C580 176 586 168 619 168"/>
+  <path class="go" d="M544 347 C580 347 586 347 619 347"/>
+</g>
+<rect class="box opt" x="880" y="108" width="106" height="130" rx="8"/>
+<text class="d" x="890" y="144">the loop,</text>
+<text class="d" x="890" y="166">the tools,</text>
+<text class="d" x="890" y="188">the policy,</text>
+<text class="d" x="890" y="210">the model</text>
+<line class="go" x1="856" y1="172" x2="877" y2="172" marker-end="url(#ui-go)"/>
+</svg></div>
+
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Front door</th><th>Who it is for</th><th>Where the credential lives</th><th>The design decision behind it</th></tr></thead>
+      <tbody>
+        <tr><td><code>/</code> — the built-in chat page</td><td>a customer, or you, testing</td><td>the page holds a bearer token it was <em>given</em></td><td><strong>The page can never mint its own identity.</strong> A page that could would make the whole scope system decorative.</td></tr>
+        <tr><td><code>/portal</code> + Chatwoot widget</td><td>a customer, in the shop's real chat</td><td><strong>nowhere in the browser.</strong> The refresh token is in Postgres; the browser gets a signed cookie naming the login and nothing else</td><td>A Chatwoot webhook names a contact and carries no credential. So the customer logs in at the portal — PKCE, four routes, and the backend-for-frontend shape the OAuth browser-apps guidance recommends.</td></tr>
+        <tr><td><code>/chatwoot</code> — the webhook</td><td>Chatwoot, on the customer's behalf</td><td>an HMAC signature over <code>timestamp.body</code></td><td>Four things checked in order: the signature (and a timestamp under five minutes old, so a captured webhook cannot be replayed), whether it is actually the customer's turn, whether the contact is <code>hmac_verified</code>, and whether that login is still live.</td></tr>
+        <tr><td><code>/ops</code> — the reviewer desk</td><td>a colleague</td><td>a staff token — and <code>as_customer()</code> refuses it</td><td>A valid session with no customer behind it gets <strong>403, not 401</strong>: the token is fine, and it is not one a customer conversation may run under. Never a fallback to <code>sub</code>.</td></tr>
+        <tr><td><code>/healthz</code></td><td>the orchestrator</td><td>none</td><td><strong>Liveness only, deliberately not a dependency check.</strong> A health endpoint that calls the model provider fails when the provider is slow — and then the orchestrator restarts a process that was working.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="kid"><b>Explain like I'm five</b>
+    <p>A shop can have several doors — the front door, the phone, the website, the staff entrance. They all have to lead to the same till, or the rules only apply to whichever door somebody remembered.</p>
+    <p>The one exception here is the staff entrance. A colleague resolving an escalation is not <em>talking to the agent</em>, so their door leads somewhere else entirely.</p></div>
+
+    <h3 id="path-first">5.2 · The first Python function that runs</h3>
+    <p>It is <code>chat()</code>, in <a href="#L6">serve/__init__.py:203</a>, and it is eleven lines long. Everything it does is refusing things, and that is the point: <strong>by the time a turn starts, every field is trustworthy or the request never got here.</strong></p>
+
+    <div class="diagram"><svg class="mid" viewBox="0 0 1000 560" role="img" aria-labelledby="fn-t fn-d">
+<title id="fn-t">What chat() does, and every way out of it</title>
+<desc id="fn-d">The chat handler opens a span, decodes the body with size, JSON and text checks, verifies the bearer token and converts the principal to a customer identity, loads the named conversation and checks ownership, then runs the turn. Each check has its own refusal status, and the turn's own result is mapped to a status code at the end.</desc>
+<defs><marker id="fn-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="hz" x="200" y="14" width="330" height="48" rx="8"/>
+<text class="t" x="214" y="36">1 · tel.span("http.chat")</text>
+<text class="d" x="214" y="53">the root span. Everything below hangs off it.</text>
+
+<rect class="hz" x="200" y="80" width="330" height="70" rx="8"/>
+<text class="t" x="214" y="102">2 · decode(request)</text>
+<text class="d" x="214" y="120">body ≤ 8 KB · valid JSON · an object</text>
+<text class="d" x="214" y="136">text present and non-empty</text>
+
+<rect class="hz" x="200" y="168" width="330" height="86" rx="8"/>
+<text class="t" x="214" y="190">3 · _customer(request)</text>
+<text class="d" x="214" y="208">Bearer header → identity.verify()</text>
+<text class="d" x="214" y="224">RS256 vs JWKS · aud · exp · jti</text>
+<text class="d" x="214" y="240">Principal.as_customer() → scopes</text>
+
+<rect class="hz" x="200" y="272" width="330" height="70" rx="8"/>
+<text class="t" x="214" y="294">4 · _conversation_for(store, inbound)</text>
+<text class="d" x="214" y="312">reads the newest checkpoint by conversation id</text>
+<text class="d" x="214" y="328">and checks it belongs to this customer</text>
+
+<rect class="hz" x="200" y="360" width="330" height="70" rx="8" stroke-width="2.4"/>
+<text class="t" x="214" y="382">5 · _run_turn → Agent.handle(…)</text>
+<text class="d" x="214" y="400">text · identity · conversation · delivery_id</text>
+<text class="d" x="214" y="416">everything here is now trustworthy</text>
+
+<rect class="hz" x="200" y="448" width="330" height="88" rx="8"/>
+<text class="t" x="214" y="470">6 · the result decides the status</text>
+<text class="d" x="214" y="488">Completed 200 · Refused 200 · Escalated 202</text>
+<text class="d" x="214" y="504">NeedsApproval 202 · Failed 502</text>
+<text class="d" x="214" y="520">{conversation_id, reply, outcome}</text>
+
+<g marker-end="url(#fn-go)">
+  <line class="go" x1="365" y1="62" x2="365" y2="77"/>
+  <line class="go" x1="365" y1="150" x2="365" y2="165"/>
+  <line class="go" x1="365" y1="254" x2="365" y2="269"/>
+  <line class="go" x1="365" y1="342" x2="365" y2="357"/>
+  <line class="go" x1="365" y1="430" x2="365" y2="445"/>
+  <path class="back" d="M530 115 H676" marker-end="url(#fn-go)"/>
+  <path class="back" d="M530 205 H676" marker-end="url(#fn-go)"/>
+  <path class="back" d="M530 307 H676" marker-end="url(#fn-go)"/>
+  <path class="back" d="M530 395 H676" marker-end="url(#fn-go)"/>
+</g>
+
+<rect class="box" x="680" y="90" width="306" height="50" rx="7"/>
+<text class="s" x="692" y="111">413 too large · 400 not JSON · 400 no text</text>
+<text class="d" x="692" y="129">a bad request costs no model call, ever</text>
+
+<rect class="box" x="680" y="176" width="306" height="82" rx="7"/>
+<text class="s" x="692" y="199">401 no token · 401 token not valid</text>
+<text class="s" x="692" y="215">403 not a customer</text>
+<text class="d" x="692" y="234">the 401 message is <tspan style="font-style:italic">fixed</tspan>: the library's own</text>
+<text class="d" x="692" y="249">text tells a prober what they got wrong</text>
+
+<rect class="box" x="680" y="280" width="306" height="66" rx="7"/>
+<text class="s" x="692" y="303">404 — never 403</text>
+<text class="d" x="692" y="321">confirming the id exists tells an attacker</text>
+<text class="d" x="692" y="336">their guess was right</text>
+
+<rect class="box" x="680" y="370" width="306" height="66" rx="7"/>
+<text class="s" x="692" y="391">200 "already handled" · 409 already running</text>
+<text class="d" x="692" y="409">a redelivered webhook is not a client fault,</text>
+<text class="d" x="692" y="425">so it is not a 4xx</text>
+
+<rect class="sub" x="14" y="168" width="168" height="86" rx="7"/>
+<text class="n" x="24" y="188">THE RULE</text>
+<text class="d" x="24" y="208">Identity comes from</text>
+<text class="d" x="24" y="224">the token and only the</text>
+<text class="d" x="24" y="240">token. A customer_id in</text>
+<text class="d" x="24" y="252">the body is ignored.</text>
+</svg></div>
+
+    <p>Two details in that picture are worth more than they look.</p>
+    <ul>
+      <li><strong>A <code>customer_id</code> in the body is <em>ignored</em>, not merged.</strong> Silently preferring the token would still leave the field there for the next reader to trust.</li>
+      <li><strong>The 401 message is a fixed string.</strong> The JWT library's own error text is helpfully descriptive — it will report a codec error from a malformed segment — and every word of that tells whoever is probing which part of the token they got wrong. The detail goes on the span, where an operator can read it and an attacker cannot.</li>
+    </ul>
+
+    <p>And one that is a whole concern in one line. <code>Inbound</code> is a frozen dataclass, so the decision <em>"is this request legitimate, and what does it say"</em> is one testable function and <strong>cannot be half-made</strong>: either an <code>Inbound</code> exists or the request was refused.</p>
+
+<pre><code>@dataclass(frozen=True)
+class Inbound:
+    text: str
+    identity: Identity                      # from the token, never the body
+    conversation_id: ConversationId | None  # the handle a customer actually holds
+    delivery_id: str | None                 # the Idempotency-Key header</code></pre>
+
+    <h4>Then <code>Agent.handle</code>, which is the real entry point</h4>
+    <p>Everything a turn must do regardless of channel happens here, in order, before the router is consulted:</p>
+    <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Step</th><th>What it is for</th><th>Concern</th></tr></thead>
+      <tbody>
+        <tr><td class="fn"><code>trigger.once(delivery_id)</code></td><td>Claim this delivery, so a redelivered webhook runs the turn at most once. A Temporal workflow named after the delivery id.</td><td><a href="#L10">L10</a></td></tr>
+        <tr><td class="fn"><code>new_run_id · new_conversation_id</code></td><td>One identifier for this unit of work, minted before anything can fail.</td><td><a href="#L11">L11</a></td></tr>
+        <tr><td class="fn"><code>Agent._gates(conversation)</code></td><td>Is a person already holding this conversation? Is an approval mid-decision? If so the turn does not reach the router at all.</td><td><a href="#L14">L14</a></td></tr>
+        <tr><td class="fn"><code>router.route(text)</code></td><td>The branch. Section 5.3.</td><td><a href="#L4">L4</a></td></tr>
+        <tr><td class="fn"><code>consent.granting(...)</code></td><td>Did this turn contain a consent phrase that widens what the agent may do?</td><td><a href="#L16">L16</a></td></tr>
+        <tr><td class="fn"><code>Agent._dispatch(route, …)</code></td><td>Only the <em>Agentic</em> route reaches the model.</td><td><a href="#L4">L4</a></td></tr>
+        <tr><td class="fn"><code>Meter(ceiling=$0.50)</code></td><td>Opened before the first call. An unpriced model fails here, not after the bill.</td><td><a href="#L13">L13</a></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3 id="path-router">5.3 · The router, and its four returns</h3>
+    <p>This is the most consequential twenty lines in the system, and it contains no model call. It runs <strong>per turn, outside the loop</strong> — per turn because intent drifts (<em>"actually, also cancel my other order"</em> arrives three turns in), and outside the loop because if the model could invoke the router, the router's determinism would be gone and every path would be agentic again.</p>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 480" role="img" aria-labelledby="rt-t rt-d">
+<title id="rt-t">The router's four returns</title>
+<desc id="rt-d">The turn's text passes a refuse gate, then an escalate gate, then intent matching. Zero or several intents, or several order ids, send it to the agentic loop. Exactly one direct-handler intent with exactly one order id is answered deterministically. Refuse, Escalate and Direct all cost no model call.</desc>
+<defs><marker id="rt-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="box" x="14" y="196" width="130" height="62" rx="8"/>
+<text class="t" x="26" y="222">the turn's text</text>
+<text class="d" x="26" y="240">one string, nothing else</text>
+
+<rect class="hz" x="176" y="188" width="150" height="78" rx="8"/>
+<text class="n" x="188" y="208">GATE 1</text>
+<text class="t" x="188" y="227">refuse rules</text>
+<text class="d" x="188" y="245">R-DISCOUNT · R-ACCOUNT</text>
+<text class="d" x="188" y="259">R-STYLE · R-FRAUD</text>
+
+<rect class="hz" x="358" y="188" width="150" height="78" rx="8"/>
+<text class="n" x="370" y="208">GATE 2</text>
+<text class="t" x="370" y="227">escalate rules</text>
+<text class="d" x="370" y="245">asked-for-human</text>
+<text class="d" x="370" y="259">lost-in-transit</text>
+
+<rect class="hz" x="540" y="188" width="164" height="78" rx="8"/>
+<text class="n" x="552" y="208">GATE 3</text>
+<text class="t" x="552" y="227">intent patterns</text>
+<text class="d" x="552" y="245">8 intents · and how many</text>
+<text class="d" x="552" y="259">order ids the turn names</text>
+
+<rect class="box" x="774" y="26" width="212" height="76" rx="8"/>
+<text class="n" x="786" y="46">RETURN 1 · NO MODEL</text>
+<text class="t" x="786" y="65">Refuse</text>
+<text class="d" x="786" y="83">reason + alternative + rule_id.</text>
+<text class="d" x="786" y="97">Answered as a 200.</text>
+
+<rect class="box" x="774" y="118" width="212" height="76" rx="8"/>
+<text class="n" x="786" y="138">RETURN 2 · NO MODEL</text>
+<text class="t" x="786" y="157">Escalate</text>
+<text class="d" x="786" y="175">tier 1, from the turn's own</text>
+<text class="d" x="786" y="189">words. Starts a workflow.</text>
+
+<rect class="box" x="774" y="210" width="212" height="92" rx="8"/>
+<text class="n" x="786" y="230">RETURN 3 · ONE OF EACH</text>
+<text class="t" x="786" y="249">Direct</text>
+<text class="d" x="786" y="267">no model. order_status and</text>
+<text class="d" x="786" y="281">refund_status only — reads.</text>
+<text class="d" x="786" y="295">A write never takes this path.</text>
+
+<rect class="hz" x="774" y="318" width="212" height="92" rx="8" stroke-width="2.4"/>
+<text class="n" x="786" y="338">RETURN 4 · ANYTHING ELSE</text>
+<text class="t" x="786" y="357">Agentic</text>
+<text class="d" x="786" y="375">the model. Zero intents, or</text>
+<text class="d" x="786" y="389">several, or several orders.</text>
+<text class="d" x="786" y="403">The loop is the fallback.</text>
+
+<g marker-end="url(#rt-go)">
+  <line class="go" x1="144" y1="227" x2="173" y2="227"/>
+  <line class="go" x1="326" y1="227" x2="355" y2="227"/>
+  <line class="go" x1="508" y1="227" x2="537" y2="227"/>
+  <path class="go" d="M251 188 C251 120 600 64 771 64"/>
+  <path class="go" d="M433 188 C433 150 600 156 771 156"/>
+  <path class="go" d="M704 240 C730 240 740 252 771 252"/>
+  <path class="go" d="M704 252 C730 252 740 360 771 360"/>
+</g>
+<text class="d" x="258" y="180">matched</text>
+<text class="d" x="440" y="180">matched</text>
+
+
+<rect class="sub" x="14" y="300" width="690" height="82" rx="8"/>
+<text class="n" x="26" y="320">WHY THE ORDER IS THIS ORDER</text>
+<text class="s" x="26" y="342">A request that is out of scope does not become in scope by also mentioning an order —</text>
+<text class="s" x="26" y="360">so refusal is checked first. And a customer asking for a human should not be routed into</text>
+<text class="s" x="26" y="378">a loop that will try to help first — so escalation is checked before intent.</text>
+
+<rect class="sub" x="14" y="398" width="690" height="66" rx="8"/>
+<text class="n" x="26" y="418">THE COST CONSEQUENCE</text>
+<text class="s" x="26" y="440">Three of the four returns are free, deterministic and binary. "Give me a discount" and</text>
+<text class="s" x="26" y="458">"get me a human" never cost a loop iteration. Deterministic-first as a structural property.</text>
+</svg></div>
+
+    <h4>What each gate actually holds</h4>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Gate</th><th>Rules</th><th>A defect it has already learned from</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Refuse</strong></td><td><code>R-DISCOUNT</code>, <code>R-ACCOUNT</code>, <code>R-STYLE</code>, <code>R-FRAUD</code></td><td>v1 matched the bare noun, so <em>"and if I paid partly with a voucher"</em> was refused as discount negotiation — live, in the tenth turn of a returns conversation. It then counted as the customer's first refusal and fetched a second person. Using, paying with, or a code that did not apply are now carved out; <em>asking</em> is not.</td></tr>
+        <tr><td><strong>Escalate</strong></td><td><code>asked-for-human</code>, <code>lost-in-transit</code></td><td>The first version matched <code>human|agent|manager</code> anywhere, so <em>"the delivery agent left it at the wrong door"</em> — an ordinary missing-item turn — was escalated to a person. Over-escalation with no way to see it, because the route was recorded as correct: the rule <em>did</em> fire. A verb of asking must now appear with the noun.</td></tr>
+        <tr><td><strong>Intent</strong></td><td>cancel, return, exchange, refund status, address change, damaged item, order status, policy question</td><td><code>refund</code> as a bare word matched <em>"please refund my order"</em>, so a request for money back was answered with its <em>status</em> — true, useless, and not what was asked. Both refund-status and order-status now anchor on <em>asking about</em>, never on the noun.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <p><strong>Two conditions must hold for <code>Direct</code>, not one.</strong> The spec says one intent and one order. Only the first half was checked at first: the code read the first id in the turn and ignored the rest, so <em>"where is my order AB-10003 and what about AB-10004 and AB-10005"</em> was answered about AB-10003 with nothing said about the other two. Several orders is the same ambiguity as several intents and now takes the same path.</p>
+
+    <div class="note"><p><strong>And only reads may go direct.</strong> Anything that writes goes through the loop, where the tool boundary can mint an idempotency key and the trajectory is visible. <em>A deterministic path is cheaper; it is not a place to hide an irreversible effect.</em> That is why <code>DIRECT_HANDLERS</code> has exactly two entries, and why the specification says the deterministic path must never perform a write — an effect must not be one rewording away.</p></div>
+
+    <h3 id="path-loop">5.4 · The agentic loop, one step at a time</h3>
+    <p>Only <code>Agentic</code> gets here. The loop is about 350 lines and it is the same nine moves every step, forever, until one of five exits fires.</p>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 540" role="img" aria-labelledby="lp-t lp-d">
+<title id="lp-t">One step of the agentic loop</title>
+<desc id="lp-d">Each step assembles context, screens it before the model, calls the model, accounts for the spend, plans the tool calls with idempotency keys and an oscillation check, screens them before dispatch, runs them with bounded fan-out, screens and fences the results, and starts the next step. If the model answered instead of calling a tool, the reply is screened and the run completes. Four other exits end the run: the step budget, oscillation, the cost ceiling, and escalation.</desc>
+<defs><marker id="lp-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="hz" x="14" y="52" width="700" height="308" rx="10" stroke-width="2.4"/>
+<text class="n" x="28" y="74">ONE STEP · span agent.step</text>
+
+<rect class="subl" x="28" y="88" width="152" height="70" rx="6"/>
+<text class="n" x="38" y="106">1</text>
+<text class="t" x="38" y="124">assemble</text>
+<text class="d" x="38" y="140">system + history,</text>
+<text class="d" x="38" y="152">trimmed to fit</text>
+
+<rect class="subl" x="196" y="88" width="152" height="70" rx="6"/>
+<text class="n" x="206" y="106">2 · POLICY</text>
+<text class="t" x="206" y="124">pre_model</text>
+<text class="d" x="206" y="140">screen the words</text>
+<text class="d" x="206" y="152">about to be sent</text>
+
+<rect class="subl" x="364" y="88" width="152" height="70" rx="6"/>
+<text class="n" x="374" y="106">3</text>
+<text class="t" x="374" y="124">call the model</text>
+<text class="d" x="374" y="140">breaker → retry →</text>
+<text class="d" x="374" y="152">throttle → provider</text>
+
+<rect class="subl" x="532" y="88" width="168" height="70" rx="6"/>
+<text class="n" x="542" y="106">4 · COST</text>
+<text class="t" x="542" y="124">account</text>
+<text class="d" x="542" y="140">tokens → dollars,</text>
+<text class="d" x="542" y="152">against the ceiling</text>
+
+<rect class="subl" x="28" y="178" width="152" height="70" rx="6"/>
+<text class="n" x="38" y="196">5</text>
+<text class="t" x="38" y="214">plan</text>
+<text class="d" x="38" y="230">mint a key per call,</text>
+<text class="d" x="38" y="242">check for circling</text>
+
+<rect class="subl" x="196" y="178" width="152" height="70" rx="6"/>
+<text class="n" x="206" y="196">6 · POLICY</text>
+<text class="t" x="206" y="214">pre_tool</text>
+<text class="d" x="206" y="230">may this caller run</text>
+<text class="d" x="206" y="242">this, on this row?</text>
+
+<rect class="subl" x="364" y="178" width="152" height="70" rx="6"/>
+<text class="n" x="374" y="196">7</text>
+<text class="t" x="374" y="214">dispatch</text>
+<text class="d" x="374" y="230">bounded fan-out,</text>
+<text class="d" x="374" y="242">max 4 reads at once</text>
+
+<rect class="subl" x="532" y="178" width="168" height="70" rx="6"/>
+<text class="n" x="542" y="196">8 · POLICY</text>
+<text class="t" x="542" y="214">post_tool</text>
+<text class="d" x="542" y="230">bound to 8,000 chars,</text>
+<text class="d" x="542" y="242">fence as untrusted</text>
+
+<rect class="subl" x="28" y="268" width="672" height="72" rx="6"/>
+<text class="n" x="38" y="288">9 · AND ROUND AGAIN</text>
+<text class="s" x="38" y="310">The fenced tool result becomes a message, the step number goes up, and step 1 runs on the longer transcript.</text>
+<text class="d" x="38" y="330">Freshness is re-checked first: a fact an irreversible action relies on must have been read inside its declared window.</text>
+
+<g marker-end="url(#lp-go)">
+  <line class="go" x1="180" y1="120" x2="193" y2="120"/>
+  <line class="go" x1="348" y1="120" x2="361" y2="120"/>
+  <line class="go" x1="516" y1="120" x2="529" y2="120"/>
+  <path class="go" d="M616 158 C616 168 120 166 104 176"/>
+  <line class="go" x1="180" y1="210" x2="193" y2="210"/>
+  <line class="go" x1="348" y1="210" x2="361" y2="210"/>
+  <line class="go" x1="516" y1="210" x2="529" y2="210"/>
+  <path class="go" d="M616 248 C616 258 120 258 104 266"/>
+  <path class="back" d="M700 304 C740 304 740 124 706 124" marker-end="url(#lp-go)"/>
+</g>
+
+<text class="n" x="748" y="74">FIVE WAYS OUT</text>
+<rect class="hz" x="744" y="88" width="242" height="70" rx="8"/>
+<text class="t" x="756" y="110">the model answered</text>
+<text class="d" x="756" y="128">screen post_model, then Completed.</text>
+<text class="d" x="756" y="144">termination = goal_reached</text>
+
+<rect class="box" x="744" y="170" width="242" height="54" rx="8"/>
+<text class="t" x="756" y="192">12 steps spent</text>
+<text class="d" x="756" y="210">handed to a person</text>
+
+<rect class="box" x="744" y="236" width="242" height="54" rx="8"/>
+<text class="t" x="756" y="258">oscillating</text>
+<text class="d" x="756" y="276">same call signature 3 times</text>
+
+<rect class="box" x="744" y="302" width="242" height="54" rx="8"/>
+<text class="t" x="756" y="324">$0.50 spent</text>
+<text class="d" x="756" y="342">checked between calls</text>
+
+<rect class="box" x="744" y="368" width="242" height="54" rx="8"/>
+<text class="t" x="756" y="390">a rule escalated it</text>
+<text class="d" x="756" y="408">tier 2, from the run's own facts</text>
+
+<rect class="sub" x="14" y="378" width="700" height="140" rx="8"/>
+<text class="n" x="28" y="398">THE THREE THINGS ONLY THIS POSITION CAN SEE</text>
+<text class="s" x="28" y="422">· <tspan style="font-weight:600">A trajectory.</tspan> Fourteen individually correct tool calls that are one runaway task.</text>
+<text class="s" x="28" y="444">· <tspan style="font-weight:600">No progress.</tspan> Twelve useful steps and twelve identical ones must not look the same.</text>
+<text class="s" x="28" y="466">· <tspan style="font-weight:600">Spend per task.</tspan> Not per call — the number nobody outside the loop can compute.</text>
+<text class="d" x="28" y="494">Hand L4 to a framework and you hand over this position. That is the whole of the build-or-buy argument,</text>
+<text class="d" x="28" y="510">and it is why this repository writes 350 lines it could have imported.</text>
+</svg></div>
+
+    <p>Notice that <strong>four of the nine moves are policy</strong>. The loop is not mostly about calling a model; it is mostly about checking. And notice where the fence goes in: at move 8, on the way <em>back</em>, which is the position an input filter can never cover, because the hostile text never passed through the input.</p>
+
+    <h3 id="path-context">5.5 · Context assembly, and the five places growth is handled</h3>
+    <p>"Compact when the context is full" is the wrong answer, and it is the common one. By the time the window is full, the only affordable move is the crudest one — because compaction itself needs room and a model call to run in.</p>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 316" role="img" aria-labelledby="cx-t cx-d">
+<title id="cx-t">Five points where context growth is handled</title>
+<desc id="cx-d">Growth is handled at the tool boundary, at turn start, at a soft threshold, at assembly and at the checkpoint write. Four of the five happen before anything is full. Three are implemented here; two are designed and deliberately not built.</desc>
+<rect class="hz" x="14" y="46" width="180" height="76" rx="8"/>
+<text class="n" x="26" y="66">1 · TOOL BOUNDARY</text>
+<text class="t" x="26" y="85">bound, always</text>
+<text class="d" x="26" y="103">8,000 chars per result,</text>
+<text class="d" x="26" y="117">before it is context at all</text>
+
+<rect class="box opt" x="210" y="46" width="180" height="76" rx="8"/>
+<text class="n" x="222" y="66">2 · TURN START</text>
+<text class="t" x="222" y="85">dedupe · offload</text>
+<text class="d" x="222" y="103">designed, not built:</text>
+<text class="d" x="222" y="117">no repeated reads yet</text>
+
+<rect class="box opt" x="406" y="46" width="180" height="76" rx="8"/>
+<text class="n" x="418" y="66">3 · SOFT THRESHOLD</text>
+<text class="t" x="418" y="85">compact, ~60%</text>
+<text class="d" x="418" y="103">deliberately absent —</text>
+<text class="d" x="418" y="117">see the note below</text>
+
+<rect class="hz" x="602" y="46" width="180" height="76" rx="8"/>
+<text class="n" x="614" y="66">4 · ASSEMBLY</text>
+<text class="t" x="614" y="85">trim, hard limit</text>
+<text class="d" x="614" y="103">24,000 chars, per call,</text>
+<text class="d" x="614" y="117">whole exchanges only</text>
+
+<rect class="hz" x="798" y="46" width="188" height="76" rx="8"/>
+<text class="n" x="810" y="66">5 · CHECKPOINT</text>
+<text class="t" x="810" y="85">bound what persists</text>
+<text class="d" x="810" y="103">32,000 chars — and this</text>
+<text class="d" x="810" y="117">trim is permanent</text>
+
+<rect class="sub" x="14" y="158" width="972" height="30" rx="5"/>
+<rect x="14" y="158" width="586" height="30" rx="5" style="fill:var(--shade);stroke:var(--accent)"/>
+<rect x="600" y="158" width="238" height="30" style="fill:var(--shade);stroke:var(--warm)"/>
+<rect x="838" y="158" width="148" height="30" rx="5" style="fill:var(--shade);stroke:var(--warm);stroke-width:1.6"/>
+<text class="s" x="26" y="178">room to work — four of the five act here</text>
+<text class="s" x="612" y="178">compaction window</text>
+<text class="s" x="850" y="178">trim only</text>
+<line class="up" x1="600" y1="148" x2="600" y2="198"/>
+<line class="up" x1="838" y1="148" x2="838" y2="198"/>
+<text class="d" x="600" y="214" text-anchor="middle">soft threshold ~60%</text>
+<text class="d" x="838" y="214" text-anchor="middle">hard limit</text>
+
+<rect class="sub" x="14" y="234" width="972" height="68" rx="8"/>
+<text class="n" x="26" y="254">WHY COMPACTION IS THE ONE THAT IS MISSING</text>
+<text class="s" x="26" y="276">A summary inherits the provenance of everything it summarised — so a summary of untrusted content is untrusted content.</text>
+<text class="s" x="26" y="294">Getting that wrong is worse than living with a shorter window, so this one is deliberately absent rather than unfinished.</text>
+</svg></div>
+
+    <h4>Two implementations of the same trim, on purpose</h4>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th><code>assembled()</code> — what is sent</th><th><code>bounded()</code> — what is stored</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Limit</strong></td><td>24,000 characters</td><td>32,000 characters — more generous on purpose</td></tr>
+        <tr><td><strong>Policy</strong></td><td colspan="2">Identical: drop whole exchanges from the <em>middle</em>. The earliest turns establish the task, the latest are what is being answered.</td></tr>
+        <tr><td><strong>Reversible?</strong></td><td><strong>Yes</strong> — recomputed per call from the stored history</td><td><strong>No.</strong> This trim is permanent, which is why its cap is a guard against unbounded growth rather than an attempt to be tight</td></tr>
+        <tr><td><strong>Why both exist</strong></td><td colspan="2">Bounding only on the way <em>out</em> hid a real problem for as long as it existed: the trimming was invisible to the database. The stored conversation had no cap at all, so a conversation that ran all day wrote a larger row every turn and read it back on the next.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h4>The bug that shaped the trimming, and why <em>exchanges</em> are the unit</h4>
+    <p>An earlier version dropped individual messages by index. It orphaned a tool call in eight of fifty-five turn-and-budget combinations — an assistant turn claiming a call whose answer had been removed, which <em>every provider rejects outright</em>. Nothing caught it, because no test ran a conversation long enough to trim.</p>
+    <p>So the unit is the <strong>exchange</strong>: an assistant message carrying <code>tool_calls</code> plus the <code>tool</code> messages answering them are one indivisible thing. And the invariant is checked on <em>every</em> assembly and every bound, not asserted once:</p>
+<pre><code>def orphaned(messages):
+    """Tool calls with no answer, and answers with no call."""
+    called   = {c.id for m in messages for c in m.tool_calls}
+    answered = {m.tool_call_id for m in messages if m.role == "tool" and m.tool_call_id}
+    return called - answered, answered - called
+
+# raised by both assembled() and bounded():
+#   BrokenTranscript("assembly orphaned tool calls [...] and results [...]")
+#
+# A trimming bug is silent until a conversation gets long enough,
+# and then it fails every single request.</code></pre>
+
+    <h4>The ordering, which is a cost decision as much as a correctness one</h4>
+    <p>The system prompt goes <strong>first and unchanged</strong>. Any byte that moves invalidates every cached token after it — so the stable prefix is a cache decision expressed as an ordering rule. And the assembler returns not just the transcript but what it cost to make it fit:</p>
+<pre><code>@dataclass(frozen=True)
+class Assembly:
+    messages: tuple[Message, ...]
+    chars: int        # including the system prompt
+    exchanges: int    # units kept
+    trimmed: int      # units dropped — the number that matters</code></pre>
+    <p><code>trimmed</code> is the interesting one. <strong>A system that never trims has headroom it is not using; one that trims on most calls is losing information continuously and silently.</strong> Before these numbers existed, nothing in the repository could answer <em>how full is a typical call</em> — so every context decision after that was going to be argued from intuition.</p>
+
+    <h4>What everyone else does instead</h4>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Approach</th><th>How it handles growth</th><th>What it costs you</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Middle-out trim</strong> <em>(here)</em></td><td>Drop whole exchanges from the middle until it fits.</td><td>The middle of a long conversation is gone. Cheap, predictable, no model call.</td></tr>
+        <tr><td><strong>Tail trim</strong> (sliding window)</td><td>Keep the last N messages.</td><td>Loses the task definition, which is usually in the first message. Common and usually wrong.</td></tr>
+        <tr><td><strong>Summarise the middle</strong></td><td>A model call compresses older turns into a paragraph.</td><td>Costs a call and a round trip — and the provenance problem above. Needs a rule for what a summary of untrusted content <em>is</em>.</td></tr>
+        <tr><td><strong>Server-side compaction</strong></td><td>The provider does it, above your harness. Anthropic's context editing and compaction, for instance.</td><td>Nothing to build; you inherit its policy, which may not match yours, and it is one more thing your replay has to reproduce.</td></tr>
+        <tr><td><strong>Offload and reference</strong></td><td>Big results go to a store; the context holds a handle the model can re-fetch.</td><td>Another round trip when it guesses wrong, and a new authorization question on the fetch.</td></tr>
+        <tr><td><strong>RAG</strong></td><td>Don't put it in context; retrieve the relevant part per turn.</td><td>A retriever, an index, and entitlement filtering in the retrieval. <em>There is no retrieval in this agent</em> — the rules are in a file and the orders are in Postgres — so adding one would be a component with no job.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
   <section class="part" id="pass1">
-    <p class="n">Section 05 · Pass 1</p>
+    <p class="n">Section 06 · Pass 1</p>
     <h2>Make it work</h2>
     <p>Four concerns. Take them in this order, because each one needs the one before it: you cannot call a model without deciding what to tell it, you cannot give it tools without a way to call it, and you cannot let it use tools without something to decide when to stop.</p>
 
@@ -628,6 +1169,7 @@ footer a{color:var(--accent)}
       <p class="tag">L1 · PASS 1</p>
       <h3>Context assembly</h3>
       <p class="owns">Owns one question: <strong>what is the model told?</strong></p>
+      <p class="deeper">Deep dive: <a href="#path-context">§5.5 — assembly, the five points, and what everyone else does instead</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -662,6 +1204,7 @@ footer a{color:var(--accent)}
       <p class="tag">L2 · PASS 1</p>
       <h3>Model invocation</h3>
       <p class="owns">Owns one question: <strong>how is the call made?</strong></p>
+      <p class="deeper">Deep dive: <a href="#otel">§12 — the one span every model call leaves</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -697,6 +1240,7 @@ footer a{color:var(--accent)}
       <p class="tag">L3 · PASS 1</p>
       <h3>Tool layer</h3>
       <p class="owns">Owns one question: <strong>what can the model do?</strong></p>
+      <p class="deeper">Deep dive: <a href="#tools">§9 — all six tools, the scope filter and the wire</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -731,6 +1275,7 @@ footer a{color:var(--accent)}
       <p class="tag">L4 · PASS 1 · the biggest decision on the page</p>
       <h3>Control loop</h3>
       <p class="owns">Owns one question: <strong>when does the system stop?</strong></p>
+      <p class="deeper">Deep dive: <a href="#path-loop">§5.4 — one step, move by move</a> · <a href="#path-router">§5.3 — the router in front of it</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -763,7 +1308,7 @@ footer a{color:var(--accent)}
   </section>
 
   <section class="part" id="pass2">
-    <p class="n">Section 06 · Pass 2</p>
+    <p class="n">Section 07 · Pass 2</p>
     <h2>Make it trustworthy</h2>
     <p>After pass 1 the agent answers. It also cannot be shown to a customer: it can promise things that are not true, act on somebody else's order, forget a half-finished job, and refund money nobody approved. These five fix that.</p>
 
@@ -772,6 +1317,7 @@ footer a{color:var(--accent)}
       <p class="tag">L6 · PASS 2</p>
       <h3>I/O contracts</h3>
       <p class="owns">Owns one question: <strong>what can the caller rely on?</strong></p>
+      <p class="deeper">Deep dive: <a href="#path-first">§5.2 — the first function, and every way out of it</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -807,6 +1353,7 @@ footer a{color:var(--accent)}
       <p class="tag">L5 · PASS 2</p>
       <h3>State &amp; memory</h3>
       <p class="owns">Owns one question: <strong>what is remembered?</strong></p>
+      <p class="deeper">Deep dive: <a href="#postgres">§10 — the three tables</a> · <a href="#pg-checkpoint">how checkpointing works</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -847,6 +1394,7 @@ footer a{color:var(--accent)}
       <p class="tag">L7 · PASS 2</p>
       <h3>Policy enforcement</h3>
       <p class="owns">Owns one question: <strong>where does a rule become real?</strong></p>
+      <p class="deeper">Deep dive: <a href="#path-loop">§5.4 — where the five positions sit in the loop</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -867,6 +1415,45 @@ footer a{color:var(--accent)}
             <li><code>no_invented_delivery_date</code> — no date the carrier record does not state;</li>
             <li><code>no_pii_echo</code>, <code>no_discount_offer</code> — no voucher outside a published promotion.</li>
           </ul>
+          <div class="diagram"><svg class="mid" viewBox="0 0 1000 260" role="img" aria-labelledby="po-t po-d">
+<title id="po-t">The five enforcement positions</title>
+<desc id="po-d">Four positions sit inside the loop — before the model call, before a tool call, after a tool result and after the model answers — and a fifth sits outside it, on the reply leaving for the customer. Each has its own rules and its own semantics.</desc>
+<defs><marker id="po-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="hz" x="14" y="52" width="740" height="120" rx="9"/>
+<text class="n" x="28" y="74">INSIDE THE LOOP · loop/screen.py</text>
+<rect class="subl" x="28" y="88" width="168" height="68" rx="6"/>
+<text class="t" x="38" y="110">1 · pre_model</text>
+<text class="d" x="38" y="128">the words about to</text>
+<text class="d" x="38" y="142">be sent</text>
+<rect class="subl" x="212" y="88" width="168" height="68" rx="6"/>
+<text class="t" x="222" y="110">2 · pre_tool</text>
+<text class="d" x="222" y="128">may this caller run</text>
+<text class="d" x="222" y="142">this, on this row?</text>
+<rect class="subl" x="396" y="88" width="168" height="68" rx="6"/>
+<text class="t" x="406" y="110">3 · post_tool</text>
+<text class="d" x="406" y="128">bound it, fence it,</text>
+<text class="d" x="406" y="142">re-label it untrusted</text>
+<rect class="subl" x="580" y="88" width="160" height="68" rx="6"/>
+<text class="t" x="590" y="110">4 · post_model</text>
+<text class="d" x="590" y="128">the grounding</text>
+<text class="d" x="590" y="142">checks live here</text>
+<rect class="hz" x="790" y="52" width="196" height="120" rx="9" stroke-width="2.4"/>
+<text class="n" x="804" y="74">OUTSIDE IT · entrypoint</text>
+<text class="t" x="804" y="98">5 · reply</text>
+<text class="d" x="804" y="118">the last thing before</text>
+<text class="d" x="804" y="134">the customer reads it —</text>
+<text class="d" x="804" y="150">and it covers every route,</text>
+<text class="d" x="804" y="164">not only the agentic one</text>
+<g marker-end="url(#po-go)">
+  <line class="go" x1="196" y1="122" x2="209" y2="122"/>
+  <line class="go" x1="380" y1="122" x2="393" y2="122"/>
+  <line class="go" x1="564" y1="122" x2="577" y2="122"/>
+  <line class="go" x1="754" y1="112" x2="787" y2="112"/>
+</g>
+<rect class="sub" x="14" y="196" width="972" height="52" rx="8"/>
+<text class="n" x="28" y="216">THE TEST THAT KEEPS THEM HONEST</text>
+<text class="s" x="28" y="238">Two of the five were declared and never called. A rule handed to an unreached position is a rule that does not exist, so every declared position is now asserted to be reached on every turn.</text>
+</svg></div>
         </dd>
         <dt>Coding</dt>
         <dd><p><code>src/support_agent/policy/__init__.py</code> — <code>enforce()</code> and the rule functions (roughly lines 143–278). Reached from <code>loop/screen.py</code> at four positions and from <code>entrypoint/__init__.py:_screened</code> at the fifth.</p></dd>
@@ -887,6 +1474,7 @@ footer a{color:var(--accent)}
       <p class="tag">L16 · PASS 2</p>
       <h3>Identity &amp; authorization</h3>
       <p class="owns">Owns one question: <strong>who is the system acting as?</strong></p>
+      <p class="deeper">Deep dive: <a href="#path-ui">§5.1 — four front doors</a> · <a href="#path-first">§5.2 — where the token is checked</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -919,9 +1507,10 @@ footer a{color:var(--accent)}
 
     <div class="cn" id="L14">
       <a class="up-link" href="#passes">↑ all sixteen</a>
-      <p class="tag">L14 · PASS 2 · see also section 08</p>
+      <p class="tag">L14 · PASS 2 · see also section 11</p>
       <h3>Human-in-the-loop</h3>
       <p class="owns">Owns one question: <strong>where can a person step in?</strong></p>
+      <p class="deeper">Deep dive: <a href="#temporal">§11 — Temporal, with three worked examples</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -935,7 +1524,7 @@ footer a{color:var(--accent)}
         <dt>High-level design</dt>
         <dd>
           <p>The approval <strong>returns rather than blocks</strong>. The turn ends; the conversation carries on; the customer is told a request exists and nothing more — no amount, no promise, no date. When the reviewer decides, the refund happens <em>then</em>, not when the customer next happens to write.</p>
-          <p>Holding that wait correctly is a real distributed-systems problem, and it is the whole of <a href="#temporal">section 08</a>. Two rules stay ours rather than the engine's: <strong>who may decide</strong> (checked as the update's validator, so a refused decision never even enters history) and <strong>what an expired approval means</strong>. Plus a stored idempotency key, so a reviewer who approves twice causes one refund.</p>
+          <p>Holding that wait correctly is a real distributed-systems problem, and it is the whole of <a href="#temporal">section 11</a>. Two rules stay ours rather than the engine's: <strong>who may decide</strong> (checked as the update's validator, so a refused decision never even enters history) and <strong>what an expired approval means</strong>. Plus a stored idempotency key, so a reviewer who approves twice causes one refund.</p>
           <p>Escalation is the same shape one size larger: seven rules raise it (the customer asked for a person, the item is lost in transit, the loop exhausted itself, the tool is unavailable, the same intent twice, a second refusal, too many turns). Each fires once per conversation, and while a person owns the conversation the agent does not answer it.</p>
         </dd>
         <dt>Coding</dt>
@@ -954,7 +1543,7 @@ footer a{color:var(--accent)}
   </section>
 
   <section class="part" id="pass3">
-    <p class="n">Section 07 · Pass 3</p>
+    <p class="n">Section 08 · Pass 3</p>
     <h2>Make it survive production</h2>
     <p>This is the pass teams skip. Most build two of these seven — tracing and evals — and call the harness done. The other five are where agents fail in production, quietly, weeks after launch.</p>
 
@@ -963,6 +1552,7 @@ footer a{color:var(--accent)}
       <p class="tag">L8 · PASS 3</p>
       <h3>Concurrency &amp; flow control</h3>
       <p class="owns">Owns one question: <strong>what happens under load?</strong></p>
+      <p class="deeper">Deep dive: <a href="#path-loop">§5.4 — move 7, bounded fan-out</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -997,6 +1587,7 @@ footer a{color:var(--accent)}
       <p class="tag">L10 · PASS 3</p>
       <h3>Failure handling</h3>
       <p class="owns">Owns one question: <strong>what happens when something breaks?</strong></p>
+      <p class="deeper">Deep dive: <a href="#pg-idem">§10 — idempotency, three layers</a> · <a href="#temporal">§11 — the delivery claim</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -1036,6 +1627,7 @@ footer a{color:var(--accent)}
       <p class="tag">L13 · PASS 3</p>
       <h3>Cost accounting</h3>
       <p class="owns">Owns one question: <strong>what does it cost, and who pays?</strong></p>
+      <p class="deeper">Deep dive: <a href="#path-router">§5.3 — the router, which is the largest cost lever</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -1071,6 +1663,7 @@ footer a{color:var(--accent)}
       <p class="tag">L11 · PASS 3</p>
       <h3>Observability</h3>
       <p class="owns">Owns one question: <strong>can a past run be explained?</strong></p>
+      <p class="deeper">Deep dive: <a href="#otel">§12 — the span tree, the contract and the rules on top</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -1085,7 +1678,7 @@ footer a{color:var(--accent)}
         <dd>
           <p>OpenTelemetry spans following the GenAI semantic conventions, exported to Langfuse, which understands a trace shaped like an agent run. One run id from the edge to the reply, so a customer complaint resolves to exactly one trace.</p>
           <p>The part that is not standard, and is the useful part: a <strong>span contract</strong> that fails the build when a span carries an attribute nobody declared, or omits one that was promised. Every tracing product will store whatever you send it and never once tell you a field is missing. <em>Complete against what?</em> is the question that makes tracing useful rather than decorative.</p>
-          <p>Beside the traces: 22 rules watched per turn and 21 watched per window against the system's own baseline, plus a canary — a synthetic run on a schedule, as an identity that touches no real data.</p>
+          <p>Beside the traces: 22 rules over turns and conversations, and 18 Prometheus alert rules over rates against the system's own baseline, plus a canary — a synthetic run on a schedule, as an identity that touches no real data.</p>
         </dd>
         <dt>Coding</dt>
         <dd><p><code>src/support_agent/telemetry/</code> — <code>contract.py</code>, <code>counters.py</code>, <code>meters.py</code>, <code>names.py</code>, <code>redaction.py</code>. The production watch is <code>src/support_agent/watch/</code> — <code>rules.py</code>, <code>canary.py</code>, <code>langfuse.py</code>, <code>outcomes.py</code>, <code>record.py</code>.</p></dd>
@@ -1106,6 +1699,7 @@ footer a{color:var(--accent)}
       <p class="tag">L12 · PASS 3</p>
       <h3>Eval harness</h3>
       <p class="owns">Owns one question: <strong>can the system be measured at all?</strong></p>
+      <p class="deeper">Deep dive: <a href="#otel">§12 — the online half of the same catalogue</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -1140,6 +1734,7 @@ footer a{color:var(--accent)}
       <p class="tag">L9 · PASS 3</p>
       <h3>Determinism &amp; replay</h3>
       <p class="owns">Owns one question: <strong>can yesterday be reproduced?</strong></p>
+      <p class="deeper">Deep dive: <a href="#L2">L2 — the interface that made the slot substitutable</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -1174,6 +1769,7 @@ footer a{color:var(--accent)}
       <p class="tag">L15 · PASS 3</p>
       <h3>Release &amp; configuration</h3>
       <p class="owns">Owns one question: <strong>which version is running?</strong></p>
+      <p class="deeper">Deep dive: <a href="#postgres">§10 — what a version of this agent is made of</a></p>
       <dl>
         <dt>Requirement</dt>
         <dd>
@@ -1210,7 +1806,7 @@ footer a{color:var(--accent)}
       <thead><tr><th>Adopt</th><th>Which concern</th><th>What it also subsumes</th></tr></thead>
       <tbody>
         <tr><td><strong>An identity provider</strong></td><td><a href="#L16">L16</a></td><td>Login, tokens, key rotation. Leaves you the ownership rule.</td></tr>
-        <tr><td><strong>Durable execution</strong> (Temporal)</td><td><a href="#L10">L10</a></td><td>Most of <a href="#L5">L5</a>, <a href="#L14">L14</a>, and the delivery half of <a href="#L15">L15</a>. See <a href="#temporal">section 08</a>.</td></tr>
+        <tr><td><strong>Durable execution</strong> (Temporal)</td><td><a href="#L10">L10</a></td><td>Most of <a href="#L5">L5</a>, <a href="#L14">L14</a>, and the delivery half of <a href="#L15">L15</a>. See <a href="#temporal">section 11</a>.</td></tr>
         <tr><td><strong>A model gateway</strong></td><td><a href="#L2">L2</a></td><td>Keys, budgets and rate limits for every app at once — at the price of prompt caching.</td></tr>
         <tr><td><strong>A trace store</strong></td><td><a href="#L11">L11</a></td><td>Storage, search and a trace viewer. Leaves you the span contract.</td></tr>
       </tbody>
@@ -1220,8 +1816,356 @@ footer a{color:var(--accent)}
     <p><strong>Write these four yourself, always</strong> — not because they are hard, but because nothing else can: the ownership rule (<em>may this caller act on <strong>this</strong>?</em>), the span contract (<em>complete against <strong>what</strong>?</em>), the world your tests run against and which oracle answers, and grounding a claim against your own data.</p>
   </section>
 
+    <section class="part" id="tools">
+    <p class="n">Section 09</p>
+    <h2>The tools, in full</h2>
+    <p>Six tools. That is the entire set of things this agent can do to the world — and the smallness is the design, not a stage of it. <a href="#L3">L3</a> above is the principle; this is the list.</p>
+
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tool</th><th>Class</th><th>Scope it needs</th><th>What it does, and what the far end refuses</th></tr></thead>
+      <tbody>
+        <tr><td><code>get_order</code></td><td><span class="chip oss">read</span></td><td>—</td><td>One order's current status. Answers for the session's customer and nobody else: an order id belonging to someone else comes back <code>{"found": false}</code>, not a 403, because <em>found</em> is itself information.</td></tr>
+        <tr><td><code>list_orders</code></td><td><span class="chip oss">read</span></td><td>—</td><td>This customer's orders, newest first. Filtered by the <em>verified</em> customer on the server, then filtered again on the rows — belt and braces on the one query a compromised argument could widen.</td></tr>
+        <tr><td><code>change_address</code></td><td><span class="chip svc">reversible</span></td><td><code>orders:write</code></td><td>Only while the order is still pending. Reversible, so it needs an idempotency key but not a person.</td></tr>
+        <tr><td><code>open_return_request</code></td><td><span class="chip svc">reversible</span></td><td><code>returns:write</code></td><td>Delivered orders only, inside the 30-day window, never final sale. Three conditions, all checked at the store, none of them in the prompt.</td></tr>
+        <tr><td><code>cancel_order</code></td><td><span class="chip ours">irreversible</span></td><td><code>orders:write</code></td><td>Only before the order has been picked. Once picked, the agent must refuse and offer return-on-delivery instead.</td></tr>
+        <tr><td><code>issue_refund</code></td><td><span class="chip ours">irreversible</span></td><td><code>refunds:write</code></td><td><strong>Invisible to a customer.</strong> The scope it needs is one only a <em>granted approval</em> mints, so the model never sees this tool on a customer's turn — it cannot ask for what is not on the list.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <p>Plus one that is not on the MCP server at all:</p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tool</th><th>Where it lives</th><th>Why it is different</th></tr></thead>
+      <tbody>
+        <tr><td><code>request_refund</code></td><td>a <strong>local</strong> tool, offered by <code>ApprovalFlow.offer()</code> when approvals are wired</td><td>It does not issue a refund. It <em>asks</em> for one, and its own description tells the model so: "larger ones are sent to a colleague to authorise, and you will not be told the outcome in this conversation. Tell the customer a refund was issued only if this tool says so."</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>How the surface is built, per caller, per turn</h3>
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 420" role="img" aria-labelledby="tl-t tl-d">
+<title id="tl-t">The tool surface, filtered by scope, and one call on the wire</title>
+<desc id="tl-d">The loop asks the MCP server for its tools and gets six with schemas and side-effect classes. The gate filters them by the caller's scopes, so a customer sees five and never sees issue_refund. On a call, the arguments come from the model but the session travels in MCP metadata, and the far end verifies the token itself before touching the store.</desc>
+<defs><marker id="tl-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<text class="n" x="14" y="24">ONCE PER RUN · tools/list</text>
+<rect class="hz" x="14" y="38" width="176" height="88" rx="8"/>
+<text class="t" x="26" y="60">GatedTools</text>
+<text class="d" x="26" y="78">.list_tools(identity)</text>
+<text class="d" x="26" y="96">span agent.tools.list</text>
+<text class="d" x="26" y="112">count · rejected</text>
+
+<rect class="box" x="230" y="38" width="200" height="88" rx="8"/>
+<text class="t" x="242" y="60">order_system · MCP</text>
+<text class="d" x="242" y="78">returns 6 ToolSpecs, each</text>
+<text class="d" x="242" y="96">with a JSON schema and a</text>
+<text class="d" x="242" y="112">declared side-effect class</text>
+
+<rect class="hz" x="470" y="38" width="200" height="88" rx="8" stroke-width="2.4"/>
+<text class="n" x="482" y="58">THE FILTER</text>
+<text class="t" x="482" y="78">scopes → surface</text>
+<text class="d" x="482" y="96">a tool whose required scope</text>
+<text class="d" x="482" y="112">the caller lacks is removed</text>
+
+<rect class="box" x="710" y="26" width="276" height="52" rx="8"/>
+<text class="t" x="722" y="48">Customer → 5 tools</text>
+<text class="d" x="722" y="66">+ request_refund, locally. issue_refund absent.</text>
+
+<rect class="box" x="710" y="88" width="276" height="52" rx="8"/>
+<text class="t" x="722" y="110">Granted approval → 6</text>
+<text class="d" x="722" y="128">refunds:write is minted just in time</text>
+
+<g marker-end="url(#tl-go)">
+  <line class="go" x1="190" y1="82" x2="227" y2="82"/>
+  <line class="go" x1="430" y1="82" x2="467" y2="82"/>
+  <path class="go" d="M670 68 C690 68 692 52 707 52"/>
+  <path class="go" d="M670 96 C690 96 692 114 707 114"/>
+</g>
+
+<text class="n" x="14" y="186">EVERY CALL · tools/call</text>
+<rect class="sub" x="14" y="200" width="466" height="196" rx="8"/>
+<text class="s" x="28" y="224" style="font-family:ui-monospace,Menlo,monospace">{</text>
+<text class="s" x="28" y="244" style="font-family:ui-monospace,Menlo,monospace">  "method": "tools/call",</text>
+<text class="s" x="28" y="264" style="font-family:ui-monospace,Menlo,monospace">  "params": {</text>
+<text class="s" x="28" y="284" style="font-family:ui-monospace,Menlo,monospace">    "name": "open_return_request",</text>
+<text class="s" x="28" y="304" style="font-family:ui-monospace,Menlo,monospace">    "arguments": { "id": "AB-10003" },</text>
+<text class="s" x="28" y="330" style="font-family:ui-monospace,Menlo,monospace">    "_meta": {</text>
+<text class="s" x="28" y="350" style="font-family:ui-monospace,Menlo,monospace">      "customer_id": "C-1042",</text>
+<text class="s" x="28" y="370" style="font-family:ui-monospace,Menlo,monospace">      "token": "eyJ…", "key": "run_…:0:1"</text>
+<text class="s" x="28" y="388" style="font-family:ui-monospace,Menlo,monospace">  } } }</text>
+
+<rect class="hz" x="510" y="200" width="228" height="86" rx="8"/>
+<text class="n" x="522" y="220">THE LINE THAT MATTERS</text>
+<text class="s" x="522" y="242">arguments ← the model</text>
+<text class="s" x="522" y="262">_meta ← the harness</text>
+<text class="d" x="522" y="279">never the other way round</text>
+
+<rect class="hz" x="510" y="300" width="228" height="96" rx="8"/>
+<text class="n" x="522" y="320">AT THE FAR END</text>
+<text class="d" x="522" y="340">1 · verify the token itself</text>
+<text class="d" x="522" y="357">2 · check the required scope</text>
+<text class="d" x="522" y="374">3 · does this customer own it</text>
+<text class="d" x="522" y="391">4 · has this key been seen</text>
+
+<rect class="box" x="768" y="200" width="218" height="196" rx="8"/>
+<text class="n" x="780" y="220">AND ONLY THEN</text>
+<text class="t" x="780" y="242">Saleor · GraphQL</text>
+<text class="d" x="780" y="262">The agent never talks to the</text>
+<text class="d" x="780" y="278">store directly. It talks to a</text>
+<text class="d" x="780" y="294">server that decides whether</text>
+<text class="d" x="780" y="310">this caller may.</text>
+<text class="d" x="780" y="338">Take the agent away and the</text>
+<text class="d" x="780" y="354">rules still hold, because they</text>
+<text class="d" x="780" y="370">were never the agent's.</text>
+
+<g marker-end="url(#tl-go)">
+  <line class="go" x1="480" y1="243" x2="507" y2="243"/>
+  <line class="go" x1="738" y1="340" x2="765" y2="340"/>
+  <path class="go" d="M624 286 V297"/>
+</g>
+</svg></div>
+
+    <h3>What the three classes actually gate</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Class</th><th>Idempotency key</th><th>Needs a person</th><th>Freshness re-checked</th><th>Compensating path</th></tr></thead>
+      <tbody>
+        <tr><td><strong>read</strong></td><td>No — reads bypass the ledger entirely. Recording them costs storage and buys nothing, since repeating a read is free and invisible.</td><td>No</td><td>n/a</td><td>n/a</td></tr>
+        <tr><td><strong>reversible</strong></td><td>Yes</td><td>No</td><td>Yes</td><td>Undo it</td></tr>
+        <tr><td><strong>irreversible</strong></td><td>Yes, <em>and the far end must recognise it</em></td><td>Above the limit, yes</td><td>Yes — a fact an irreversible action relies on must have been read inside its declared window</td><td>Declared, and usually "fetch a person"</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>That last row contains a rule worth repeating on its own: <strong>an action without an idempotency key the far end recognises must not be approvable.</strong> The approval workflow retries <code>carry_out</code> three times, and three tries are safe only because the far end can tell the second attempt from a second refund. It is a design rule, not a configuration value.</p>
+  </section>
+
+  <section class="part" id="postgres">
+    <p class="n">Section 10</p>
+    <h2>The data model — three tables, and the two that left</h2>
+    <p>This is the whole of what the agent stores. It is short, and the shortness is recent: <strong>two of the five tables were deleted when Temporal took over what they were for.</strong> That deletion is the clearest evidence on this page of what adopting durable execution actually buys.</p>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 480" role="img" aria-labelledby="pg-t pg-d">
+<title id="pg-t">The agent_state schema, and what moved to Temporal</title>
+<desc id="pg-d">Three tables remain in the agent_state schema: checkpoints keyed by run id with a conversation index, idempotency keyed by the idempotency key, and sessions keyed by the login subject. Two tables were dropped: approvals and escalations, both now Temporal workflows. The ecom schema was dropped entirely when the store became Saleor.</desc>
+<defs><marker id="pg-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<text class="n" x="14" y="24">SCHEMA agent_state · THE ORACLE — NEVER SIMULATED</text>
+<rect class="hz" x="14" y="38" width="300" height="164" rx="8"/>
+<text class="t" x="26" y="62">checkpoints</text>
+<text class="d" x="26" y="82" style="font-family:ui-monospace,Menlo,monospace">run_id           text PRIMARY KEY</text>
+<text class="d" x="26" y="100" style="font-family:ui-monospace,Menlo,monospace">conversation_id  text</text>
+<text class="d" x="26" y="118" style="font-family:ui-monospace,Menlo,monospace">state            bytea NOT NULL</text>
+<text class="d" x="26" y="136" style="font-family:ui-monospace,Menlo,monospace">updated_at       timestamptz</text>
+<text class="s" x="26" y="162">INDEX (conversation_id, updated_at DESC)</text>
+<text class="d" x="26" y="182">the sort is in the index, so a lookup does not read</text>
+<text class="d" x="26" y="195">every turn the conversation ever had</text>
+
+<rect class="hz" x="342" y="38" width="300" height="164" rx="8"/>
+<text class="t" x="354" y="62">idempotency</text>
+<text class="d" x="354" y="82" style="font-family:ui-monospace,Menlo,monospace">key          text PRIMARY KEY</text>
+<text class="d" x="354" y="100" style="font-family:ui-monospace,Menlo,monospace">result       jsonb NOT NULL</text>
+<text class="d" x="354" y="118" style="font-family:ui-monospace,Menlo,monospace">recorded_at  timestamptz</text>
+<text class="s" x="354" y="146">PRIMARY KEY is the whole mechanism.</text>
+<text class="d" x="354" y="166">The ledger is correct because the database</text>
+<text class="d" x="354" y="182">refuses a second row — not because the code</text>
+<text class="d" x="354" y="195">remembered to check. Two racing retries both lose.</text>
+
+<rect class="hz" x="670" y="38" width="316" height="164" rx="8"/>
+<text class="t" x="682" y="62">sessions</text>
+<text class="d" x="682" y="82" style="font-family:ui-monospace,Menlo,monospace">subject        text PRIMARY KEY</text>
+<text class="d" x="682" y="100" style="font-family:ui-monospace,Menlo,monospace">refresh_token  bytea NOT NULL</text>
+<text class="d" x="682" y="118" style="font-family:ui-monospace,Menlo,monospace">updated_at     bigint</text>
+<text class="s" x="682" y="146">Keyed by the login's sub, not the customer.</text>
+<text class="d" x="682" y="166">Encrypted at rest with Fernet. This is what lets</text>
+<text class="d" x="682" y="182">a Chatwoot webhook, which carries no credential,</text>
+<text class="d" x="682" y="195">act as a real signed-in customer.</text>
+
+<text class="n" x="14" y="248">DROPPED BY T-028 — NOT DELETED, MOVED</text>
+<rect class="box opt" x="14" y="262" width="300" height="86" rx="8"/>
+<text class="t" x="26" y="286" style="text-decoration:line-through">approvals</text>
+<text class="d" x="26" y="306">A row the agent wrote, a turn that polled it,</text>
+<text class="d" x="26" y="322">and a refund issued on the customer's</text>
+<text class="d" x="26" y="338">next message.</text>
+
+<rect class="box opt" x="342" y="262" width="300" height="86" rx="8"/>
+<text class="t" x="354" y="286" style="text-decoration:line-through">escalations</text>
+<text class="d" x="354" y="306">A row, and a sweeper somebody had to</text>
+<text class="d" x="354" y="322">remember to run — present in the demo</text>
+<text class="d" x="354" y="338">server, absent everywhere else.</text>
+
+<rect class="hz" x="670" y="248" width="316" height="132" rx="8" stroke-width="2.4"/>
+<text class="n" x="682" y="270">NOW: TEMPORAL WORKFLOW HISTORY</text>
+<text class="s" x="682" y="292">The wait, the decision, the timer and the</text>
+<text class="s" x="682" y="312">outcome <tspan style="font-weight:600">are</tspan> the history.</text>
+<text class="d" x="682" y="336">Nothing the agent holds can write them —</text>
+<text class="d" x="682" y="352">which is what "the run cannot grant its own</text>
+<text class="d" x="682" y="366">approval" means in storage terms.</text>
+
+<g marker-end="url(#pg-go)">
+  <path class="go" d="M164 348 V372 H664"/>
+</g>
+<path class="go" d="M492 348 V372"/>
+<text class="d" x="200" y="388">both of them, into one place that holds a wait</text>
+
+<rect class="sub" x="14" y="392" width="972" height="72" rx="8"/>
+<text class="n" x="28" y="412">AND THE SCHEMA THAT WENT ENTIRELY</text>
+<text class="s" x="28" y="434">DROP SCHEMA ecom CASCADE — the business world lived here until the store became Saleor, with its own schema, its own database</text>
+<text class="s" x="28" y="454">and its own role. A DDL nobody reads is a claim nobody checks, so it was dropped rather than kept as decoration.</text>
+</svg></div>
+
+    <div class="note"><p><strong>Why this is one schema and not two databases.</strong> <code>agent_state</code> is the <em>oracle</em> — it is what the tests' assertions read, and the simulator never projects it. An oracle that can be faked is not one. The business world used to live in the same database, in a second schema; now it is Saleor's, behind a role the agent does not have. <strong>The boundary became a grant rather than a comment.</strong></p></div>
+
+    <h3 id="pg-checkpoint">How checkpointing actually works</h3>
+    <p>One row per <em>run</em>, read back by <em>conversation</em>. Those are two different identifiers and the gap between them was a real defect: a run id is minted fresh every turn and no customer ever holds one, so a table keyed only by run could be written but never read back by anything outside the process that wrote it.</p>
+
+    <div class="diagram"><svg class="mid" viewBox="0 0 1000 400" role="img" aria-labelledby="cp-t cp-d">
+<title id="cp-t">Writing and reading a checkpoint across two turns</title>
+<desc id="cp-d">At the end of turn one the conversation is bounded, encoded and inserted with an on-conflict update keyed by run id, carrying the conversation id in the same row. At the start of turn two the newest row for that conversation id is read back, decoded and checked for ownership before the turn begins.</desc>
+<defs><marker id="cp-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<text class="n" x="14" y="24">END OF TURN N · WRITE</text>
+<rect class="hz" x="14" y="38" width="410" height="150" rx="8"/>
+<text class="s" x="26" y="62">1 · context.bounded(messages, max_chars=32_000)</text>
+<text class="d" x="26" y="79">the permanent trim — and the orphan check again</text>
+<text class="s" x="26" y="104">2 · Conversation.encode() → 2,403 bytes of JSON</text>
+<text class="d" x="26" y="121">agent.context.stored_chars goes on the span</text>
+<text class="s" x="26" y="146">3 · INSERT … ON CONFLICT (run_id) DO UPDATE</text>
+<text class="d" x="26" y="163">one statement, both identifiers, no transaction needed —</text>
+<text class="d" x="26" y="178">so the two can never disagree</text>
+
+<rect class="box" x="452" y="60" width="240" height="106" rx="8"/>
+<text class="n" x="464" y="80">ONE ROW</text>
+<text class="d" x="464" y="102" style="font-family:ui-monospace,Menlo,monospace">run_id = run_aa4490…</text>
+<text class="d" x="464" y="120" style="font-family:ui-monospace,Menlo,monospace">conversation_id = cnv_7516…</text>
+<text class="d" x="464" y="138" style="font-family:ui-monospace,Menlo,monospace">state = &lt;2403 bytes&gt;</text>
+<text class="d" x="464" y="156" style="font-family:ui-monospace,Menlo,monospace">updated_at = now()</text>
+
+<text class="n" x="14" y="234">START OF TURN N+1 · READ</text>
+<rect class="hz" x="14" y="248" width="410" height="132" rx="8"/>
+<text class="s" x="26" y="272">1 · store.latest(conversation_id)</text>
+<text class="d" x="26" y="289">ORDER BY updated_at DESC LIMIT 1 — a conversation has</text>
+<text class="d" x="26" y="304">many runs and only the last is worth resuming from</text>
+<text class="s" x="26" y="328">2 · Conversation.decode(bytes)</text>
+<text class="s" x="26" y="352">3 · conversation.customer_id == identity.customer_id?</text>
+<text class="d" x="26" y="369">if not: 404, never 403</text>
+
+<rect class="sub" x="720" y="60" width="266" height="106" rx="8"/>
+<text class="n" x="732" y="80">WHY ON CONFLICT, NOT DELETE+INSERT</text>
+<text class="s" x="732" y="102">A checkpoint must never be</text>
+<text class="s" x="732" y="122">briefly absent — <tspan style="font-style:italic">absent</tspan> is</text>
+<text class="s" x="732" y="142">indistinguishable from "this run</text>
+<text class="s" x="732" y="160">never happened" to anything resuming.</text>
+
+<rect class="sub" x="720" y="248" width="266" height="132" rx="8"/>
+<text class="n" x="732" y="268">WHAT THIS BUYS, CONCRETELY</text>
+<text class="s" x="732" y="290">Close the laptop mid-turn and</text>
+<text class="s" x="732" y="310">come back tomorrow: the</text>
+<text class="s" x="732" y="330">conversation is there, the</text>
+<text class="s" x="732" y="350">pending approval is still pending,</text>
+<text class="s" x="732" y="370">and nothing is served twice.</text>
+
+<g marker-end="url(#cp-go)">
+  <line class="go" x1="424" y1="113" x2="449" y2="113"/>
+  <path class="back" d="M452 130 C440 130 436 300 427 300" marker-end="url(#cp-go)"/>
+</g>
+</svg></div>
+
+    <h3 id="pg-idem">How idempotency works — three layers, three different questions</h3>
+    <p>The trap this all exists for is specific, and it is <em>not</em> "the model called the tool twice". It is the timeout: <strong>the call succeeded and the response was lost</strong>, so the harness believes it failed and retries, while the downstream system has already applied the effect. Without a key recognised at the destination, nothing can tell the two apart — and the difference is one refund or two.</p>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 380" role="img" aria-labelledby="id-t id-d">
+<title id="id-t">The three layers of idempotency</title>
+<desc id="id-d">A delivery claim in Temporal stops a redelivered webhook running the whole turn twice. A Postgres ledger keyed by run, step and iteration stops a retried tool call inside one run applying twice. The far end recognising the key is the only layer that can actually tell a lost response from a failure, and the approval carries a stored key so a double grant refunds once.</desc>
+<rect class="hz" x="14" y="38" width="234" height="200" rx="8"/>
+<text class="n" x="26" y="58">LAYER 1 · THE WHOLE TURN</text>
+<text class="t" x="26" y="80">Delivery claim</text>
+<text class="d" x="26" y="100">Temporal · workflow named</text>
+<text class="d" x="26" y="116">after the Idempotency-Key</text>
+<text class="s" x="26" y="146">Catches:</text>
+<text class="d" x="26" y="164">the webhook was re-delivered,</text>
+<text class="d" x="26" y="180">or the customer pressed send</text>
+<text class="d" x="26" y="196">twice on a slow network</text>
+<text class="d" x="26" y="220">→ 200 "already handled"</text>
+
+<rect class="hz" x="266" y="38" width="234" height="200" rx="8"/>
+<text class="n" x="278" y="58">LAYER 2 · ONE TOOL CALL</text>
+<text class="t" x="278" y="80">The ledger</text>
+<text class="d" x="278" y="100">Postgres · key is</text>
+<text class="d" x="278" y="116">run_id : step : iteration</text>
+<text class="s" x="278" y="146">Catches:</text>
+<text class="d" x="278" y="164">the harness retried a call</text>
+<text class="d" x="278" y="180">inside one run</text>
+<text class="d" x="278" y="204">Order matters: check, then</text>
+<text class="d" x="278" y="220">execute, then record.</text>
+
+<rect class="hz" x="518" y="38" width="234" height="200" rx="8" stroke-width="2.4"/>
+<text class="n" x="530" y="58">LAYER 3 · THE FAR END</text>
+<text class="t" x="530" y="80">The destination</text>
+<text class="d" x="530" y="100">the order system stores the</text>
+<text class="d" x="530" y="116">key with the effect</text>
+<text class="s" x="530" y="146">Catches:</text>
+<text class="d" x="530" y="164">everything — because it is the</text>
+<text class="d" x="530" y="180">only layer that can tell a lost</text>
+<text class="d" x="530" y="196">response from a real failure</text>
+<text class="d" x="530" y="220">The other two are optimisations.</text>
+
+<rect class="hz" x="770" y="38" width="216" height="200" rx="8"/>
+<text class="n" x="782" y="58">AND THE APPROVAL</text>
+<text class="t" x="782" y="80">The stored key</text>
+<text class="d" x="782" y="100">minted when the refund was</text>
+<text class="d" x="782" y="116"><tspan style="font-style:italic">requested</tspan>, carried through the</text>
+<text class="d" x="782" y="132">wait, used when it is granted</text>
+<text class="s" x="782" y="162">Catches:</text>
+<text class="d" x="782" y="180">a reviewer who approves the</text>
+<text class="d" x="782" y="196">same slip twice</text>
+<text class="d" x="782" y="220">→ one refund</text>
+
+<rect class="sub" x="14" y="264" width="972" height="100" rx="8"/>
+<text class="n" x="28" y="284">THE ONE THAT IS EASY TO GET WRONG</text>
+<text class="s" x="28" y="308">The in-memory ledger is correct within one run and <tspan style="font-weight:600">wrong across a restart</tspan> — and the failure it exists to prevent is precisely the one that</text>
+<text class="s" x="28" y="328">happens when a process dies mid-call. So the class says so out loud: <tspan style="font-family:ui-monospace,Menlo,monospace">durable = False</tspan>. Every substrate declares whether it survives the process,</text>
+<text class="s" x="28" y="348">because "it's in a dictionary" is a legitimate answer only when it is written down as one (AHC-0102).</text>
+</svg></div>
+
+<pre><code>async def once(ledger, key, side_effect, action):
+    """Run `action` at most once per key."""
+    if side_effect is SideEffectClass.READ:
+        return await action(), False        # reads bypass the ledger entirely
+
+    previous = await ledger.seen(key)
+    if previous is not None:
+        return previous, True               # replayed, not executed
+
+    result = await action()
+    await ledger.record(key, result)        # AFTER, never before —
+    return result, False                    # recording first would suppress
+                                            # a retry after a genuine failure</code></pre>
+
+    <p>And one line inside <code>record</code> that is the whole semantics of a ledger:</p>
+<pre><code>self._entries.setdefault(key.value, result)
+# setdefault, not assignment. The first recorded outcome for a key IS the
+# outcome. A later attempt under the same key did not happen twice, so it
+# must not be able to rewrite what did.</code></pre>
+
+    <h3>What is left in Postgres once Temporal is in the picture</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Kind of state</th><th>Where it lives now</th><th>Why there</th></tr></thead>
+      <tbody>
+        <tr><td>The conversation so far</td><td><strong>Postgres</strong> · <code>checkpoints</code></td><td>Read on almost every turn by a key a customer holds. A workflow per conversation would be a cluster round trip on a two-second request.</td></tr>
+        <tr><td>Has this tool call already happened?</td><td><strong>Postgres</strong> · <code>idempotency</code></td><td>A primary key is exactly the right primitive, and the check is on the hot path.</td></tr>
+        <tr><td>Whose login is this?</td><td><strong>Postgres</strong> · <code>sessions</code></td><td>Encrypted at rest; refreshed, not waited on.</td></tr>
+        <tr><td>Is somebody deciding a refund?</td><td><strong>Temporal</strong> · <code>ApprovalWorkflow</code></td><td>It spans an hour, needs a timer nobody polls, and must produce exactly one effect.</td></tr>
+        <tr><td>Is a colleague holding this conversation?</td><td><strong>Temporal</strong> · <code>EscalationWorkflow</code></td><td>Same shape, and the lapse timer is the reason.</td></tr>
+        <tr><td>Was this message already handled?</td><td><strong>Temporal</strong> · <code>DeliveryClaim</code></td><td>Because the <em>release</em> needs an expiry, and only a timer can supply one that survives a kill.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>The dividing line is the same one from <a href="#temporal">section 11</a>, stated in storage terms: <strong>Postgres holds what is read back; Temporal holds what is waited on.</strong></p>
+  </section>
+
   <section class="part" id="temporal">
-    <p class="n">Section 08</p>
+    <p class="n">Section 11</p>
     <h2>Temporal, on its own</h2>
     <p>Temporal gets its own section because it answers a problem that looks small and is not: <strong>a person takes an hour, and a web request takes two seconds.</strong> Everything awkward about human approval follows from that one sentence.</p>
 
@@ -1502,8 +2446,255 @@ pytest tests/test_temporal_live.py tests/test_approvals.py tests/test_escalation
     <p>Alternatives worth evaluating if one more server is the sticking point: <strong>DBOS</strong> and <strong>Hatchet</strong> are Postgres-native, so they need no cluster; <strong>Restate</strong> is a single binary; and a LangGraph <code>interrupt</code> can do part of the job if you already own a LangGraph app — though it has no timers and acts inside the agent's own process, which are the two rows in the table it loses on.</p>
   </section>
 
+    <section class="part" id="otel">
+    <p class="n">Section 12</p>
+    <h2>OpenTelemetry, Langfuse, and the rules on top</h2>
+    <p><a href="#L11">L11</a> above says why observability matters. This is the machinery: what a span is here, how many there are, where they go, and what reads them afterwards.</p>
+
+    <div class="kid"><b>Explain like I'm five</b>
+    <p>A <strong>trace</strong> is the story of one customer's message: everything that happened, in order, nested. Large, detailed, kept for weeks, and you read one at a time when somebody complains.</p>
+    <p>A <strong>metric</strong> is a number already counted: <em>how many turns ended in an escalation this hour</em>. Tiny, kept for months, and checked against alert rules every thirty seconds.</p>
+    <p>You need both, and for opposite reasons. You cannot alert on a trace — there are too many. You cannot explain a complaint from a metric — it has thrown away the detail. An <strong>exemplar</strong> joins them: a spike on a chart links to one trace that was in it.</p></div>
+
+    <h3>One turn, as a span tree</h3>
+    <p>Every box is a span. Indentation is nesting. This is turn A from <a href="#stack">section 13</a> — <em>"show me my orders"</em>.</p>
+
+    <div class="diagram"><svg class="mid" viewBox="0 0 1000 560" role="img" aria-labelledby="sp-t sp-d">
+<title id="sp-t">The span tree of one turn</title>
+<desc id="sp-d">The http.chat span is the root. Under it agent.turn, and under that agent.route, agent.run and the reply policy span. Under agent.run are the tools list and two steps, each with policy spans, a model call and, on the first step, a tool call.</desc>
+<rect class="hz" x="14" y="20" width="560" height="46" rx="7"/>
+<text class="t" x="28" y="42">http.chat</text>
+<text class="d" x="28" y="58">the root. user.id and agent.tenant go here too, so a trace can be found by customer.</text>
+
+<rect class="hz" x="44" y="76" width="530" height="46" rx="7"/>
+<text class="t" x="58" y="98">agent.turn</text>
+<text class="d" x="58" y="114">run id · session id · config fingerprint · synthetic? · captured?</text>
+
+<rect class="box" x="74" y="132" width="500" height="40" rx="7"/>
+<text class="t" x="88" y="152">agent.route</text>
+<text class="d" x="88" y="167">kind=agentic · reason · rules_version=v2</text>
+
+<rect class="hz" x="74" y="182" width="500" height="300" rx="7"/>
+<text class="t" x="88" y="204">agent.run</text>
+<text class="d" x="88" y="220">termination · cost.usd · malformed? · policy.blocked_by</text>
+
+<rect class="box" x="104" y="232" width="456" height="36" rx="6"/>
+<text class="s" x="118" y="250">agent.tools.list</text>
+<text class="d" x="118" y="263">count=5 · rejected=0</text>
+
+<rect class="subl" x="104" y="278" width="456" height="90" rx="6"/>
+<text class="s" x="118" y="296">agent.step · step=0</text>
+<rect class="sub" x="122" y="304" width="200" height="26" rx="4"/>
+<text class="d" x="130" y="321">agent.policy pre_model</text>
+<rect class="sub" x="330" y="304" width="220" height="26" rx="4"/>
+<text class="d" x="338" y="321">gen_ai.chat · 381→32 tokens</text>
+<rect class="sub" x="122" y="334" width="200" height="26" rx="4"/>
+<text class="d" x="130" y="351">agent.policy pre_tool</text>
+<rect class="sub" x="330" y="334" width="110" height="26" rx="4"/>
+<text class="d" x="338" y="351">agent.tool</text>
+<rect class="sub" x="448" y="334" width="102" height="26" rx="4"/>
+<text class="d" x="456" y="351">policy post_tool</text>
+
+<rect class="subl" x="104" y="378" width="456" height="90" rx="6"/>
+<text class="s" x="118" y="396">agent.step · step=1</text>
+<rect class="sub" x="122" y="404" width="200" height="26" rx="4"/>
+<text class="d" x="130" y="421">agent.policy pre_model</text>
+<rect class="sub" x="330" y="404" width="220" height="26" rx="4"/>
+<text class="d" x="338" y="421">gen_ai.chat · 2,096→722 tokens</text>
+<rect class="sub" x="122" y="434" width="428" height="26" rx="4"/>
+<text class="d" x="130" y="451">agent.policy post_model — the grounding checks</text>
+
+<rect class="box" x="74" y="494" width="500" height="44" rx="7"/>
+<text class="t" x="88" y="516">agent.policy · position=reply</text>
+<text class="d" x="88" y="531">the fifth position, outside the loop, on the way to the customer</text>
+
+<rect class="sub" x="606" y="20" width="380" height="140" rx="8"/>
+<text class="n" x="620" y="40">34 SPAN NAMES ARE DECLARED</text>
+<text class="s" x="620" y="62">An ordinary turn uses about a dozen of them.</text>
+<text class="s" x="620" y="82">The rest belong to paths this turn did not take:</text>
+<text class="d" x="620" y="102">agent.approval.request · .decide · .carry_out · .resume</text>
+<text class="d" x="620" y="118">agent.escalation.raise · .wait · .lapse · .resolve</text>
+<text class="d" x="620" y="134">agent.breaker · agent.llm.retry · agent.flow.throttled</text>
+<text class="d" x="620" y="150">agent.channel.webhook · agent.canary · agent.direct</text>
+
+<rect class="hz" x="606" y="176" width="380" height="168" rx="8" stroke-width="2.4"/>
+<text class="n" x="620" y="196">THE PART NOBODY SELLS YOU</text>
+<text class="s" x="620" y="220">Each of the 34 declares which attributes it</text>
+<text class="s" x="620" y="240"><tspan style="font-weight:600">must</tspan> carry and which it <tspan style="font-weight:600">may</tspan>.</text>
+<text class="s" x="620" y="266">agent.tool → required: tool name,</text>
+<text class="s" x="620" y="284">side effect, idempotency key.</text>
+<text class="s" x="620" y="310">An undeclared attribute, or a missing</text>
+<text class="s" x="620" y="328">required one, <tspan style="font-weight:600">fails the build</tspan>.</text>
+
+<rect class="sub" x="606" y="360" width="380" height="154" rx="8"/>
+<text class="n" x="620" y="380">WHY THAT IS THE WHOLE VALUE</text>
+<text class="s" x="620" y="402">Every tracing product will store whatever</text>
+<text class="s" x="620" y="420">you send it and never once tell you a field</text>
+<text class="s" x="620" y="438">is missing. They cannot: they do not know</text>
+<text class="s" x="620" y="456">what your run is made of.</text>
+<text class="d" x="620" y="482">"Complete against <tspan style="font-style:italic">what</tspan>?" is the question that</text>
+<text class="d" x="620" y="498">makes tracing useful rather than decorative,</text>
+<text class="d" x="620" y="512">and only you can answer it.</text>
+</svg></div>
+
+    <h4>A few of the 34, so the contract is concrete</h4>
+    <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Span</th><th>Required attributes</th><th>Notable optional ones</th></tr></thead>
+      <tbody>
+        <tr><td class="fn"><code>agent.turn</code></td><td><code>agent.run.id</code>, <code>session.id</code>, <code>user.id</code>, <code>agent.synthetic</code>, <code>agent.captured</code></td><td>the input and reply text, when capture is on</td></tr>
+        <tr><td class="fn"><code>agent.run</code></td><td><code>agent.run.id</code>, <code>agent.tenant</code></td><td><code>agent.termination.reason</code>, <code>agent.cost.usd</code>, <code>agent.model.malformed</code>, <code>agent.policy.blocked_by</code></td></tr>
+        <tr><td class="fn"><code>agent.route</code></td><td><code>agent.route.kind</code>, <code>agent.route.reason</code>, <code>agent.router.rules_version</code></td><td>—</td></tr>
+        <tr><td class="fn"><code>gen_ai.chat</code></td><td><code>gen_ai.provider.name</code></td><td>request and response model, input/output tokens, <code>agent.cassette.match</code></td></tr>
+        <tr><td class="fn"><code>agent.tool</code></td><td><code>gen_ai.tool.name</code>, <code>agent.tool.side_effect</code>, <code>agent.idempotency.key</code></td><td><code>agent.tool.replayed</code>, <code>agent.tool.truncated</code></td></tr>
+        <tr><td class="fn"><code>agent.policy</code></td><td><code>agent.policy.position</code></td><td><code>agent.policy.blocked_by</code>, <code>agent.policy.errored</code></td></tr>
+        <tr><td class="fn"><code>http.chat</code></td><td>none — it is the root and may be reached before anything is known</td><td><code>http.status_code</code>, <code>http.refusal_detail</code> (redacted), <code>agent.result</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <p><strong><code>agent.synthetic</code> is worth a sentence of its own.</strong> Every span declares whether it came from a real customer or from the canary — the scheduled synthetic run that exercises the deployed system as an identity that touches no real data. Without that flag, a canary quietly poisons every behaviour rate it is meant to protect.</p>
+
+    <h3>Where it all goes</h3>
+    <div class="diagram"><svg class="wide seq" viewBox="0 0 1000 300" role="img" aria-labelledby="ot-t ot-d">
+<title id="ot-t">The telemetry pipeline</title>
+<desc id="ot-d">The agent's OpenTelemetry SDK emits spans and metrics to an OpenTelemetry Collector, which routes traces to Langfuse and metrics to Prometheus. Grafana charts Prometheus and Alertmanager pages on its rules. The watch reads turns back out of Langfuse, applies its rules, and writes verdicts back as Langfuse scores and as metrics.</desc>
+<defs><marker id="ot-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="hz" x="14" y="112" width="166" height="70" rx="8"/>
+<text class="t" x="26" y="136">Agent</text>
+<text class="d" x="26" y="154">OTel SDK: spans</text>
+<text class="d" x="26" y="170">and metrics</text>
+
+<rect class="box" x="216" y="112" width="176" height="70" rx="8"/>
+<text class="t" x="228" y="136">OTel Collector</text>
+<text class="d" x="228" y="154">receives, samples,</text>
+<text class="d" x="228" y="170">routes. Not a lock-in.</text>
+
+<rect class="box" x="428" y="30" width="230" height="70" rx="8"/>
+<text class="t" x="440" y="54">Langfuse · traces</text>
+<text class="d" x="440" y="72">investigate one run,</text>
+<text class="d" x="440" y="88">score a sample of them</text>
+
+<rect class="box" x="428" y="194" width="230" height="70" rx="8"/>
+<text class="t" x="440" y="218">Prometheus · metrics</text>
+<text class="d" x="440" y="236">18 alert rules, 4 recording</text>
+<text class="d" x="440" y="252">rules, evaluated every 30 s</text>
+
+<rect class="box" x="694" y="120" width="292" height="54" rx="8"/>
+<text class="t" x="706" y="142">Grafana · one screen</text>
+<text class="d" x="706" y="160">Temporal, Postgres and Keycloak publish here too</text>
+
+<rect class="hz" x="694" y="192" width="292" height="54" rx="8"/>
+<text class="t" x="706" y="214">Alertmanager → page / Slack</text>
+<text class="d" x="706" y="232">severity decides who is woken, and when</text>
+
+<g marker-end="url(#ot-go)">
+  <line class="go" x1="180" y1="147" x2="213" y2="147"/>
+  <path class="go" d="M392 132 C414 132 412 65 425 65"/>
+  <path class="go" d="M392 162 C414 162 412 229 425 229"/>
+  <path class="go" d="M658 218 C676 218 676 147 691 147"/>
+  <path class="go" d="M658 240 C676 240 676 219 691 219"/>
+  <path class="back" d="M543 100 V190" marker-end="url(#ot-go)"/>
+</g>
+<text class="d" x="552" y="150">scores, back as metrics</text>
+<text class="d" x="694" y="106">exemplar: a spike on a chart links to one trace</text>
+
+<rect class="sub" x="14" y="200" width="380" height="82" rx="8"/>
+<text class="n" x="26" y="220">ALL OF THIS IS IN compose.yaml</text>
+<text class="s" x="26" y="242">otel-collector · prometheus · alertmanager · grafana</text>
+<text class="s" x="26" y="262">langfuse-web · langfuse-worker · clickhouse · minio · redis</text>
+<text class="d" x="26" y="278">docker compose up — and the whole picture is running locally.</text>
+</svg></div>
+
+    <h3>The converter: how a trace becomes a judgement</h3>
+    <p>Traces on their own are archaeology. The <em>watch</em> is what turns them into an answer, and it is a loop of its own, running over a window rather than a turn:</p>
+    <ol>
+      <li><strong>Read.</strong> Langfuse's <code>/api/public/v2/observations</code>, filtered by name, user and time — the one read its events-only mode serves. Find every <code>agent.turn</code> that started in the window, then fetch every observation of those traces.</li>
+      <li><strong>Reassemble.</strong> Spans become a <code>Turn</code> record: the words if they were captured, the route, the tools and what came back, the termination, the cost.</li>
+      <li><strong>Judge.</strong> 22 rules run over it — 20 per turn, 2 per conversation.</li>
+      <li><strong>Write back.</strong> A verdict goes to <code>/api/public/scores</code> with an id <strong>derived from the trace, the rule name and the rule version</strong>. So writing the same verdict twice is one score, and re-running the watch over a window it has already seen changes nothing. <em>Idempotency again, in a fourth place.</em></li>
+      <li><strong>Count.</strong> The same verdicts also go out as metrics — <code>agent.online.findings</code>, <code>agent.online.evaluated</code> — because a finding you cannot alert on is a finding somebody has to remember to look for.</li>
+    </ol>
+
+    <h3>The 22 rules — what this agent checks that no product can</h3>
+    <p>These are the rules that know what <em>this</em> agent's tools and statuses mean: that <code>get_order</code> returned <code>pending</code> and the reply said <code>shipped</code>. Generic scoring — a judge for tone, a threshold on latency — is adopted elsewhere. This is the delta.</p>
+    <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Id</th><th>What it catches</th><th>Severity</th><th>Needs the words?</th></tr></thead>
+      <tbody>
+        <tr><td class="fn"><code>W-01</code></td><td>Reply contradicts what the store said</td><td><strong>page</strong></td><td>yes</td></tr>
+        <tr><td class="fn"><code>W-02</code></td><td>Reply claims an action that did not happen</td><td><strong>page</strong></td><td>yes</td></tr>
+        <tr><td class="fn"><code>W-03</code></td><td>Personal data in a reply</td><td><strong>page</strong></td><td>no</td></tr>
+        <tr><td class="fn"><code>W-19</code></td><td>A write <em>after</em> instructions arrived in a tool result</td><td><strong>page</strong></td><td>no</td></tr>
+        <tr><td class="fn"><code>W-04</code></td><td>Run ended by a limit, not an answer</td><td>ticket</td><td>no</td></tr>
+        <tr><td class="fn"><code>W-05</code></td><td>Answered over a failed tool</td><td>ticket</td><td>no</td></tr>
+        <tr><td class="fn"><code>W-06</code></td><td>The same tool failing and called again</td><td>ticket</td><td>no</td></tr>
+        <tr><td class="fn"><code>W-09</code></td><td>Completed with an empty answer</td><td>ticket</td><td>yes</td></tr>
+        <tr><td class="fn"><code>W-10</code></td><td>Unbacked promise — it said it would check, and nothing is checking</td><td>ticket</td><td>no</td></tr>
+        <tr><td class="fn"><code>W-13</code></td><td>A write retried after the store refused it</td><td>ticket</td><td>no</td></tr>
+        <tr><td class="fn"><code>W-14</code></td><td>A write on an order nothing read</td><td>ticket</td><td>no</td></tr>
+        <tr><td class="fn"><code>W-15</code></td><td>A tool called for an order nobody named</td><td>ticket</td><td>no</td></tr>
+        <tr><td class="fn"><code>W-16</code></td><td>Reply names an order nothing returned</td><td>ticket</td><td>yes</td></tr>
+        <tr><td class="fn"><code>W-17</code></td><td>Internal text in a reply</td><td>ticket</td><td>yes</td></tr>
+        <tr><td class="fn"><code>W-18</code></td><td>Asked for an order it was already given</td><td>ticket</td><td>no</td></tr>
+        <tr><td class="fn"><code>C-02</code></td><td>Apologies without progress <em>(per conversation)</em></td><td>ticket</td><td>yes</td></tr>
+        <tr><td class="fn"><code>W-07</code> <code>W-08</code></td><td>Slow turn · costly turn</td><td>trend</td><td>no</td></tr>
+        <tr><td class="fn"><code>W-11</code> <code>W-12</code></td><td>Refused a question about an order · unreadable model output</td><td>trend</td><td>varies</td></tr>
+        <tr><td class="fn"><code>W-20</code></td><td>Answered on a truncated result</td><td>trend</td><td>no</td></tr>
+        <tr><td class="fn"><code>C-01</code></td><td>The customer repeats themselves <em>(per conversation)</em></td><td>trend</td><td>yes</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <p>Three design rules hold that table together:</p>
+    <ul>
+      <li><strong>Severity is what happens next</strong>, not how bad it sounds. <em>page</em> means a person is looking at the wrong thing <em>right now</em>. <em>ticket</em> wants reading this week. <em>trend</em> matters only as a rate — and Prometheus alerts on the rate, not on the instance.</li>
+      <li><strong>A rule that needs the words says so.</strong> On a turn whose text was not captured it does not run, and the turn is <em>not counted as passing it</em>. A contradiction nobody could see is not an absence of contradictions.</li>
+      <li><strong>Each rule has an id and a version</strong>, so a finding is attributable to the rule <em>and the version</em> that made it. Change a rule and the old findings do not silently become claims the new rule never made.</li>
+    </ul>
+
+    <h3>And the rates, in Prometheus</h3>
+    <p>Eighteen alert rules and four recording rules, in <code>deploy/prometheus/rules/agent.yml</code>. They are the window-level half of the same catalogue — the same patterns, expressed as a rate against the system's own baseline rather than as a verdict on one turn.</p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Level</th><th>Example alerts</th><th>What it catches</th></tr></thead>
+      <tbody>
+        <tr><td><strong>L0 · Up</strong></td><td><code>CanarySilent</code>, <code>TelemetryDropping</code></td><td>A dependency is down — or, worse, the thing that would have told you is down.</td></tr>
+        <tr><td><strong>L1 · Speed and errors</strong></td><td><code>TurnsFailing</code>, <code>TurnLatencyTail</code>, <code>ProviderDegraded</code>, <code>ToolLatencyDrift</code></td><td>The ordinary SLO layer. Necessary, and not the interesting one.</td></tr>
+        <tr><td><strong>L2 · Behaviour rates</strong> ★</td><td><code>BehaviourShift</code>, <code>RuleRefusingTooMuch</code>, <code>RunsEndingOnLimits</code>, <code>WritesRefusedForAuthority</code>, <code>WaitsLapsing</code></td><td><strong>Working and wrong.</strong> Escalations going from 8% to 30% after a release. One refuse rule swallowing everything. Every run hitting the step ceiling. This layer is the reason the whole section exists — an agent that has stopped doing its job still answers every request with a 200.</td></tr>
+        <tr><td><strong>L3 · Cost and amplification</strong></td><td><code>SpendPerRunDoubled</code>, <code>CallsPerTurnAmplified</code>, <code>ToolRetryStorm</code></td><td>A prompt change that doubled the tool calls per turn, before the invoice says so.</td></tr>
+        <tr><td><strong>L4 · The online rules</strong></td><td><code>OnlineRulePage</code>, <code>OnlineRuleTickets</code></td><td>The 22 rules above, as a rate — so a contradiction found in production pages somebody without anybody running a script.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h4>The metrics themselves</h4>
+    <p>Emitted apart from traces, because you cannot alert on a trace (<code>AHC-0111</code>):</p>
+<pre><code>agent.turns                 counter    by how each one ended
+agent.turn.duration         histogram
+agent.escalations           counter    by the rule that raised it
+agent.refusals              counter    by the rule that refused
+agent.approvals             counter    by what was decided
+agent.approvals.settled     counter    by outcome — emitted from INSIDE the
+                                       workflow, because an expiry is the one
+                                       outcome nobody is present for
+agent.unbacked_promises     counter
+agent.spend                 histogram  per task, not per call
+agent.model.calls           counter
+agent.tool.calls            counter    by tool and by what came back
+agent.tool.duration         histogram
+agent.run.terminations      counter    why each run stopped
+agent.online.findings       counter    the 22 rules, as a rate
+agent.online.evaluated      counter    the denominator — without it a finding
+                                       rate is a finding count
+agent.outcomes              counter
+agent.canary.cases          counter</code></pre>
+
+    <div class="note"><p><strong>The one to notice is <code>agent.online.evaluated</code>.</strong> It is the denominator. Without it, "three contradictions today" could mean three in a million turns or three in five — and those need different people woken up.</p></div>
+  </section>
+
   <section class="part" id="stack">
-    <p class="n">Section 09</p>
+    <p class="n">Section 13</p>
     <h2>One message, function by function</h2>
     <p>Everything above is structure. This is what actually executes. Both turns below are <strong>real</strong>: every function entry and return in <code>src/</code> was recorded with Python's <code>sys.monitoring</code>, and the payloads were tapped where they leave the process. Nothing is reconstructed.</p>
 
@@ -1653,7 +2844,7 @@ pytest tests/test_temporal_live.py tests/test_approvals.py tests/test_escalation
     </details>
 
     <h3>Turn B · "Connect me to a human"</h3>
-    <p>The same edge, and then an entirely different path — one that never reaches the model. The router recognises the request from the customer's words, raises the escalation, and answers. The full sequence is the diagram in <a href="#temporal">section 08</a>; what matters for reading a function stack is the contrast:</p>
+    <p>The same edge, and then an entirely different path — one that never reaches the model. The router recognises the request from the customer's words, raises the escalation, and answers. The full sequence is the diagram in <a href="#temporal">section 11</a>; what matters for reading a function stack is the contrast:</p>
     <div class="table-wrap">
     <table>
       <thead><tr><th></th><th>Turn A · "show me my orders"</th><th>Turn B · "connect me to a human"</th></tr></thead>
@@ -1674,7 +2865,7 @@ pytest tests/test_temporal_live.py tests/test_approvals.py tests/test_escalation
   </section>
 
   <section class="part" id="next">
-    <p class="n">Section 10</p>
+    <p class="n">Section 14</p>
     <h2>Where to go next</h2>
 
     <h3>If you read one more thing</h3>
