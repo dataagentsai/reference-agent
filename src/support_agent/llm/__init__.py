@@ -17,6 +17,7 @@ cassette, wrapping whichever of these it was recorded from.
 from __future__ import annotations
 
 import json
+import time
 from collections import deque
 from collections.abc import Iterable
 from urllib.parse import urlparse
@@ -177,6 +178,12 @@ class GroqClient:
                 tel.GEN_AI_REQUEST_MODEL: self._model,
             },
         ) as span:
+            standard = {
+                "gen_ai.operation.name": "chat",
+                "gen_ai.provider.name": self._provider,
+                "gen_ai.request.model": self._model,
+            }
+            started = time.monotonic()
             try:
                 raw = await self._client.chat.completions.create(
                     model=self._model,
@@ -190,9 +197,22 @@ class GroqClient:
                     temperature=request.temperature or self._temperature,
                 )
             except APIError as exc:
-                raise failure_from(exc) from exc
+                failure = failure_from(exc)
+                # The GenAI conventions' own client metric, with `error.type` on
+                # a failed call as they specify (T-055).
+                tel.counters.operation_duration.record(
+                    time.monotonic() - started, standard | {"error.type": type(failure).__name__}
+                )
+                raise failure from exc
 
             response = _from_wire(raw)
+            standard["gen_ai.response.model"] = response.model
+            tel.counters.operation_duration.record(time.monotonic() - started, standard)
+            for kind, count in (
+                ("input", response.usage.input_tokens),
+                ("output", response.usage.output_tokens),
+            ):
+                tel.counters.token_usage.record(count, standard | {"gen_ai.token.type": kind})
             span.set_attribute(tel.GEN_AI_RESPONSE_MODEL, response.model)
             tel.set_usage(
                 span,

@@ -173,6 +173,12 @@ class ApprovalWorkflow:
 
     async def _settle(self, state: ApprovalState, result: str | None = None) -> Approval:
         self._set(state=state, result=result)
+        # Through Temporal's meter, the one a workflow may use: it is replay-safe,
+        # and it is the only place an expiry is ever seen — nobody is there when
+        # the timer fires (T-055; the agent's own counter saw only requests).
+        workflow.metric_meter().create_counter(
+            "agent.approvals.settled", "Approvals settled, by how."
+        ).add(1, {"outcome": state.value})
         # A decision waits for the action to finish before it answers, so the
         # run must not end under it.
         await workflow.wait_condition(workflow.all_handlers_finished)

@@ -123,6 +123,7 @@ def test_every_collaborator_the_root_takes_is_an_interface() -> None:
     }
     configuration = {  # versioned data this agent owns, not a collaborator
         "capacity",
+        "synthetic_customers",
         "config",
         "system_prompt",
         "history_chars",
@@ -221,11 +222,11 @@ def test_every_counter_declared_is_incremented_somewhere() -> None:
 
     root = Path(__file__).resolve().parents[1] / "src" / "support_agent"
     source = "\n".join(p.read_text() for p in root.rglob("*.py") if p.name != "counters.py")
-    names = [n for n in declared.__all__ if n.islower() and n != "record_turn"]
+    names = [n for n in declared.__all__ if n.islower() and n not in {"record_turn", "bind"}]
 
     # `record_turn` writes to three of them from inside the module itself, which
     # the source search above cannot see because it excludes that file.
-    written_inside = {"turns", "refusals", "escalations"}
+    written_inside = {"turns", "turn_duration", "refusals", "escalations"}
     unwritten = [
         name for name in names if name not in written_inside and f"counters.{name}." not in source
     ]

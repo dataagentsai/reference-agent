@@ -85,7 +85,8 @@ def live_with(status: str, days: int = 0, final_sale: bool = False) -> Live:
 def test_the_declared_world_loads_and_states_its_ontology() -> None:
     world = load(WORLD)
     assert world.ontology() == {"order.customer_id": "customer.id"}
-    assert len(world.records["order"]) == 6
+    # Six of the customer's, and two of the canary's (C-7001, AHC-0113).
+    assert len(world.records["order"]) == 8
 
 
 @pytest.mark.tooling

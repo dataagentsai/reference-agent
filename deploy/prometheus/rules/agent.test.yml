@@ -1,0 +1,130 @@
+# promtool unit tests for rules/agent.yml, one case per row: the series that
+# should page, and the ones that must not. Run by tests/test_alert_rules.py:
+#
+#   docker run --rm -v "$PWD/deploy/prometheus/rules:/r" --entrypoint promtool \
+#     prom/prometheus:v3.5.0 test rules /r/agent.test.yml
+rule_files: [agent.yml]
+evaluation_interval: 1m
+
+tests:
+  # --- the canary failed twice running: page, naming the case
+  - interval: 5m
+    input_series:
+      - series: 'agent_canary_cases_total{case="status",outcome="fail"}'
+        values: '0 0 1 1 2 2 3'
+      - series: 'agent_canary_cases_total{case="orders",outcome="pass"}'
+        values: '1 1 2 2 3 3 4'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CanaryFailing
+        exp_alerts:
+          - exp_labels: { severity: page, pattern: AACP-0050, case: status }
+            exp_annotations:
+              summary: "The canary's 'status' case failed twice running"
+              description: "The synthetic customer cannot get a right answer through the deployed edge. Every hop is in the path: portal, Keycloak, the gateway, the model, the store's MCP server, Saleor."
+
+  # --- one failure is a blip, not a page
+  - interval: 5m
+    input_series:
+      - series: 'agent_canary_cases_total{case="status",outcome="fail"}'
+        values: '0 0 0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CanaryFailing
+        exp_alerts: []
+
+  # --- no canary at all: page on the silence
+  - interval: 1m
+    input_series:
+      - series: 'agent_turns_total{synthetic="false",result="completed",route="agentic"}'
+        values: '0+1x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CanarySilent
+        exp_alerts:
+          - exp_labels: { severity: page, pattern: AACP-0050 }
+            exp_annotations:
+              summary: The canary has not reported for 25 minutes
+              description: The canary itself is down, or cannot reach the collector.
+
+  # --- a tenth of turns failing, with traffic: page
+  - interval: 1m
+    input_series:
+      - series: 'agent_turns_total{synthetic="false",result="completed",route="agentic"}'
+        values: '0+9x20'
+      - series: 'agent_turns_total{synthetic="false",result="failed",route="agentic"}'
+        values: '0+1x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: TurnsFailing
+        exp_alerts:
+          - exp_labels: { severity: page, pattern: AACP-0049 }
+            exp_annotations: { summary: "10% of turns failed in 10 minutes" }
+
+  # --- the canary's failures move no business rate
+  - interval: 1m
+    input_series:
+      - series: 'agent_turns_total{synthetic="false",result="completed",route="agentic"}'
+        values: '0+9x20'
+      - series: 'agent_turns_total{synthetic="true",result="failed",route="direct"}'
+        values: '0+5x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: TurnsFailing
+        exp_alerts: []
+
+  # --- one rule starts refusing everything: page, naming the rule
+  - interval: 1m
+    input_series:
+      - series: 'agent_turns_total{synthetic="false",result="completed",route="agentic"}'
+        values: '0+2x70'
+      - series: 'agent_turns_total{synthetic="false",result="refused",route="refuse"}'
+        values: '0+2x70'
+      - series: 'agent_refusals_total{synthetic="false",rule="scope"}'
+        values: '0+2x70'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: RuleRefusingTooMuch
+        exp_alerts:
+          - exp_labels: { severity: page, pattern: AACP-0046, rule: scope }
+            exp_annotations: { summary: "Rule scope refused 50% of turns" }
+
+  # --- the provider went away three times in five minutes
+  - interval: 1m
+    input_series:
+      - series: 'agent_model_calls_total{outcome="unavailable"}'
+        values: '0 0 1 2 3 4'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ProviderDegraded
+        exp_alerts:
+          - exp_labels: { severity: page, pattern: AACP-0052 }
+            exp_annotations: { summary: "4 model calls found the provider unavailable in 5 minutes" }
+
+  # --- a certain online rule fired: page, naming it
+  - interval: 1m
+    input_series:
+      - series: 'agent_online_findings_total{rule="W-01",severity="page"}'
+        values: '0 0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: OnlineRulePage
+        exp_alerts:
+          - exp_labels: { severity: page, pattern: watch, rule: W-01 }
+            exp_annotations:
+              summary: "Online rule W-01 found a turn a customer was misled in"
+              description: "A certain rule: a reply that contradicts the store, claims an action that did not happen, shows personal data, or wrote after injected instructions. The trace carries a watch.W-01 score in Langfuse."
+
+  # --- the trace store could not take a batch: ticket
+  - interval: 1m
+    input_series:
+      - series: 'otelcol_exporter_send_failed_spans_total{exporter="otlphttp/langfuse"}'
+        values: '0 0 12 12 12'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: TelemetryDropping
+        exp_alerts:
+          - exp_labels: { severity: ticket, pattern: AACP-0056 }
+            exp_annotations:
+              summary: "12 spans could not be delivered to the trace store in 15 minutes"
+              description: "Those turns are missing from the trace store, so the online rules never saw them and every rate computed there is short."

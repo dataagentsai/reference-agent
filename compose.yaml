@@ -4,6 +4,7 @@
 #   docker compose --profile obs up -d          # + Langfuse
 #   docker compose --profile durable up -d      # + Temporal
 #   docker compose --profile channel up -d      # + Chatwoot
+#   docker compose --profile watch up -d        # + metrics, alerts, dashboards
 #
 # **Profiles, because the whole stack does not fit on the machine it is built
 # on.** An 8 GB laptop gives Docker about 4 GB, and Langfuse (ClickHouse, MinIO,
@@ -422,6 +423,72 @@ services:
     volumes:
       - chatwoot_storage:/app/storage
 
+
+  # ------------------------------------------------ watch: metrics and alerts
+
+  otel-collector:
+    # Receives the agent's, the watch's and the canary's telemetry, and
+    # Temporal's worker metrics, over OTLP (T-055). Metrics to Prometheus;
+    # traces on to Langfuse through a queue. The agent sends to
+    # http://localhost:4318/v1/metrics and /v1/traces.
+    profiles: [watch]
+    image: otel/opentelemetry-collector-contrib:0.130.0
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    environment:
+      # The local project's keys, which are public; a deployment sets its own.
+      LANGFUSE_OTLP_ENDPOINT: ${LANGFUSE_OTLP_ENDPOINT:-http://langfuse-web:3000/api/public/otel}
+      LANGFUSE_OTLP_AUTH: ${LANGFUSE_OTLP_AUTH:-cGstbGYtbG9jYWwtZGV2LW9ubHk6c2stbGYtbG9jYWwtZGV2LW9ubHk=}
+    volumes:
+      - ./deploy/otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - 127.0.0.1:4318:4318
+      - 127.0.0.1:4317:4317
+
+  prometheus:
+    # Holds the numbers and evaluates the rules that page (deploy/prometheus).
+    profiles: [watch]
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    ports:
+      - 127.0.0.1:9090:9090
+
+  alertmanager:
+    # Who is told: page or ticket (deploy/alertmanager/alertmanager.yml).
+    profiles: [watch]
+    image: prom/alertmanager:v0.28.1
+    restart: unless-stopped
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    volumes:
+      - ./deploy/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - 127.0.0.1:9093:9093
+
+  grafana:
+    # One screen for the operator's questions (deploy/grafana/dashboards).
+    # :3001, because Langfuse has :3000.
+    profiles: [watch]
+    image: grafana/grafana:12.1.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-local-dev-only}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/agent.json
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - 127.0.0.1:3001:3000
+
 volumes:
   postgres_data:
   clickhouse_data:
@@ -429,3 +496,4 @@ volumes:
   redis_data:
   temporal_data:
   chatwoot_storage:
+  prometheus_data:

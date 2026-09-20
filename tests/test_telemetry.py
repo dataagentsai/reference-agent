@@ -73,6 +73,7 @@ def test_payload_capture_is_off_by_default(exporter) -> None:
 @pytest.mark.discharges("AAC-0095", "AAC-0006", "AHC-0019")
 def test_payload_capture_redacts_when_enabled() -> None:
     ex = tel.configure(capture_payloads=True)
+    tel.begin_capture("run_redacts")
     with tel.span("gen_ai.chat") as s:
         tel.set_payload(s, "prompt", "my card is 4111111111111111")
     attrs = tel.attributes_of(ex.get_finished_spans()[0])

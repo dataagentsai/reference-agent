@@ -47,6 +47,7 @@ from support_agent.approvals.desk import (
     TemporalApprovals,
     approval_id,
     connect_temporal,
+    metrics_runtime,
     worker,
 )
 from support_agent.approvals.policy import (
@@ -94,6 +95,7 @@ __all__ = [
     "approval_id",
     "carry_out",
     "connect_temporal",
+    "metrics_runtime",
     "granted_identity",
     "is_executable",
     "refusal",

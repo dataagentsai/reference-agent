@@ -95,6 +95,10 @@ class EscalationWorkflow:
             )
         if self._current.open:
             self._set(state=EscalationState.EXPIRED, resolved_at=_now())
+        # Replay-safe, and the only place a lapse is seen (T-055).
+        workflow.metric_meter().create_counter(
+            "agent.escalations.closed", "Escalations closed, by how."
+        ).add(1, {"state": self._current.state.value})
         await queue.signal(EscalationQueue.closed, [raised.id, raised.conversation_id])
         await workflow.wait_condition(workflow.all_handlers_finished)
         return self._current

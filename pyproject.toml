@@ -158,7 +158,7 @@ name = "Arrows point down"
 type = "layers"
 containers = ["support_agent"]
 layers = [
-    "serve | portal | channel",
+    "serve | portal | channel | watch",
     "reviewer",
     "entrypoint",
     "router | loop",

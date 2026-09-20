@@ -41,6 +41,7 @@ MECHANISM = {
     "entrypoint/handoff.py",
     "entrypoint/pending.py",
     "entrypoint/persist.py",
+    "entrypoint/ending.py",
     "escalation/__init__.py",
     "escalation/capacity.py",
     "escalation/durable.py",
@@ -63,11 +64,13 @@ MECHANISM = {
     "channel/__init__.py",
     "portal/__init__.py",
     "serve/__init__.py",
+    "serve/feedback.py",
     "state/__init__.py",
     "state/facts.py",
     "state/postgres.py",
     "telemetry/__init__.py",
     "telemetry/counters.py",
+    "telemetry/meters.py",
     "telemetry/names.py",
     "telemetry/redaction.py",
     "tools/__init__.py",
@@ -77,6 +80,11 @@ MECHANISM = {
     "approvals/workflow.py",
     "approvals/durable.py",
     "approvals/desk.py",
+    "watch/__init__.py",
+    "watch/record.py",
+    "watch/outcomes.py",
+    "watch/langfuse.py",
+    "watch/canary.py",
 }
 """Kept whole by a second agent. The escalation and approval *workflows* are here
 and their *policies* are not: how an approval expires is universal, what needs
@@ -93,6 +101,8 @@ PARAMETERISED = {
     "policy/__init__.py",  # the engine is universal; the claim patterns are this domain's
     "router/__init__.py",  # the engine is universal; the intents and refusals are not
     "telemetry/contract.py",  # the span contract: mechanism, with this agent's span names in it
+    "watch/rules.py",  # the engine is universal; statuses, claims, write tools are this shop's
+    "watch/checks.py",  # the checks are universal; the vocabulary they read is this shop's
 }
 """Code a second agent keeps and values it replaces. **The layer to watch:**
 these read as shared and are not, so the values carry a version and the code

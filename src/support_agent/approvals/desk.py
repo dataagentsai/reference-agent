@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import Any
 
 from temporalio.client import Client, WorkflowUpdateFailedError
@@ -44,10 +45,38 @@ WORKFLOWS = [ApprovalWorkflow, ApprovalQueue]
 beside another package's in one worker, which is what a small one does."""
 
 
-async def connect_temporal(address: str, *, namespace: str = "default") -> Client:
-    """A client that carries the contracts as they are: pydantic, frozen."""
+async def connect_temporal(
+    address: str, *, namespace: str = "default", metrics_url: str | None = None
+) -> Client:
+    """A client that carries the contracts as they are: pydantic, frozen.
+
+    With `metrics_url`, the worker's runtime sends its metrics over OTLP/HTTP —
+    Temporal's own (workflow task failures, schedule-to-start latency) and the
+    two the workflows record themselves: approvals settled and escalations
+    closed, by how (T-055). An expiry happens on a timer nobody is watching, so
+    the workflow is the only place it can be counted.
+    """
+    runtime = metrics_runtime(metrics_url)
     return await Client.connect(
-        address, namespace=namespace, data_converter=pydantic_data_converter
+        address, namespace=namespace, data_converter=pydantic_data_converter, runtime=runtime
+    )
+
+
+def metrics_runtime(url: str | None) -> Any:
+    """A Temporal runtime whose metrics go to `url` over OTLP/HTTP, or `None`."""
+    if not url:
+        return None
+    from temporalio.runtime import OpenTelemetryConfig, Runtime, TelemetryConfig
+
+    return Runtime(
+        telemetry=TelemetryConfig(
+            metrics=OpenTelemetryConfig(
+                url=url,
+                http=True,
+                durations_as_seconds=True,
+                metric_periodicity=timedelta(seconds=15),
+            )
+        )
     )
 
 
@@ -238,5 +267,6 @@ __all__ = [
     "TemporalApprovals",
     "approval_id",
     "connect_temporal",
+    "metrics_runtime",
     "worker",
 ]

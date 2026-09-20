@@ -55,14 +55,13 @@ from support_agent.contracts import (
     new_run_id,
 )
 from support_agent.cost import Meter
-from support_agent.entrypoint import consent, direct, promise
+from support_agent.entrypoint import consent, direct, ending, promise
 from support_agent.entrypoint.handoff import Handoff, HandoffDesk, NoDesk
 from support_agent.entrypoint.opening import opening
 from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
 from support_agent.entrypoint.persist import TurnPersister, agree_on_durability
 from support_agent.escalation import rules as t2
 from support_agent.state import Conversation, TurnNote, facts
-from support_agent.telemetry import counters
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a customer support agent for a clothing retailer. "
@@ -122,6 +121,9 @@ class Agent:
     tier_2: t2.RuleSet | None = None
     """State-derived escalation rules. `None` uses the defaults; an agent with no
     escalation store never reaches them at all."""
+    synthetic_customers: frozenset[str] = frozenset()
+    """Customers who are the canary (AHC-0113). Their turns are marked, and every
+    rate excludes them; nothing else about them is different."""
     metering: Callable[[], Meter] | None = None
     """A fresh meter per task, so AOAS `Q-COST` — spend per task at most the
     configured ceiling — can stop a run. `None` means no priced model is
@@ -170,9 +172,14 @@ class Agent:
         conversation = conversation or Conversation(
             conversation_id=new_conversation_id(), customer_id=identity.customer_id
         )
-        with tel.span("agent.turn", **self._turn_attributes(run_id, conversation, identity)):
+        started = time.monotonic()
+        synthetic = identity.customer_id in self.synthetic_customers
+        attributes = ending.opened(run_id, conversation, identity, self.config, synthetic)
+        with tel.span("agent.turn", **attributes) as turn_span:
+            tel.set_payload(turn_span, tel.INPUT, text)
             held, conversation = await self._gates(conversation, identity, run_id)
             if held is not None:
+                ending.closed(turn_span, held, None, started, synthetic)
                 return held, await self._persist(run_id, conversation)
 
             decision = router.route(text, rules=self.rules)
@@ -202,7 +209,7 @@ class Agent:
             conversation = conversation.model_copy(update={"facts": after})
             result = await promise.honest(result, self.desk, conversation, identity, run_id)
             result = _screened(result, identity, self.policy_rules)
-            counters.record_turn(result, decision)
+            ending.closed(turn_span, result, decision, started, synthetic)
             return result, await self._persist(run_id, conversation.recording(result))
 
     async def _gates(
@@ -277,24 +284,6 @@ class Agent:
                 return result, tuple(trace.effects), tuple(trace.tool_calls)
             case _:
                 assert_never(decision)
-
-    def _turn_attributes(
-        self, run_id: RunId, conversation: Conversation, identity: Identity
-    ) -> dict[str, str]:
-        """Standard names, so a backend groups turns into a conversation and
-        attributes them to a customer with no mapping. Emitted here rather than at
-        the edge because a turn reaches this point whether it arrived over HTTP or
-        from a test, and a join key only some callers produce is one nothing
-        downstream can rely on."""
-        attributes = {
-            tel.RUN_ID: run_id,
-            tel.SESSION_ID: conversation.conversation_id,
-            tel.USER_ID: identity.customer_id,
-        }
-        if self.config is not None:
-            attributes[tel.CONFIG_FINGERPRINT] = self.config.fingerprint
-            attributes[tel.RESOLUTION] = self.config.resolution
-        return attributes
 
     @property
     def pending(self) -> PendingWork:
@@ -375,6 +364,7 @@ def build(
     tier_2: t2.RuleSet | None = None,
     metering: Callable[[], Meter] | None = None,
     fresh_for_s: int | None = binding.FRESH_FOR_S,
+    synthetic_customers: frozenset[str] = frozenset(),
 ) -> Agent:
     """The composition root.
 
@@ -408,6 +398,7 @@ def build(
         tier_2=tier_2,
         metering=metering,
         fresh_for_s=fresh_for_s,
+        synthetic_customers=synthetic_customers,
     )
 
 

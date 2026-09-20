@@ -606,14 +606,14 @@
 
 
 <h2 id="now-watching">Knowing first: watching the agent in production</h2>
-<p class="measure">The question: if the agent stops doing its job in production, does the person running it find out before a customer does? Today, no. Every trace is in Langfuse and a complaint can be investigated in a minute, but nothing <i>tells</i> anyone. This section is what is there, what is missing, and the three items that close it.</p>
+<p class="measure">The question: if the agent stops doing its job in production, does the person running it find out before a customer does? On 18 September the answer was no — every trace was in Langfuse and nothing <i>told</i> anyone. On 19 September it is yes: the numbers leave the process to Prometheus, 21 alert rules decide what pages, a synthetic customer crosses every hop every ten minutes, and 22 rules read sampled turns and write their verdicts back as Langfuse scores. This section is what an operator asks, what answers it, and the rule catalog behind it.</p>
 
 <h3>Three kinds of eval, and what each needs</h3>
 <div class="scroll"><table>
   <tr><th>Eval</th><th>When it runs</th><th>What it needs</th><th>Here</th></tr>
   <tr><td><b>Offline</b></td><td>before a release, on fixed cases (AAC stages S1–S3)</td><td>a world that answers the same way every time, and recorded model answers</td><td><span class="pill done">have</span> AgentTwin scenarios, golden files, cassettes, <code>baseline.json</code>, shadow mode against Saleor</td></tr>
   <tr><td><b>Inline</b></td><td>inside the request, before the reply goes out (S4)</td><td>checks fast and certain enough to block on</td><td><span class="pill part">half</span> policy, schemas, the store's own refusals, the unbacked-promise check. The inline grader (AHC-0028) is not built — G0.11</td></tr>
-  <tr><td><b>Online</b></td><td>after the fact, on production (S5), and on a schedule (S6)</td><td>what was said, what the tools returned, what happened afterwards, somewhere to write scores, and rates somebody alerts on</td><td><span class="pill open">missing</span> the rest of this section</td></tr>
+  <tr><td><b>Online</b></td><td>after the fact, on production (S5), and on a schedule (S6)</td><td>what was said, what the tools returned, what happened afterwards, somewhere to write scores, and rates somebody alerts on</td><td><span class="pill done">have</span> <code>watch/</code> over Langfuse, scores back to Langfuse, rates to Prometheus; the canary on a schedule (S6). <b>Left:</b> a model-graded rubric, once it is checked against labels (AAC-0084)</td></tr>
 </table></div>
 
 <h3>Is what we send to OpenTelemetry enough?</h3>
@@ -621,19 +621,19 @@
   <div class="card"><div class="who">What is sent</div>
   <p>35 span types, each held to a contract (<code>telemetry/contract.py</code>): the route and why, each tool with its side effect and idempotency key, the escalation rule and outcome, approvals, tokens, model, cost per call and per run, why a run ended, context size, unbacked promises, breaker and retries, and <code>user.id</code> / <code>session.id</code> on the root so Langfuse groups by conversation.</p>
   <p>And seven counters with bounded labels (<code>telemetry/counters.py</code>): turns, escalations, refusals, approvals, unbacked promises, spend, model calls.</p></div>
-  <div class="card"><div class="who">What is missing</div>
+  <div class="card"><div class="who">What looking found, and what closed it</div>
   <ol style="margin:0;padding-left:18px">
-    <li><b>The counters go nowhere.</b> No <code>MeterProvider</code> is configured, so all seven record into a no-op.</li>
-    <li>The approvals counter counts only <code>requested</code> since the move to Temporal.</li>
-    <li>No latency histogram: turn, model call, time to first token, each tool.</li>
-    <li><b>No words are ever captured.</b> <code>set_payload</code> is off by default and called from nowhere, so switching it on changes nothing. A judge has nothing to read.</li>
-    <li>Tool arguments and results are not on the tool span.</li>
-    <li>Nothing writes a score back to Langfuse.</li>
-    <li>Nothing joins what happened later to the run: the customer came back, a refund was reversed.</li>
-    <li>The trace stops at the MCP hop (T-020).</li>
+    <li><b>The counters went nowhere.</b> No <code>MeterProvider</code> was configured, so all seven recorded into a no-op. <span class="pill done">T-055</span></li>
+    <li>Approvals counted only <code>requested</code>; an expiry happens on a timer nobody watches, so the workflow counts it itself now, through Temporal's meter. <span class="pill done">T-055</span></li>
+    <li>No latency anywhere: turn, model call and each tool are histograms now, the model's under the conventions' own name. <span class="pill done">T-055</span></li>
+    <li><b>No words were ever captured.</b> <code>set_payload</code> was off by default <i>and called from nowhere</i>, so switching it on captured nothing. <span class="pill done">T-057</span></li>
+    <li>Tool arguments and results were not on the tool span. <span class="pill done">T-057</span></li>
+    <li>Nothing wrote a score back, and nothing joined what happened later to the run. <span class="pill done">T-057</span></li>
+    <li>Spend was recorded per model call as a running total, so one run landed in the histogram once per call, at a different size each time. <span class="pill done">T-055</span></li>
+    <li>The trace still stops at the MCP hop. <span class="pill open">T-020</span></li>
   </ol></div>
 </div>
-<p class="caption">Enough to <b>investigate</b> one run. Not enough to <b>notice</b> that many runs have gone wrong.</p>
+<p class="caption">Six of the eight were invisible from the code: each was written, reviewed, and reached nothing. That is the argument for a test that reads the numbers back.</p>
 
 
 <h3>The record online eval needs: AHC-0114, field by field</h3>
@@ -642,30 +642,31 @@
   <tr><th>Group</th><th>Answers</th><th>What it holds</th><th>Here</th></tr>
   <tr><td>1 · Join keys</td><td>whose, and which turn?</td><td>run id, session, pseudonymous user, tenant, position in the session</td><td><span class="pill done">have</span> <code>agent.run.id</code>, <code>session.id</code>, <code>user.id</code>, <code>agent.tenant</code></td></tr>
   <tr><td>2 · Versions</td><td>which release?</td><td>config fingerprint, model asked for and model that answered, each rule set's version</td><td><span class="pill done">have</span> fingerprint, <code>gen_ai.request/response.model</code>, router, escalation and promise rule versions</td></tr>
-  <tr><td>3 · Input</td><td>what was asked?</td><td>the customer's message, redacted — sampled</td><td><span class="pill open">missing</span> <code>set_payload</code> is never called</td></tr>
-  <tr><td>4 · What it was shown</td><td>what did it know?</td><td>each tool result, redacted, with its source — sampled</td><td><span class="pill open">missing</span> only whether a result was truncated</td></tr>
-  <tr><td>5 · What it did</td><td>what path?</td><td>model calls; tool calls with arguments, side effect and outcome; policy decisions</td><td><span class="pill part">most</span> tool name, side effect, key, route, policy — not the arguments</td></tr>
-  <tr><td>6 · Output and ending</td><td>what came out, and how did it end?</td><td>the reply, redacted — sampled; completed · refused · escalated · waiting · failed, and the rule</td><td><span class="pill part">half</span> the ending and rule, yes; the reply, no</td></tr>
-  <tr><td>7 · Cost and time</td><td>what did it cost?</td><td>tokens, cost, duration, per turn and per call</td><td><span class="pill done">have</span> on spans; as metrics after T-055</td></tr>
-  <tr><td>8 · Markers</td><td>what kind of run?</td><td>synthetic or real, content captured or not, resolution mode</td><td><span class="pill part">one of three</span> <code>agent.resolution</code> only</td></tr>
-  <tr><td>9 · Later outcomes</td><td>was it right?</td><td>kind, source and time of what happened afterwards</td><td><span class="pill part">one</span> escalation verdict only — AHC-0112</td></tr>
+  <tr><td>3 · Input</td><td>what was asked?</td><td>the customer's message, redacted — sampled</td><td><span class="pill done">have</span> for a sampled turn, redacted</td></tr>
+  <tr><td>4 · What it was shown</td><td>what did it know?</td><td>each tool result, redacted, with its source — sampled</td><td><span class="pill done">have</span> each result as JSON, for a sampled turn</td></tr>
+  <tr><td>5 · What it did</td><td>what path?</td><td>model calls; tool calls with arguments, side effect and outcome; policy decisions</td><td><span class="pill done">have</span> and the arguments, on a sampled turn</td></tr>
+  <tr><td>6 · Output and ending</td><td>what came out, and how did it end?</td><td>the reply, redacted — sampled; completed · refused · escalated · waiting · failed, and the rule</td><td><span class="pill done">have</span> the ending, the rule, and the reply on a sampled turn</td></tr>
+  <tr><td>7 · Cost and time</td><td>what did it cost?</td><td>tokens, cost, duration, per turn and per call</td><td><span class="pill done">have</span> on spans and as metrics</td></tr>
+  <tr><td>8 · Markers</td><td>what kind of run?</td><td>synthetic or real, content captured or not, resolution mode</td><td><span class="pill done">have</span> synthetic, captured and resolution</td></tr>
+  <tr><td>9 · Later outcomes</td><td>was it right?</td><td>kind, source and time of what happened afterwards</td><td><span class="pill part">four of five</span> the escalation verdict, returned, asked for a person, feedback. A reversal has no source in this store</td></tr>
 </table></div>
-<p class="caption">Groups 1, 2, 5 and 7 are why a complaint is easy to investigate today. Groups 3, 4 and 6 are why nothing can be scored.</p>
+<p class="caption">Structure on every turn; the words on a declared sample (<code>AGENT_CAPTURE_SAMPLE</code>), redacted before they leave the process, and the sample marked so no rate is computed over it by accident.</p>
 
-<h3>What an operator asks, and how easily it is answered today</h3>
+<h3>What an operator asks, and what answers it now</h3>
 <div class="scroll"><table>
   <tr><th>Question</th><th>Where the answer is</th><th>Today</th></tr>
+  <tr><td>Is anything lost on the way to the trace store?</td><td>the collector's own counters; <code>TelemetryDropping</code></td><td><span class="pill done">alerts</span></td></tr>
   <tr><td>A customer complained. What happened?</td><td>Langfuse, by <code>user.id</code> or <code>session.id</code></td><td><span class="pill done">easy</span></td></tr>
   <tr><td>What does a conversation cost?</td><td>Langfuse, cost per trace (T-052)</td><td><span class="pill done">easy</span></td></tr>
-  <tr><td>What does a <i>resolved</i> conversation cost?</td><td>needs outcomes joined to runs</td><td><span class="pill open">no</span></td></tr>
-  <tr><td>Is it up? What is the error rate?</td><td><code>http.status_code</code> on the root span</td><td><span class="pill part">by hand</span></td></tr>
-  <tr><td>How slow is it, p95, per turn and per tool?</td><td>span durations, one trace at a time</td><td><span class="pill part">by hand</span></td></tr>
-  <tr><td>Is it escalating or refusing more than last week? Which rule?</td><td>the counters — not exported</td><td><span class="pill open">no</span></td></tr>
-  <tr><td>Is the model returning junk, or the provider failing?</td><td>the model-call counter — not exported</td><td><span class="pill open">no</span></td></tr>
-  <tr><td>Are approvals expiring with nobody deciding?</td><td>open workflows in Temporal's UI</td><td><span class="pill part">by hand</span></td></tr>
-  <tr><td>Is spend this hour on track against budget?</td><td>the spend histogram — not exported</td><td><span class="pill open">no</span></td></tr>
-  <tr><td>Did the last release change its behaviour?</td><td><code>agent.config.fingerprint</code> on the turn span</td><td><span class="pill part">by hand</span></td></tr>
-  <tr><td>Are answers getting worse?</td><td>nothing</td><td><span class="pill open">no</span></td></tr>
+  <tr><td>What does a <i>resolved</i> conversation cost?</td><td>spend per run, and the outcomes that say which conversations held</td><td><span class="pill part">the parts exist</span></td></tr>
+  <tr><td>Is it up? What is the error rate?</td><td>Grafana; <code>TurnsFailing</code> pages above 5%</td><td><span class="pill done">alerts</span></td></tr>
+  <tr><td>How slow is it, p95, per turn and per tool?</td><td>three histograms; <code>TurnLatencyTail</code>, <code>ToolLatencyDrift</code></td><td><span class="pill done">alerts</span></td></tr>
+  <tr><td>Is it escalating or refusing more than last week? Which rule?</td><td><code>BehaviourShift</code> against last week, <code>RuleRefusingTooMuch</code> by rule</td><td><span class="pill done">alerts</span></td></tr>
+  <tr><td>Is the model returning junk, or the provider failing?</td><td><code>ModelOutputUnreadable</code>, <code>ProviderDegraded</code></td><td><span class="pill done">alerts</span></td></tr>
+  <tr><td>Are approvals expiring with nobody deciding?</td><td><code>WaitsLapsing</code>, counted inside the workflow itself</td><td><span class="pill done">alerts</span></td></tr>
+  <tr><td>Is spend this hour on track against budget?</td><td><code>SpendPerRunDoubled</code>, p50 and p95 per run on the dashboard</td><td><span class="pill done">alerts</span></td></tr>
+  <tr><td>Did the last release change its behaviour?</td><td>the fingerprint is on the span and not yet a metric label</td><td><span class="pill part">by hand — T-058</span></td></tr>
+  <tr><td>Are answers getting worse?</td><td>20 turn rules and 2 conversation rules, as scores and as rates</td><td><span class="pill done">alerts</span></td></tr>
 </table></div>
 
 <h3>Why Prometheus and Grafana beside OpenTelemetry and Langfuse</h3>
@@ -728,6 +729,85 @@
   <tr><td><b>Elsewhere</b></td><td colspan="2">promptfoo (T-046), DeepEval and Inspect (T-040), Ragas, Braintrust, LangSmith, Arize Phoenix for evals; NeMo Guardrails, Guardrails AI, Llama Guard for guardrails; Toxiproxy for faults; k6 and Locust for load; LiteLLM budgets, fallbacks and rate limits at the gateway</td></tr>
 </table></div>
 
+
+<h3 id="now-rules">The rule catalog: 22 rules over turns, 21 over rates</h3>
+<p class="measure">A cost analyser has a few hundred rules for Spark anti-patterns; this is the same idea over an agent's telemetry. The catalog of what can go wrong lives in the assurance catalog as <b>patterns</b> (AACP-xxxx) — 56 of them, each with a symptom, a mechanism, the obligations that catch it, and now a <b>signal</b>: the fields a monitor reads, the rule, a starting threshold and how loudly to say so. A rule here implements one pattern's signal, and carries its id.</p>
+<div class="two">
+  <div class="card"><div class="who">Two engines, because there are two questions</div>
+  <p><b>Per turn and per conversation</b> — did <i>this</i> answer contradict its own lookup? — is our code, because only we know what <code>get_order</code> returning <code>pending</code> means. It runs over sampled turns read back from Langfuse and writes a score per finding.</p>
+  <p><b>Per window</b> — is this rate twice last week's? — is <b>Prometheus</b>, whose rule language and alert routing are older and better than anything we would write. Thresholds live in a file an operator can read and change without a deploy.</p></div>
+  <div class="card"><div class="who">Severity is what happens next</div>
+  <p><b>page</b>: certain, and a customer is being misled right now — a reply that contradicts the store, a claimed action that did not happen, personal data in a reply, a write after injected instructions, the canary failing.</p>
+  <p><b>ticket</b>: read this week. <b>trend</b>: only ever a rate, so it is a recording rule and a panel, never a page. A trend that pages is a trend nobody reads twice.</p></div>
+</div>
+
+<h4>Per turn — the words, the tools and what came of them</h4>
+<div class="scroll"><table>
+  <tr><th>Rule</th><th>Fires when</th><th>Pattern</th><th>Severity</th><th>Needs the words</th></tr>
+  <tr><td class="mono">W-01</td><td>the reply names an order and a status the store did not give</td><td>AACP-0028</td><td>page</td><td>yes</td></tr>
+  <tr><td class="mono">W-02</td><td>the reply says an action is done and no such call succeeded</td><td>AACP-0029</td><td>page</td><td>yes</td></tr>
+  <tr><td class="mono">W-03</td><td>redaction would change the reply the customer saw</td><td>AACP-0033</td><td>page</td><td>no</td></tr>
+  <tr><td class="mono">W-19</td><td>a write follows instruction-shaped text in a tool result</td><td>AACP-0015</td><td>page</td><td>yes</td></tr>
+  <tr><td class="mono">W-04</td><td>the run stopped on a step budget, a ceiling or circles</td><td>AACP-0036</td><td>ticket</td><td>no</td></tr>
+  <tr><td class="mono">W-05</td><td>the turn completed although a tool failed</td><td>AACP-0039</td><td>ticket</td><td>no</td></tr>
+  <tr><td class="mono">W-06</td><td>the same tool failed twice in one turn and was called again</td><td>AACP-0014</td><td>ticket</td><td>no</td></tr>
+  <tr><td class="mono">W-09</td><td>completed with a reply of fewer than 15 characters</td><td>AACP-0034</td><td>ticket</td><td>yes</td></tr>
+  <tr><td class="mono">W-10</td><td>the reply promised work nothing is doing</td><td>AACP-0048</td><td>ticket</td><td>no</td></tr>
+  <tr><td class="mono">W-13</td><td>a write was sent again after the store refused it</td><td>AACP-0019</td><td>ticket</td><td>yes</td></tr>
+  <tr><td class="mono">W-14</td><td>a write on an order no read in the turn returned</td><td>AACP-0021</td><td>ticket</td><td>yes</td></tr>
+  <tr><td class="mono">W-15</td><td>a tool called for an order nobody named and nothing returned</td><td>AACP-0022</td><td>ticket</td><td>yes</td></tr>
+  <tr><td class="mono">W-16</td><td>the reply names an order that appears in no input and no result</td><td>AACP-0030</td><td>ticket</td><td>yes</td></tr>
+  <tr><td class="mono">W-17</td><td>a tool name, JSON or a traceback in the reply</td><td>AACP-0031</td><td>ticket</td><td>yes</td></tr>
+  <tr><td class="mono">W-18</td><td>the message named an order and the reply asks which</td><td>AACP-0032</td><td>ticket</td><td>yes</td></tr>
+  <tr><td class="mono">W-07 · W-08</td><td>the turn took over 20 s · cost over $0.05</td><td>AACP-0051 · 0053</td><td>trend</td><td>no</td></tr>
+  <tr><td class="mono">W-11</td><td>a message naming an order was refused — a candidate over-refusal</td><td>AACP-0046</td><td>trend</td><td>yes</td></tr>
+  <tr><td class="mono">W-12</td><td>a model response could not be read</td><td>AACP-0038</td><td>trend</td><td>no</td></tr>
+  <tr><td class="mono">W-20</td><td>the turn completed on a truncated tool result</td><td>AACP-0025</td><td>trend</td><td>no</td></tr>
+  <tr><td class="mono">C-01</td><td>the customer said the same thing twice in one conversation</td><td>AACP-0040</td><td>trend</td><td>yes</td></tr>
+  <tr><td class="mono">C-02</td><td>three apologies in a row with nothing done between them</td><td>AACP-0035</td><td>ticket</td><td>yes</td></tr>
+</table></div>
+<p class="caption">A rule that needs the words does not run on a turn whose words were not sampled, and that turn is not counted as passing it: a contradiction nobody could see is not an absence of contradictions.</p>
+
+<h4>Per window — rates against the system's own baseline</h4>
+<div class="scroll"><table>
+  <tr><th>Alert</th><th>Fires when</th><th>Pattern</th><th>Severity</th></tr>
+  <tr><td class="mono">CanaryFailing · CanarySilent</td><td>the synthetic customer failed twice running, or has not reported for 25 minutes</td><td>AACP-0050</td><td>page</td></tr>
+  <tr><td class="mono">BehaviourShift</td><td>escalated, refused and failed together pass 15% and twice last week's share</td><td>AACP-0049</td><td>page</td></tr>
+  <tr><td class="mono">RuleRefusingTooMuch</td><td>one rule refuses over a tenth of turns</td><td>AACP-0046</td><td>page</td></tr>
+  <tr><td class="mono">TurnsFailing · TurnLatencyTail</td><td>over 5% failed in 10 minutes · p95 over 20 s</td><td>AACP-0049 · 0051</td><td>page</td></tr>
+  <tr><td class="mono">ToolRetryStorm</td><td>one tool failing over a tenth of its calls</td><td>AACP-0020</td><td>page</td></tr>
+  <tr><td class="mono">ProviderDegraded</td><td>three model calls in five minutes found the provider away</td><td>AACP-0052</td><td>page</td></tr>
+  <tr><td class="mono">WritesRefusedForAuthority</td><td>a write the far end rejected outright — no approval, no scope</td><td>AACP-0047</td><td>page</td></tr>
+  <tr><td class="mono">OnlineRulePage</td><td>any page-severity turn rule fired in the last 15 minutes</td><td>the rules above</td><td>page</td></tr>
+  <tr><td class="mono">RunsEndingOnLimits · ModelOutputUnreadable · CallsPerTurnAmplified · ToolLatencyDrift · WaitsLapsing · SpendPerRunDoubled · TelemetryDropping · OnlineRuleTickets</td><td>the day's or the hour's share against last week's</td><td>AACP-0036 · 0038 · 0001 · 0027 · 0045 · 0053 · 0056</td><td>ticket</td></tr>
+  <tr><td class="mono">agent:returned_share · agent:asked_for_person_share · agent:tool_calls_per_turn · agent:feedback_down_share</td><td>recorded for the dashboard, never paged</td><td>AACP-0041 · 0042 · 0037</td><td>trend</td></tr>
+</table></div>
+<p class="caption">Tested the way Prometheus tests rules: <code>deploy/prometheus/rules/agent.test.yml</code> feeds each alert the series that should fire it and the series that must not — including the canary's own failures, which must move no business rate.</p>
+
+<h4>Ten patterns with a signal and no detector</h4>
+<p class="measure">Stated rather than quietly missing, in <code>watch/rules.py</code>'s <code>NOT_YET</code>, each with what is in the way: the rates carry no release fingerprint (AACP-0002, 0055); truncations, unoffered tools and schema failures are not counted apart (0004, 0023, 0024); tools offered is not a metric (0026); nothing is kept per conversation (0043); a person's verdict on an escalation is on a span (0044); tokens per turn are not in the record (0003); request and response model names need one form (0054). That is T-058, and a test fails if a pattern is both detected and owed.</p>
+
+<h3>Found by running it</h3>
+<div class="scroll"><table>
+  <tr><th>What ran</th><th>What it found</th></tr>
+  <tr><td>The canary, against the live stack — Keycloak, LiteLLM, the model, the store's MCP server, Saleor</td><td><b>4/4 pass.</b> On the way: <b>F-048</b> — the model writes order ids with a non-breaking hyphen, <code>CN‑70002</code>, so a check for <code>CN-70002</code> fails on a right answer and a customer pasting it into a search finds nothing. Every rule now reads replies with dashes normalised; the agent still shows the customer what the model wrote.</td></tr>
+  <tr><td>The canary, against the simulated shop</td><td><b>F-047</b> — asking for another customer's order is a tool error there and <code>found: false</code> in Saleor, so the agent answers a 502 where it should answer plainly. Two stores disagreeing about what <i>not yours</i> means.</td></tr>
+  <tr><td>The watch, over the first live turns</td><td>Three batches of spans timed out on the way to Langfuse and <b>two of seven turns were never evaluated</b>. Traces now go through the collector's queue and retries, and its own counters raise <code>TelemetryDropping</code> — a new pattern, <b>AACP-0056</b>.</td></tr>
+  <tr><td>The outcome rules, over that traffic</td><td>Eight <code>returned</code> outcomes on one answer, because a customer asking four questions in a minute looked like four failures. Version 2 of the inference ignores anything within 30 minutes; version 3 counts a burst once.</td></tr>
+  <tr><td>Rules against real replies</td><td>“AB-10002 <b>cannot be</b> cancelled” read as <i>the order is cancelled</i>. A status now counts only where it is asserted — <i>is</i>, <i>was</i>, <i>has been</i> — and not where it is negated.</td></tr>
+</table></div>
+<p class="caption">Five corrections in one evening's use, four of them things no test would have said. That is the argument for a canary: it uses the system the way a customer does, on a schedule.</p>
+
+<h3>Run it</h3>
+<div class="scroll"><table>
+  <tr><th>What</th><th>Command</th></tr>
+  <tr><td>The stack for watching</td><td class="mono">docker compose --profile watch up -d</td></tr>
+  <tr><td>The agent, sending to it</td><td class="mono">AGENT_METRICS_ENDPOINT=http://localhost:4318/v1/metrics AGENT_OTLP_ENDPOINT=http://localhost:4318/v1/traces AGENT_CAPTURE_PAYLOADS=true uv run python scripts/run_server.py --real --store</td></tr>
+  <tr><td>The canary, every ten minutes</td><td class="mono">uv run python scripts/canary.py --every 600</td></tr>
+  <tr><td>The online rules, every minute</td><td class="mono">uv run python scripts/watch.py --every 60</td></tr>
+  <tr><td>Where to look</td><td>Grafana <span class="mono">:3001</span> · Prometheus <span class="mono">:9090</span> · Alertmanager <span class="mono">:9093</span> · Langfuse <span class="mono">:3000</span></td></tr>
+</table></div>
+
 <h3>Did the specs say any of this?</h3>
 <p class="measure">Partly. AAC already had the right stages — S5 online eval, S6 scheduled regression — and AAC-0014 (score sampled traffic), AAC-0016 (re-run frozen cases), AAC-0007 (latency) and AAC-0008 (cost per task). What nothing required was the part this section is about: noticing that the system has stopped working. So, spec first, these went in on 19 September:</p>
 <div class="scroll"><table>
@@ -740,7 +820,7 @@
   <tr><td class="mono">AHC-0113</td><td>the eval entrypoint can drive the serving path as an identity that touches no real data</td><td>T-056</td></tr>
   <tr><td class="mono">AHC-0114</td><td>each unit of work leaves one evaluation record with a declared minimum — the nine groups above</td><td>T-057</td></tr>
 </table></div>
-<p class="caption">Each is an accepted gap in <code>harness-profile.yaml</code> until its item lands. One question is left open: AAC-0084 (validate a judge against human labels) applies only to A10, and an A6 agent scored by a judge online needs it too.</p>
+<p class="caption">All six are exercised by tests now, and `patterns/` gained a <code>signal</code> block plus 38 patterns (AACP-0019 to 0056) — the catalog the rules above implement. One question is left open: AAC-0084 (validate a judge against human labels) applies only to A10, and an A6 agent scored by a judge online needs it too, which is why the judge is the last piece and not the first.</p>
 
 <h2 id="now-the-stack">The stack</h2>
 <p class="measure">One compose file, with profiles, because the laptop has 3.8 GB for Docker and cannot run everything at once. Start the profiles a task needs.</p>

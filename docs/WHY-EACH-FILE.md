@@ -69,7 +69,15 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `state/__init__.py` | AHC-0108, P-ESC-CAP, P-ESC-ONCE |
 | `state/facts.py` | AHC-0108 |
 | `telemetry/__init__.py` | AAC-0095 |
-| `telemetry/counters.py` | AHC-0106 |
+| `telemetry/counters.py` | AHC-0106, AHC-0111, AAC-0114, AAC-0007 |
+| `entrypoint/ending.py` | AHC-0114, AHC-0111 |
+| `telemetry/meters.py` | AHC-0111, AAC-0008 |
+| `serve/feedback.py` | AHC-0112, AAC-0115 |
+| `watch/__init__.py` | AAC-0014, AAC-0115, AHC-0114 |
+| `watch/record.py` | AHC-0114, AAC-0060 |
+| `watch/outcomes.py` | AHC-0112, AAC-0115 |
+| `watch/langfuse.py` | AAC-0014, AHC-0028 |
+| `watch/canary.py` | AHC-0113, AAC-0116 |
 | `telemetry/names.py` | AAC-0020, AAC-0100, AAC-0103, AAC-0104, AHC-0001, AHC-0107 |
 | `tools/__init__.py` | AAC-0105, Q-TOOL-RESULT |
 | `trigger/__init__.py` | AAC-0076, AHC-0053, AHC-0055 |

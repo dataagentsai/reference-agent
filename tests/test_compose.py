@@ -52,6 +52,13 @@ ADOPTED = [
         "Rails and Sidekiq, only T-026 and T-017 need it",
     ),
     ("x_store", "saleor", "saleor", "store", "Django, a worker and a dashboard: T-017 only"),
+    (
+        "x_metrics",
+        "otel-collector-prometheus",
+        "prometheus",
+        "watch",
+        "a collector, a metrics store, alerting and dashboards: T-055",
+    ),
 ]
 
 # Services that are no product's binding, and the product each exists for.
@@ -67,6 +74,9 @@ SUPPORTING = {
     "chatwoot-migrate": "chatwoot",
     "chatwoot-setup": "chatwoot",
     "chatwoot-sidekiq": "chatwoot",
+    "otel-collector": "prometheus",
+    "alertmanager": "prometheus",
+    "grafana": "prometheus",
 }
 
 # Adopted, and not yet in compose. Each row leaves when its item adds the service.

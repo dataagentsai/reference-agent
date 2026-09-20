@@ -1,0 +1,50 @@
+# The OpenTelemetry Collector: the one place the agent, the watch and the canary
+# send telemetry, and Temporal's worker its metrics (T-055).
+#
+#   metrics → Prometheus scrapes :8889
+#   traces  → Langfuse, with a queue and retries in between
+#
+# Traces went straight from the agent to Langfuse until the first live run of
+# the watch, when Langfuse timed out on three batches and two of seven turns
+# were never evaluated (AACP-0056). A collector's queue and retry is what the
+# SDK's batch exporter lacks, and its own counters say when something was lost.
+receivers:
+  otlp:
+    protocols:
+      http: { endpoint: 0.0.0.0:4318 }
+      grpc: { endpoint: 0.0.0.0:4317 }
+
+processors:
+  batch: {}
+
+exporters:
+  # Resource attributes stay off the metric labels: Temporal's metrics carry a
+  # `service_name` label of their own, and the two collide.
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    enable_open_metrics: true
+  otlphttp/langfuse:
+    endpoint: ${env:LANGFUSE_OTLP_ENDPOINT}
+    headers:
+      Authorization: "Basic ${env:LANGFUSE_OTLP_AUTH}"
+    timeout: 30s
+    sending_queue: { enabled: true, queue_size: 5000 }
+    retry_on_failure: { enabled: true, initial_interval: 5s, max_elapsed_time: 10m }
+
+service:
+  telemetry:
+    # The collector's own counters — spans sent, spans failed — for Prometheus.
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus: { host: 0.0.0.0, port: 8888 }
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/langfuse]

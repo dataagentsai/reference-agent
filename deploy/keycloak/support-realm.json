@@ -252,6 +252,29 @@
       }
     },
     {
+      "username": "c-7001",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "c-7001@example.test",
+      "firstName": "Canary",
+      "lastName": "Synthetic",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-dev-only",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "customer_id": [
+          "C-7001"
+        ]
+      }
+    },
+    {
       "username": "c-9999",
       "enabled": true,
       "emailVerified": true,

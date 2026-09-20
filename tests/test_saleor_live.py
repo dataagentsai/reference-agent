@@ -138,7 +138,8 @@ def test_the_customer_owns_exactly_the_orders_the_world_gave_them(
         r=seeding.scoped("C-1042", space),
     )["user"]
     theirs = {edge["node"]["externalReference"] for edge in found["orders"]["edges"]}
-    assert theirs == {seeding.scoped(o, space) for o in ORDERS}
+    mine = {o for o, row in ORDERS.items() if row["customer_id"] == "C-1042"}
+    assert theirs == {seeding.scoped(o, space) for o in mine}
 
 
 @pytest.mark.tooling

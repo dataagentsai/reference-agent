@@ -191,45 +191,6 @@ accepted_gaps:
       with it, which is why it is recorded rather than left to be noticed.
     owner: reference-agent
     review: "2026-12-01"
-  - capability: AHC-0111
-    reason: >-
-      Half met, and the missing half is the one that matters. Seven counters are
-      defined in `telemetry/counters.py` with bounded labels and recorded where a
-      turn ends, but no MeterProvider is configured, so they are recorded into the
-      no-op provider and reach nothing. The approvals counter counts only
-      `requested` since the move to Temporal, and there is no latency histogram.
-      T-055 wires the exporter, the store and the alert rules.
-    owner: reference-agent
-    review: "2026-10-15"
-  - capability: AHC-0112
-    reason: >-
-      One outcome is recorded against its run: a person closing an escalation
-      records its verdict on `agent.escalation.resolve`. Nothing else that
-      happens later — the customer returning, a refund reversed, feedback — has
-      a path back. T-057.
-    owner: reference-agent
-    review: "2026-10-15"
-  - capability: AHC-0113
-    reason: >-
-      The pieces exist and are not joined: shadow mode runs the scenarios through
-      the agent's own tools against the real store, and seeding into a namespace
-      gives a synthetic customer data only it owns. Nothing runs them on a
-      schedule against the deployed edge, and nothing alerts. T-056.
-    owner: reference-agent
-    review: "2026-10-15"
-  - capability: AHC-0114
-    reason: >-
-      Six of the nine groups are recorded, and the span contract checks them:
-      join keys, versions (config fingerprint, models, rule sets), what was done
-      (tools with side effect and key, routes, policy), how the turn ended and
-      by which rule, tokens, cost and duration, and the resolution mode. Missing:
-      the content — `telemetry.set_payload` exists, is off by default, and is
-      called from nowhere, so no input, tool result or reply is ever captured
-      even when switched on; tool arguments and results are not on the tool
-      span; there is no synthetic or sampled marker; and later outcomes are
-      AHC-0112's gap. T-057.
-    owner: reference-agent
-    review: "2026-10-15"
   - capability: AHC-0015
     reason: The agent does not stream; a completion and abort contract has nothing to govern.
     owner: reference-agent

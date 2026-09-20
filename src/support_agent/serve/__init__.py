@@ -71,6 +71,7 @@ from support_agent.contracts import (
 )
 from support_agent.contracts.failures import AgentFailure, Fault
 from support_agent.entrypoint import Agent
+from support_agent.serve.feedback import feedback
 from support_agent.state import Conversation
 from support_agent.ui import CHAT_PAGE
 
@@ -317,6 +318,7 @@ def build(
         Route("/", page),
         Route("/healthz", health),
         Route("/chat", chat, methods=["POST"]),
+        Route("/feedback", feedback, methods=["POST"]),
     ]
     # Mounted, not merged: `/chat` keeps the hand-written decode whose 400s and
     # opaque 401 its tests pin, while the desk gets Pydantic bodies, scoped

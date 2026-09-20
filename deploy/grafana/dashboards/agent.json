@@ -1,0 +1,718 @@
+{
+  "title": "Support agent \u2014 is it working, is it right",
+  "uid": "support-agent",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "tags": [
+    "support-agent",
+    "T-055"
+  ],
+  "description": "The operator's questions, one panel each. Rates exclude the canary. Pattern ids are AAC patterns/.",
+  "panels": [
+    {
+      "type": "row",
+      "title": "Is it working?  \u2014 L0 up, L1 speed and errors, L3 canary",
+      "collapsed": false,
+      "gridPos": {
+        "w": 24,
+        "h": 1,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Canary failures, last 30 min",
+      "description": "AACP-0050. The synthetic customer through the deployed edge.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "w": 6,
+        "h": 5,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(agent_canary_cases_total{outcome=\"fail\"}[30m])) or vector(0)"
+        }
+      ],
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Failed turns, last hour",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "w": 6,
+        "h": 5,
+        "x": 6,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(agent_turns_total{synthetic=\"false\",result=\"failed\"}[1h])) or vector(0)"
+        }
+      ],
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "p95 turn latency",
+      "description": "AACP-0051. Budget: 20 s.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "w": 6,
+        "h": 5,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(agent_turn_duration_seconds_bucket{synthetic=\"false\"}[15m])))"
+        }
+      ],
+      "id": 4
+    },
+    {
+      "type": "stat",
+      "title": "Alerts firing",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "w": 6,
+        "h": 5,
+        "x": 18,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)"
+        }
+      ],
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "Turns by how they ended",
+      "description": "Per minute. The denominator of every rate below.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 0,
+        "y": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (result) (rate(agent_turns_total{synthetic=\"false\"}[5m])) * 60",
+          "legendFormat": "{{result}}"
+        }
+      ],
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency: turn, model call, tool (p95)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 12,
+        "y": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(agent_turn_duration_seconds_bucket{synthetic=\"false\"}[5m])))",
+          "legendFormat": "turn"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(gen_ai_client_operation_duration_seconds_bucket[5m])))",
+          "legendFormat": "model call"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.95, sum by (tool, le) (rate(agent_tool_duration_seconds_bucket[5m])))",
+          "legendFormat": "tool {{tool}}"
+        }
+      ],
+      "id": 7
+    },
+    {
+      "type": "row",
+      "title": "Is it doing its job?  \u2014 L2 behaviour rates",
+      "collapsed": false,
+      "gridPos": {
+        "w": 24,
+        "h": 1,
+        "x": 0,
+        "y": 14
+      },
+      "id": 8
+    },
+    {
+      "type": "timeseries",
+      "title": "Escalations by rule (share of turns)",
+      "description": "AACP-0049. Too low: overreaching. Too high: not helping.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 0,
+        "y": 15
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (rule) (rate(agent_escalations_total{synthetic=\"false\"}[15m])) / scalar(sum(rate(agent_turns_total{synthetic=\"false\"}[15m])))",
+          "legendFormat": "{{rule}}"
+        }
+      ],
+      "id": 9
+    },
+    {
+      "type": "timeseries",
+      "title": "Refusals by rule (share of turns)",
+      "description": "AACP-0046. One rule climbing alone is a rule gone wrong.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 12,
+        "y": 15
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (rule) (rate(agent_refusals_total{synthetic=\"false\"}[15m])) / scalar(sum(rate(agent_turns_total{synthetic=\"false\"}[15m])))",
+          "legendFormat": "{{rule}}"
+        }
+      ],
+      "id": 10
+    },
+    {
+      "type": "timeseries",
+      "title": "Tool calls by outcome",
+      "description": "AACP-0020. refused = the store said no, correctly; error = it could not answer.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 0,
+        "y": 23
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (tool, outcome) (rate(agent_tool_calls_total[5m])) * 60",
+          "legendFormat": "{{tool}} {{outcome}}"
+        }
+      ],
+      "id": 11
+    },
+    {
+      "type": "timeseries",
+      "title": "Why runs stopped",
+      "description": "AACP-0036. Anything but goal_reached and awaiting_* is a limit doing a missing path's work.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 12,
+        "y": 23
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (reason) (rate(agent_run_terminations_total[15m])) * 60",
+          "legendFormat": "{{reason}}"
+        }
+      ],
+      "id": 12
+    },
+    {
+      "type": "timeseries",
+      "title": "Model calls by outcome",
+      "description": "AACP-0038, AACP-0052.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 0,
+        "y": 31
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(agent_model_calls_total[5m])) * 60",
+          "legendFormat": "{{outcome}}"
+        }
+      ],
+      "id": 13
+    },
+    {
+      "type": "timeseries",
+      "title": "Waits: approvals settled, escalations closed",
+      "description": "AACP-0045. expired = somebody never came.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 12,
+        "y": 31
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (increase(agent_approvals_settled_total[1h]))",
+          "legendFormat": "approval {{outcome}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (state) (increase(agent_escalations_closed_total[1h]))",
+          "legendFormat": "escalation {{state}}"
+        }
+      ],
+      "id": 14
+    },
+    {
+      "type": "row",
+      "title": "Is it right?  \u2014 L4 online rules and outcomes",
+      "collapsed": false,
+      "gridPos": {
+        "w": 24,
+        "h": 1,
+        "x": 0,
+        "y": 39
+      },
+      "id": 15
+    },
+    {
+      "type": "timeseries",
+      "title": "Online findings by rule",
+      "description": "watch/rules.py over sampled turns. Each finding is a watch.W-xx score on the trace in Langfuse.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 0,
+        "y": 40
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (rule, severity) (increase(agent_online_findings_total[1h]))",
+          "legendFormat": "{{rule}} ({{severity}})"
+        }
+      ],
+      "id": 16
+    },
+    {
+      "type": "timeseries",
+      "title": "Outcomes after the turn",
+      "description": "AACP-0041, AACP-0042: returned within a day, asked for a person, feedback.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 12,
+        "y": 40
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (increase(agent_outcomes_total[1d]))",
+          "legendFormat": "{{kind}}"
+        }
+      ],
+      "id": 17
+    },
+    {
+      "type": "stat",
+      "title": "Came back within a day (share)",
+      "description": "AACP-0041. Of evaluated turns.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": {
+        "w": 6,
+        "h": 5,
+        "x": 0,
+        "y": 48
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "agent:returned_share:1d"
+        }
+      ],
+      "id": 18
+    },
+    {
+      "type": "stat",
+      "title": "Asked for a person after an answer",
+      "description": "AACP-0042.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": {
+        "w": 6,
+        "h": 5,
+        "x": 6,
+        "y": 48
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "agent:asked_for_person_share:1d"
+        }
+      ],
+      "id": 19
+    },
+    {
+      "type": "stat",
+      "title": "Thumbs down (share of feedback)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": {
+        "w": 6,
+        "h": 5,
+        "x": 12,
+        "y": 48
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "agent:feedback_down_share:1d"
+        }
+      ],
+      "id": 20
+    },
+    {
+      "type": "stat",
+      "title": "Turns evaluated, today",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "w": 6,
+        "h": 5,
+        "x": 18,
+        "y": 48
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(agent_online_evaluated_total[1d])) or vector(0)"
+        }
+      ],
+      "id": 21
+    },
+    {
+      "type": "row",
+      "title": "What does it cost?",
+      "collapsed": false,
+      "gridPos": {
+        "w": 24,
+        "h": 1,
+        "x": 0,
+        "y": 53
+      },
+      "id": 22
+    },
+    {
+      "type": "timeseries",
+      "title": "Cost per run (p50, p95)",
+      "description": "AACP-0053. Per unit of work, not per call.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 0,
+        "y": 54
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(agent_spend_USD_bucket[1h])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(agent_spend_USD_bucket[1h])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "id": 23
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens per minute",
+      "description": "GenAI semantic conventions' own metric.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 12,
+        "y": 54
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (gen_ai_token_type) (rate(gen_ai_client_token_usage_sum[5m])) * 60",
+          "legendFormat": "{{gen_ai_token_type}}"
+        }
+      ],
+      "id": 24
+    },
+    {
+      "type": "timeseries",
+      "title": "Tool calls per turn",
+      "description": "AACP-0037. A longer path for the same work.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "w": 12,
+        "h": 8,
+        "x": 0,
+        "y": 62
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "agent:tool_calls_per_turn:1d",
+          "legendFormat": "tool calls per turn"
+        }
+      ],
+      "id": 25
+    }
+  ]
+}

@@ -155,6 +155,42 @@ TERMINATION = "agent.termination.reason"
 RESOLUTION = "agent.resolution"
 """mock | replay | real | shadow. A verdict is not interpretable without it."""
 
+# The evaluation record (AHC-0114). Structure on every turn; the words — input,
+# reply, tool arguments and results — only on a turn chosen for capture, and
+# redacted before they are set.
+
+SYNTHETIC = "agent.synthetic"
+"""The turn came from a declared synthetic customer — the canary (AHC-0113).
+Every rate excludes these."""
+
+CAPTURED = "agent.captured"
+"""This turn's words were kept. Without the marker, a rule that found no
+contradiction in a turn whose reply was never recorded would count as a pass."""
+
+INPUT = "agent.input"
+REPLY = "agent.reply"
+
+TURN_RESULT = "agent.turn.result"
+"""completed · refused · escalated · needs_approval · failed — how the turn ended."""
+
+TURN_RULE = "agent.turn.rule_id"
+"""The rule that refused or escalated, where one did."""
+
+REPLY_REDACTED = "agent.reply.redacted"
+"""Whether redaction would change the reply — personal data or a secret in what
+the customer was about to be shown (AAC-0006). On every turn, not only captured
+ones, because it is the one content check that must not be sampled."""
+
+TOOL_ARGUMENTS = "agent.tool.arguments"
+TOOL_RESULT = "agent.tool.result"
+TOOL_OUTCOME = "agent.tool.outcome"
+"""ok · refused · error · replayed. `refused` is the far system answering no —
+`allowed: false` — which is a correct answer and not an error."""
+
+FEEDBACK = "agent.feedback"
+"""up · down, from the customer, against a conversation (AHC-0112)."""
+
+
 TRACER_NAME = "support_agent"
 """The instrumentation scope this agent's spans carry — and the only one the
 span contract holds to account."""

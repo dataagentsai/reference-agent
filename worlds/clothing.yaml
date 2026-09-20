@@ -64,6 +64,11 @@ systems:
 records:
   customer:
     - {id: C-1042, email: basant@example.com}
+    # The canary (AHC-0113): a synthetic customer whose orders nobody else can
+    # see, so a check through the deployed edge every ten minutes reads and
+    # refuses without touching a real customer's data. It never writes: its
+    # pending order stays pending, and its delivered one is outside the window.
+    - {id: C-7001, email: canary@example.test}
   order:
     - {id: AB-10001, customer_id: C-1042, address: "42 MG Road, Bengaluru 560001", total: 1899, status: shipped, days_since_delivery: 0, final_sale: false, return_open: false,
        note: "Fragile — handle with care."}
@@ -78,3 +83,5 @@ records:
     - {id: AB-10003, customer_id: C-1042, address: "5 Park Street, Kolkata 700016", total: 4999, status: delivered, days_since_delivery: 5, final_sale: false, return_open: false}
     - {id: AB-10004, customer_id: C-1042, address: "90 Anna Salai, Chennai 600002", total: 3299, status: delivered, days_since_delivery: 31, final_sale: false, return_open: false}
     - {id: AB-10005, customer_id: C-1042, address: "3 Sector 18, Noida 201301", total: 1299, status: delivered, days_since_delivery: 3, final_sale: true, return_open: false}
+    - {id: CN-70001, customer_id: C-7001, address: "1 Canary Wharf Road, Bengaluru 560001", total: 999, status: pending, days_since_delivery: 0, final_sale: false, return_open: false}
+    - {id: CN-70002, customer_id: C-7001, address: "1 Canary Wharf Road, Bengaluru 560001", total: 1499, status: delivered, days_since_delivery: 40, final_sale: false, return_open: false}

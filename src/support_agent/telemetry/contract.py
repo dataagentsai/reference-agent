@@ -9,6 +9,7 @@ from typing import Any
 from opentelemetry.sdk.trace import ReadableSpan
 
 from support_agent.telemetry.names import (
+    CAPTURED,
     CONFIG_FINGERPRINT,
     CONTEXT_CHARS,
     CONTEXT_EXCHANGES,
@@ -19,6 +20,7 @@ from support_agent.telemetry.names import (
     ESCALATION_ID,
     ESCALATION_RULE,
     ESCALATION_TIER,
+    FEEDBACK,
     GEN_AI_INPUT_TOKENS,
     GEN_AI_OPERATION,
     GEN_AI_OUTPUT_TOKENS,
@@ -28,7 +30,10 @@ from support_agent.telemetry.names import (
     GEN_AI_SYSTEM,
     GEN_AI_TOOL_NAME,
     IDEMPOTENCY_KEY,
+    INPUT,
     MODEL_MALFORMED,
+    REPLY,
+    REPLY_REDACTED,
     RESOLUTION,
     ROUTE_KIND,
     ROUTE_REASON,
@@ -36,9 +41,15 @@ from support_agent.telemetry.names import (
     SESSION_ID,
     SIDE_EFFECT,
     STEP,
+    SYNTHETIC,
     TENANT,
     TERMINATION,
+    TOOL_ARGUMENTS,
+    TOOL_OUTCOME,
+    TOOL_RESULT,
     TRACER_NAME,
+    TURN_RESULT,
+    TURN_RULE,
     USER_ID,
 )
 
@@ -80,8 +91,21 @@ CONTRACT: dict[str, SpanSpec] = {
         # supplied — so anything less than required would let the join key go
         # missing silently, which is the one failure that cannot be repaired
         # after the fact.
-        required=frozenset({RUN_ID, SESSION_ID, USER_ID}),
-        optional=frozenset({CONFIG_FINGERPRINT, RESOLUTION, CONTEXT_STORED}),
+        required=frozenset({RUN_ID, SESSION_ID, USER_ID, SYNTHETIC, CAPTURED}),
+        # The ending is optional only because a turn that raises has none; every
+        # turn that returns sets it (AHC-0114's sixth group).
+        optional=frozenset(
+            {
+                CONFIG_FINGERPRINT,
+                RESOLUTION,
+                CONTEXT_STORED,
+                TURN_RESULT,
+                TURN_RULE,
+                REPLY_REDACTED,
+                INPUT,
+                REPLY,
+            }
+        ),
     ),
     "agent.run": SpanSpec(
         required=frozenset({RUN_ID, TENANT}),
@@ -104,6 +128,7 @@ CONTRACT: dict[str, SpanSpec] = {
                 "http.status_code",
                 "http.refusal_detail",
                 "agent.result",
+                SYNTHETIC,
             }
         ),
     ),
@@ -200,9 +225,19 @@ CONTRACT: dict[str, SpanSpec] = {
     ),
     "agent.tool": SpanSpec(
         required=frozenset({GEN_AI_TOOL_NAME, SIDE_EFFECT, IDEMPOTENCY_KEY}),
-        optional=frozenset({"agent.tool.replayed", "agent.tool.truncated"}),
+        optional=frozenset(
+            {
+                "agent.tool.replayed",
+                "agent.tool.truncated",
+                TOOL_OUTCOME,
+                TOOL_ARGUMENTS,
+                TOOL_RESULT,
+            }
+        ),
     ),
     "agent.tool.local": SpanSpec(required=frozenset({GEN_AI_TOOL_NAME})),
+    # A customer's verdict on a conversation, recorded against it (AHC-0112).
+    "agent.feedback": SpanSpec(required=frozenset({SESSION_ID, USER_ID, FEEDBACK})),
     "agent.tools.list": SpanSpec(required=frozenset({"agent.tools.count", "agent.tools.rejected"})),
     "agent.policy": SpanSpec(
         required=frozenset({"agent.policy.position"}),

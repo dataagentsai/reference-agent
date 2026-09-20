@@ -157,6 +157,22 @@ class Settings(BaseSettings):
     """`key=value,key=value` — an auth header for a hosted collector. `repr=False`
     for the same reason the provider key is."""
 
+    metrics_endpoint: str = ""
+    """Where metrics go: an OTLP/HTTP metrics endpoint, the Collector's in
+    compose (T-055). Separate from `otlp_endpoint` because traces may go
+    straight to a trace store that takes no metrics, as Langfuse does."""
+    deployment: str = "local"
+    """`local` for a laptop. Anything else is a deployment, and a deployment
+    whose metrics go nowhere refuses to start (AHC-0111): seven counters once
+    recorded into a no-op for want of this check."""
+    capture_payloads: bool = False
+    """Keep the words of a sample of turns, redacted, for the online rules."""
+    capture_sample: float = 0.1
+    """The share of turns whose words are kept when capture is on (AHC-0114)."""
+    synthetic_customers: str = "C-7001"
+    """Comma-separated customer ids that are the canary (AHC-0113). Their turns
+    are marked and excluded from every rate."""
+
 
 class RunConfig(BaseModel):
     """The resolved, frozen configuration for one run, plus its fingerprint."""

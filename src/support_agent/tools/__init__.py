@@ -21,6 +21,8 @@ working one layer down.
 
 from __future__ import annotations
 
+import json
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any, Protocol, cast
@@ -270,24 +272,52 @@ class GatedTools:
                 tel.IDEMPOTENCY_KEY: idempotency_key.value,
             },
         ) as span:
-            jsonschema.validate(arguments, spec.input_schema)
+            tel.set_payload(span, tel.TOOL_ARGUMENTS, json.dumps(arguments, sort_keys=True))
+            started = time.monotonic()
+            outcome = "error"
+            try:
+                result, outcome = await self._dispatch(
+                    name, arguments, identity, idempotency_key, spec, span
+                )
+                # JSON, so a rule reading the record can compare fields rather
+                # than parse a rendering (AHC-0114's fourth group).
+                shown = result.structured if result.structured is not None else result.text
+                tel.set_payload(span, tel.TOOL_RESULT, json.dumps(shown, default=str))
+                return result
+            finally:
+                # In `finally`, so a call that raised — unreachable, invalid
+                # arguments — is counted as the error it was (T-055).
+                span.set_attribute(tel.TOOL_OUTCOME, outcome)
+                tel.counters.tool_calls.add(1, {"tool": name, "outcome": outcome})
+                tel.counters.tool_duration.record(time.monotonic() - started, {"tool": name})
 
-            if spec.side_effect is SideEffectClass.READ:
-                result = await self._transport.invoke(name, arguments, caller=identity)
-                return self._bound(result, span)
+    async def _dispatch(
+        self,
+        name: str,
+        arguments: dict[str, object],
+        identity: Identity,
+        idempotency_key: IdempotencyKey,
+        spec: ToolSpec,
+        span: Span,
+    ) -> tuple[ToolResult, str]:
+        jsonschema.validate(arguments, spec.input_schema)
 
-            previous = await self._ledger.seen(idempotency_key)
-            if previous is not None:
-                span.set_attribute("agent.tool.replayed", True)
-                return previous
+        if spec.side_effect is SideEffectClass.READ:
+            result = await self._transport.invoke(name, arguments, caller=identity)
+            return self._bound(result, span), _outcome(result)
 
-            answer = await self._transport.invoke(
-                name, arguments, caller=identity, idempotency_key=idempotency_key
-            )
-            result = self._bound(answer, span)
-            if not result.is_error:
-                await self._ledger.record(idempotency_key, result)
-            return result
+        previous = await self._ledger.seen(idempotency_key)
+        if previous is not None:
+            span.set_attribute("agent.tool.replayed", True)
+            return previous, "replayed"
+
+        answer = await self._transport.invoke(
+            name, arguments, caller=identity, idempotency_key=idempotency_key
+        )
+        result = self._bound(answer, span)
+        if not result.is_error:
+            await self._ledger.record(idempotency_key, result)
+        return result, _outcome(result)
 
     def _bound(self, result: ToolResult, span: Span) -> ToolResult:
         """AAC-0105, AOAS Q-TOOL-RESULT — a result enters context bounded.
@@ -305,6 +335,18 @@ class GatedTools:
         mark = TRUNCATION_MARK.format(total=len(rendered))
         bounded = rendered[: max(0, limit - len(mark))] + mark
         return result.model_copy(update={"text": bounded[:limit], "truncated": True})
+
+
+def _outcome(result: ToolResult) -> str:
+    """ok · refused · error. A far system that answered `allowed: false` gave a
+    correct answer, and counting it as an error would make every refusal the
+    store is right to give look like an outage."""
+    if result.is_error:
+        return "error"
+    structured = result.structured
+    if isinstance(structured, dict) and structured.get("allowed") is False:
+        return "refused"
+    return "ok"
 
 
 class MCPToolClient(GatedTools):

@@ -1,0 +1,30 @@
+# Alertmanager: who is told, and how loudly (T-055).
+#
+# Three severities, the same three the online rules use:
+#   page    — certain, and wrong right now. A person, now.
+#   ticket  — read this week.
+#   trend   — only ever a rate; nothing here routes it.
+#
+# The receivers are empty locally, so alerts are visible at :9093 and go nowhere.
+# A deployment adds its own: slack_configs, pagerduty_configs or webhook_configs
+# under `page` and `ticket`. Nothing else in this file changes.
+route:
+  receiver: ticket
+  group_by: [alertname, rule, case]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: [severity="page"]
+      receiver: page
+      repeat_interval: 1h
+
+receivers:
+  - name: page
+  - name: ticket
+
+inhibit_rules:
+  # When the canary cannot get through at all, the agent's own rates are
+  # symptoms of the same outage: page once, for the canary.
+  - source_matchers: [alertname="CanaryFailing"]
+    target_matchers: [severity="ticket"]

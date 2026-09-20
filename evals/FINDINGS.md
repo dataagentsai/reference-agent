@@ -1765,3 +1765,39 @@ waiting on the first one.
 **Open.** Routed to `HandoffDesk.hold`: when it finds the escalation resolved it
 returns `None`, and nothing settles the fact. The lapse path already records the
 hand-back; the resolved path should settle `escalation:E-…` the same way.
+
+## F-047 · Asking about someone else's order is an outage in the simulated shop
+
+**Found** 2026-09-19, by the canary's fourth case (T-056) run against the
+projected world. The canary customer asks *where is my order AB-10003?* — an
+order that exists and is not theirs. The real store answers `found: false` and
+the agent says it cannot find the order: correct, and a 200. The projected world
+raises `UnknownRecord`, the MCP server turns that into a tool error, and the
+direct handler returns `Failed` — a **502** — with the same sentence. The
+customer reads the same words; every dashboard reads an outage, and the canary
+fails.
+
+The two stores disagree about what *not yours* is, and the agent's direct route
+treats a tool error as a failure of the system rather than an answer. Shadow
+mode (T-042) did not catch it, because no scenario asks about another customer's
+order through the direct route.
+
+**Open.** Routed to AgentTwin's projection — an order outside the caller's scope
+should answer as the real store does, `found: false` — and a scenario that asks
+for another customer's order through each route, against both stores.
+
+## F-048 · Order ids are written with a hyphen nobody can type
+
+**Found** 2026-09-19, by the canary's second case (T-056) against the real model.
+Asked *what orders do I have with you?*, the agent listed both orders correctly,
+as `CN‑70001` and `CN‑70002` — with U+2011, the non-breaking hyphen, not the
+hyphen-minus the store uses. The canary's check for `CN-7000` failed on a right
+answer. Worse, every online rule that reads order ids in a reply was blind to
+them, and a customer who copies an id from the reply into a search box finds
+nothing.
+
+**Fixed in the watch**, which now reads replies with every dash a hyphen
+(`watch.checks.plain`). **Open in the agent:** the reply is shown to the
+customer as the model wrote it. Normalisation belongs in the harness
+(AHC-0087): identifiers of a declared shape should leave the agent in the form
+the store uses.

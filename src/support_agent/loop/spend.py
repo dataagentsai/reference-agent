@@ -15,7 +15,6 @@ and every budget alert stay quiet.
 
 from __future__ import annotations
 
-from support_agent import telemetry as tel
 from support_agent.contracts import Usage
 from support_agent.cost import Meter
 
@@ -43,7 +42,6 @@ def account(
 
     cost = float(meter.record(call))
     spent = meter.as_usd()
-    tel.counters.spend.record(spent)
     return total, spent, cost
 
 

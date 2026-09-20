@@ -91,12 +91,24 @@ def _telemetry(settings: Settings | None) -> None:
     against, and a suite that went blind the moment a deployment gained a
     backend would be a suite that only works where nobody is watching.
     """
-    tel.configure()
-    if settings is None or not settings.otlp_endpoint:
+    configured = settings or Settings()
+    tel.configure(
+        capture_payloads=configured.capture_payloads,
+        capture_sample=configured.capture_sample,
+        environment=configured.deployment,
+        metrics_endpoint=configured.metrics_endpoint or None,
+    )
+    if configured.deployment != "local" and not tel.exporting_metrics():
+        # AHC-0111: a deployment whose numbers go nowhere is one nobody can be
+        # told is broken, so it does not start.
+        raise SystemExit(f"AGENT_DEPLOYMENT={configured.deployment} needs AGENT_METRICS_ENDPOINT")
+    if configured.metrics_endpoint:
+        print(f"  metrics going to {configured.metrics_endpoint}")
+    if not configured.otlp_endpoint:
         return
-    pairs = (p.split("=", 1) for p in settings.otlp_headers.split(",") if "=" in p)
-    if tel.export_to(settings.otlp_endpoint, headers=dict(pairs)):
-        print(f"  telemetry also going to {settings.otlp_endpoint}")
+    pairs = (p.split("=", 1) for p in configured.otlp_headers.split(",") if "=" in p)
+    if tel.export_to(configured.otlp_endpoint, headers=dict(pairs)):
+        print(f"  telemetry also going to {configured.otlp_endpoint}")
 
 
 def _issuer() -> ident.Issuer:
@@ -294,12 +306,16 @@ async def waits_running(
     process under its own login, which is the point of moving refunds into it.
     """
     address = os.environ.get("AGENT_TEMPORAL_ADDRESS")
+    metrics = Settings().metrics_endpoint or None
     if address:
-        client, durable, shutdown = await ap.connect_temporal(address), True, None
+        client = await ap.connect_temporal(address, metrics_url=metrics)
+        durable, shutdown = True, None
     else:
         from temporalio.testing import WorkflowEnvironment
 
-        env = await WorkflowEnvironment.start_local(data_converter=_CONVERTER)
+        env = await WorkflowEnvironment.start_local(
+            data_converter=_CONVERTER, runtime=ap.metrics_runtime(metrics)
+        )
         client, durable, shutdown = env.client, False, env.shutdown
     print(f"  waits          Temporal at {client.service_client.config.target_host}", end="")
     print(" (durable)" if durable else " (in this process, lost on exit)")
@@ -374,6 +390,9 @@ async def main(real: bool, port: int, store: bool = False) -> None:
             # The real model is priced, so its cost ceiling is live; the scripted
             # one is free and has nothing to meter.
             config=run_config,
+            synthetic_customers=frozenset(
+                c.strip() for c in Settings().synthetic_customers.split(",") if c.strip()
+            ),
         )
         # The desk reads the agent's own queue and closes through its own
         # handle. Sessions come from Keycloak when AGENT_ISSUER_URL names a

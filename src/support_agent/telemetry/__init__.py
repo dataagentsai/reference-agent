@@ -21,8 +21,10 @@ root.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 
 from opentelemetry import trace
@@ -32,14 +34,16 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import Span, StatusCode
 
-from support_agent.telemetry import counters
+from support_agent.telemetry import counters, meters
 from support_agent.telemetry.contract import (
     CONTRACT,
     SpanSpec,
     attributes_of,
     validate,
 )
+from support_agent.telemetry.meters import exporting_metrics, flush_metrics, metric_points
 from support_agent.telemetry.names import (
+    CAPTURED,
     CONFIG_FINGERPRINT,
     CONTEXT_CHARS,
     CONTEXT_EXCHANGES,
@@ -50,6 +54,7 @@ from support_agent.telemetry.names import (
     ESCALATION_ID,
     ESCALATION_RULE,
     ESCALATION_TIER,
+    FEEDBACK,
     FRESHNESS_ROWS,
     FRESHNESS_UNCHECKABLE,
     GEN_AI_INPUT_TOKENS,
@@ -61,8 +66,11 @@ from support_agent.telemetry.names import (
     GEN_AI_SYSTEM,
     GEN_AI_TOOL_NAME,
     IDEMPOTENCY_KEY,
+    INPUT,
     ITERATION,
     MODEL_MALFORMED,
+    REPLY,
+    REPLY_REDACTED,
     RESOLUTION,
     ROUTE_KIND,
     ROUTE_REASON,
@@ -70,9 +78,15 @@ from support_agent.telemetry.names import (
     SESSION_ID,
     SIDE_EFFECT,
     STEP,
+    SYNTHETIC,
     TENANT,
     TERMINATION,
+    TOOL_ARGUMENTS,
+    TOOL_OUTCOME,
+    TOOL_RESULT,
     TRACER_NAME,
+    TURN_RESULT,
+    TURN_RULE,
     USER_ID,
 )
 from support_agent.telemetry.redaction import (
@@ -96,7 +110,12 @@ def set_current_attribute(name: str, value: Any) -> None:
 
 
 _CAPTURE_PAYLOADS = False
+_CAPTURE_SAMPLE = 1.0
 _PROVIDER: TracerProvider | None = None
+_CAPTURING: ContextVar[bool] = ContextVar("capturing", default=False)
+"""Whether this turn's words are kept. Decided once per turn, so a turn is
+captured whole or not at all: a sample whose tool results were kept and whose
+reply was not is a sample no rule can read (AHC-0114)."""
 _LAST_EXPORTER: InMemorySpanExporter | None = None
 """The most recently configured exporter, so a harness can check the span
 contract without every test threading the exporter through."""
@@ -105,9 +124,13 @@ contract without every test threading the exporter through."""
 def configure(
     *,
     capture_payloads: bool = False,
+    capture_sample: float = 1.0,
     service_name: str = "support-agent",
     service_version: str | None = None,
     environment: str | None = None,
+    metrics_endpoint: str | None = None,
+    metrics_headers: Mapping[str, str] | None = None,
+    metrics_interval_s: float = 15.0,
 ) -> InMemorySpanExporter:
     """Install a provider and return the in-memory exporter.
 
@@ -127,8 +150,9 @@ def configure(
     in-memory exporter stays regardless: it costs nothing, and it is what the
     eval harness asserts against.
     """
-    global _CAPTURE_PAYLOADS, _PROVIDER
+    global _CAPTURE_PAYLOADS, _CAPTURE_SAMPLE, _PROVIDER
     _CAPTURE_PAYLOADS = capture_payloads
+    _CAPTURE_SAMPLE = capture_sample
     exporter = InMemorySpanExporter()
     # `deployment.environment.name` is the current spelling; the older
     # `deployment.environment` is deprecated. Attributes are dropped when unset
@@ -140,11 +164,39 @@ def configure(
         attributes["deployment.environment.name"] = environment
     provider = TracerProvider(resource=Resource.create(attributes))
     provider.add_span_processor(SimpleSpanProcessor(exporter))
+    provider.add_span_processor(meters.RunNumbers())
     _PROVIDER = provider
     global _LAST_EXPORTER
     _LAST_EXPORTER = exporter
     trace.set_tracer_provider(provider)  # no-op after the first call; harmless
+    meters.configure(
+        Resource.create(attributes), metrics_endpoint, metrics_headers, metrics_interval_s
+    )
     return exporter
+
+
+def begin_capture(run_id: str) -> bool:
+    """Decide whether this turn's words are kept, and remember it for the turn.
+
+    Deterministic in the run id rather than random, so the decision can be
+    recomputed later from the record alone and a replay makes the same one.
+    """
+    keep = _CAPTURE_PAYLOADS and _sampled(run_id, _CAPTURE_SAMPLE)
+    _CAPTURING.set(keep)
+    return keep
+
+
+def capturing() -> bool:
+    return _CAPTURING.get()
+
+
+def _sampled(key: str, rate: float) -> bool:
+    if rate >= 1.0:
+        return True
+    if rate <= 0.0:
+        return False
+    bucket = int(hashlib.sha256(key.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+    return bucket < rate
 
 
 def export_to(endpoint: str, *, headers: Mapping[str, str] | None = None) -> bool:
@@ -204,14 +256,18 @@ def span(name: str, **attributes: Any) -> Iterator[Span]:
             raise
 
 
-def set_payload(current: Span, key: str, text: str) -> None:
-    """Capture a prompt or response — redacted, and only when enabled.
+def set_payload(current: Span, key: str, text: str, *, limit: int = 4000) -> None:
+    """Capture words — redacted, bounded, and only for a turn chosen for capture.
 
     Off by default. Payload capture is the single largest privacy surface in an
-    agent, and a default that leaks is a default that ships.
+    agent, and a default that leaks is a default that ships. When on, it is on
+    for a declared sample of turns (`begin_capture`), not for all traffic.
+
+    Until T-057 this was defined and called from nowhere, so switching
+    capture on captured nothing (found writing AHC-0114).
     """
-    if _CAPTURE_PAYLOADS:
-        current.set_attribute(key, redact(text))
+    if _CAPTURING.get():
+        current.set_attribute(key, redact(text)[:limit])
 
 
 def set_usage(current: Span, *, input_tokens: int, output_tokens: int) -> None:
@@ -220,6 +276,18 @@ def set_usage(current: Span, *, input_tokens: int, output_tokens: int) -> None:
 
 
 __all__ = [
+    "CAPTURED",
+    "TRACER_NAME",
+    "FEEDBACK",
+    "INPUT",
+    "REPLY",
+    "REPLY_REDACTED",
+    "SYNTHETIC",
+    "TOOL_ARGUMENTS",
+    "TOOL_OUTCOME",
+    "TOOL_RESULT",
+    "TURN_RESULT",
+    "TURN_RULE",
     "CONFIG_FINGERPRINT",
     "CONTEXT_CHARS",
     "CONTEXT_EXCHANGES",
@@ -261,6 +329,11 @@ __all__ = [
     "configure",
     "redact",
     "set_current_attribute",
+    "begin_capture",
+    "capturing",
+    "exporting_metrics",
+    "flush_metrics",
+    "metric_points",
     "set_payload",
     "set_usage",
     "span",

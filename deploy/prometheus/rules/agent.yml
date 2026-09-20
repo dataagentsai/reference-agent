@@ -1,0 +1,227 @@
+# The window-level rules: rates against the system's own baseline (T-055).
+#
+# Each rule implements one pattern's `signal` from AAC's patterns/ catalog and
+# carries its id as the `pattern` label, the way watch/rules.py carries it for
+# the turn-level rules. tests/test_watch_catalog.py holds the three together;
+# tests/test_alert_rules.py runs rules/agent.test.yml through promtool.
+#
+# Severity is what happens next: `page` a person now, `ticket` this week. A
+# pattern whose signal is only a trend is a recording rule for the dashboard,
+# not an alert — a trend that pages is a trend nobody reads the second time.
+#
+# Every rate excludes the canary (`synthetic="false"`), and every ratio requires
+# a minimum of traffic, so a quiet hour with one bad turn is not 100%.
+
+groups:
+  # -------------------------------------------------------- L0/L3: reachable
+  - name: agent-reachable
+    rules:
+      - alert: CanaryFailing
+        expr: sum by (case) (increase(agent_canary_cases_total{outcome="fail"}[25m])) >= 2
+        labels: { severity: page, pattern: AACP-0050 }
+        annotations:
+          summary: "The canary's '{{ $labels.case }}' case failed twice running"
+          description: >-
+            The synthetic customer cannot get a right answer through the deployed
+            edge. Every hop is in the path: portal, Keycloak, the gateway, the
+            model, the store's MCP server, Saleor.
+
+      - alert: CanarySilent
+        expr: absent_over_time(agent_canary_cases_total[25m])
+        labels: { severity: page, pattern: AACP-0050 }
+        annotations:
+          summary: The canary has not reported for 25 minutes
+          description: The canary itself is down, or cannot reach the collector.
+
+  # ---------------------------------------------------- L1: speed and errors
+  - name: agent-errors
+    rules:
+      - alert: TurnsFailing
+        expr: |
+          sum(rate(agent_turns_total{synthetic="false",result="failed"}[10m]))
+            / sum(rate(agent_turns_total{synthetic="false"}[10m])) > 0.05
+          and sum(increase(agent_turns_total{synthetic="false"}[10m])) >= 10
+        labels: { severity: page, pattern: AACP-0049 }
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of turns failed in 10 minutes"
+
+      - alert: TurnLatencyTail
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(agent_turn_duration_seconds_bucket{synthetic="false"}[10m]))) > 20
+          and sum(increase(agent_turn_duration_seconds_count{synthetic="false"}[10m])) >= 10
+        for: 10m
+        labels: { severity: page, pattern: AACP-0051 }
+        annotations:
+          summary: "p95 turn latency {{ $value | humanizeDuration }}"
+
+      - alert: ProviderDegraded
+        expr: sum(increase(agent_model_calls_total{outcome="unavailable"}[5m])) >= 3
+        labels: { severity: page, pattern: AACP-0052 }
+        annotations:
+          summary: "{{ $value }} model calls found the provider unavailable in 5 minutes"
+
+      - alert: ToolRetryStorm
+        expr: |
+          (sum by (tool) (rate(agent_tool_calls_total{outcome="error"}[10m]))
+            / sum by (tool) (rate(agent_tool_calls_total[10m]))) > 0.10
+          and sum by (tool) (increase(agent_tool_calls_total[10m])) >= 10
+        labels: { severity: page, pattern: AACP-0020 }
+        annotations:
+          summary: "{{ $labels.tool }} is failing {{ $value | humanizePercentage }} of calls"
+
+      - alert: ToolLatencyDrift
+        expr: |
+          histogram_quantile(0.95, sum by (tool, le) (rate(agent_tool_duration_seconds_bucket[15m])))
+            > 2 * histogram_quantile(0.95,
+                    sum by (tool, le) (rate(agent_tool_duration_seconds_bucket[15m] offset 1w)))
+        for: 15m
+        labels: { severity: ticket, pattern: AACP-0027 }
+        annotations:
+          summary: "{{ $labels.tool }} p95 is over twice last week's"
+
+  # --------------------------------------- L2: working, and not doing its job
+  - name: agent-behaviour
+    rules:
+      - alert: BehaviourShift
+        expr: |
+          (sum(rate(agent_turns_total{synthetic="false",result=~"escalated|refused|failed"}[1h]))
+            / sum(rate(agent_turns_total{synthetic="false"}[1h])))
+          > 2 * (sum(rate(agent_turns_total{synthetic="false",result=~"escalated|refused|failed"}[1d] offset 1w))
+                  / sum(rate(agent_turns_total{synthetic="false"}[1d] offset 1w)))
+          and (sum(rate(agent_turns_total{synthetic="false",result=~"escalated|refused|failed"}[1h]))
+                / sum(rate(agent_turns_total{synthetic="false"}[1h]))) > 0.15
+          and sum(increase(agent_turns_total{synthetic="false"}[1h])) >= 20
+        labels: { severity: page, pattern: AACP-0049 }
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of turns ended escalated, refused or failed"
+          description: >-
+            Twice last week's share. Every request can succeed while the agent
+            stops doing its job; this is that, seen as a rate.
+
+      - alert: RuleRefusingTooMuch
+        expr: |
+          sum by (rule) (rate(agent_refusals_total{synthetic="false"}[1h]))
+            / scalar(sum(rate(agent_turns_total{synthetic="false"}[1h]))) > 0.10
+          and sum by (rule) (increase(agent_refusals_total{synthetic="false"}[1h])) >= 5
+        labels: { severity: page, pattern: AACP-0046 }
+        annotations:
+          summary: "Rule {{ $labels.rule }} refused {{ $value | humanizePercentage }} of turns"
+
+      - alert: RunsEndingOnLimits
+        expr: |
+          sum(rate(agent_run_terminations_total{reason=~"step_budget_exhausted|oscillation_detected|cost_ceiling_reached"}[1d]))
+            / sum(rate(agent_run_terminations_total[1d])) > 0.05
+          and sum(increase(agent_run_terminations_total[1d])) >= 50
+        labels: { severity: ticket, pattern: AACP-0036 }
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of runs ended on a limit, not an answer"
+
+      - alert: ModelOutputUnreadable
+        expr: |
+          sum(rate(agent_model_calls_total{outcome="malformed"}[1h]))
+            / sum(rate(agent_model_calls_total[1h])) > 0.02
+          and sum(increase(agent_model_calls_total[1h])) >= 20
+        labels: { severity: ticket, pattern: AACP-0038 }
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of model responses could not be read"
+
+      - alert: CallsPerTurnAmplified
+        expr: |
+          (sum(rate(agent_model_calls_total[1d])) / sum(rate(agent_turns_total{synthetic="false"}[1d])))
+            > 1.5 * (sum(rate(agent_model_calls_total[1d] offset 1w))
+                      / sum(rate(agent_turns_total{synthetic="false"}[1d] offset 1w)))
+        labels: { severity: ticket, pattern: AACP-0001 }
+        annotations:
+          summary: Model calls per turn are half again last week's
+
+      - alert: WritesRefusedForAuthority
+        expr: |
+          sum by (tool) (increase(agent_tool_calls_total{tool=~"cancel_order|issue_refund|open_return_request|change_address",outcome="error"}[15m])) > 0
+        labels: { severity: page, pattern: AACP-0047 }
+        annotations:
+          summary: "{{ $labels.tool }} was refused as an error, not a no"
+          description: >-
+            A write the far end rejected outright — no approval, no scope, or not
+            reachable — rather than answering allowed: false. The far end's check
+            is the only thing that held.
+
+      - alert: WaitsLapsing
+        expr: |
+          (sum(increase(agent_approvals_settled_total{outcome="expired"}[6h])) or vector(0))
+            + (sum(increase(agent_escalations_closed_total{state="expired"}[6h])) or vector(0)) > 0
+        labels: { severity: ticket, pattern: AACP-0045 }
+        annotations:
+          summary: "{{ $value }} approvals or escalations expired with nobody in 6 hours"
+
+  # ------------------------------------------------------- the telemetry itself
+  - name: agent-telemetry
+    rules:
+      - alert: TelemetryDropping
+        # The collector names its own counters with the unit in braces —
+        # otelcol_exporter_send_failed_spans_{spans}_total — so they are matched
+        # by pattern rather than spelled.
+        expr: |
+          sum(increase({__name__=~"otelcol_exporter_(send|enqueue)_failed_spans.*"}[15m])) > 0
+        labels: { severity: ticket, pattern: AACP-0056 }
+        annotations:
+          summary: "{{ $value }} spans could not be delivered to the trace store in 15 minutes"
+          description: >-
+            Those turns are missing from the trace store, so the online rules
+            never saw them and every rate computed there is short.
+
+  # ------------------------------------------------------------- cost
+  - name: agent-cost
+    rules:
+      - alert: SpendPerRunDoubled
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(agent_spend_USD_bucket[1h])))
+            > 2 * histogram_quantile(0.95, sum by (le) (rate(agent_spend_USD_bucket[1d] offset 1w)))
+          and sum(increase(agent_spend_USD_count[1h])) >= 20
+        labels: { severity: ticket, pattern: AACP-0053 }
+        annotations:
+          summary: "p95 cost per run is {{ $value }} USD, twice last week's"
+
+  # -------------------------------------------- L4: the online rules' findings
+  - name: agent-online
+    rules:
+      - alert: OnlineRulePage
+        expr: sum by (rule) (increase(agent_online_findings_total{severity="page"}[15m])) > 0
+        labels: { severity: page, pattern: watch }
+        annotations:
+          summary: "Online rule {{ $labels.rule }} found a turn a customer was misled in"
+          description: >-
+            A certain rule: a reply that contradicts the store, claims an action
+            that did not happen, shows personal data, or wrote after injected
+            instructions. The trace carries a watch.{{ $labels.rule }} score in
+            Langfuse.
+
+      - alert: OnlineRuleTickets
+        expr: sum by (rule) (increase(agent_online_findings_total{severity="ticket"}[1d])) >= 5
+        labels: { severity: ticket, pattern: watch }
+        annotations:
+          summary: "Online rule {{ $labels.rule }} fired {{ $value }} times today"
+
+  # ------------------------------------ trends: recorded for the dashboard
+  - name: agent-trends
+    rules:
+      - record: agent:returned_share:1d
+        expr: |
+          sum(increase(agent_outcomes_total{kind="returned"}[1d]))
+            / clamp_min(sum(increase(agent_online_evaluated_total[1d])), 1)
+        labels: { pattern: AACP-0041 }
+      - record: agent:asked_for_person_share:1d
+        expr: |
+          sum(increase(agent_outcomes_total{kind="asked_for_person"}[1d]))
+            / clamp_min(sum(increase(agent_online_evaluated_total[1d])), 1)
+        labels: { pattern: AACP-0042 }
+      - record: agent:tool_calls_per_turn:1d
+        expr: |
+          sum(rate(agent_tool_calls_total[1d]))
+            / clamp_min(sum(rate(agent_turns_total{synthetic="false"}[1d])), 1e-9)
+        labels: { pattern: AACP-0037 }
+      - record: agent:feedback_down_share:1d
+        expr: |
+          sum(increase(agent_outcomes_total{kind="feedback_down"}[1d]))
+            / clamp_min(sum(increase(agent_outcomes_total{kind=~"feedback_.*"}[1d])), 1)
+        labels: { pattern: AACP-0041 }
