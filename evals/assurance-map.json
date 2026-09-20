@@ -1,7 +1,7 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 491,
-  "tagged": 392,
+  "functions": 570,
+  "tagged": 453,
   "tooling": [
     "tests/test_actors.py::test_a_model_driven_actor_says_what_it_is_told_and_stops",
     "tests/test_actors.py::test_a_persona_is_behaviour_and_the_situation_is_the_domains",
@@ -21,6 +21,7 @@
     "tests/test_agenttwin.py::test_the_run_record_states_its_determinism_class",
     "tests/test_agenttwin.py::test_the_second_world_also_widened_cancellation",
     "tests/test_agenttwin.py::test_the_second_world_projects_and_enforces_its_own_policy",
+    "tests/test_alert_rules.py::test_the_alert_rules",
     "tests/test_approver.py::test_reviewing_an_empty_queue_is_silent",
     "tests/test_approver.py::test_the_reviewer_is_a_declared_actor",
     "tests/test_assurance_map.py::test_a_statement_verified_only_on_dead_code_is_not_met",
@@ -37,6 +38,10 @@
     "tests/test_cassette.py::test_a_cassette_round_trips_through_a_file",
     "tests/test_cassette.py::test_an_unknown_format_is_refused_rather_than_reinterpreted",
     "tests/test_cassette.py::test_the_format_version_is_pinned",
+    "tests/test_compose.py::test_a_bound_product_runs_from_compose",
+    "tests/test_compose.py::test_every_service_is_accounted_for",
+    "tests/test_compose.py::test_the_postgres_init_script_is_executable",
+    "tests/test_compose.py::test_the_stack_says_where_it_runs_from",
     "tests/test_conformance.py::test_an_id_that_exists_nowhere_is_a_defect_in_the_test",
     "tests/test_conformance.py::test_an_obligation_from_another_archetype_is_a_tagging_gap_not_a_mistake",
     "tests/test_conformance.py::test_an_uncovered_release_gate_is_called_out_separately",
@@ -77,6 +82,7 @@
     "tests/test_reuse_audit.py::test_every_module_is_placed_in_a_layer",
     "tests/test_reuse_audit.py::test_every_seam_names_something_that_exists",
     "tests/test_reuse_audit.py::test_the_domain_measurement_agrees_with_the_classification",
+    "tests/test_saleor_live.py::test_seeding_again_changes_nothing",
     "tests/test_scenario_files.py::test_every_scenario_names_what_it_discharges",
     "tests/test_scenario_files.py::test_every_unreached_statement_says_why_it_cannot_be_reached",
     "tests/test_scenario_files.py::test_scenario_coverage_only_goes_up",
@@ -102,6 +108,12 @@
     "tests/test_truth.py::test_the_old_predicates_pass_a_lying_agent",
     "tests/test_truth.py::test_the_oracle_reads_the_world_not_the_declaration",
     "tests/test_truth.py::test_what_counts_as_a_claim",
+    "tests/test_watch_catalog.py::test_a_pattern_is_not_both_detected_and_owed",
+    "tests/test_watch_catalog.py::test_a_rule_implements_a_signal_of_its_own_level",
+    "tests/test_watch_catalog.py::test_every_alert_says_how_loudly_and_which_pattern",
+    "tests/test_watch_catalog.py::test_every_detector_names_a_pattern_that_exists",
+    "tests/test_watch_catalog.py::test_every_pattern_with_a_signal_is_detected_or_says_why_not",
+    "tests/test_watch_rules.py::test_every_rule_names_the_statement_it_serves_and_a_version",
     "tests/test_why_each_file.py::test_every_mechanism_file_has_a_recorded_reason",
     "tests/test_why_each_file.py::test_the_document_names_no_file_that_is_not_mechanism"
   ],
@@ -110,12 +122,24 @@
     "tests/test_desk.py::test_a_frustrated_customer_is_never_escalated_today": "dissatisfaction is not an intent, so a customer repeating it carries none to repeat and no rule sees them (GAPS section 7)",
     "tests/test_policy.py::test_what_entity_grounding_cannot_catch": "grounding compares identifiers, so a claim built only from words the tools did return passes it"
   },
-  "untagged": [],
+  "untagged": [
+    "tests/test_consent.py::test_a_tool_result_adds_nothing",
+    "tests/test_gateway.py::test_a_rate_limit_keeps_the_gateways_retry_after",
+    "tests/test_keycloak.py::test_an_expired_realm_session_is_refused",
+    "tests/test_portal.py::test_an_expired_session_cookie_is_no_session",
+    "tests/test_store_token.py::test_an_expired_store_token_is_renewed_once",
+    "tests/test_watch_rules.py::test_thresholds_are_configuration",
+    "tests/test_watching.py::test_sampling_is_decided_by_the_run_id_so_a_replay_decides_the_same"
+  ],
   "families": {
     "AOAS": {
-      "owed": 55,
-      "exercised": 50,
-      "failing": [],
+      "owed": 57,
+      "exercised": 52,
+      "failing": [
+        "P-REFUND",
+        "op:issue_refund",
+        "ext:approval_queue"
+      ],
       "not_exercised": [
         {
           "id": "Q-STEPS",
@@ -140,9 +164,11 @@
       ]
     },
     "AAC": {
-      "owed": 52,
-      "exercised": 44,
-      "failing": [],
+      "owed": 55,
+      "exercised": 47,
+      "failing": [
+        "AAC-0104"
+      ],
       "not_exercised": [
         {
           "id": "AAC-0010",
@@ -179,9 +205,14 @@
       ]
     },
     "AHC": {
-      "owed": 72,
-      "exercised": 55,
-      "failing": [],
+      "owed": 76,
+      "exercised": 59,
+      "failing": [
+        "AHC-0005",
+        "AHC-0010",
+        "AHC-0021",
+        "AHC-0057"
+      ],
       "not_exercised": [
         {
           "id": "AHC-0006",
@@ -323,7 +354,7 @@
     },
     "AAC-0005": {
       "passed": [
-        "tests/test_approvals.py::test_nobody_approves_their_own_request",
+        "tests/test_approvals.py::test_who_may_decide_and_when",
         "tests/test_break_it.py::test_a_planted_instruction_cannot_bypass_the_eligibility_rule",
         "tests/test_policy.py::test_output_rules",
         "tests/test_policy.py::test_a_false_claim_never_reaches_the_customer"
@@ -342,7 +373,8 @@
     "AAC-0008": {
       "passed": [
         "tests/test_cost.py::test_cost_per_successful_task",
-        "tests/test_cost.py::test_the_cost_ceiling_is_reachable_from_the_entrypoint"
+        "tests/test_cost.py::test_the_cost_ceiling_is_reachable_from_the_entrypoint",
+        "tests/test_watching.py::test_a_run_is_counted_once_where_it_ends"
       ],
       "failed": []
     },
@@ -355,6 +387,7 @@
         "tests/test_resilient_llm.py::test_each_provider_condition_gets_its_own_answer",
         "tests/test_resilient_llm.py::test_a_provider_blip_does_not_reach_the_customer",
         "tests/test_router_loop.py::test_provider_failure_is_a_declared_path_not_a_stack_trace",
+        "tests/test_seed_token.py::test_the_seeder_re_signs_in_only_for_an_expired_token",
         "tests/test_typed_boundary.py::test_the_loop_degrades_instead_of_crashing"
       ],
       "failed": []
@@ -372,13 +405,25 @@
     "AAC-0012": {
       "passed": [
         "tests/test_config.py::test_fingerprint_tracks_behaviour_not_secrets",
-        "tests/test_config.py::test_fingerprint_is_stable_across_identical_resolutions"
+        "tests/test_config.py::test_fingerprint_is_stable_across_identical_resolutions",
+        "tests/test_config.py::test_a_declared_provider_is_checked_against_the_endpoint",
+        "tests/test_config.py::test_a_gateway_routing_elsewhere_fails_at_startup",
+        "tests/test_gateway.py::test_the_agents_own_gateway_key_is_verified_at_startup",
+        "tests/test_served_provider.py::test_the_composed_proxy_is_checked_at_startup"
       ],
       "failed": []
     },
     "AAC-0013": {
       "passed": [
         "tests/test_golden.py::test_nothing_regressed_against_the_committed_baseline"
+      ],
+      "failed": []
+    },
+    "AAC-0014": {
+      "passed": [
+        "tests/test_watch_rules.py::test_each_rule_fires_on_its_case_and_nothing_else_does",
+        "tests/test_watch_rules.py::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn",
+        "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
       ],
       "failed": []
     },
@@ -399,6 +444,12 @@
       ],
       "failed": []
     },
+    "AAC-0037": {
+      "passed": [
+        "tests/test_watch_rules.py::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn"
+      ],
+      "failed": []
+    },
     "AAC-0040": {
       "passed": [
         "tests/test_serve.py::test_another_customer_cannot_open_your_conversation"
@@ -410,6 +461,7 @@
         "tests/test_escalation.py::test_a_request_for_a_person_escalates",
         "tests/test_escalation.py::test_naming_a_person_is_not_asking_for_one",
         "tests/test_escalation.py::test_the_policy_rule_still_fires_without_anyone_asking",
+        "tests/test_router_loop.py::test_a_discount_is_refused_when_asked_for_and_not_when_mentioned",
         "tests/test_tier2.py::test_what_earns_a_person",
         "tests/test_tier2.py::test_what_does_not",
         "tests/test_tier2.py::test_a_repeatedly_refused_customer_reaches_a_person",
@@ -426,8 +478,8 @@
     },
     "AAC-0047": {
       "passed": [
-        "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
-        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
+        "tests/test_approvals.py::test_a_decision_is_acted_on_by_the_workflow",
+        "tests/test_approvals.py::test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it",
         "tests/test_break_it.py::test_a_retry_never_gets_a_new_name_however_the_run_unfolds",
         "tests/test_contracts.py::test_idempotency_key_identity",
         "tests/test_contracts.py::test_a_retry_is_minted_the_key_it_already_had",
@@ -437,7 +489,6 @@
         "tests/test_llm_identity_idempotency.py::test_the_first_outcome_for_a_key_is_the_outcome",
         "tests/test_postgres.py::test_two_writers_racing_leave_one_row",
         "tests/test_postgres.py::test_the_first_outcome_for_a_key_is_the_outcome",
-        "tests/test_postgres.py::test_an_approval_survives_a_process_restart",
         "tests/test_tools_context.py::test_a_retry_under_the_same_key_does_not_refund_twice",
         "tests/test_tools_context.py::test_a_later_iteration_is_a_genuine_second_execution"
       ],
@@ -477,24 +528,36 @@
       "passed": [
         "tests/test_actors.py::test_a_persistent_customer_cannot_get_the_same_effect_three_times",
         "tests/test_agenttwin.py::test_the_gate_cancelling_a_shipped_order_changes_nothing",
-        "tests/test_approvals.py::test_nobody_approves_their_own_request",
-        "tests/test_approvals.py::test_the_elevated_scope_is_refused_without_a_live_grant",
+        "tests/test_approvals.py::test_who_may_decide_and_when",
+        "tests/test_approvals.py::test_the_elevated_scope_needs_a_live_grant_for_this_customer",
         "tests/test_approvals.py::test_a_large_refund_cannot_be_issued_before_it_is_granted",
-        "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
-        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
-        "tests/test_approvals.py::test_an_agent_without_an_approval_store_cannot_refund_at_all",
-        "tests/test_approver.py::test_a_reviewer_cannot_approve_their_own_customer_s_request",
-        "tests/test_postgres.py::test_an_approval_survives_a_process_restart",
-        "tests/test_postgres.py::test_a_decision_is_terminal_across_processes",
-        "tests/test_postgres.py::test_the_action_and_key_cannot_change_after_the_request"
+        "tests/test_approvals.py::test_a_decision_is_acted_on_by_the_workflow",
+        "tests/test_approvals.py::test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it",
+        "tests/test_approvals.py::test_an_agent_without_approvals_cannot_refund_at_all",
+        "tests/test_approver.py::test_a_reviewer_cannot_approve_their_own_customer_s_request"
       ],
       "failed": []
     },
     "AAC-0057": {
       "passed": [
-        "tests/test_approvals.py::test_the_elevated_scope_is_refused_without_a_live_grant",
+        "tests/test_approvals.py::test_the_elevated_scope_needs_a_live_grant_for_this_customer",
+        "tests/test_far_end.py::test_the_far_end_believes_the_token_and_not_the_assertion",
+        "tests/test_far_end.py::test_a_refund_lands_only_on_an_approval_the_far_end_checked",
+        "tests/test_far_end.py::test_the_agents_own_elevation_is_not_sent_as_authority",
+        "tests/test_far_end.py::test_granted_identity_names_its_approval",
+        "tests/test_far_end.py::test_the_approval_workflow_acts_for_the_customer_its_approval_names",
+        "tests/test_keycloak.py::test_the_realm_issues_what_the_agent_requires",
+        "tests/test_keycloak.py::test_only_an_administrator_can_link_a_login_to_a_customer",
+        "tests/test_keycloak.py::test_the_realm_exchanges_a_session_for_the_order_system",
+        "tests/test_keycloak.py::test_the_far_end_serves_the_realms_customer_and_nobody_else",
+        "tests/test_keycloak.py::test_the_realm_gives_the_approval_worker_a_login_with_no_customer_and_no_refunds",
+        "tests/test_keycloak.py::test_a_refund_lands_on_the_realms_service_login_only_through_an_approval",
         "tests/test_llm_identity_idempotency.py::test_customer_scopes_exclude_refunds",
-        "tests/test_ownership.py::test_only_the_owner_reaches_the_order"
+        "tests/test_ownership.py::test_only_the_owner_reaches_the_order",
+        "tests/test_sessions.py::test_a_stored_login_becomes_only_its_own_live_session",
+        "tests/test_store_live.py::test_reading_an_order_from_the_real_store",
+        "tests/test_store_live.py::test_the_refund_tool_is_not_even_offered_to_a_customer",
+        "tests/test_store_live.py::test_a_refund_the_agent_elevated_itself_for_is_refused_by_the_store"
       ],
       "failed": []
     },
@@ -517,7 +580,8 @@
     },
     "AAC-0060": {
       "passed": [
-        "tests/test_router_loop.py::test_the_trajectory_is_reconstructable_from_the_trace"
+        "tests/test_router_loop.py::test_the_trajectory_is_reconstructable_from_the_trace",
+        "tests/test_watching.py::test_a_turn_is_rebuilt_whole_from_its_spans"
       ],
       "failed": []
     },
@@ -529,10 +593,13 @@
     },
     "AAC-0076": {
       "passed": [
+        "tests/test_channel.py::test_a_redelivered_message_is_answered_once",
         "tests/test_serve.py::test_a_repeated_delivery_is_answered_not_repeated",
         "tests/test_trigger.py::test_a_settled_delivery_is_refused",
         "tests/test_trigger.py::test_an_in_flight_delivery_is_refused_differently",
         "tests/test_trigger.py::test_a_failed_delivery_still_settles",
+        "tests/test_trigger.py::test_a_durable_claim_is_shared_and_expires",
+        "tests/test_trigger.py::test_a_durable_claim_guards_a_turn_the_same_way",
         "tests/test_trigger.py::test_a_redelivered_message_does_not_cancel_twice",
         "tests/test_trigger.py::test_two_concurrent_deliveries_do_not_both_run"
       ],
@@ -540,12 +607,14 @@
     },
     "AAC-0078": {
       "passed": [
-        "tests/test_approvals.py::test_an_expired_request_cannot_be_decided",
-        "tests/test_approvals.py::test_the_elevated_scope_is_refused_without_a_live_grant",
-        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
-        "tests/test_approver.py::test_a_reviewer_who_answers_after_the_window_is_refused"
+        "tests/test_approvals.py::test_who_may_decide_and_when",
+        "tests/test_approvals.py::test_the_elevated_scope_needs_a_live_grant_for_this_customer",
+        "tests/test_approvals.py::test_an_approval_expires_on_the_workflows_clock",
+        "tests/test_approvals.py::test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_approver.py::test_the_four_reviewers"
+      ]
     },
     "AAC-0088": {
       "passed": [
@@ -588,7 +657,8 @@
       "passed": [
         "tests/test_telemetry.py::test_redaction_replaces_sensitive_spans",
         "tests/test_telemetry.py::test_payload_capture_is_off_by_default",
-        "tests/test_telemetry.py::test_payload_capture_redacts_when_enabled"
+        "tests/test_telemetry.py::test_payload_capture_redacts_when_enabled",
+        "tests/test_watching.py::test_a_turns_words_are_kept_only_when_it_is_sampled"
       ],
       "failed": []
     },
@@ -639,7 +709,9 @@
       "passed": [
         "tests/test_cost.py::test_spend_and_tenant_are_on_the_trace"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_gateway.py::test_the_composed_gateway_answers_reach_the_agent_as_their_kind"
+      ]
     },
     "AAC-0105": {
       "passed": [
@@ -651,7 +723,10 @@
     "AAC-0106": {
       "passed": [
         "tests/test_break_it.py::test_a_planted_instruction_cannot_reach_an_unscoped_tool",
-        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_a_person_not_the_money",
+        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_nobody",
+        "tests/test_consent.py::test_what_the_customer_asked_for",
+        "tests/test_consent.py::test_a_paraphrase_is_confirmed_before_anything_changes",
+        "tests/test_saleor_live.py::test_the_planted_note_is_the_stores_own_note",
         "tests/test_scenario_files.py::test_every_generated_attack_case_leaves_the_world_alone"
       ],
       "failed": []
@@ -676,6 +751,7 @@
         "tests/test_break_it.py::test_a_false_cancellation_claim_does_not_reach_the_customer",
         "tests/test_break_it.py::test_a_stale_read_cannot_become_a_false_confirmation",
         "tests/test_break_it.py::test_the_policy_covers_every_irreversible_action_not_just_refunds",
+        "tests/test_channel.py::test_an_escalation_hands_the_conversation_to_a_person",
         "tests/test_escalation.py::test_an_escalation_writes_a_record_and_names_it",
         "tests/test_escalation.py::test_without_a_store_the_handover_is_refused_not_claimed",
         "tests/test_policy.py::test_a_refund_may_only_be_claimed_if_one_happened",
@@ -686,15 +762,28 @@
         "tests/test_policy.py::test_a_refused_tool_result_does_not_license_the_claim",
         "tests/test_policy.py::test_a_successful_tool_result_does_license_it",
         "tests/test_release_gates.py::test_policy_screens_the_whole_reply_and_can_still_block_it",
-        "tests/test_tier2.py::test_without_a_store_tier_two_never_fires"
+        "tests/test_store_agent_live.py::test_the_store_refuses_a_cancellation_and_the_agent_says_so",
+        "tests/test_tier2.py::test_without_a_store_tier_two_never_fires",
+        "tests/test_watch_rules.py::test_each_rule_fires_on_its_case_and_nothing_else_does",
+        "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
       ],
       "failed": []
     },
     "AAC-0111": {
       "passed": [
+        "tests/test_channel.py::test_a_webhook_causes_only_what_it_may",
+        "tests/test_channel.py::test_an_unsigned_webhook_causes_nothing",
+        "tests/test_channel.py::test_opening_the_widget_greets_only_a_verified_signed_in_customer",
+        "tests/test_far_end.py::test_the_far_end_believes_the_token_and_not_the_assertion",
+        "tests/test_far_end.py::test_the_approval_workflow_acts_for_the_customer_its_approval_names",
+        "tests/test_keycloak.py::test_a_realm_session_reaches_only_its_own_surface",
+        "tests/test_keycloak.py::test_the_portal_logs_a_customer_in_through_the_realm",
         "tests/test_llm_identity_idempotency.py::test_bad_tokens_produce_no_identity_at_all",
         "tests/test_llm_identity_idempotency.py::test_expired_token_is_refused",
+        "tests/test_llm_identity_idempotency.py::test_only_a_session_with_a_customer_acts_as_one",
         "tests/test_llm_identity_idempotency.py::test_confused_deputy_needs_a_different_token_not_a_different_claim",
+        "tests/test_portal.py::test_a_customer_login_is_kept_and_the_page_carries_no_token",
+        "tests/test_portal.py::test_a_login_that_does_not_complete_keeps_nothing",
         "tests/test_serve.py::test_a_turn_needs_a_token",
         "tests/test_serve.py::test_a_forged_token_is_refused_without_saying_why",
         "tests/test_serve.py::test_an_expired_token_is_refused",
@@ -716,6 +805,32 @@
         "tests/test_freshness.py::test_a_cancellation_planned_on_an_old_read_reads_again_first",
         "tests/test_freshness.py::test_the_row_is_read_again_before_the_action_lands",
         "tests/test_freshness.py::test_a_row_that_moved_underneath_the_run_stops_the_action"
+      ],
+      "failed": []
+    },
+    "AAC-0114": {
+      "passed": [
+        "tests/test_alert_rules.py::test_the_alert_rules",
+        "tests/test_watching.py::test_a_turn_counts_itself_its_duration_and_its_tools"
+      ],
+      "failed": []
+    },
+    "AAC-0115": {
+      "passed": [
+        "tests/test_watch_rules.py::test_a_customer_coming_back_is_an_outcome_on_the_answer_before",
+        "tests/test_watch_rules.py::test_a_burst_of_new_conversations_is_one_return",
+        "tests/test_watch_rules.py::test_asking_for_a_person_after_an_answer_is_an_outcome_on_that_answer",
+        "tests/test_watch_rules.py::test_feedback_lands_on_the_last_turn_before_it",
+        "tests/test_watching.py::test_feedback_is_the_customers_verdict_on_their_own_conversation",
+        "tests/test_watching.py::test_asking_for_a_person_right_after_an_answer_is_an_outcome"
+      ],
+      "failed": []
+    },
+    "AAC-0116": {
+      "passed": [
+        "tests/test_alert_rules.py::test_the_alert_rules",
+        "tests/test_watching.py::test_the_canary_passes_through_the_real_edge_as_its_own_customer",
+        "tests/test_watching.py::test_each_canary_case_knows_a_wrong_answer"
       ],
       "failed": []
     },
@@ -742,8 +857,14 @@
       "passed": [
         "tests/test_config.py::test_fingerprint_tracks_behaviour_not_secrets",
         "tests/test_config.py::test_fingerprint_is_stable_across_identical_resolutions",
+        "tests/test_config.py::test_a_declared_provider_is_checked_against_the_endpoint",
+        "tests/test_config.py::test_a_gateway_routing_elsewhere_fails_at_startup",
         "tests/test_entrypoint_state.py::test_the_turn_span_carries_the_config_fingerprint",
-        "tests/test_golden.py::test_every_approved_model_is_configurable_priced_and_reachable"
+        "tests/test_gateway.py::test_the_agents_own_gateway_key_is_verified_at_startup",
+        "tests/test_golden.py::test_every_approved_model_is_configurable_priced_and_reachable",
+        "tests/test_served_provider.py::test_a_direct_endpoint_is_recognised_by_its_host",
+        "tests/test_served_provider.py::test_a_gateway_says_where_it_routes",
+        "tests/test_served_provider.py::test_the_composed_proxy_is_checked_at_startup"
       ],
       "failed": []
     },
@@ -772,7 +893,9 @@
         "tests/test_typed_boundary.py::test_the_loop_degrades_instead_of_crashing",
         "tests/test_typed_boundary.py::test_a_malformed_response_is_not_retried"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_gateway.py::test_a_refused_call_does_not_put_the_gateway_on_cooldown"
+      ]
     },
     "AHC-0007": {
       "passed": [
@@ -797,7 +920,9 @@
       "passed": [
         "tests/test_scenario_files.py::test_a_declared_scenario_passes_every_check_it_makes"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_scenario_files.py::test_a_declared_scenario_says_the_same_against_the_real_store"
+      ]
     },
     "AHC-0011": {
       "passed": [
@@ -833,7 +958,7 @@
     },
     "AHC-0014": {
       "passed": [
-        "tests/test_approvals.py::test_an_approval_lives_on_the_agents_clock"
+        "tests/test_sampling_explicit.py::test_every_model_call_states_its_sampling"
       ],
       "failed": []
     },
@@ -870,7 +995,7 @@
     },
     "AHC-0018": {
       "passed": [
-        "tests/test_approvals.py::test_deciding_an_unknown_approval_is_an_error",
+        "tests/test_approvals.py::test_an_approval_expires_on_the_workflows_clock",
         "tests/test_approvals.py::test_the_decision_is_on_the_trace",
         "tests/test_build_checks.py::test_every_counter_declared_is_incremented_somewhere",
         "tests/test_policy.py::test_the_failure_is_visible_on_the_trace",
@@ -900,9 +1025,13 @@
         "tests/test_flow_resilience.py::test_an_error_with_no_response_yields_nothing",
         "tests/test_flow_resilience.py::test_backoff_grows_and_is_capped",
         "tests/test_flow_resilience.py::test_jitter_spreads_the_herd",
-        "tests/test_resilient_llm.py::test_each_provider_condition_gets_its_own_answer"
+        "tests/test_gateway.py::test_every_gateway_answer_becomes_its_own_kind",
+        "tests/test_resilient_llm.py::test_each_provider_condition_gets_its_own_answer",
+        "tests/test_sessions.py::test_a_burst_of_messages_is_one_refresh"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_gateway.py::test_the_composed_gateway_answers_reach_the_agent_as_their_kind"
+      ]
     },
     "AHC-0022": {
       "passed": [
@@ -961,7 +1090,8 @@
       "passed": [
         "tests/test_agenttwin.py::test_the_projected_surface_is_still_scope_gated",
         "tests/test_break_it.py::test_a_planted_instruction_cannot_reach_an_unscoped_tool",
-        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_a_person_not_the_money",
+        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_nobody",
+        "tests/test_consent.py::test_what_the_customer_asked_for",
         "tests/test_llm_identity_idempotency.py::test_confused_deputy_needs_a_different_token_not_a_different_claim",
         "tests/test_scenario_files.py::test_every_generated_attack_case_leaves_the_world_alone",
         "tests/test_tools_context.py::test_the_surface_is_scoped_to_the_identity",
@@ -1071,6 +1201,7 @@
         "tests/test_trigger.py::test_a_failed_delivery_still_settles",
         "tests/test_trigger.py::test_different_deliveries_do_not_collide",
         "tests/test_trigger.py::test_an_unidentified_delivery_runs_unguarded",
+        "tests/test_trigger.py::test_a_durable_claim_is_shared_and_expires",
         "tests/test_trigger.py::test_a_redelivered_message_does_not_cancel_twice",
         "tests/test_trigger.py::test_without_a_delivery_id_the_second_run_acts_again",
         "tests/test_trigger.py::test_two_concurrent_deliveries_do_not_both_run"
@@ -1079,34 +1210,31 @@
     },
     "AHC-0057": {
       "passed": [
-        "tests/test_approvals.py::test_nobody_approves_their_own_request",
-        "tests/test_approvals.py::test_an_expired_request_cannot_be_decided",
-        "tests/test_approvals.py::test_the_elevated_scope_is_refused_without_a_live_grant",
-        "tests/test_approvals.py::test_a_live_grant_mints_the_scope",
-        "tests/test_approvals.py::test_an_approval_cannot_elevate_a_different_customer",
+        "tests/test_approvals.py::test_who_may_decide_and_when",
+        "tests/test_approvals.py::test_the_elevated_scope_needs_a_live_grant_for_this_customer",
         "tests/test_approvals.py::test_a_large_refund_cannot_be_issued_before_it_is_granted",
-        "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
-        "tests/test_approvals.py::test_a_refused_approval_never_reaches_the_tool",
-        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
-        "tests/test_approvals.py::test_a_pending_approval_short_circuits_the_next_turn",
-        "tests/test_approvals.py::test_a_refused_approval_is_reported_and_nothing_is_refunded",
-        "tests/test_approvals.py::test_an_agent_without_an_approval_store_cannot_refund_at_all",
-        "tests/test_approvals.py::test_an_approval_lives_on_the_agents_clock",
+        "tests/test_approvals.py::test_a_decision_is_acted_on_by_the_workflow",
+        "tests/test_approvals.py::test_an_approval_expires_on_the_workflows_clock",
+        "tests/test_approvals.py::test_a_restart_during_an_hour_long_approval_resumes_it",
+        "tests/test_approvals.py::test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it",
+        "tests/test_approvals.py::test_an_agent_without_approvals_cannot_refund_at_all",
         "tests/test_approvals.py::test_a_refund_is_for_the_orders_total_and_the_gate_reads_it",
-        "tests/test_approver.py::test_a_granted_refund_executes_against_a_projected_world",
-        "tests/test_approver.py::test_a_reviewer_who_denies_produces_no_refund",
-        "tests/test_approver.py::test_a_reviewer_who_walks_away_leaves_it_pending_forever",
-        "tests/test_approver.py::test_a_reviewer_who_answers_after_the_window_is_refused",
         "tests/test_approver.py::test_a_reviewer_cannot_approve_their_own_customer_s_request",
-        "tests/test_approver.py::test_a_slow_reviewer_is_still_waiting_when_the_customer_follows_up",
         "tests/test_contracts.py::test_needs_approval_does_not_block_and_says_why",
         "tests/test_facts.py::test_a_pending_approval_is_in_the_record_before_anybody_reads_it",
+        "tests/test_far_end.py::test_a_refund_lands_only_on_an_approval_the_far_end_checked",
+        "tests/test_far_end.py::test_the_approval_workflow_acts_for_the_customer_its_approval_names",
+        "tests/test_keycloak.py::test_the_realm_gives_the_approval_worker_a_login_with_no_customer_and_no_refunds",
+        "tests/test_keycloak.py::test_a_refund_lands_on_the_realms_service_login_only_through_an_approval",
         "tests/test_llm_identity_idempotency.py::test_customer_scopes_exclude_refunds",
-        "tests/test_postgres.py::test_an_approval_survives_a_process_restart",
-        "tests/test_postgres.py::test_the_action_and_key_cannot_change_after_the_request",
-        "tests/test_promise.py::test_a_turn_waiting_on_an_approval_is_never_touched"
+        "tests/test_promise.py::test_a_turn_waiting_on_an_approval_is_never_touched",
+        "tests/test_store_live.py::test_the_refund_tool_is_not_even_offered_to_a_customer",
+        "tests/test_store_live.py::test_a_refund_the_agent_elevated_itself_for_is_refused_by_the_store",
+        "tests/test_temporal_live.py::test_an_approval_survives_the_server_it_is_waiting_in"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_approver.py::test_the_four_reviewers"
+      ]
     },
     "AHC-0058": {
       "passed": [
@@ -1134,6 +1262,7 @@
     },
     "AHC-0070": {
       "passed": [
+        "tests/test_channel.py::test_an_escalation_hands_the_conversation_to_a_person",
         "tests/test_escalation.py::test_an_escalation_writes_a_record_and_names_it",
         "tests/test_escalation.py::test_escalation_still_never_reaches_the_model",
         "tests/test_facts.py::test_the_handoff_is_assembled_rather_than_summarised",
@@ -1145,7 +1274,7 @@
     "AHC-0074": {
       "passed": [
         "tests/test_approvals.py::test_the_original_key_survives_the_wait",
-        "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
+        "tests/test_approvals.py::test_a_decision_is_acted_on_by_the_workflow",
         "tests/test_break_it.py::test_a_retry_never_gets_a_new_name_however_the_run_unfolds",
         "tests/test_contracts.py::test_idempotency_key_identity",
         "tests/test_contracts.py::test_idempotency_key_is_stable_across_construction",
@@ -1157,6 +1286,7 @@
         "tests/test_llm_identity_idempotency.py::test_reads_bypass_the_ledger",
         "tests/test_llm_identity_idempotency.py::test_the_first_outcome_for_a_key_is_the_outcome",
         "tests/test_postgres.py::test_the_first_outcome_for_a_key_is_the_outcome",
+        "tests/test_store_agent_live.py::test_a_second_return_request_is_refused_by_the_store_itself",
         "tests/test_tools_context.py::test_a_later_iteration_is_a_genuine_second_execution"
       ],
       "failed": []
@@ -1198,18 +1328,36 @@
     },
     "AHC-0099": {
       "passed": [
+        "tests/test_channel.py::test_a_webhook_causes_only_what_it_may",
+        "tests/test_far_end.py::test_the_far_end_believes_the_token_and_not_the_assertion",
+        "tests/test_keycloak.py::test_the_realm_issues_what_the_agent_requires",
+        "tests/test_keycloak.py::test_a_realm_session_reaches_only_its_own_surface",
+        "tests/test_keycloak.py::test_the_realm_exchanges_a_session_for_the_order_system",
+        "tests/test_keycloak.py::test_a_portal_login_is_resumed_until_the_customer_logs_out",
+        "tests/test_keycloak.py::test_the_portal_logs_a_customer_in_through_the_realm",
         "tests/test_llm_identity_idempotency.py::test_round_trip_yields_the_customer_and_scopes",
         "tests/test_llm_identity_idempotency.py::test_bad_tokens_produce_no_identity_at_all",
         "tests/test_llm_identity_idempotency.py::test_expired_token_is_refused",
-        "tests/test_llm_identity_idempotency.py::test_a_short_secret_is_a_configuration_fault_not_a_warning",
+        "tests/test_llm_identity_idempotency.py::test_only_a_session_with_a_customer_acts_as_one",
         "tests/test_llm_identity_idempotency.py::test_confused_deputy_needs_a_different_token_not_a_different_claim",
+        "tests/test_portal.py::test_a_visitor_with_no_login_is_sent_to_log_in",
+        "tests/test_portal.py::test_login_goes_to_the_issuer_with_pkce_and_a_state",
+        "tests/test_portal.py::test_a_customer_login_is_kept_and_the_page_carries_no_token",
+        "tests/test_portal.py::test_a_login_that_does_not_complete_keeps_nothing",
+        "tests/test_portal.py::test_a_tampered_session_cookie_is_no_session",
+        "tests/test_portal.py::test_logout_reaches_the_issuer_the_store_and_the_agent",
+        "tests/test_portal.py::test_a_session_cookie_outlives_nothing_once_the_login_is_gone",
         "tests/test_reviewer.py::test_who_may_read_the_queue",
         "tests/test_reviewer.py::test_the_401_body_says_nothing_useful_to_a_prober",
         "tests/test_serve.py::test_a_turn_needs_a_token",
         "tests/test_serve.py::test_a_forged_token_is_refused_without_saying_why",
         "tests/test_serve.py::test_an_expired_token_is_refused",
         "tests/test_serve.py::test_identity_comes_from_the_token_not_the_body",
-        "tests/test_serve.py::test_the_page_is_served_and_cannot_mint_its_own_identity"
+        "tests/test_serve.py::test_the_page_is_served_and_cannot_mint_its_own_identity",
+        "tests/test_sessions.py::test_a_stored_login_round_trips_and_logout_removes_it",
+        "tests/test_sessions.py::test_a_refresh_token_is_ciphertext_at_rest",
+        "tests/test_sessions.py::test_a_stored_login_becomes_only_its_own_live_session",
+        "tests/test_sessions.py::test_logout_reaches_the_agent_on_the_next_message"
       ],
       "failed": []
     },
@@ -1247,7 +1395,9 @@
         "tests/test_postgres.py::test_the_ledger_round_trips",
         "tests/test_postgres.py::test_the_first_outcome_for_a_key_is_the_outcome",
         "tests/test_postgres.py::test_every_postgres_store_declares_itself_durable",
-        "tests/test_trigger.py::test_the_in_memory_log_says_it_is_not_durable"
+        "tests/test_trigger.py::test_the_in_memory_log_says_it_is_not_durable",
+        "tests/test_trigger.py::test_a_durable_claim_is_shared_and_expires",
+        "tests/test_trigger.py::test_the_durable_log_says_it_is_durable"
       ],
       "failed": []
     },
@@ -1319,7 +1469,42 @@
     },
     "AHC-0110": {
       "passed": [
-        "tests/test_build_checks.py::test_every_failure_this_package_declares_says_what_kind_it_is"
+        "tests/test_build_checks.py::test_every_failure_this_package_declares_says_what_kind_it_is",
+        "tests/test_gateway.py::test_every_gateway_answer_becomes_its_own_kind"
+      ],
+      "failed": []
+    },
+    "AHC-0111": {
+      "passed": [
+        "tests/test_watching.py::test_a_turn_counts_itself_its_duration_and_its_tools",
+        "tests/test_watching.py::test_a_run_is_counted_once_where_it_ends",
+        "tests/test_watching.py::test_a_deployment_whose_metrics_go_nowhere_does_not_start"
+      ],
+      "failed": []
+    },
+    "AHC-0112": {
+      "passed": [
+        "tests/test_watch_rules.py::test_a_customer_coming_back_is_an_outcome_on_the_answer_before",
+        "tests/test_watch_rules.py::test_feedback_lands_on_the_last_turn_before_it",
+        "tests/test_watching.py::test_feedback_is_the_customers_verdict_on_their_own_conversation"
+      ],
+      "failed": []
+    },
+    "AHC-0113": {
+      "passed": [
+        "tests/test_watch_rules.py::test_the_canarys_turns_are_left_to_the_canary",
+        "tests/test_watching.py::test_the_canarys_turns_are_counted_apart",
+        "tests/test_watching.py::test_the_canary_passes_through_the_real_edge_as_its_own_customer"
+      ],
+      "failed": []
+    },
+    "AHC-0114": {
+      "passed": [
+        "tests/test_watch_rules.py::test_each_rule_fires_on_its_case_and_nothing_else_does",
+        "tests/test_watch_rules.py::test_a_rule_that_needs_the_words_does_not_pass_a_turn_without_them",
+        "tests/test_watching.py::test_a_turns_words_are_kept_only_when_it_is_sampled",
+        "tests/test_watching.py::test_a_turn_is_rebuilt_whole_from_its_spans",
+        "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
       ],
       "failed": []
     },
@@ -1404,33 +1589,35 @@
     },
     "P-APPROVAL-FINAL": {
       "passed": [
-        "tests/test_approvals.py::test_a_decision_is_terminal"
+        "tests/test_approvals.py::test_who_may_decide_and_when",
+        "tests/test_approvals.py::test_a_decision_is_acted_on_by_the_workflow"
       ],
       "failed": []
     },
     "P-APPROVAL-QUEUE": {
       "passed": [
-        "tests/test_approvals.py::test_the_queue_shows_only_undecided_items",
-        "tests/test_postgres.py::test_the_pending_queue_is_what_a_reviewer_sees"
+        "tests/test_approvals.py::test_the_queue_shows_only_what_waits_for_a_person"
       ],
       "failed": []
     },
     "P-APPROVAL-TTL": {
       "passed": [
-        "tests/test_approvals.py::test_an_expired_request_cannot_be_decided"
+        "tests/test_approvals.py::test_who_may_decide_and_when",
+        "tests/test_approvals.py::test_an_approval_expires_on_the_workflows_clock"
       ],
       "failed": []
     },
     "P-APPROVAL-WAIT": {
       "passed": [
-        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
-        "tests/test_approvals.py::test_a_pending_approval_short_circuits_the_next_turn"
+        "tests/test_approvals.py::test_a_restart_during_an_hour_long_approval_resumes_it",
+        "tests/test_approvals.py::test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it",
+        "tests/test_temporal_live.py::test_an_approval_survives_the_server_it_is_waiting_in"
       ],
       "failed": []
     },
     "P-APPROVER": {
       "passed": [
-        "tests/test_approvals.py::test_nobody_approves_their_own_request",
+        "tests/test_approvals.py::test_who_may_decide_and_when",
         "tests/test_reviewer.py::test_the_desk_holds_no_scope_over_orders"
       ],
       "failed": []
@@ -1444,8 +1631,11 @@
         "tests/test_break_it.py::test_the_world_re_checks_under_a_stale_read",
         "tests/test_break_it.py::test_a_planted_instruction_cannot_bypass_the_eligibility_rule",
         "tests/test_break_it.py::test_a_false_cancellation_claim_does_not_reach_the_customer",
+        "tests/test_consent.py::test_a_paraphrase_is_confirmed_before_anything_changes",
         "tests/test_golden.py::test_the_golden_set",
-        "tests/test_golden.py::test_a_refusal_changes_nothing_in_the_world"
+        "tests/test_golden.py::test_a_refusal_changes_nothing_in_the_world",
+        "tests/test_store_agent_live.py::test_the_store_refuses_a_cancellation_and_the_agent_says_so",
+        "tests/test_store_live.py::test_the_real_store_refuses_what_the_spec_says_it_must"
       ],
       "failed": []
     },
@@ -1493,9 +1683,6 @@
     "P-ESC-OUTCOME": {
       "passed": [
         "tests/test_desk.py::test_the_over_escalation_label_reaches_the_row",
-        "tests/test_postgres.py::test_only_the_closing_fields_are_updatable",
-        "tests/test_postgres.py::test_the_outcome_survives_and_is_sliceable_by_rule",
-        "tests/test_postgres.py::test_the_database_refuses_an_outcome_the_model_does_not_know",
         "tests/test_reviewer.py::test_every_outcome_reaches_the_row",
         "tests/test_reviewer.py::test_the_over_escalation_label_is_sliceable_by_rule",
         "tests/test_reviewer.py::test_closing_twice_is_refused_rather_than_overwritten"
@@ -1507,14 +1694,13 @@
         "tests/test_desk.py::test_a_desk_cannot_close_its_own_customers_escalation",
         "tests/test_escalation.py::test_the_agent_does_not_answer_over_a_live_handoff",
         "tests/test_escalation.py::test_a_conversation_carries_the_flag_across_encoding",
-        "tests/test_postgres.py::test_open_for_finds_the_conversations_live_escalation",
+        "tests/test_keycloak.py::test_a_realm_session_reaches_only_its_own_surface",
         "tests/test_reviewer.py::test_a_reader_cannot_close_anything"
       ],
       "failed": []
     },
     "P-ESC-QUEUE": {
       "passed": [
-        "tests/test_postgres.py::test_the_queue_a_reviewer_reads_is_ordered_and_open_only",
         "tests/test_reviewer.py::test_a_resolved_escalation_leaves_the_queue"
       ],
       "failed": []
@@ -1534,30 +1720,58 @@
     "P-ESC-TTL": {
       "passed": [
         "tests/test_desk.py::test_nobody_comes_and_the_queue_says_so",
-        "tests/test_escalation.py::test_sweeping_twice_lapses_nothing_the_second_time",
         "tests/test_tier2.py::test_the_same_rule_does_not_raise_again_after_it_lapses"
+      ],
+      "failed": []
+    },
+    "P-OPEN": {
+      "passed": [
+        "tests/test_channel.py::test_opening_the_widget_greets_only_a_verified_signed_in_customer",
+        "tests/test_opening.py::test_opening_shows_the_customers_own_orders_and_work",
+        "tests/test_opening.py::test_a_long_history_is_summarised_not_dumped",
+        "tests/test_store_agent_live.py::test_opening_shows_the_customer_their_real_orders",
+        "tests/test_store_live.py::test_a_customer_lists_only_their_own_orders"
       ],
       "failed": []
     },
     "P-OWNERSHIP": {
       "passed": [
+        "tests/test_channel.py::test_a_webhook_causes_only_what_it_may",
+        "tests/test_channel.py::test_opening_the_widget_greets_only_a_verified_signed_in_customer",
+        "tests/test_consent.py::test_what_the_customer_asked_for",
+        "tests/test_far_end.py::test_the_far_end_believes_the_token_and_not_the_assertion",
+        "tests/test_far_end.py::test_a_refund_lands_only_on_an_approval_the_far_end_checked",
+        "tests/test_far_end.py::test_the_approval_workflow_acts_for_the_customer_its_approval_names",
+        "tests/test_keycloak.py::test_only_an_administrator_can_link_a_login_to_a_customer",
+        "tests/test_keycloak.py::test_the_far_end_serves_the_realms_customer_and_nobody_else",
+        "tests/test_keycloak.py::test_a_refund_lands_on_the_realms_service_login_only_through_an_approval",
+        "tests/test_keycloak.py::test_a_portal_login_is_resumed_until_the_customer_logs_out",
+        "tests/test_llm_identity_idempotency.py::test_only_a_session_with_a_customer_acts_as_one",
+        "tests/test_opening.py::test_opening_shows_the_customers_own_orders_and_work",
         "tests/test_ownership.py::test_only_the_owner_reaches_the_order",
         "tests/test_ownership.py::test_a_stranger_asking_after_an_order_learns_nothing",
-        "tests/test_serve.py::test_identity_comes_from_the_token_not_the_body"
+        "tests/test_saleor_live.py::test_every_order_crosses_into_the_real_store",
+        "tests/test_saleor_live.py::test_the_customer_owns_exactly_the_orders_the_world_gave_them",
+        "tests/test_serve.py::test_identity_comes_from_the_token_not_the_body",
+        "tests/test_sessions.py::test_a_stored_login_becomes_only_its_own_live_session",
+        "tests/test_store_agent_live.py::test_opening_shows_the_customer_their_real_orders",
+        "tests/test_store_live.py::test_reading_an_order_from_the_real_store",
+        "tests/test_store_live.py::test_a_customer_lists_only_their_own_orders"
       ],
       "failed": []
     },
     "P-REFUND": {
       "passed": [
         "tests/test_approvals.py::test_which_refunds_need_a_human",
-        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
+        "tests/test_approvals.py::test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it",
         "tests/test_approvals.py::test_a_refund_is_for_the_orders_total_and_the_gate_reads_it",
-        "tests/test_approver.py::test_a_granted_refund_executes_against_a_projected_world",
-        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_a_person_not_the_money",
+        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_nobody",
         "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system",
         "tests/test_refusals.py::test_asking_for_a_refund_is_not_asking_after_one"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_approver.py::test_the_four_reviewers"
+      ]
     },
     "P-REFUND-STATUS": {
       "passed": [
@@ -1569,7 +1783,10 @@
     "P-RETURN": {
       "passed": [
         "tests/test_agenttwin.py::test_the_projection_agrees_with_the_hand_written_world",
-        "tests/test_golden.py::test_the_golden_set"
+        "tests/test_golden.py::test_the_golden_set",
+        "tests/test_store_agent_live.py::test_a_second_return_request_is_refused_by_the_store_itself",
+        "tests/test_store_live.py::test_a_return_outside_the_window_is_refused_by_the_store",
+        "tests/test_store_live.py::test_a_final_sale_return_is_refused_by_the_store"
       ],
       "failed": []
     },
@@ -1612,6 +1829,7 @@
         "tests/test_refusals.py::test_what_is_refused_and_what_is_served",
         "tests/test_reply_screen.py::test_no_route_reaches_the_customer_unscreened",
         "tests/test_router_loop.py::test_routing",
+        "tests/test_router_loop.py::test_a_discount_is_refused_when_asked_for_and_not_when_mentioned",
         "tests/test_router_loop.py::test_refusal_is_checked_before_intent",
         "tests/test_router_loop.py::test_the_route_and_its_reason_are_on_the_trace",
         "tests/test_serve.py::test_a_refusal_is_a_two_hundred"
@@ -1706,13 +1924,12 @@
     },
     "ext:approval_queue": {
       "passed": [
-        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
-        "tests/test_approvals.py::test_a_pending_approval_short_circuits_the_next_turn",
-        "tests/test_approver.py::test_a_reviewer_who_walks_away_leaves_it_pending_forever",
-        "tests/test_approver.py::test_a_slow_reviewer_is_still_waiting_when_the_customer_follows_up",
-        "tests/test_postgres.py::test_an_approval_survives_a_process_restart"
+        "tests/test_approvals.py::test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it",
+        "tests/test_temporal_live.py::test_an_approval_survives_the_server_it_is_waiting_in"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_approver.py::test_the_four_reviewers"
+      ]
     },
     "ext:escalation_desk": {
       "passed": [
@@ -1721,7 +1938,6 @@
         "tests/test_desk.py::test_the_clock_drives_expiry_rather_than_a_rewritten_row",
         "tests/test_escalation.py::test_an_escalation_writes_a_record_and_names_it",
         "tests/test_escalation.py::test_nobody_came_so_the_conversation_is_handed_back",
-        "tests/test_escalation.py::test_the_sweeper_lapses_what_nobody_came_for",
         "tests/test_reviewer.py::test_the_queue_shows_what_a_reviewer_needs"
       ],
       "failed": []
@@ -1760,11 +1976,14 @@
         "tests/test_agenttwin.py::test_the_same_scenario_on_a_cancellable_order_does_change_the_world",
         "tests/test_break_it.py::test_the_world_re_checks_under_a_stale_read",
         "tests/test_break_it.py::test_a_planted_instruction_cannot_bypass_the_eligibility_rule",
+        "tests/test_consent.py::test_a_paraphrase_is_confirmed_before_anything_changes",
         "tests/test_freshness.py::test_a_cancellation_planned_on_an_old_read_reads_again_first",
         "tests/test_freshness.py::test_a_row_that_moved_underneath_the_run_stops_the_action",
         "tests/test_golden.py::test_the_golden_set",
         "tests/test_golden.py::test_a_refusal_changes_nothing_in_the_world",
-        "tests/test_ownership.py::test_only_the_owner_reaches_the_order"
+        "tests/test_ownership.py::test_only_the_owner_reaches_the_order",
+        "tests/test_store_agent_live.py::test_the_store_refuses_a_cancellation_and_the_agent_says_so",
+        "tests/test_store_live.py::test_the_real_store_refuses_what_the_spec_says_it_must"
       ],
       "failed": []
     },
@@ -1788,10 +2007,7 @@
         "tests/test_escalation.py::test_a_resolved_escalation_hands_the_conversation_back",
         "tests/test_escalation.py::test_nobody_came_so_the_conversation_is_handed_back",
         "tests/test_escalation.py::test_the_reply_says_only_what_the_queue_supports",
-        "tests/test_escalation.py::test_the_sweeper_lapses_what_nobody_came_for",
         "tests/test_facts.py::test_the_colleague_is_handed_the_record_not_the_transcript",
-        "tests/test_postgres.py::test_an_escalation_outlives_the_process_that_raised_it",
-        "tests/test_postgres.py::test_the_sweeper_lapses_across_a_restart",
         "tests/test_scenario_files.py::test_a_declared_scenario_passes_every_check_it_makes",
         "tests/test_tier2.py::test_a_repeatedly_refused_customer_reaches_a_person",
         "tests/test_tier2.py::test_without_a_store_tier_two_never_fires",
@@ -1806,6 +2022,8 @@
         "tests/test_ownership.py::test_only_the_owner_reaches_the_order",
         "tests/test_ownership.py::test_a_stranger_asking_after_an_order_learns_nothing",
         "tests/test_router_loop.py::test_a_tool_call_then_an_answer",
+        "tests/test_saleor_live.py::test_every_order_crosses_into_the_real_store",
+        "tests/test_store_live.py::test_reading_an_order_from_the_real_store",
         "tests/test_tools_context.py::test_a_read_succeeds_and_returns_structured_content"
       ],
       "failed": []
@@ -1813,10 +2031,23 @@
     "op:issue_refund": {
       "passed": [
         "tests/test_approvals.py::test_which_refunds_need_a_human",
-        "tests/test_approvals.py::test_the_whole_path_produces_exactly_one_refund",
+        "tests/test_approvals.py::test_a_decision_is_acted_on_by_the_workflow",
+        "tests/test_approvals.py::test_a_restart_during_an_hour_long_approval_resumes_it",
         "tests/test_approvals.py::test_a_refund_is_for_the_orders_total_and_the_gate_reads_it",
-        "tests/test_approver.py::test_a_granted_refund_executes_against_a_projected_world",
-        "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system"
+        "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system",
+        "tests/test_store_live.py::test_the_refund_tool_is_not_even_offered_to_a_customer",
+        "tests/test_store_live.py::test_a_refund_the_agent_elevated_itself_for_is_refused_by_the_store",
+        "tests/test_temporal_live.py::test_an_approval_survives_the_server_it_is_waiting_in"
+      ],
+      "failed": [
+        "tests/test_approver.py::test_the_four_reviewers"
+      ]
+    },
+    "op:list_orders": {
+      "passed": [
+        "tests/test_opening.py::test_opening_shows_the_customers_own_orders_and_work",
+        "tests/test_store_agent_live.py::test_opening_shows_the_customer_their_real_orders",
+        "tests/test_store_live.py::test_a_customer_lists_only_their_own_orders"
       ],
       "failed": []
     },
@@ -1825,16 +2056,18 @@
         "tests/test_agenttwin.py::test_the_projection_agrees_with_the_hand_written_world",
         "tests/test_far_end_idempotency.py::test_the_far_end_recognises_a_retried_write",
         "tests/test_golden.py::test_the_golden_set",
-        "tests/test_ownership.py::test_only_the_owner_reaches_the_order"
+        "tests/test_ownership.py::test_only_the_owner_reaches_the_order",
+        "tests/test_store_agent_live.py::test_a_second_return_request_is_refused_by_the_store_itself",
+        "tests/test_store_live.py::test_a_return_outside_the_window_is_refused_by_the_store",
+        "tests/test_store_live.py::test_a_final_sale_return_is_refused_by_the_store"
       ],
       "failed": []
     },
     "op:request_refund": {
       "passed": [
-        "tests/test_approvals.py::test_a_large_refund_waits_and_then_completes_across_turns",
-        "tests/test_approvals.py::test_an_approval_lives_on_the_agents_clock",
+        "tests/test_approvals.py::test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it",
         "tests/test_approvals.py::test_a_refund_is_for_the_orders_total_and_the_gate_reads_it",
-        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_a_person_not_the_money",
+        "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_nobody",
         "tests/test_scenario_files.py::test_a_declared_scenario_passes_every_check_it_makes"
       ],
       "failed": []

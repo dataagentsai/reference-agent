@@ -1801,3 +1801,25 @@ nothing.
 customer as the model wrote it. Normalisation belongs in the harness
 (AHC-0087): identifiers of a declared shape should leave the agent in the form
 the store uses.
+
+## F-049 · The escalation scenarios fail differently on every loaded run
+
+**Found** 2026-09-20, across three full suite runs on a machine with every live
+dependency up. Each run failed one or two of the escalation scenarios against
+Saleor, and never the same ones: `a-long-conversation-fetches-a-person` in one,
+`asking-for-a-person-four-times` and `nobody-picks-up-the-escalation` in the
+next. Run on their own, all ten pass.
+
+The two failures name a clock. *Four asks, and the cap holds at two* saw three
+escalations where two are allowed; *nobody picks up* was told the escalation was
+still with a colleague where the scenario expects it to have lapsed. Both read
+as a wait that had not expired when the scenario expected it to, which would
+let another be raised and would keep the conversation held — one symptom, two
+faces.
+
+**Open, and not yet attributed.** Either the lapse timer is real time where the
+scenario's clock is logical, and a loaded machine drifts between them; or the
+shadow wiring gives these scenarios a different clock from the projected run,
+which passes. The fix is to find which before changing anything: a scenario
+whose verdict depends on how busy the machine is, is a scenario that cannot
+fail honestly. Sibling of T-053, which is the same shape in the reviewer test.

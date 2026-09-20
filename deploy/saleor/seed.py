@@ -61,6 +61,14 @@ WORLD_STATUS = "world_status"
 difference between the two is visible rather than reconciled silently."""
 
 
+TIMEOUT_S = float(os.environ.get("SALEOR_TIMEOUT_S", "180"))
+"""How long to wait for one call. A development Saleor seeding a namespace per
+scenario, while the rest of a live suite talks to it, answers in well over a
+minute — 60 s failed one shadow scenario in a 25-minute run. A mutation is not
+retried on a timeout: the write may have landed, and a second one would put a
+duplicate order in the store."""
+
+
 class SaleorError(RuntimeError):
     """Saleor refused something, and the message is the operator's."""
 
@@ -96,7 +104,7 @@ class Api:
             headers["authorization"] = f"Bearer {self.token}"
         request = urllib.request.Request(self.url, data=body, headers=headers)
         try:
-            with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
+            with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:  # noqa: S310
                 answer = json.load(response)
         except urllib.error.HTTPError as exc:  # pragma: no cover - operator's path
             raise SaleorError(f"{exc.code} from Saleor: {exc.read()[:400]!r}") from None
