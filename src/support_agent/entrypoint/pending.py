@@ -43,7 +43,11 @@ CARRYING_OUT = "That has been authorised and is being processed now."
 
 class PendingWork(Protocol):
     def offer(
-        self, identity: Identity, run_id: RunId, tools: ToolClient
+        self,
+        identity: Identity,
+        run_id: RunId,
+        tools: ToolClient,
+        conversation_id: str = "",
     ) -> dict[str, LocalTool]: ...
 
     async def resume(
@@ -56,7 +60,13 @@ class NoApprovals:
     """No store wired: the agent cannot raise a refund at all — it does not fall
     back to issuing one — and there is never anything to resume."""
 
-    def offer(self, identity: Identity, run_id: RunId, tools: ToolClient) -> dict[str, LocalTool]:
+    def offer(
+        self,
+        identity: Identity,
+        run_id: RunId,
+        tools: ToolClient,
+        conversation_id: str = "",
+    ) -> dict[str, LocalTool]:
         return {}
 
     async def resume(
@@ -69,11 +79,18 @@ class NoApprovals:
 class ApprovalFlow:
     approvals: Approvals
 
-    def offer(self, identity: Identity, run_id: RunId, tools: ToolClient) -> dict[str, LocalTool]:
+    def offer(
+        self,
+        identity: Identity,
+        run_id: RunId,
+        tools: ToolClient,
+        conversation_id: str = "",
+    ) -> dict[str, LocalTool]:
         tool = ap.refund_tool(
             self.approvals,
             identity=identity,
             idempotency_key=IdempotencyKey(run_id=run_id, step=0, iteration=0),
+            conversation_id=conversation_id,
         )
         return {tool.spec.name: tool}
 

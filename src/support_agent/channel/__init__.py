@@ -53,7 +53,15 @@ from starlette.routing import Route
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
-from support_agent.contracts import CheckpointStore, ConversationId, Escalated, Identity
+from support_agent.approvals import notify as ap_notify
+from support_agent.contracts import (
+    Approval,
+    CheckpointStore,
+    ConversationId,
+    Escalated,
+    Identity,
+    NeedsApproval,
+)
 from support_agent.entrypoint import Agent
 from support_agent.state import Conversation
 
@@ -289,6 +297,24 @@ async def answer(channel: Channel, message: Incoming) -> None:
         if isinstance(result, Escalated):
             await api.note(*where, after.facts.as_handoff())
             await api.hand_off(*where)
+        if isinstance(result, NeedsApproval):
+            # A doorbell, never a verdict (T-059). The note says what is waiting
+            # and where to decide it; the decision happens at the desk, as a
+            # named person, through the rule the workflow holds. Nothing here
+            # can grant anything, and a note that could would be a link a mail
+            # scanner could click.
+            await api.note(*where, _waiting_note(result))
+            await api.hand_off(*where)
+
+
+def _waiting_note(result: NeedsApproval) -> str:
+    """What a colleague reads in the inbox: what is waiting, and where it is."""
+    return (
+        f"Waiting for an approval — {result.action}.\n"
+        f"Reason: {result.reason}\n"
+        f"Reference: {result.approval_id}\n"
+        "Decide it at the desk (/ops/desk). Nothing has been done yet."
+    )
 
 
 async def _customer(channel: Channel, message: Incoming) -> Identity | str:
@@ -324,6 +350,7 @@ def build(channel: Channel) -> Starlette:
 __all__ = [
     "Channel",
     "ChatwootApi",
+    "Inbox",
     "ChatwootClient",
     "Incoming",
     "Opening",
@@ -332,3 +359,40 @@ __all__ = [
     "incoming",
     "opened",
 ]
+
+
+@dataclass(frozen=True)
+class Inbox:
+    """Where a waiting approval is announced: the conversation it came from.
+
+    A conversation id is `cw-<account>-<conversation>` — the channel's own ids,
+    so a reminder finds the inbox with no mapping table to keep (T-059). An
+    approval raised somewhere else, or from a test, has nothing to announce to
+    and is left alone rather than guessed at.
+
+    The note is private: the customer is not told again that somebody is being
+    chased about their refund.
+    """
+
+    api: ChatwootApi
+    desk_url: str = "/ops/desk"
+
+    async def waiting(self, approval: Approval) -> None:
+        where = _addressed(approval.conversation_id)
+        if where is None:
+            return
+        account, conversation = where
+        await self.api.note(
+            account, conversation, ap_notify.message(approval, desk_url=self.desk_url)
+        )
+        await self.api.hand_off(account, conversation)
+
+
+def _addressed(conversation_id: str) -> tuple[int, int] | None:
+    parts = conversation_id.split("-")
+    if len(parts) != 3 or parts[0] != "cw":
+        return None
+    try:
+        return int(parts[1]), int(parts[2])
+    except ValueError:
+        return None

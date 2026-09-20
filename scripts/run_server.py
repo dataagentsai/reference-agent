@@ -56,7 +56,7 @@ from support_agent import trigger as trg
 from support_agent.config import RunConfig, Settings, resolve
 from support_agent.contracts import Approvals, Identity, LLMClient, ModelResponse, ToolClient
 from support_agent.idempotency import InMemoryLedger
-from support_agent.identity import REVIEWER_SCOPES, Exchange, sessions
+from support_agent.identity import APPROVER_SCOPES, REVIEWER_SCOPES, Exchange, sessions
 from support_agent.identity.sessions import KeycloakLogin, KeycloakRefresh, Resume
 from support_agent.llm import ScriptedClient, connect_model
 from support_agent.resilience import ResilientLLM
@@ -191,8 +191,12 @@ def _announce(port: int, settings: Settings | None, *, local: bool, store: bool 
     print(f"    http://127.0.0.1:{port}/?token={token}\n")
     # The desk at /ops needs a reviewer: a login with no customer behind it,
     # signed by the same process-local issuer, so it only works against this run.
-    desk = local_issuer.mint(None, scopes=REVIEWER_SCOPES, subject="desk-1", ttl_s=8 * 3600)
-    print(f"  Reviewer token for /ops (GET /ops/escalations):\n\n    {desk}\n")
+    desk = local_issuer.mint(
+        None, scopes=REVIEWER_SCOPES | APPROVER_SCOPES, subject="desk-1", ttl_s=8 * 3600
+    )
+    print(f"  Desk token for /ops — escalations and approvals (T-059):\n\n    {desk}\n")
+    print(f"    the desk:  http://127.0.0.1:{port}/ops/desk?token={desk}")
+    print(f"    the API:   http://127.0.0.1:{port}/ops/docs\n")
     print("  Orders: AB-10001 shipped · AB-10002 pending · AB-10003 delivered 5d")
     print("          AB-10004 delivered 31d · AB-10005 final sale · AB-66666 poisoned note\n")
 
@@ -233,8 +237,18 @@ class LateTools:
 @contextlib.asynccontextmanager
 async def shop_running(
     real_store: bool, issuer: ident.Issuer, approvals: Approvals
-) -> AsyncIterator[ToolClient]:
+) -> AsyncIterator[tuple[ToolClient, ToolClient]]:
     """The tools, from the simulated shop or the real one (T-017).
+
+    Two clients over one shop: the **agent's**, whose calls carry the customer's
+    session exchanged for the store, and the **approvals worker's**, which has no
+    session to exchange because a refund is carried out an hour after the
+    customer left. The worker logs in as itself, and the far end reads whose the
+    call is from the approval it names (T-028).
+
+    One client for both worked until the agent met a realm: the worker's
+    identity carries no token, the realm's exchange has nothing to exchange, and
+    every refund that needed a person failed on the read that assesses it.
 
     The only difference the agent can see is which MCP server answers. The real
     store checks every call itself — the token addressed to it, and the approval
@@ -244,7 +258,7 @@ async def shop_running(
     if not real_store:
         async with connect(project(Live.start(load(WORLD))), ledger=InMemoryLedger()) as tools:
             print("  shop           the simulated clothing shop, projected from worlds/")
-            yield tools
+            yield tools, tools
         return
 
     from order_system import server as store_server
@@ -263,11 +277,17 @@ async def shop_running(
         issuer=ident.Issuer(url=issuer.url, audience="order-system", keys=issuer.keys),
         clock=lambda: int(time.time()),
         approvals=approvals,
-        approvals_party=os.environ.get("AGENT_APPROVALS_PARTY"),
+        # Which client the approvals worker logs in as, so the far end knows
+        # whose party token to take a customer from. It is the same name the
+        # worker signs in under; unset with no realm, where nobody has a party.
+        approvals_party=_approvals_party(issuer),
     )
-    async with connect(server, ledger=InMemoryLedger(), exchange=_exchange(issuer)) as tools:
+    async with (
+        connect(server, ledger=InMemoryLedger(), exchange=_exchange(issuer)) as tools,
+        connect(server, ledger=InMemoryLedger(), exchange=_worker_login(issuer)) as worker_tools,
+    ):
         print(f"  shop           Saleor at {url}  (seed it with deploy/saleor/seed.py)")
-        yield tools
+        yield tools, worker_tools
 
 
 def _exchange(issuer: ident.Issuer) -> Exchange:
@@ -284,6 +304,40 @@ def _exchange(issuer: ident.Issuer) -> Exchange:
             scope="order-system-audience",
         )
     return local_issuer.LocalExchange()
+
+
+def _notifier() -> ap.Notifier:
+    """Where a waiting approval is announced. Chatwoot when the channel is
+    configured — the colleague is already in it — and nobody otherwise, which
+    is what a run with no channel honestly has (T-059)."""
+    configured = Settings()
+    if not (configured.chatwoot_base_url and configured.chatwoot_bot_token):
+        return ap.Nobody()
+    api = ch.ChatwootClient(configured.chatwoot_base_url, token=configured.chatwoot_bot_token)
+    return ch.Inbox(api, desk_url="/ops/desk")
+
+
+def _approvals_party(issuer: ident.Issuer) -> str | None:
+    if issuer.url == local_issuer.URL:
+        return None
+    return os.environ.get("AGENT_APPROVALS_PARTY", "support-approvals")
+
+
+def _worker_login(issuer: ident.Issuer) -> Exchange:
+    """How the approvals worker addresses the store. Its own client at the realm
+    — no customer, `orders:read`, and never `refunds:write`: the refund rests on
+    the approval the store checks, not on this login. With no realm, the local
+    issuer, which signs the same shape."""
+    if issuer.url == local_issuer.URL:
+        return local_issuer.LocalExchange()
+    return sessions.ServiceLogin.discover(
+        issuer.url,
+        client_id=_approvals_party(issuer) or "support-approvals",
+        client_secret=os.environ.get(
+            "SUPPORT_APPROVALS_CLIENT_SECRET", "local-dev-only-approvals-secret"
+        ),
+        scope="order-system-audience",
+    )
 
 
 @contextlib.asynccontextmanager
@@ -324,7 +378,7 @@ async def waits_running(
     work = ap.RefundWork(tools, acting_for=_acting_for)
     running = ap.worker(
         client,
-        activities=[work.assess, work.carry_out],
+        activities=[work.assess, work.carry_out, ap.Reminders(_notifier()).remind],
         task_queue=queue,
         workflows=[*ap.WORKFLOWS, *esc.WORKFLOWS],
     )
@@ -356,9 +410,11 @@ async def main(real: bool, port: int, store: bool = False) -> None:
     late = LateTools()
     async with (
         waits_running(late) as (approvals, escalations, colleagues),
-        shop_running(store, issuer, approvals) as tools,
+        shop_running(store, issuer, approvals) as (tools, worker_tools),
     ):
-        late.inner = tools
+        # The worker's own client, so a refund assessed an hour later is read
+        # under the approvals login rather than under a session that has gone.
+        late.inner = worker_tools
         # The real provider sits behind retries, a shared throttle and a breaker
         # (F-022: those existed, passed their tests, and nothing called them).
         # The scripted model cannot fail, so it has nothing to be resilient about.
@@ -398,7 +454,19 @@ async def main(real: bool, port: int, store: bool = False) -> None:
         # handle. Sessions come from Keycloak when AGENT_ISSUER_URL names a
         # realm, else from the process-local issuer. Nothing sweeps: an
         # escalation nobody comes to lapses on the workflow's timer (T-028).
-        app = _with_chatwoot(serve.build(agent, issuer=issuer, desk=colleagues), agent, issuer)
+        # Both desks on one mount: a colleague closes escalations and an
+        # approver decides refunds, each under its own scope (T-059).
+        app = _with_chatwoot(
+            serve.build(
+                agent,
+                issuer=issuer,
+                desk=colleagues,
+                approvals=approvals,
+                approver=ap.ApprovalDesk(approvals.client),
+            ),
+            agent,
+            issuer,
+        )
 
         _announce(port, settings, local=issuer.url == local_issuer.URL, store=store)
 

@@ -52,6 +52,8 @@ SCOPE_RETURNS_WRITE = "returns:write"
 SCOPE_REFUNDS_WRITE = "refunds:write"
 SCOPE_ESCALATIONS_READ = "escalations:read"
 SCOPE_ESCALATIONS_REVIEW = "escalations:review"
+SCOPE_APPROVALS_READ = "approvals:read"
+SCOPE_APPROVALS_DECIDE = "approvals:decide"
 
 CUSTOMER_SCOPES = frozenset({SCOPE_ORDERS_READ, SCOPE_ORDERS_WRITE, SCOPE_RETURNS_WRITE})
 """What a customer session holds. The issuer grants it, as the `customer` role;
@@ -61,6 +63,16 @@ this constant is what the realm is checked against, not where it comes from.
 approval threshold it needs a human, so the agent acting as the customer must
 not hold the scope that would let it skip that gate. The gate is not the only
 control; it is the second one.
+"""
+
+APPROVER_SCOPES = frozenset({SCOPE_APPROVALS_READ, SCOPE_APPROVALS_DECIDE})
+"""What a person deciding approvals holds, as the `approver` role.
+
+Its own pair rather than the reviewer's, because the two authorities are
+different sizes: one costs a colleague's time, the other moves money. One
+person may hold both — here the desk does — and a deployment that splits them
+changes who holds which role and nothing else. Neither pair can move money
+itself: the desk decides, and the workflow acts under its own login (T-028).
 """
 
 REVIEWER_SCOPES = frozenset({SCOPE_ESCALATIONS_READ, SCOPE_ESCALATIONS_REVIEW})
@@ -297,7 +309,10 @@ __all__ = [
     "CUSTOMER_SCOPES",
     "Exchange",
     "JWKS",
+    "APPROVER_SCOPES",
     "REVIEWER_SCOPES",
+    "SCOPE_APPROVALS_DECIDE",
+    "SCOPE_APPROVALS_READ",
     "SCOPE_ESCALATIONS_READ",
     "SCOPE_ESCALATIONS_REVIEW",
     "SCOPE_ORDERS_READ",

@@ -91,6 +91,7 @@ def refund_tool(
     *,
     identity: Identity,
     idempotency_key: IdempotencyKey,
+    conversation_id: str = "",
 ) -> LocalTool:
     """Bind the request tool to one run's identity and key.
 
@@ -114,6 +115,7 @@ def refund_tool(
             args={"order_id": order_id},
             identity=identity,
             idempotency_key=idempotency_key,
+            conversation_id=conversation_id,
         )
         if approval.state is ApprovalState.WAITING:
             raise RefundRequested(approval)

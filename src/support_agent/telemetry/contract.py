@@ -243,6 +243,11 @@ CONTRACT: dict[str, SpanSpec] = {
         required=frozenset({"agent.policy.position"}),
         optional=frozenset({"agent.policy.blocked_by", "agent.policy.errored"}),
     ),
+    # What an approver sees when they look (T-059). The reader's login, not a
+    # tenant — the same distinction `agent.escalation.queue` makes.
+    "agent.approval.queue": SpanSpec(
+        required=frozenset({USER_ID}), optional=frozenset({"agent.approval.depth"})
+    ),
     "agent.approval.request": SpanSpec(
         required=frozenset({"agent.approval.id", "agent.approval.action"})
     ),

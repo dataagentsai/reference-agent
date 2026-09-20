@@ -275,7 +275,9 @@ class Agent:
                     budgets=self.budgets,
                     run_id=run_id,
                     history=conversation.messages[:-1],
-                    local_tools=self.pending.offer(identity, run_id, self.tools),
+                    local_tools=self.pending.offer(
+                        identity, run_id, self.tools, conversation.conversation_id
+                    ),
                     policy_rules=self.policy_rules,
                     meter=self.metering() if self.metering is not None else None,
                     now=self._now,

@@ -28,6 +28,14 @@
         "description": "coarse scope, emitted in scp"
       },
       {
+        "name": "approvals:read",
+        "description": "coarse scope, emitted in scp"
+      },
+      {
+        "name": "approvals:decide",
+        "description": "coarse scope, emitted in scp"
+      },
+      {
         "name": "customer",
         "description": "a store customer",
         "composite": true,
@@ -47,6 +55,17 @@
           "realm": [
             "escalations:read",
             "escalations:review"
+          ]
+        }
+      },
+      {
+        "name": "approver",
+        "description": "decides approvals \u2014 a different authority from the escalation desk (T-059)",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "approvals:read",
+            "approvals:decide"
           ]
         }
       }
@@ -312,7 +331,8 @@
         }
       ],
       "realmRoles": [
-        "reviewer"
+        "reviewer",
+        "approver"
       ]
     },
     {

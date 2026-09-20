@@ -73,6 +73,9 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `entrypoint/ending.py` | AHC-0114, AHC-0111 |
 | `telemetry/meters.py` | AHC-0111, AAC-0008 |
 | `serve/feedback.py` | AHC-0112, AAC-0115 |
+| `reviewer/guard.py` | AAC-0057, AHC-0057 |
+| `approvals/notify.py` | AAC-0043, AHC-0070 |
+| `reviewer/approvals.py` | AAC-0078, AAC-0057, AHC-0057 |
 | `watch/__init__.py` | AAC-0014, AAC-0115, AHC-0114 |
 | `watch/record.py` | AHC-0114, AAC-0060 |
 | `watch/outcomes.py` | AHC-0112, AAC-0115 |

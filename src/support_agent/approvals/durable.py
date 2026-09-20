@@ -43,6 +43,10 @@ ASSESS = "approval.assess"
 decide it. Named, not imported: which action it is belongs to the agent that
 registers it (`approvals/refund.py`), and the workflow stays the same for all."""
 
+REMIND = "approval.remind"
+"""Told that one is still waiting — the channel's job, done from the workflow
+because the workflow is what holds the clock (T-059)."""
+
 CARRY_OUT = "approval.carry_out"
 
 FINAL = frozenset(
@@ -67,8 +71,12 @@ class Ask(BaseModel):
     action: str
     args: dict[str, object]
     customer_id: str
+    conversation_id: str = ""
     idempotency_key: str
     ttl_s: int
+    remind_before_s: int = 0
+    """How long before expiry to say it is still waiting. Zero is no reminder,
+    which is what a caller with nowhere to send one should ask for."""
     queue: str
     """The queue workflow a waiting approval is listed on."""
 
@@ -120,6 +128,7 @@ class ApprovalWorkflow:
                 args=ask.args,
                 reason="being assessed",
                 customer_id=ask.customer_id,
+                conversation_id=ask.conversation_id,
                 idempotency_key=ask.idempotency_key,
                 created_at=now,
                 expires_at=now + ask.ttl_s,
@@ -146,13 +155,40 @@ class ApprovalWorkflow:
     async def _wait(self, ask: Ask) -> None:
         queue = workflow.get_external_workflow_handle(ask.queue)
         await queue.signal(ApprovalQueue.opened, ask.id)
+        # Two waits, not one: the first ends in a reminder, the second in the
+        # expiry. The reminder is the workflow's because the workflow is the
+        # only thing awake — the agent's turn ended when it asked, and nobody
+        # is watching a clock that runs for a day (T-059).
+        remind_after = max(0, ask.ttl_s - ask.remind_before_s)
+        if ask.remind_before_s > 0:
+            await self._until(remind_after)
+            if not self._current.decided:
+                await self._remind()
         # The timeout is the approval expiring; what it means is decided below,
         # where "nobody answered" and "somebody answered no" are told apart.
+        await self._until(ask.ttl_s - remind_after)
+        await queue.signal(ApprovalQueue.closed, ask.id)
+
+    async def _until(self, seconds: int) -> None:
         with contextlib.suppress(TimeoutError):
             await workflow.wait_condition(
-                lambda: self._current.decided, timeout=timedelta(seconds=ask.ttl_s)
+                lambda: self._current.decided, timeout=timedelta(seconds=seconds)
             )
-        await queue.signal(ApprovalQueue.closed, ask.id)
+
+    async def _remind(self) -> None:
+        """Tell whoever is meant to decide that it is still waiting.
+
+        Best effort on purpose: a notification nobody could deliver must not
+        expire an approval or fail a workflow, so a failed reminder is
+        swallowed after its retries and the wait carries on to its own end.
+        """
+        with contextlib.suppress(Exception):
+            await workflow.execute_activity(
+                REMIND,
+                self._current,
+                start_to_close_timeout=TIMEOUT,
+                retry_policy=RETRIES,
+            )
 
     async def _act(self) -> Approval:
         current = self._current
@@ -257,6 +293,7 @@ class ApprovalQueue:
 
 __all__ = [
     "ASSESS",
+    "REMIND",
     "CARRY_OUT",
     "ApprovalQueue",
     "ApprovalWorkflow",

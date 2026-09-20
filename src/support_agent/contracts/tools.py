@@ -204,6 +204,11 @@ class Approval(BaseModel):
     args: dict[str, object] = Field(default_factory=dict)
     reason: str
     customer_id: str
+    conversation_id: str = ""
+    """Which conversation asked for it. Empty where a caller had none — a test,
+    a script — and what a reminder is addressed to when one waits too long
+    (T-059): the desk finds the conversation by it, and the channel finds the
+    inbox, because a conversation id carries the channel's own ids."""
     idempotency_key: str
     """The key minted when the action was *requested*, carried across the wait.
 

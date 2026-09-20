@@ -116,6 +116,7 @@ class TemporalApprovals:
         args: dict[str, object],
         identity: Identity,
         idempotency_key: IdempotencyKey,
+        conversation_id: str = "",
     ) -> Approval:
         await self._ensure_queue()
         ask = Ask(
@@ -123,8 +124,10 @@ class TemporalApprovals:
             action=action,
             args=dict(args),
             customer_id=identity.customer_id,
+            conversation_id=conversation_id,
             idempotency_key=idempotency_key.value,
             ttl_s=self.policy.ttl_s,
+            remind_before_s=self.policy.remind_before_s,
             queue=self.queue,
         )
         tel.counters.approvals.add(1, {"outcome": "requested"})

@@ -54,11 +54,13 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import BaseRoute, Mount, Route
 
+from support_agent import approvals as ap
 from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent import trigger as trg
 from support_agent.contracts import (
+    Approvals,
     CheckpointStore,
     Completed,
     ConversationId,
@@ -298,6 +300,8 @@ def build(
     store: CheckpointStore | None = None,
     escalations: Escalations | None = None,
     desk: esc.EscalationDesk | None = None,
+    approvals: Approvals | None = None,
+    approver: ap.ApprovalDesk | None = None,
 ) -> Starlette:
     """Wire an agent behind HTTP. Wiring only — the handlers are module functions.
 
@@ -326,7 +330,18 @@ def build(
     if escalations is not None:
         from support_agent import reviewer
 
-        routes.append(Mount("/ops", app=reviewer.build(escalations, issuer=issuer, desk=desk)))
+        routes.append(
+            Mount(
+                "/ops",
+                app=reviewer.build(
+                    escalations,
+                    issuer=issuer,
+                    desk=desk,
+                    approvals=approvals,
+                    approver=approver,
+                ),
+            )
+        )
 
     if isinstance(agent, Agent):
         app = Starlette(routes=routes)

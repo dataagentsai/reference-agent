@@ -50,6 +50,8 @@ from support_agent.approvals.desk import (
     metrics_runtime,
     worker,
 )
+from support_agent.approvals.durable import REMIND
+from support_agent.approvals.notify import Nobody, Notifier, Reminders, message
 from support_agent.approvals.policy import (
     REFUND_ACTION,
     Policy,
@@ -85,7 +87,12 @@ __all__ = [
     "TASK_QUEUE",
     "WORKFLOWS",
     "Approval",
+    "REMIND",
     "ApprovalDesk",
+    "Nobody",
+    "message",
+    "Notifier",
+    "Reminders",
     "ApprovalError",
     "ApprovalState",
     "Policy",

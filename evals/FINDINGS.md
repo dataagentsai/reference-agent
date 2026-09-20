@@ -1823,3 +1823,43 @@ shadow wiring gives these scenarios a different clock from the projected run,
 which passes. The fix is to find which before changing anything: a scenario
 whose verdict depends on how busy the machine is, is a scenario that cannot
 fail honestly. Sibling of T-053, which is the same shape in the reviewer test.
+
+## F-050 · The approvals worker had no login of its own against a realm
+
+**Found** 2026-09-20, the first time a refund needing a person was driven
+through the demo server against Keycloak and Saleor together (T-059). Every
+such refund failed, and the customer was told the system could not process it.
+
+The approval workflow assesses a refund by reading the order an hour after the
+customer left, so it has no session to exchange — T-028 gave it its own realm
+client for exactly that, and the demo server never wired one. It handed the
+worker the agent's tool client, whose exchange needs a customer token to
+exchange, and the read was refused before any person saw the request. The far
+end's `approvals_party` was unset too, so a token from that client would have
+been refused as *a session with no customer* even had one been minted.
+
+**Fixed:** the worker gets its own client over the same shop, signing in as
+`support-approvals` through `ServiceLogin`, and the far end is told which party
+that is. Both default from the realm rather than from an environment variable
+nobody sets. The tests had covered each half — the realm issues the login
+(`test_keycloak`), the far end takes the customer from the approval
+(`test_far_end`) — and nothing had put the two together in the composition
+root, which is where it was missing.
+
+## F-051 · A granted refund the store then refuses is recorded as done
+
+**Found** 2026-09-20, immediately after F-050, by approving a refund from the
+new desk. The store refused it — the order had already been refunded — and the
+approval's state is `done`, with the refusal in its `result` text. Nothing in
+the state says the money did not move.
+
+`carry_out` decides `DONE` or `FAILED` from whether the call *succeeded*, and a
+store answering `allowed: false` is a successful call carrying a refusal. The
+distinction matters where it is read: an operator counting `done` approvals is
+counting decisions taken, not refunds made, and the two differ exactly when the
+store disagreed with the person.
+
+**Open.** Routed to `approvals/durable.py`: a carried-out action whose far end
+refused it is neither done nor failed, and the state vocabulary has no word for
+it yet. Related to AACP-0029 — a claimed action without its effect — one layer
+down, where the claim is the record's rather than the reply's.

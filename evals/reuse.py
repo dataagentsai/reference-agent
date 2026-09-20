@@ -61,6 +61,8 @@ MECHANISM = {
     "loop/screen.py",
     "resilience/__init__.py",
     "reviewer/__init__.py",
+    "reviewer/guard.py",
+    "reviewer/approvals.py",
     "channel/__init__.py",
     "portal/__init__.py",
     "serve/__init__.py",
@@ -79,6 +81,7 @@ MECHANISM = {
     "trigger/durable.py",
     "approvals/workflow.py",
     "approvals/durable.py",
+    "approvals/notify.py",
     "approvals/desk.py",
     "watch/__init__.py",
     "watch/record.py",
@@ -116,6 +119,7 @@ PER_AGENT = {
     "entrypoint/consent.py",  # which of this shop's actions a customer's words ask for
     "escalation/wording.py",  # what this shop says to its customers
     "ui/__init__.py",  # a support chat page
+    "reviewer/page.py",  # a desk page, in this shop's words
 }
 """Written afresh by a second agent, from its own specification."""
 

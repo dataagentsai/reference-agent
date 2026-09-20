@@ -18,6 +18,12 @@ class Policy:
     refund_threshold: Decimal = Decimal("10000")
     """₹10,000, from the functional spec's P-ESCALATE."""
 
+    remind_before_s: int = 60 * 60
+    """How long before an approval expires to say it is still waiting (T-059).
+    An hour: long enough for somebody to act on the reminder, short enough that
+    it is about *this* approval rather than a digest of the day's. Zero turns
+    reminders off, which is what a deployment with nowhere to send one wants."""
+
     ttl_s: int = 24 * 60 * 60
     """An approval expires. A refund authorised three days ago and executed
     today is a decision nobody actually made about today's situation — so a

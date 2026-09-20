@@ -138,6 +138,7 @@ class Approvals(ApprovalRecords, Protocol):
         args: dict[str, object],
         identity: Identity,
         idempotency_key: IdempotencyKey,
+        conversation_id: str = "",
     ) -> Approval:
         """Start (or find) the approval for this call, and return it once it is
         assessed: carried out already, waiting for a person, or failed."""

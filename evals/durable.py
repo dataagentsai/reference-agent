@@ -74,10 +74,15 @@ class Approvals:
         args: dict[str, object],
         identity: Identity,
         idempotency_key: IdempotencyKey,
+        conversation_id: str = "",
     ) -> Approval:
         await self.time.catch_up()
         return await self.inner.request(
-            action=action, args=args, identity=identity, idempotency_key=idempotency_key
+            action=action,
+            args=args,
+            identity=identity,
+            idempotency_key=idempotency_key,
+            conversation_id=conversation_id,
         )
 
     async def get(self, approval_id: str) -> Approval | None:
@@ -229,7 +234,13 @@ class Durable:
     colleagues: ColleagueDesk
     task_queue: str
 
-    def worker(self, tools: ToolClient, acting_for: object = None, **kwargs: object):
+    def worker(
+        self,
+        tools: ToolClient,
+        acting_for: object = None,
+        notifier: object = None,
+        **kwargs: object,
+    ):
         """Another worker on the same server: a restart, from the workflow's side.
         `acting_for` is the worker's login; a real store needs a signed one."""
         login = acting_for or as_customer
@@ -238,7 +249,7 @@ class Durable:
         # the escalation workflows, which have none.
         return ap.worker(
             self.env.client,
-            activities=[work.assess, work.carry_out],
+            activities=[work.assess, work.carry_out, ap.Reminders(notifier).remind],  # type: ignore[arg-type]
             task_queue=self.task_queue,
             # No sticky cache here. A worker that stops still holds its cached
             # workflows on the server until a timeout, and on a test server
@@ -275,6 +286,7 @@ class Remembered:
         args: dict[str, object],
         identity: Identity,
         idempotency_key: IdempotencyKey,
+        conversation_id: str = "",
         state: ApprovalState = ApprovalState.WAITING,
         now: int = 0,
     ) -> Approval:
@@ -284,6 +296,7 @@ class Remembered:
             args=dict(args),
             reason="above the automatic limit",
             customer_id=identity.customer_id,
+            conversation_id=conversation_id,
             idempotency_key=idempotency_key.value,
             created_at=now,
             expires_at=now + ap.Policy().ttl_s,
@@ -301,13 +314,18 @@ class Remembered:
 
 
 @asynccontextmanager
-async def server(clock: Clock | None = None) -> AsyncIterator[Durable]:
+async def server(
+    clock: Clock | None = None, policy: ap.Policy | None = None
+) -> AsyncIterator[Durable]:
     """A test server and both handles on it, with no worker yet."""
     env = await WorkflowEnvironment.start_time_skipping(data_converter=pydantic_data_converter)
     async with env:
         queue = f"approvals-{uuid.uuid4().hex[:8]}"
         time = OnClock(env, clock)
-        inner = ap.TemporalApprovals(env.client, task_queue=queue, durable=False)
+        # The policy here is the *wait's*: how long an approval lives and when
+        # it says it is still waiting. The worker's copy is the assessment's.
+        extra = {} if policy is None else {"policy": policy}
+        inner = ap.TemporalApprovals(env.client, task_queue=queue, durable=False, **extra)
         waits = esc.TemporalEscalations(env.client, task_queue=queue, durable=False)
         yield Durable(
             env=env,
@@ -351,11 +369,12 @@ async def approvals_for(
     clock: Clock | None = None,
     policy: ap.Policy | None = None,
     acting_for: object = None,
+    notifier: object = None,
 ) -> AsyncIterator[Durable]:
     """A test server with a worker acting on `tools`."""
-    async with server(clock) as durable:
+    async with server(clock, policy) as durable:
         extra = {} if policy is None else {"policy": policy}
-        async with durable.worker(tools, acting_for=acting_for, **extra):
+        async with durable.worker(tools, acting_for=acting_for, notifier=notifier, **extra):
             yield durable
 
 
