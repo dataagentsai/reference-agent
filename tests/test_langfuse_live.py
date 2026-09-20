@@ -43,10 +43,10 @@ KEYS = (
 WORLD = Path(__file__).parent.parent / "worlds" / "clothing.yaml"
 
 
-def langfuse(path: str) -> dict:
+def langfuse(path: str, *, timeout: int = 20) -> dict:
     auth = base64.b64encode(":".join(KEYS).encode()).decode()
     request = urllib.request.Request(f"{URL}{path}", headers={"authorization": f"Basic {auth}"})
-    with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
         return json.load(response)
 
 
@@ -63,7 +63,14 @@ def observations_of(session: str, *, wait_s: int = 60) -> list[dict]:
     is asynchronous — a queue, then ClickHouse — so this polls."""
     deadline = time.time() + wait_s
     while time.time() < deadline:
-        found = langfuse("/api/public/v2/observations?limit=200&fields=core,basic,usage,model")
+        try:
+            found = langfuse("/api/public/v2/observations?limit=200&fields=core,basic,usage,model")
+        except (urllib.error.URLError, TimeoutError, OSError):
+            # Langfuse under load answers slowly, and a poll that timed out is
+            # not an absence of the trace — it is one poll. Keep polling until
+            # the deadline (it failed this way once, in a 48-minute suite).
+            time.sleep(2)
+            continue
         roots = [o for o in found["data"] if o.get("sessionId") == session]
         if roots:
             trace_id = roots[0]["traceId"]

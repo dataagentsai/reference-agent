@@ -36,6 +36,8 @@ from typing import Any
 
 import yaml
 
+from order_system.store import EXPIRED
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORLD = ROOT / "worlds" / "clothing.yaml"
 
@@ -64,12 +66,30 @@ class SaleorError(RuntimeError):
 
 
 class Api:
-    """Saleor's GraphQL endpoint, as a seed needs it: one call, errors raised."""
+    """Saleor's GraphQL endpoint, as a seed needs it: one call, errors raised.
 
-    def __init__(self, url: str, token: str | None = None) -> None:
-        self.url, self.token = url, token
+    It signs in again when its token expires, given the credentials to do it
+    with. Saleor's admin token lasts minutes; a suite that seeds a namespace
+    per scenario runs for longer than that, and four shadow scenarios failed
+    at forty minutes with `Signature has expired` — F-042 again, in the seeder
+    this time, where the store client had already been taught to re-sign in.
+    """
+
+    def __init__(
+        self, url: str, token: str | None = None, credentials: tuple[str, str] | None = None
+    ) -> None:
+        self.url, self.token, self.credentials = url, token, credentials
 
     def __call__(self, query: str, **variables: Any) -> dict[str, Any]:
+        try:
+            return self._call(query, **variables)
+        except SaleorError as exc:
+            if not (self.credentials and _expired(exc)):
+                raise
+        self.token = _token(self.url, *self.credentials)
+        return self._call(query, **variables)
+
+    def _call(self, query: str, **variables: Any) -> dict[str, Any]:
         body = json.dumps({"query": query, "variables": variables}).encode()
         headers = {"content-type": "application/json"}
         if self.token:
@@ -89,7 +109,14 @@ class Api:
         return data
 
 
-def login(url: str, email: str, password: str) -> Api:
+def _expired(exc: Exception) -> bool:
+    """Whether Saleor refused the call only because our token is stale. The
+    markers are the store client's, imported rather than restated, so the two
+    cannot drift apart."""
+    return any(marker in str(exc) for marker in EXPIRED)
+
+
+def _token(url: str, email: str, password: str) -> str:
     token = Api(url)(
         """mutation($e: String!, $p: String!) {
              tokenCreate(email: $e, password: $p) { token errors { field message } } }""",
@@ -98,7 +125,11 @@ def login(url: str, email: str, password: str) -> Api:
     )["tokenCreate"]["token"]
     if not token:
         raise SaleorError(f"{email} could not sign in to Saleor")
-    return Api(url, token)
+    return str(token)
+
+
+def login(url: str, email: str, password: str) -> Api:
+    return Api(url, _token(url, email, password), credentials=(email, password))
 
 
 # --------------------------------------------------------------------------- #
