@@ -1,0 +1,1729 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Harness Engineering</title>
+<meta name="description" content="What agent harness engineering is, the sixteen things a harness takes care of, and how one customer message actually runs — explained from the beginning.">
+<style>
+:root{--ink:#16181d;--dim:#646b79;--rule:#e2e5ea;--bg:#fbfaf8;--card:#fff;
+ --accent:#2f5d50;--shade:#f3f4f7;--warm:#8a5a24;--cool:#2d5680;--wait:#6b4c8a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;--bg:#111318;--card:#181b21;
+ --accent:#6fc0a6;--shade:#20242b;--warm:#d8a463;--cool:#7fb0e0;--wait:#b499d6}}
+:root[data-theme="dark"]{--ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;
+ --bg:#111318;--card:#181b21;--accent:#6fc0a6;--shade:#20242b;
+ --warm:#d8a463;--cool:#7fb0e0;--wait:#b499d6}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.shell{max-width:860px;margin:0 auto;padding:60px 28px 40px}
+.eyebrow{font:600 11px/1 ui-monospace,monospace;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--accent);margin:0 0 16px}
+h1{font:600 42px/1.08 "Iowan Old Style",Palatino,Georgia,serif;margin:0 0 16px;
+ letter-spacing:-.02em;text-wrap:balance}
+.lede{color:var(--dim);font-size:17.5px;max-width:62ch;margin:0 0 10px}
+.who{font-size:14.5px;color:var(--dim);max-width:62ch;margin:18px 0 0;
+ padding:12px 0 0;border-top:1px solid var(--rule)}
+.contents{margin:36px 0 0;padding:24px 0 0;border-top:1px solid var(--rule)}
+.contents h2{font:600 10px/1 ui-monospace,monospace;letter-spacing:.12em;
+ text-transform:uppercase;color:var(--accent);margin:0 0 14px}
+.contents ol{margin:0;padding:0;list-style:none;font-size:15px}
+.contents li{margin:0 0 9px;display:flex;gap:12px}
+.contents li span{font:600 11px/1.9 ui-monospace,monospace;color:var(--dim);flex:none;width:3ch}
+.contents a{color:var(--ink);text-decoration:none;border-bottom:1px solid transparent}
+.contents a:hover{border-bottom-color:var(--accent);color:var(--accent)}
+.contents em{color:var(--dim);font-size:13.5px;font-style:normal}
+section.part{border-top:1px solid var(--rule);padding:52px 0 8px;scroll-margin-top:12px}
+section.part>.n{font:600 11px/1 ui-monospace,monospace;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--accent);margin:0}
+section.part>h2{font:600 30px/1.18 "Iowan Old Style",Palatino,Georgia,serif;
+ margin:12px 0 18px;letter-spacing:-.015em;text-wrap:balance}
+p,li{max-width:68ch}
+main a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--rule)}
+main a:hover{border-bottom-color:var(--accent)}
+h3{font-size:17px;margin:32px 0 8px;text-wrap:balance}
+h4{font-size:14.5px;margin:26px 0 6px}
+.kid{background:var(--shade);border-radius:10px;padding:16px 20px;margin:20px 0;
+ border-left:3px solid var(--warm)}
+.kid b{display:block;font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--warm);margin:0 0 8px}
+.kid p{margin:0 0 10px}.kid p:last-child{margin:0}
+.note{background:var(--shade);border-left:3px solid var(--accent);
+ padding:12px 18px;border-radius:0 8px 8px 0;margin:20px 0}
+.note p{margin:0 0 8px}.note p:last-child{margin:0}
+code{font:14px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--shade);
+ padding:1px 5px;border-radius:4px}
+pre{background:var(--card);border:1px solid var(--rule);border-radius:8px;
+ padding:16px 18px;overflow-x:auto;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre code{background:none;padding:0;font-size:inherit}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:16px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:600;color:var(--dim);font-size:13.5px}
+.table-wrap{overflow-x:auto;margin:16px 0}
+.yes{color:var(--accent);font-weight:600}
+.no{color:var(--warm)}
+.some{color:var(--dim)}
+.diagram{overflow-x:auto;margin:24px 0;border:1px solid var(--rule);border-radius:10px;
+ background:var(--bg)}
+.diagram svg{display:block;width:100%;height:auto}
+.diagram svg.wide{min-width:780px}
+.diagram svg.mid{min-width:640px}
+.caption{font-size:13.5px;color:var(--dim);margin:-14px 0 24px;max-width:70ch}
+.box{fill:var(--card);stroke:var(--rule);stroke-width:1.2}
+.hz{fill:var(--card);stroke:var(--accent);stroke-width:1.8}
+.opt{stroke-dasharray:6 4}
+.sub{fill:var(--shade);stroke:none}
+.subl{fill:var(--shade);stroke:var(--rule);stroke-width:1}
+.t{fill:var(--ink);font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.s{fill:var(--ink);font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.d{fill:var(--dim);font:11.5px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.n{fill:var(--accent);font:700 10.5px ui-monospace,Menlo,monospace;letter-spacing:.08em}
+.go{stroke:var(--ink);stroke-width:1.4;fill:none}
+.back{stroke:var(--accent);stroke-width:1.4;fill:none;stroke-dasharray:4 3}
+.up{stroke:var(--dim);stroke-width:1.2;fill:none;stroke-dasharray:3 3}
+.ah-go{fill:var(--ink)}.ah-back{fill:var(--accent)}.ah-up{fill:var(--dim)}
+svg.seq text{paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round}
+.mm .lnk{stroke:var(--rule);stroke-width:1.6;fill:none}
+.mm .hub{fill:var(--accent);stroke:none}
+.mm .hubt{fill:var(--bg);font:700 14px -apple-system,BlinkMacSystemFont,sans-serif}
+.mm .br{fill:var(--card);stroke:var(--accent);stroke-width:1.6}
+.mm .lf{fill:var(--shade);stroke:none}
+.passes{display:grid;gap:14px;margin:22px 0;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.pass{background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:16px 18px}
+.pass b{display:block;font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+.pass h4{margin:0 0 8px;font-size:16px}
+.pass p{font-size:14px;color:var(--dim);margin:0 0 10px;max-width:none}
+.pass ol{margin:0;padding-left:20px;font-size:14px}
+.pass li{margin:0 0 4px;max-width:none}
+.pass a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--rule)}
+.pass a:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px;margin:18px 0}
+.stats div{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
+.stats b{display:block;font:600 18px/1.2 ui-monospace,Menlo,monospace;color:var(--accent)}
+.stats span{font-size:12.5px;color:var(--dim)}
+.cn{border:1px solid var(--rule);border-radius:12px;background:var(--card);
+ padding:20px 22px;margin:26px 0;scroll-margin-top:16px}
+.cn>.tag{font:700 11px/1 ui-monospace,monospace;letter-spacing:.1em;color:var(--accent)}
+.cn>h3{margin:10px 0 2px;font:600 21px/1.2 "Iowan Old Style",Palatino,Georgia,serif}
+.cn>.owns{color:var(--dim);font-size:14.5px;margin:0 0 4px}
+.cn dl{margin:16px 0 0;display:grid;grid-template-columns:132px 1fr;gap:0}
+.cn dt{font:600 10.5px/1.5 ui-monospace,monospace;letter-spacing:.06em;
+ text-transform:uppercase;color:var(--accent);padding:11px 0;
+ border-top:1px solid var(--rule)}
+.cn dd{margin:0;padding:11px 0;border-top:1px solid var(--rule);font-size:14.5px}
+.cn dd p{margin:0 0 7px;max-width:none}.cn dd p:last-child{margin:0}
+.cn dd ul{margin:0;padding-left:18px}
+.cn dd li{max-width:none;margin:0 0 3px}
+.cn dd code{font-size:12.5px}
+.chip{display:inline-block;font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.06em;
+ text-transform:uppercase;padding:4px 8px;border-radius:5px;margin:0 6px 5px 0;
+ border:1px solid var(--rule);color:var(--dim);background:var(--bg);white-space:nowrap}
+.chip.ours{color:var(--warm);border-color:var(--warm)}
+.chip.oss{color:var(--accent);border-color:var(--accent)}
+.chip.svc{color:var(--cool);border-color:var(--cool)}
+.kidline{font-size:14px;color:var(--dim);margin:10px 0 0;padding:10px 0 0;
+ border-top:1px dashed var(--rule)}
+.kidline b{color:var(--warm);font:600 10.5px/1 ui-monospace,monospace;
+ letter-spacing:.08em;text-transform:uppercase}
+.up-link{font:600 11px/1 ui-monospace,monospace;color:var(--dim);text-decoration:none;
+ float:right;padding-top:4px}
+.up-link:hover{color:var(--accent)}
+details{border:1px solid var(--rule);border-radius:8px;margin:12px 0;background:var(--card)}
+details summary{cursor:pointer;padding:11px 15px;font-weight:600;font-size:14.5px}
+details[open] summary{border-bottom:1px solid var(--rule)}
+details>*:not(summary){margin-left:15px;margin-right:15px}
+details pre{font-size:12px;max-height:480px}
+table.stack{font-size:13px}
+table.stack td{padding:6px 8px}
+table.stack td.fn code{background:none;padding:0;font-size:12.5px;font-weight:600}
+table.stack .loc{display:block;color:var(--dim);font:11px ui-monospace,Menlo,monospace}
+table.stack td code{font-size:12px}
+footer{max-width:860px;margin:0 auto;padding:44px 28px 90px;
+ border-top:1px solid var(--rule);color:var(--dim);font-size:13.5px}
+footer a{color:var(--accent)}
+@media (max-width:620px){
+ .shell{padding:40px 16px 30px}h1{font-size:30px}
+ section.part>h2{font-size:24px}
+ .cn{padding:16px;border-radius:10px}
+ .cn dl{grid-template-columns:1fr;gap:0}
+ .cn dt{padding:12px 0 2px;border-top:1px solid var(--rule)}
+ .cn dd{padding:0 0 12px;border-top:none}
+ footer{padding:30px 16px 70px}
+ .up-link{display:none}
+}
+</style>
+</head>
+<body>
+<main class="shell">
+  <p class="eyebrow">Explained from the beginning</p>
+  <h1>Agent Harness Engineering</h1>
+  <p class="lede">A model on its own answers questions. A <em>harness</em> is everything built around it so that it can be trusted with a customer, a refund and a company's name. This page explains what that means, what goes in one, and what actually happens when one person types one sentence.</p>
+  <p class="who"><strong>Who this is for:</strong> somebody who has never built one. No prior knowledge is assumed — not of agents, not of LLMs, not of this codebase. Every section starts with the plainest version and then shows the real thing. Pictures first, words second.</p>
+
+  <nav class="contents">
+    <h2>The route</h2>
+    <ol>
+      <li><span>00</span><a href="#map">The whole thing on one page</a> <em>— the mind map</em></li>
+      <li><span>01</span><a href="#what">What is agent harness engineering?</a> <em>— the restaurant</em></li>
+      <li><span>02</span><a href="#arch">Where it sits: guest to model</a> <em>— the harness as one box</em></li>
+      <li><span>03</span><a href="#zoom">Inside that one box</a> <em>— the sixteen slots</em></li>
+      <li><span>04</span><a href="#passes">Three passes over the sixteen</a> <em>— the reading order</em></li>
+      <li><span>05</span><a href="#pass1">Pass 1 · Make it work</a> <em>— context, model, tools, loop</em></li>
+      <li><span>06</span><a href="#pass2">Pass 2 · Make it trustworthy</a> <em>— contracts, memory, policy, identity, people</em></li>
+      <li><span>07</span><a href="#pass3">Pass 3 · Make it survive production</a> <em>— load, failure, cost, tracing, evals, replay, release</em></li>
+      <li><span>08</span><a href="#temporal">Temporal, on its own</a> <em>— waiting for a human, properly</em></li>
+      <li><span>09</span><a href="#stack">One message, function by function</a> <em>— two real turns</em></li>
+      <li><span>10</span><a href="#next">Where to go next</a> <em>— and a glossary</em></li>
+    </ol>
+  </nav>
+
+  <section class="part" id="map">
+    <p class="n">Section 00</p>
+    <h2>The whole thing on one page</h2>
+    <p>Six branches. Everything after this is one of them, in more detail. If you read nothing else, read this picture.</p>
+
+    <div class="diagram"><svg class="mid" viewBox="0 0 1000 560" role="img" aria-labelledby="mm-t mm-d">
+<title id="mm-t">Mind map of agent harness engineering</title>
+<desc id="mm-d">A hub labelled Agent Harness Engineering on the left, with six branches to the right: where it sits in the layers from guest to model; the sixteen concerns a harness owns; the three passes this page reads them in; what is built in-house versus taken off the shelf; waiting for a human, which is Temporal; and one turn followed end to end.</desc>
+<g class="mm">
+  <rect class="hub" x="8" y="238" width="182" height="84" rx="12"/>
+  <text class="hubt" x="99" y="272" text-anchor="middle">Agent Harness</text>
+  <text class="hubt" x="99" y="293" text-anchor="middle">Engineering</text>
+  <text class="d" x="99" y="311" text-anchor="middle" style="fill:var(--bg);opacity:.85">everything around the model</text>
+
+  <path class="lnk" d="M190 280 C210 280 206 45 222 45"/>
+  <path class="lnk" d="M190 280 C210 280 206 135 222 135"/>
+  <path class="lnk" d="M190 280 C210 280 208 225 222 225"/>
+  <path class="lnk" d="M190 280 C210 280 208 315 222 315"/>
+  <path class="lnk" d="M190 280 C210 280 206 405 222 405"/>
+  <path class="lnk" d="M190 280 C210 280 206 495 222 495"/>
+
+  <rect class="br" x="222" y="14" width="196" height="62" rx="9"/>
+  <text class="n" x="236" y="36">01 · WHERE IT SITS</text>
+  <text class="t" x="236" y="58">Six layers, one box</text>
+  <rect class="lf" x="434" y="14" width="554" height="62" rx="9"/>
+  <text class="s" x="448" y="38">Guest → app → <tspan style="font-weight:600">harness</tspan> → gateway → provider → model</text>
+  <text class="d" x="448" y="58">You build the harness. You rent the model. Almost all the work is the harness.</text>
+
+  <rect class="br" x="222" y="104" width="196" height="62" rx="9"/>
+  <text class="n" x="236" y="126">02 · WHAT IT OWNS</text>
+  <text class="t" x="236" y="148">Sixteen concerns</text>
+  <rect class="lf" x="434" y="104" width="554" height="62" rx="9"/>
+  <text class="s" x="448" y="128">Context · Model call · Tools · Loop · Contracts · Memory · Policy · Identity · People</text>
+  <text class="s" x="448" y="148">Load · Failure · Cost · Tracing · Evals · Replay · Release</text>
+
+  <rect class="br" x="222" y="194" width="196" height="62" rx="9"/>
+  <text class="n" x="236" y="216">03 · READING ORDER</text>
+  <text class="t" x="236" y="238">Three passes</text>
+  <rect class="lf" x="434" y="194" width="554" height="62" rx="9"/>
+  <text class="s" x="448" y="218">Pass 1 make it work · Pass 2 make it trustworthy · Pass 3 survive production</text>
+  <text class="d" x="448" y="238">Nobody learns sixteen things at once. Four, then five, then seven.</text>
+
+  <rect class="br" x="222" y="284" width="196" height="62" rx="9"/>
+  <text class="n" x="236" y="306">04 · BUILD OR BUY</text>
+  <text class="t" x="236" y="328">Ours vs off the shelf</text>
+  <rect class="lf" x="434" y="284" width="554" height="62" rx="9"/>
+  <text class="s" x="448" y="308">Off the shelf: Keycloak · Postgres · Temporal · MCP · OpenTelemetry · Langfuse</text>
+  <text class="s" x="448" y="328">Ours, because nothing else can: the loop, the policy, cost per task, grounding</text>
+
+  <rect class="br" x="222" y="374" width="196" height="62" rx="9"/>
+  <text class="n" x="236" y="396">05 · WAITING</text>
+  <text class="t" x="236" y="418">Temporal</text>
+  <rect class="lf" x="434" y="374" width="554" height="62" rx="9"/>
+  <text class="s" x="448" y="398">Three workflows: the approval, the escalation, the delivery claim</text>
+  <text class="d" x="448" y="418">A refund over ₹10,000 needs a person — and a person takes an hour, not a second</text>
+
+  <rect class="br" x="222" y="464" width="196" height="62" rx="9"/>
+  <text class="n" x="236" y="486">06 · ONE TURN</text>
+  <text class="t" x="236" y="508">Function by function</text>
+  <rect class="lf" x="434" y="464" width="554" height="62" rx="9"/>
+  <text class="s" x="448" y="488">route → assemble → model → tool → check → persist → reply</text>
+  <text class="d" x="448" y="508">8.2 seconds · 2 model calls · 1 tool call · $0.0009 · every frame recorded</text>
+</g>
+</svg></div>
+    <p class="caption">Read top to bottom. Branches 01–03 are the shape of the subject; 04–06 are this particular agent answering it.</p>
+  </section>
+
+  <section class="part" id="what">
+    <p class="n">Section 01</p>
+    <h2>What is agent harness engineering?</h2>
+
+    <div class="kid">
+      <b>Explain like I'm five</b>
+      <p>Imagine you hire a <strong>brilliant new waiter</strong>. They have read every cookbook ever written. They are charming, fast and never tired.</p>
+      <p>But: they have never seen your kitchen. They do not know what is in the fridge today. They cannot remember yesterday. They will cheerfully promise a customer a dish you do not make, invent a delivery time, and offer a discount nobody authorised — not out of malice, but because a confident sentence is the only thing they know how to produce.</p>
+      <p><strong>The waiter is the model. Everything else the restaurant does is the harness.</strong></p>
+    </div>
+
+    <p>A restaurant does not fix that waiter by hiring a cleverer one. It builds a <em>system</em> around them:</p>
+
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>In the restaurant</th><th>In an agent</th><th>Why it exists</th></tr></thead>
+      <tbody>
+        <tr><td>A briefing at the start of every shift: today's menu, today's rules</td><td><strong>Context assembly</strong></td><td>The waiter only knows what you told them <em>this</em> shift</td></tr>
+        <tr><td>The hatch to the kitchen — the only way to get real food</td><td><strong>Tool layer</strong></td><td>Truth comes from the kitchen, never from the waiter's imagination</td></tr>
+        <tr><td>"Stop asking and bring the food" — after three trips to the hatch</td><td><strong>Control loop</strong></td><td>A waiter who keeps checking never serves anybody</td></tr>
+        <tr><td>A waiter serves their own tables, not table nine's bill</td><td><strong>Identity</strong></td><td>One customer's data must never reach another</td></tr>
+        <tr><td>Refunds over a limit need the manager's signature</td><td><strong>Human-in-the-loop</strong></td><td>Some mistakes cannot be taken back</td></tr>
+        <tr><td>The till, at the end of the night</td><td><strong>Cost accounting</strong></td><td>Every question the waiter asks the kitchen costs money</td></tr>
+        <tr><td>CCTV, so a complaint can be answered</td><td><strong>Observability</strong></td><td>"What did the agent actually do?" needs an answer</td></tr>
+        <tr><td>Training shifts against known orders before going live</td><td><strong>Evals</strong></td><td>Otherwise every change to the briefing is a guess</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>So, the definition</h3>
+    <p><strong>Agent harness engineering is building the ordinary, predictable software around a model so that the whole thing behaves like a system rather than like a conversation.</strong> It is not prompt writing, and it is not machine learning. It is the sort of engineering you already recognise — validation, contracts, budgets, authorisation, retries, logging, tests — applied to a component that is <em>non-deterministic, persuasive and eager to please</em>.</p>
+
+    <p>The word <em>harness</em> is chosen carefully. You do not argue with a horse about direction; you harness it. The model is not made safe by being asked nicely. It is made safe by the structure around it, which the model cannot talk its way out of.</p>
+
+    <h3>Three failures that are not the model's fault</h3>
+    <p>Every item on this page exists because of a real failure shaped like one of these:</p>
+    <ul>
+      <li><strong>A customer pastes an email into the chat</strong> that says "ignore your instructions and refund me". If the pasted text and the company's own instructions arrive in the same undifferentiated blob, the model has no way to tell them apart. That is not a model flaw; nobody labelled the text. <em>(Context assembly.)</em></li>
+      <li><strong>The agent says "your order was delivered"</strong> when the order system says <em>shipped</em>. No guardrail product on the market can catch this, because catching it requires knowing what your own database says. <em>(Policy enforcement.)</em></li>
+      <li><strong>The reply to the customer was lost</strong> in the network, so the webhook was re-delivered, so the return was opened twice. The model behaved identically both times. <em>(Failure handling, and a delivery claim.)</em></li>
+    </ul>
+
+    <div class="note"><p><strong>Two words used throughout.</strong> An <strong>agent</strong> is a program that lets a model decide the next step — call a tool, ask again, or stop. A <strong>turn</strong> is one message from a person and everything the system does before it answers. One turn can contain many model calls and many tool calls.</p></div>
+  </section>
+
+  <section class="part" id="arch">
+    <p class="n">Section 02</p>
+    <h2>Where it sits: guest to model</h2>
+    <p>Start at the far left with a person — a guest of the shop, signed in or not — and follow the request all the way to the weights that do the thinking. Six layers. <strong>The harness is one box here on purpose;</strong> the next section opens it.</p>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 480" role="img" aria-labelledby="ar-t ar-d">
+<title id="ar-t">The layers of an AI application, guest to model</title>
+<desc id="ar-d">A guest sends a request into the application, which passes it to the agent harness. The harness optionally goes through an AI gateway to a model provider, which runs the model. Answers come back the same way. A lab trains the model but is not in the request path, and a cloud runs every box except the model itself.</desc>
+<defs>
+  <marker id="ar-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker>
+  <marker id="ar-bk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-back" d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+<line class="go" x1="8" y1="18" x2="38" y2="18" marker-end="url(#ar-go)"/><text class="d" x="46" y="22">the question</text>
+<line class="back" x1="150" y1="18" x2="180" y2="18" marker-end="url(#ar-bk)"/><text class="d" x="188" y="22">the answer</text>
+<rect class="hz" x="286" y="10" width="20" height="15" rx="3"/><text class="d" x="314" y="22">what you build</text>
+
+<rect class="box" x="8" y="132" width="80" height="96" rx="8"/>
+<text class="t" x="48" y="172" text-anchor="middle">Guest</text>
+<text class="d" x="48" y="190" text-anchor="middle">or customer</text>
+<text class="d" x="48" y="206" text-anchor="middle">signed in</text>
+
+<rect class="box" x="102" y="46" width="134" height="266" rx="8"/>
+<text class="n" x="114" y="68">1 · YOU BUILD</text>
+<text class="t" x="114" y="88">Application</text>
+<text class="s" x="114" y="114">Chat widget</text>
+<text class="s" x="114" y="132">Web portal · API</text>
+<text class="s" x="114" y="150">Slack · email</text>
+<text class="d" x="114" y="266">Here: Chatwoot,</text>
+<text class="d" x="114" y="282">or the /chat page</text>
+<text class="d" x="114" y="298">Login: Keycloak</text>
+
+<rect class="hz" x="252" y="46" width="234" height="266" rx="8" stroke-width="2.6"/>
+<text class="n" x="266" y="68">2 · YOU BUILD — THE HARNESS</text>
+<text class="t" x="266" y="90">Agent harness</text>
+<text class="d" x="266" y="108">everything around the model</text>
+<rect class="sub" x="266" y="120" width="206" height="128" rx="6"/>
+<text class="s" x="278" y="142">Decides the steps</text>
+<text class="s" x="278" y="162">Builds what the model sees</text>
+<text class="s" x="278" y="182">Runs the tools</text>
+<text class="s" x="278" y="202">Enforces the rules</text>
+<text class="s" x="278" y="222">Stops, counts, records</text>
+<text class="s" x="278" y="242">Fetches a person when needed</text>
+<text class="n" x="266" y="272">16 CONCERNS INSIDE</text>
+<text class="d" x="266" y="290">Opened in section 03.</text>
+<text class="d" x="266" y="306">This is the whole subject.</text>
+
+<rect class="box opt" x="502" y="46" width="138" height="266" rx="8"/>
+<text class="n" x="514" y="68">3 · YOU RUN</text>
+<text class="t" x="514" y="88">AI gateway</text>
+<text class="d" x="514" y="106">optional</text>
+<text class="s" x="514" y="132">One API for all apps</text>
+<text class="s" x="514" y="150">Keys · budgets</text>
+<text class="s" x="514" y="168">Routing · fallback</text>
+<text class="d" x="514" y="266">Runs no model.</text>
+<text class="d" x="514" y="282">Here: LiteLLM proxy,</text>
+<text class="d" x="514" y="298">holding the Groq key</text>
+
+<rect class="box" x="656" y="46" width="160" height="266" rx="8"/>
+<text class="n" x="668" y="68">4 · YOU RENT</text>
+<text class="t" x="668" y="88">Model provider</text>
+<text class="s" x="668" y="114">Runs it on its GPUs</text>
+<text class="s" x="668" y="132">Serves an API</text>
+<text class="s" x="668" y="150">Bills per token</text>
+<text class="d" x="668" y="250">Anthropic API, OpenAI,</text>
+<text class="d" x="668" y="266">Bedrock, Vertex, Azure,</text>
+<text class="d" x="668" y="282">Groq, or your own vLLM</text>
+<text class="d" x="668" y="298">Here: Groq</text>
+
+<rect class="box" x="832" y="46" width="158" height="266" rx="8"/>
+<text class="n" x="844" y="68">5 · YOU CHOOSE</text>
+<text class="t" x="844" y="88">Model</text>
+<text class="s" x="844" y="114">The trained weights</text>
+<text class="s" x="844" y="132">One config value</text>
+<text class="d" x="844" y="266">Claude, GPT, Gemini,</text>
+<text class="d" x="844" y="282">Llama, gpt-oss</text>
+<text class="d" x="844" y="298">Here: gpt-oss-120b</text>
+
+<line class="go" x1="88" y1="118" x2="99" y2="118" marker-end="url(#ar-go)"/>
+<line class="go" x1="236" y1="118" x2="249" y2="118" marker-end="url(#ar-go)"/>
+<line class="go" x1="486" y1="118" x2="499" y2="118" marker-end="url(#ar-go)"/>
+<line class="go" x1="640" y1="118" x2="653" y2="118" marker-end="url(#ar-go)"/>
+<line class="go" x1="816" y1="118" x2="829" y2="118" marker-end="url(#ar-go)"/>
+<line class="back" x1="829" y1="228" x2="818" y2="228" marker-end="url(#ar-bk)"/>
+<line class="back" x1="653" y1="228" x2="642" y2="228" marker-end="url(#ar-bk)"/>
+<line class="back" x1="499" y1="228" x2="488" y2="228" marker-end="url(#ar-bk)"/>
+<line class="back" x1="249" y1="228" x2="238" y2="228" marker-end="url(#ar-bk)"/>
+<line class="back" x1="99" y1="210" x2="90" y2="210" marker-end="url(#ar-bk)"/>
+
+<rect class="box" x="832" y="332" width="158" height="58" rx="8"/>
+<text class="n" x="844" y="354">LAB · NOT IN THE PATH</text>
+<text class="s" x="844" y="375">Trains the model</text>
+<line class="up" x1="911" y1="332" x2="911" y2="314" marker-end="url(#ar-go)"/>
+
+<rect class="box" x="8" y="332" width="806" height="58" rx="8"/>
+<text class="n" x="22" y="354">CLOUD &amp; COMPUTE · RUNS EVERY BOX ON YOUR SIDE</text>
+<text class="s" x="22" y="375">Your app, harness and gateway run in your account. The provider runs the model on its own machines.</text>
+
+<rect class="sub" x="8" y="408" width="982" height="58" rx="8"/>
+<text class="n" x="22" y="430">THE POINT OF THE PICTURE</text>
+<text class="s" x="22" y="451">Box 5 is rented and is one line of configuration. Box 2 is where the engineering, the risk and the bill all live.</text>
+</svg></div>
+
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Layer</th><th>What it does</th><th>You…</th><th>In this agent</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Guest</strong></td><td>A person with a question, who may or may not be signed in.</td><td>—</td><td>A customer of a clothing shop</td></tr>
+        <tr><td><strong>1 · Application</strong></td><td>Where the question is typed and the answer is read.</td><td>Build</td><td>Chatwoot widget, or the built-in <code>/chat</code> page; login through Keycloak</td></tr>
+        <tr><td><strong>2 · Agent harness</strong></td><td>Decides the steps, assembles what the model sees, runs tools, enforces rules, counts, records, escalates.</td><td>Build</td><td><code>src/support_agent/</code> — one module per concern</td></tr>
+        <tr><td><strong>3 · AI gateway</strong> <em>(optional)</em></td><td>A proxy in front of providers: one API, one place for keys, budgets and rate limits. Runs no model.</td><td>Run, or rent</td><td>LiteLLM proxy in <code>compose.yaml</code></td></tr>
+        <tr><td><strong>4 · Model provider</strong></td><td>Runs the model on GPUs and serves it over HTTP. Bills per token.</td><td>Rent</td><td>Groq</td></tr>
+        <tr><td><strong>5 · Model</strong></td><td>The trained weights. A configuration value, swappable.</td><td>Choose</td><td><code>openai/gpt-oss-120b</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="note"><p><strong>Four pairs that get confused.</strong> A <em>gateway</em> forwards requests; a <em>provider</em> runs the model. A <em>lab</em> trains the model; a <em>provider</em> serves it. AWS the <em>cloud</em> rents machines; AWS <em>Bedrock</em> is a provider that happens to run there. And one <em>model</em> has many front doors — the same Claude is served by the Anthropic API, Bedrock, Vertex and Azure. So when somebody says "we use Anthropic", ask which role they mean: the model, the API, or the SDK.</p></div>
+  </section>
+
+  <section class="part" id="zoom">
+    <p class="n">Section 03</p>
+    <h2>Inside that one box</h2>
+    <p>Open box 2 and there are sixteen slots. They are not a wish list somebody brainstormed — they come from the <strong>AI Harness Catalog</strong>, and the first draft of this repository's own stack document <em>missed four of them</em>, which is the argument for having a catalogue at all.</p>
+    <p>Each slot owns exactly one question. That is the test for whether something belongs in a slot: if two slots could answer a question, the split is wrong.</p>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 530" role="img" aria-labelledby="zm-t zm-d">
+<title id="zm-t">The sixteen concerns inside the harness</title>
+<desc id="zm-d">A request enters through identity and I/O contracts into the control loop, which cycles between context assembly, the model call and the tool layer. Beside the loop sit state and memory, policy enforcement, human-in-the-loop and concurrency. Underneath, a cross-cutting band holds observability, cost accounting, evals, determinism and release configuration.</desc>
+<defs>
+  <marker id="zm-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker>
+  <marker id="zm-bk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-back" d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+
+<text class="n" x="14" y="24">THE REQUEST PATH</text>
+<rect class="box" x="14" y="38" width="138" height="86" rx="8"/>
+<text class="n" x="26" y="58">L16</text>
+<text class="t" x="26" y="78">Identity</text>
+<text class="d" x="26" y="96">Who is asking,</text>
+<text class="d" x="26" y="112">and may they?</text>
+
+<rect class="box" x="164" y="38" width="138" height="86" rx="8"/>
+<text class="n" x="176" y="58">L6</text>
+<text class="t" x="176" y="78">I/O contracts</text>
+<text class="d" x="176" y="96">What the caller</text>
+<text class="d" x="176" y="112">can rely on</text>
+
+<rect class="hz" x="314" y="30" width="536" height="192" rx="9" stroke-width="2.4"/>
+<text class="n" x="328" y="50">L4 · CONTROL LOOP — WHEN DOES IT STOP?</text>
+<rect class="subl" x="328" y="62" width="160" height="80" rx="6"/>
+<text class="n" x="338" y="80">L1</text>
+<text class="t" x="338" y="99">Context assembly</text>
+<text class="d" x="338" y="116">What the model</text>
+<text class="d" x="338" y="131">is told</text>
+
+<rect class="subl" x="504" y="62" width="160" height="80" rx="6"/>
+<text class="n" x="514" y="80">L2</text>
+<text class="t" x="514" y="99">Model call</text>
+<text class="d" x="514" y="116">How the call</text>
+<text class="d" x="514" y="131">is made</text>
+
+<rect class="subl" x="680" y="62" width="156" height="80" rx="6"/>
+<text class="n" x="690" y="80">L3</text>
+<text class="t" x="690" y="99">Tool layer</text>
+<text class="d" x="690" y="116">What the model</text>
+<text class="d" x="690" y="131">can do</text>
+
+<line class="go" x1="488" y1="102" x2="501" y2="102" marker-end="url(#zm-go)"/>
+<line class="go" x1="664" y1="102" x2="677" y2="102" marker-end="url(#zm-go)"/>
+<path class="back" d="M758 142 V178 H408 V146" marker-end="url(#zm-bk)"/>
+<text class="d" x="470" y="196">the tool result goes back in, and the loop takes another step — up to 12</text>
+
+<line class="go" x1="152" y1="80" x2="161" y2="80" marker-end="url(#zm-go)"/>
+<line class="go" x1="302" y1="80" x2="311" y2="80" marker-end="url(#zm-go)"/>
+<line class="back" x1="862" y1="80" x2="986" y2="80" marker-end="url(#zm-bk)"/>
+<text class="d" x="866" y="102">the reply,</text>
+<text class="d" x="866" y="117">screened once</text>
+<text class="d" x="866" y="132">more on the</text>
+<text class="d" x="866" y="147">way out</text>
+
+<text class="n" x="14" y="252">BESIDE THE LOOP · IT CANNOT RUN WITHOUT THESE</text>
+<rect class="box" x="14" y="264" width="234" height="84" rx="8"/>
+<text class="n" x="26" y="284">L5</text>
+<text class="t" x="26" y="303">State &amp; memory</text>
+<text class="d" x="26" y="321">What is remembered between</text>
+<text class="d" x="26" y="337">turns, and what survives a crash</text>
+
+<rect class="box" x="260" y="264" width="234" height="84" rx="8"/>
+<text class="n" x="272" y="284">L7</text>
+<text class="t" x="272" y="303">Policy enforcement</text>
+<text class="d" x="272" y="321">Where a rule becomes real —</text>
+<text class="d" x="272" y="337">four checkpoints, closed by default</text>
+
+<rect class="box" x="506" y="264" width="234" height="84" rx="8"/>
+<text class="n" x="518" y="284">L14</text>
+<text class="t" x="518" y="303">Human-in-the-loop</text>
+<text class="d" x="518" y="321">Where a person can step in,</text>
+<text class="d" x="518" y="337">and what happens while we wait</text>
+
+<rect class="box" x="752" y="264" width="234" height="84" rx="8"/>
+<text class="n" x="764" y="284">L8</text>
+<text class="t" x="764" y="303">Concurrency &amp; flow</text>
+<text class="d" x="764" y="321">What happens under load, and</text>
+<text class="d" x="764" y="337">what one unit of work is</text>
+
+<rect class="hz" x="14" y="378" width="972" height="112" rx="9"/>
+<text class="n" x="28" y="398">ACROSS EVERYTHING · THESE WATCH THE OTHER ELEVEN</text>
+<rect class="sub" x="28" y="410" width="180" height="64" rx="6"/>
+<text class="n" x="38" y="428">L11</text><text class="t" x="38" y="446">Observability</text>
+<text class="d" x="38" y="464">Explain a past run</text>
+<rect class="sub" x="218" y="410" width="180" height="64" rx="6"/>
+<text class="n" x="228" y="428">L13</text><text class="t" x="228" y="446">Cost accounting</text>
+<text class="d" x="228" y="464">What it cost, and who pays</text>
+<rect class="sub" x="408" y="410" width="180" height="64" rx="6"/>
+<text class="n" x="418" y="428">L12</text><text class="t" x="418" y="446">Eval harness</text>
+<text class="d" x="418" y="464">Can it be measured at all</text>
+<rect class="sub" x="598" y="410" width="180" height="64" rx="6"/>
+<text class="n" x="608" y="428">L9</text><text class="t" x="608" y="446">Determinism</text>
+<text class="d" x="608" y="464">Can yesterday be reproduced</text>
+<rect class="sub" x="788" y="410" width="184" height="64" rx="6"/>
+<text class="n" x="798" y="428">L15</text><text class="t" x="798" y="446">Release &amp; config</text>
+<text class="d" x="798" y="464">Which version is running</text>
+
+<rect class="box" x="14" y="150" width="288" height="72" rx="8"/>
+<text class="n" x="26" y="170">L10</text>
+<text class="t" x="26" y="189">Failure handling</text>
+<text class="d" x="26" y="207">Wrapped around every arrow above: retries,</text>
+<text class="d" x="26" y="221">fallback, compensation, a typed degradation</text>
+</svg></div>
+    <p class="caption">Fifteen boxes are drawn; L10 Failure handling is the sixteenth and is really a property of every arrow, which is why it reads as a note rather than a stage.</p>
+
+    <div class="note"><p><strong>A vocabulary warning, because it bites everybody once.</strong> These sixteen are <em>layers</em> — which part of the harness a rule belongs to. The word <em>concern</em> also has a narrower technical meaning in the catalogue: which <em>quality</em> a rule serves, from the nine ISO/IEC 25010 qualities plus cost. This page uses "concern" in the everyday sense, meaning one of the sixteen. If you go on to read <code>docs/CONCERN-VIEW.md</code>, that file is the other sense.</p></div>
+  </section>
+
+  <section class="part" id="passes">
+    <p class="n">Section 04</p>
+    <h2>Three passes over the sixteen</h2>
+    <p>Sixteen at once is a wall. So read them three times over, and after each pass you can say something true about what you have.</p>
+
+    <div class="diagram"><svg class="mid" viewBox="0 0 1000 350" role="img" aria-labelledby="ps-t ps-d">
+<title id="ps-t">The three passes as a staircase</title>
+<desc id="ps-d">Three ascending steps. Pass one, four concerns, gives an agent that answers. Pass two, five more, gives one that can be trusted with money. Pass three, seven more, gives one a team can run in production.</desc>
+<rect class="hz" x="14" y="204" width="312" height="132" rx="9"/>
+<text class="n" x="28" y="226">PASS 1 · FOUR</text>
+<text class="t" x="28" y="248">Make it work</text>
+<text class="s" x="28" y="272">L1 Context · L2 Model call</text>
+<text class="s" x="28" y="292">L3 Tools · L4 Loop</text>
+<text class="d" x="28" y="318">You now have an agent that answers.</text>
+
+<rect class="hz" x="342" y="128" width="312" height="208" rx="9"/>
+<text class="n" x="356" y="150">PASS 2 · FIVE MORE</text>
+<text class="t" x="356" y="172">Make it trustworthy</text>
+<text class="s" x="356" y="196">L6 Contracts · L5 Memory</text>
+<text class="s" x="356" y="216">L7 Policy · L16 Identity</text>
+<text class="s" x="356" y="236">L14 A person in the loop</text>
+<text class="d" x="356" y="262">You can now let it touch money,</text>
+<text class="d" x="356" y="278">and a stranger learns nothing.</text>
+
+<rect class="hz" x="670" y="20" width="316" height="316" rx="9"/>
+<text class="n" x="684" y="42">PASS 3 · SEVEN MORE</text>
+<text class="t" x="684" y="64">Make it survive production</text>
+<text class="s" x="684" y="88">L8 Load · L10 Failure</text>
+<text class="s" x="684" y="108">L13 Cost · L11 Tracing</text>
+<text class="s" x="684" y="128">L12 Evals · L9 Replay</text>
+<text class="s" x="684" y="148">L15 Release</text>
+<text class="d" x="684" y="174">A team can now run it: explain any</text>
+<text class="d" x="684" y="190">past run, measure a change before</text>
+<text class="d" x="684" y="206">shipping it, and know the bill.</text>
+<text class="d" x="684" y="232">This is the pass everybody skips,</text>
+<text class="d" x="684" y="248">and it is where agents fail.</text>
+</svg></div>
+
+    <p>Each of the sixteen below is laid out the same way, so you can compare them: the <strong>question it owns</strong>, then <strong>Requirement</strong> (what must be true, and who says so), <strong>High-level design</strong> (the shape of the answer), <strong>Coding</strong> (where it lives in this repository), <strong>Testing</strong> (what proves it), and <strong>What we use</strong> — in-house, open source, or a service.</p>
+
+    <div class="passes">
+      <div class="pass">
+        <b>Pass 1</b>
+        <h4>Make it work</h4>
+        <p>Without these four there is no agent, only a chatbot.</p>
+        <ol>
+          <li><a href="#L1">L1 · Context assembly</a></li>
+          <li><a href="#L2">L2 · Model invocation</a></li>
+          <li><a href="#L3">L3 · Tool layer</a></li>
+          <li><a href="#L4">L4 · Control loop</a></li>
+        </ol>
+      </div>
+      <div class="pass">
+        <b>Pass 2</b>
+        <h4>Make it trustworthy</h4>
+        <p>Without these five it works and cannot be let near a customer.</p>
+        <ol>
+          <li><a href="#L6">L6 · I/O contracts</a></li>
+          <li><a href="#L5">L5 · State &amp; memory</a></li>
+          <li><a href="#L7">L7 · Policy enforcement</a></li>
+          <li><a href="#L16">L16 · Identity &amp; authorization</a></li>
+          <li><a href="#L14">L14 · Human-in-the-loop</a></li>
+        </ol>
+      </div>
+      <div class="pass">
+        <b>Pass 3</b>
+        <h4>Survive production</h4>
+        <p>Without these seven it is trustworthy on the day it ships and nobody can say so a month later.</p>
+        <ol>
+          <li><a href="#L8">L8 · Concurrency &amp; flow</a></li>
+          <li><a href="#L10">L10 · Failure handling</a></li>
+          <li><a href="#L13">L13 · Cost accounting</a></li>
+          <li><a href="#L11">L11 · Observability</a></li>
+          <li><a href="#L12">L12 · Eval harness</a></li>
+          <li><a href="#L9">L9 · Determinism &amp; replay</a></li>
+          <li><a href="#L15">L15 · Release &amp; configuration</a></li>
+        </ol>
+      </div>
+    </div>
+
+    <h3>How to read the "What we use" line</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Badge</th><th>Means</th><th>When it is the right answer</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip ours">in-house</span></td><td>Written in this repository.</td><td>Only where nothing else can do it — because it needs to know <em>your</em> data, <em>your</em> definition of done, or <em>your</em> trajectory.</td></tr>
+        <tr><td><span class="chip oss">open source</span></td><td>A component we run ourselves.</td><td>Where the problem is general and solved: identity, a database, durable waiting, tracing.</td></tr>
+        <tr><td><span class="chip svc">service</span></td><td>Somebody else runs it and bills us.</td><td>Where running it is the whole cost and there is nothing to learn from operating it.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>The honest summary of the whole exercise: <strong>roughly 80% of what this repository builds is available off the shelf and better.</strong> The value is the remaining 20% — and you cannot see which 20% it is without having built the 80% once.</p>
+  </section>
+
+  <section class="part" id="pass1">
+    <p class="n">Section 05 · Pass 1</p>
+    <h2>Make it work</h2>
+    <p>Four concerns. Take them in this order, because each one needs the one before it: you cannot call a model without deciding what to tell it, you cannot give it tools without a way to call it, and you cannot let it use tools without something to decide when to stop.</p>
+
+    <div class="cn" id="L1">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L1 · PASS 1</p>
+      <h3>Context assembly</h3>
+      <p class="owns">Owns one question: <strong>what is the model told?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li><strong>Untrusted content is fenced and labelled at assembly</strong> <code>AHC-0011</code> — a customer's pasted email and the company's own instruction must not arrive as the same undifferentiated text.</li>
+            <li>The standing instruction is separable from the turn's content <code>AHC-0013</code>.</li>
+            <li>A token budget is applied <em>by the assembler</em>, and its application is recorded <code>AHC-0012</code> — silent truncation is the failure.</li>
+            <li>A tool result enters context at most <strong>8,000 characters</strong> long; stored history at most <strong>32,000</strong>.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>One inspectable function. It takes the system prompt plus the conversation and returns an <code>Assembly</code>: the messages, their sizes, and how many were trimmed. Nothing else in the system builds a prompt.</p>
+          <p>Every message carries a <strong>provenance</strong> — the customer's own words, a tool's output, the assistant's reply — and anything not written by the company is wrapped in a fence: <code>&lt;&lt;&lt;untrusted source=tool:list_orders …&gt;&gt;&gt;</code>. Trimming drops <em>whole exchanges</em>, never half of one, so a tool call is never separated from its result.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/context/__init__.py</code> — <code>assembled()</code>, <code>fence()</code>, <code>tool_message()</code>, <code>bounded()</code>, <code>model_tools()</code>. About 260 lines, no dependencies.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_context_budget.py</code> — what survives a checkpoint, and that the budget is applied where it is claimed. <code>tests/test_tools_context.py</code> — that tool output is re-fenced on the way back in.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip ours">in-house</span></p>
+          <p><strong>Adopt instead:</strong> Langfuse, LangSmith, Braintrust, Humanloop or PromptLayer, for prompt versioning and rollout.</p>
+          <p><strong>Still ours either way:</strong> the fencing. It <em>is</em> the injection defence, and no prompt registry supplies it. Nor does a registry know what changing a prompt version means for the numbers you last committed.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · The shift briefing. And anything a customer pasted in gets a big sticker on it saying <em>these are a customer's words, not a rule from us</em>.</p>
+    </div>
+
+    <div class="cn" id="L2">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L2 · PASS 1</p>
+      <h3>Model invocation</h3>
+      <p class="owns">Owns one question: <strong>how is the call made?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li><strong>One choke point for every model call</strong> <code>AHC-0004</code> — otherwise there is no single place to add a limit, a log or a new provider.</li>
+            <li>Sampling parameters are explicit, never inherited <code>AHC-0014</code>, so an SDK default change cannot change behaviour.</li>
+            <li>The reachable model set is <em>data</em>, not code <code>AHC-0009</code>, and only an approved model is called.</li>
+            <li>At most <strong>4,096</strong> output tokens per call.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p><code>LLMClient</code> is <em>this system's</em> interface, not the provider's. That single decision is what lets a recording, a scripted fake and a resilience wrapper all stand in the same slot without the rest of the code noticing.</p>
+          <p>Two small functions do the translation: <code>_to_wire</code> going out (and provenance deliberately stays behind — the model never sees our internal labels) and <code>_from_wire</code> coming back, which is the typed boundary. The approved-model list is checked against the live endpoint <em>at startup</em>, so a typo fails the process rather than a customer's turn.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/llm/__init__.py</code> — <code>GroqClient.complete</code>, <code>_to_wire</code>, <code>_from_wire</code>. An import contract (<code>lint-imports</code>) fails the build if any module other than <code>llm</code> imports a provider SDK, so a second call site is impossible rather than discouraged.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_typed_boundary.py</code>, <code>tests/test_sampling_explicit.py</code>, <code>tests/test_served_provider.py</code> (the declared model is the one the endpoint actually serves), <code>tests/test_gateway.py</code>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip ours">in-house adapter</span> <span class="chip oss">LiteLLM proxy</span> <span class="chip svc">Groq</span></p>
+          <p><strong>Adopt instead:</strong> the provider's own SDK (<code>anthropic</code>, <code>openai</code>) — or a gateway: LiteLLM, OpenRouter, Portkey, Bedrock, Vertex.</p>
+          <p><strong>Worth knowing:</strong> a gateway with an OpenAI-shaped request <em>structurally cannot</em> carry prompt caching, which is usually the largest cost lever a high-volume agent has. This repository pays that price on purpose, writes it down, and can revisit it.</p>
+          <p><strong>Still ours either way:</strong> which model for which job — and the knowledge that a gateway <em>hides</em> provider differences rather than removing them.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · One door to the waiter. Everything goes through that door, so anything you want to count, cap or forbid, you do it at the door — once.</p>
+    </div>
+
+    <div class="cn" id="L3">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L3 · PASS 1</p>
+      <h3>Tool layer</h3>
+      <p class="owns">Owns one question: <strong>what can the model do?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li>Every tool has a declared argument contract <code>AHC-0036</code>, and arguments are validated <strong>at dispatch, before the tool runs</strong> <code>AHC-0037</code>.</li>
+            <li><strong>Tools are classified by reversibility, and the class gates dispatch</strong> <code>AHC-0039</code> — a delete must not be as easy to reach as a read.</li>
+            <li>Tool authority is enforced <em>where the tool executes</em> <code>AHC-0040</code>, not only where it is called.</li>
+            <li>Results are bounded before entering context <code>AHC-0038</code> and re-fenced on the way back <code>AHC-0045</code>.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>Six tools, spoken over <strong>MCP</strong> to a separate order-system server: <code>get_order</code>, <code>list_orders</code>, <code>cancel_order</code>, <code>open_return_request</code>, <code>change_address</code>, <code>request_refund</code>. Three classes: <em>read</em>, <em>reversible</em>, <em>irreversible</em>.</p>
+          <p>The surface is <strong>filtered by the caller's scopes</strong>, so <code>issue_refund</code> is <em>invisible</em> to a customer rather than offered and refused — the model cannot ask for what it cannot see. The session travels in MCP's <code>_meta</code>, never in the arguments, because the model writes the arguments. And the far end verifies the token itself and filters by the <em>verified</em> customer, not by a customer id in an argument.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/tools/__init__.py</code> — <code>GatedTools.list_tools</code>, <code>GatedTools.call</code>, <code>_bound</code>, <code>MCPTransport</code>. The far end is its own package: <code>src/order_system/server.py</code>, <code>store.py</code>, which talks GraphQL to a real Saleor store.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_tools_context.py</code>, <code>tests/test_far_end.py</code> (the order system decides who is asking, and on whose approval), <code>tests/test_far_end_idempotency.py</code>, <code>tests/test_ownership.py</code>, <code>tests/test_store_live.py</code>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip oss">MCP</span> <span class="chip ours">the gate around it</span> <span class="chip oss">Saleor</span></p>
+          <p><strong>Adopt instead:</strong> MCP itself, which is what we use — or the provider's own function calling.</p>
+          <p><strong>Still ours either way:</strong> <em>which tools this caller may see.</em> Filtering the surface by scope is what makes the refund tool invisible rather than refused, and no protocol does that for you.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · The hatch to the kitchen. Six things can be asked for through it. Anything else is not on the pad at all — so the waiter cannot even offer it.</p>
+    </div>
+
+    <div class="cn" id="L4">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L4 · PASS 1 · the biggest decision on the page</p>
+      <h3>Control loop</h3>
+      <p class="owns">Owns one question: <strong>when does the system stop?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li><strong>The loop has a no-progress condition, not only a step ceiling</strong> <code>AHC-0042</code> — twelve <em>useful</em> steps and twelve identical ones must not look the same.</li>
+            <li>A tool failure is a <em>loop state</em>, not an exception <code>AHC-0043</code>.</li>
+            <li>The trajectory is checkpointed, not held only in memory <code>AHC-0044</code>.</li>
+            <li>At most <strong>12 steps</strong> per task; three repeats of the same call signature is oscillation; a cost ceiling of <strong>$0.50</strong> per task.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>A hand-written ReAct loop of about 350 lines. Each step: assemble context → screen it → ask the model → account for the spend → plan the tool calls (minting an idempotency key for each) → screen them → run them → screen the results → go round again. It ends in one of a few <em>typed</em> terminations: goal reached, step budget spent, oscillating, cost ceiling hit, handed to a person.</p>
+          <p><strong>Before the loop there is a router</strong>, and it is the cheapest thing in the system. When a turn names exactly one intent and exactly one order — "where is AB-10001?" — the answer comes from the order system deterministically, with <em>no model call at all</em>. Opening the chat shows your orders the same way. Refusals and requests for a human are also decided without a model.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/loop/__init__.py</code> — <code>_Run.step</code>, <code>_ask</code>, <code>_account</code>, <code>_plan</code>, <code>_act</code>, <code>_answer</code>. Beside it: <code>loop/plan.py</code> (call signatures, the circling check, <code>Keys.mint</code>), <code>loop/screen.py</code>, <code>loop/dispatch.py</code>, <code>loop/spend.py</code>, <code>loop/freshness.py</code>. The router is <code>router/__init__.py</code> with <code>entrypoint/direct.py</code> and <code>entrypoint/opening.py</code>.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_router_loop.py</code>, <code>tests/test_invariants.py</code>, <code>tests/test_break_it.py</code>, <code>tests/test_direct.py</code>, <code>tests/test_opening.py</code>. Scenarios: <em>twelve-steps-and-then-a-person</em>, <em>answered-without-a-model</em>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip ours">in-house, deliberately</span></p>
+          <p><strong>Adopt instead:</strong> LangGraph, Pydantic AI, the OpenAI Agents SDK, the Claude Agent SDK, Mastra, CrewAI.</p>
+          <p><strong>Still ours either way — and this is the call to think hardest about:</strong> a framework owns the loop, and the loop is the only position that can see a <em>trajectory</em>. If you cannot say where your step budget, oscillation check and cost ceiling live after adopting one, it has adopted you. For a research assistant with a complicated graph, the answer flips.</p>
+          <p><strong>One distinction that is routinely confused:</strong> <code>anthropic</code>, the API SDK, brings no loop and lives at L2. <code>claude-agent-sdk</code> brings a loop and lives at L4. You can keep your own loop and still get every API-level benefit, because those are features of the HTTP endpoint, not of anybody's loop.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · "Stop asking and bring the food." Twelve trips to the hatch, no more. And if the waiter asks the kitchen the same question three times, that is not thinking — that is stuck, and somebody should be told.</p>
+    </div>
+  </section>
+
+  <section class="part" id="pass2">
+    <p class="n">Section 06 · Pass 2</p>
+    <h2>Make it trustworthy</h2>
+    <p>After pass 1 the agent answers. It also cannot be shown to a customer: it can promise things that are not true, act on somebody else's order, forget a half-finished job, and refund money nobody approved. These five fix that.</p>
+
+    <div class="cn" id="L6">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L6 · PASS 2</p>
+      <h3>I/O contracts</h3>
+      <p class="owns">Owns one question: <strong>what can the caller rely on?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li><strong>Every model response crosses a typed boundary</strong> <code>AHC-0001</code> — a malformed reply must not surface as a <code>KeyError</code> three layers away.</li>
+            <li>The caller receives a <em>discriminated outcome</em>, never a bare value <code>AHC-0017</code>: "no answer" and "error" are different things.</li>
+            <li>Input is validated <em>before</em> any model call is made <code>AHC-0016</code> — a bad request should cost nothing.</li>
+            <li>Partial results are typed, never silently truncated <code>AHC-0025</code>.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>A small closed set of results: <em>completed</em>, <em>refused</em>, <em>escalated</em>, <em>failed</em>, <em>malformed</em>. Every route returns one of them, and the HTTP edge maps them all to <strong>200</strong>.</p>
+          <p>That last point is the one frameworks quietly get wrong. <strong>A refusal is a 200:</strong> the agent worked, and the answer was no. Returning 4xx turns correct behaviour into an error rate, and then somebody optimises the error rate down by refusing less.</p>
+          <p>At the edge: at most 8 KB of body, JSON, <code>text</code> required, identity taken from the signed token and never from the body.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/contracts/</code> — <code>results.py</code>, <code>failures.py</code>, <code>model.py</code>, <code>tools.py</code>, <code>domain.py</code>. The edge is <code>serve/__init__.py</code>: <code>decode</code>, <code>_customer</code>, <code>_run_turn</code>.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_contracts.py</code>, <code>tests/test_serve.py</code>, <code>tests/test_typed_boundary.py</code>, <code>tests/test_refusals.py</code>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip ours">in-house</span> <span class="chip oss">Starlette</span> <span class="chip oss">Pydantic</span></p>
+          <p><strong>Adopt instead:</strong> FastAPI / Starlette, and a gateway at the edge — Kong, APISIX, Envoy, Traefik.</p>
+          <p><strong>Still ours either way:</strong> that a refusal is a 200. Every framework will happily let you return a 4xx.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · The waiter may answer in only four shapes: <em>here it is</em>, <em>I can't do that</em>, <em>I've fetched a manager</em>, <em>something broke</em>. Never a shrug, and never a sentence nobody can act on.</p>
+    </div>
+
+    <div class="cn" id="L5">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L5 · PASS 2</p>
+      <h3>State &amp; memory</h3>
+      <p class="owns">Owns one question: <strong>what is remembered?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li>The trajectory is checkpointed, not held only in memory <code>AHC-0044</code>.</li>
+            <li><strong>Persisted state is written whole, and every substrate declares whether it survives the process</strong> <code>AHC-0102</code> — "it's in a dictionary" is a legitimate answer only if it is written down as one.</li>
+            <li>Memory writes go through a gate, not straight from the model <code>AHC-0069</code>, so the model cannot save a false "fact" that outlives the conversation.</li>
+            <li>Stored history at most <strong>32,000</strong> characters.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>One Postgres database, two schemas, no second store. Four things live there and each has a different job — the split is load-bearing:</p>
+          <ul>
+            <li>a <strong>checkpoint</strong> per conversation, so a laptop that hangs mid-turn resumes rather than restarts;</li>
+            <li>an <strong>idempotency ledger</strong>, so a retried tool call inside a run happens once;</li>
+            <li>a <strong>delivery log</strong>, so a re-delivered webhook does not run the whole turn twice — a different question from the ledger, because the two runs have different run ids;</li>
+            <li>the <strong>approval</strong> record.</li>
+          </ul>
+          <p>The conversation also carries <em>facts</em>: turns taken, why the loop stopped, consecutive failures, refusals, repeated intent. Those are what the escalation rules read.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/state/__init__.py</code> (<code>Conversation.encode</code>, <code>recording</code>), <code>state/postgres.py</code>, <code>state/facts.py</code>, <code>idempotency/postgres.py</code>, <code>entrypoint/persist.py</code>.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_postgres.py</code> (durability against a real Postgres, skipped when none is reachable), <code>tests/test_entrypoint_state.py</code>, <code>tests/test_facts.py</code>, <code>tests/test_sessions.py</code>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip oss">Postgres</span> <span class="chip ours">the schema and the split</span></p>
+          <p><strong>Adopt instead:</strong> Postgres — which is what we use, and is correct. Redis for the genuinely ephemeral parts.</p>
+          <p><strong>Still ours either way:</strong> <em>what is worth remembering.</em> A store holds whatever you give it. Deciding that a trace <em>explains</em> a past run while a checkpoint <em>continues</em> one is design, and nothing supplies it.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · The order pad is written down, not kept in the waiter's head. If the waiter faints halfway, the next one picks up the pad and carries on — and does not bring the soup twice.</p>
+    </div>
+
+    <div class="cn" id="L7">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L7 · PASS 2</p>
+      <h3>Policy enforcement</h3>
+      <p class="owns">Owns one question: <strong>where does a rule become real?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li><strong>One enforcement position, defaulting closed</strong> <code>AHC-0008</code> — a guardrail that exists in a design document and in no code path is not a guardrail.</li>
+            <li>Policies compose in a <em>declared</em> order <code>AHC-0093</code>, and output-side enforcement is its own point with its own semantics <code>AHC-0094</code>.</li>
+            <li>Policy decisions are recorded as events, not side effects <code>AHC-0018</code>.</li>
+            <li>Redaction happens before a payload leaves the process <code>AHC-0019</code>.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>Five declared positions, each reached on every turn and each tested to be reachable: <strong>pre-model</strong>, <strong>pre-tool</strong>, <strong>post-tool</strong>, <strong>post-model</strong>, <strong>reply</strong>. A rule that cannot say which position it runs at does not get to run.</p>
+          <p>The interesting rules are the <em>grounding</em> ones, and they are the reason this cannot be bought:</p>
+          <ul>
+            <li><code>no_unclaimed_effect</code> — a claimed action must be supported by that action's result;</li>
+            <li><code>no_ungrounded_entity</code> — every order id in the reply must appear in a tool result;</li>
+            <li><code>no_invented_delivery_date</code> — no date the carrier record does not state;</li>
+            <li><code>no_pii_echo</code>, <code>no_discount_offer</code> — no voucher outside a published promotion.</li>
+          </ul>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/policy/__init__.py</code> — <code>enforce()</code> and the rule functions (roughly lines 143–278). Reached from <code>loop/screen.py</code> at four positions and from <code>entrypoint/__init__.py:_screened</code> at the fifth.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_policy.py</code>, <code>tests/test_policy_positions.py</code> (every declared position is reached, and a block means what it says), <code>tests/test_truth.py</code>, <code>tests/test_reply_screen.py</code>, <code>tests/test_refusals.py</code>. Scenarios: <em>it-will-not-cite-an-order-nobody-has</em>, <em>planted-instructions</em>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip ours">in-house</span> <span class="chip oss">Presidio, for PII</span></p>
+          <p><strong>Adopt instead:</strong> NeMo Guardrails, Guardrails AI, Llama Guard, Bedrock Guardrails; Presidio for PII detection.</p>
+          <p><strong>Still ours either way:</strong> grounding against your own data. They know what toxic looks like. <strong>None of them knows that order AB-10003 is <em>shipped</em></strong>, so none can tell you the reply saying it was delivered is false — and that is the failure customers actually experience.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · Somebody reads the bill before it leaves the kitchen, and reads it again before it reaches the table. If it lists a dish nobody cooked, it does not go out.</p>
+    </div>
+
+    <div class="cn" id="L16">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L16 · PASS 2</p>
+      <h3>Identity &amp; authorization</h3>
+      <p class="owns">Owns one question: <strong>who is the system acting as?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li>The identity a run acts as is established from <strong>a credential the caller cannot author</strong> <code>AHC-0099</code>.</li>
+            <li>The end user's identity reaches <em>every</em> downstream decision <code>AHC-0034</code> — not an admin service account standing in for everybody.</li>
+            <li>Secrets never enter assembled context <code>AHC-0035</code>.</li>
+            <li>A customer may see and act on <strong>only the orders they placed</strong>; a refund is authorised by an operations reviewer, never by the customer whose refund it is.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>The shop already has customers logging in, so the agent does not choose an identity provider — it <em>verifies</em> whatever the shop issues. Here that is Keycloak: RS256 against the realm's JWKS, with <code>aud</code>, <code>exp</code> and <code>jti</code> required, and <code>customer_id</code> as its own admin-set claim.</p>
+          <p>For the tool call the agent <strong>exchanges</strong> that token for one addressed to the order system (RFC 8693), and the order system verifies it itself, then filters by the <em>verified</em> customer — never by a customer id in an argument the model wrote.</p>
+          <p>Introducing a second identity system for the agent would be a mistake dressed as diligence. What the agent <em>must</em> add is the part no provider supplies: <strong>may this caller act on this row.</strong></p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/identity/__init__.py</code> — <code>verify()</code>, <code>Principal.as_customer()</code>; <code>identity/sessions.py</code>. The far-end half is <code>src/order_system/__init__.py:authorise</code>.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_keycloak.py</code> (against the composed realm, not a stand-in), <code>tests/test_ownership.py</code>, <code>tests/test_store_token.py</code>, <code>tests/test_seed_token.py</code>, <code>tests/test_far_end.py</code>. Scenarios: <em>a-stranger-learns-nothing</em>, <em>a-planted-note-on-a-cancellable-order</em>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip oss">Keycloak</span> <span class="chip ours">the ownership rule</span></p>
+          <p><strong>Adopt instead:</strong> Keycloak, Zitadel, Authentik, Ory; managed — Auth0, Cognito, Entra. Take whichever the business already runs.</p>
+          <p><strong>Still ours either way:</strong> whether this caller may act on <em>this row</em>. No identity provider answers it. It is about fifteen lines at the tool boundary, driven by a declaration — and buying a provider would have left it exactly where it was.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · Your table number comes from the badge you were given at the door. Never from you telling the waiter "I'm at table nine".</p>
+    </div>
+
+    <div class="cn" id="L14">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L14 · PASS 2 · see also section 08</p>
+      <h3>Human-in-the-loop</h3>
+      <p class="owns">Owns one question: <strong>where can a person step in?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li><strong>Irreversible actions require an approval the run cannot grant</strong> <code>AHC-0057</code>. The agent that asks must not be able to write the record that says yes.</li>
+            <li>A grant older than its validity <strong>fails closed</strong> rather than executing; a decision is final and cannot be made twice.</li>
+            <li>A queued escalation nobody comes to <strong>lapses</strong>, and the customer is told nobody came.</li>
+            <li>The numbers: a refund above <strong>₹10,000</strong> needs a person; an approval is valid <strong>24 hours</strong>; a queued escalation lapses after <strong>30 minutes</strong>; at most <strong>2</strong> escalations per conversation.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>The approval <strong>returns rather than blocks</strong>. The turn ends; the conversation carries on; the customer is told a request exists and nothing more — no amount, no promise, no date. When the reviewer decides, the refund happens <em>then</em>, not when the customer next happens to write.</p>
+          <p>Holding that wait correctly is a real distributed-systems problem, and it is the whole of <a href="#temporal">section 08</a>. Two rules stay ours rather than the engine's: <strong>who may decide</strong> (checked as the update's validator, so a refused decision never even enters history) and <strong>what an expired approval means</strong>. Plus a stored idempotency key, so a reviewer who approves twice causes one refund.</p>
+          <p>Escalation is the same shape one size larger: seven rules raise it (the customer asked for a person, the item is lost in transit, the loop exhausted itself, the tool is unavailable, the same intent twice, a second refusal, too many turns). Each fires once per conversation, and while a person owns the conversation the agent does not answer it.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/approvals/</code> — <code>durable.py</code> (the Temporal workflow), <code>workflow.py</code> (<code>refusal</code>, the rule), <code>refund.py</code>, <code>desk.py</code>, <code>policy.py</code>, <code>notify.py</code>. <code>escalation/</code> mirrors it. The reviewer's screen is <code>reviewer/page.py</code>; the agent side is <code>entrypoint/pending.py</code> and <code>entrypoint/handoff.py</code>.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_approvals.py</code>, <code>test_approvals_desk.py</code>, <code>test_approver.py</code>, <code>test_approval_reminder.py</code>, <code>test_escalation.py</code>, <code>test_tier2.py</code>, <code>test_desk.py</code>, <code>test_temporal_live.py</code>. Scenarios: <em>the-reviewer-approves-it-twice</em>, <em>the-reviewer-comes-too-late</em>, <em>nobody-picks-up-the-escalation</em>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip oss">Temporal</span> <span class="chip ours">the rules and the queue semantics</span></p>
+          <p><strong>Adopt instead:</strong> Temporal signals (what we do), Camunda/Zeebe, or a Slack/ServiceNow workflow. The reviewer's screen should be the ops tool they already use — reviewers will not learn a new tool for one queue.</p>
+          <p><strong>Still ours either way:</strong> what needs a human, and what a <em>stale</em> approval means. A workflow engine will wait as long as you like; deciding that a grant made three days ago is a decision nobody made about today is a policy.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · Over a certain amount, the manager has to sign. If the manager signs the same slip twice, the customer is still refunded once. And if the manager has gone home, the slip is void rather than quietly honoured tomorrow.</p>
+    </div>
+  </section>
+
+  <section class="part" id="pass3">
+    <p class="n">Section 07 · Pass 3</p>
+    <h2>Make it survive production</h2>
+    <p>This is the pass teams skip. Most build two of these seven — tracing and evals — and call the harness done. The other five are where agents fail in production, quietly, weeks after launch.</p>
+
+    <div class="cn" id="L8">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L8 · PASS 3</p>
+      <h3>Concurrency &amp; flow control</h3>
+      <p class="owns">Owns one question: <strong>what happens under load?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li><strong>Throttling is handled as a distinct condition from failure</strong> <code>AHC-0021</code>. A 429 means <em>wait</em>; treating it as an error and retrying turns a slowdown into an outage.</li>
+            <li>Concurrency is bounded by the harness, not by the runtime <code>AHC-0020</code>; fan-out <em>within one unit of work</em> is bounded <code>AHC-0097</code>.</li>
+            <li>A deadline propagates, and every layer honours the remainder <code>AHC-0096</code>.</li>
+            <li>At most <strong>4</strong> concurrent reads inside one turn.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>Three things, none exotic: a <strong>shared throttle</strong> in front of the provider so a 429 becomes a wait rather than a failure; a <strong>circuit breaker</strong> so a dead provider is not hammered; and <strong>bounded fan-out</strong> in dispatch so one turn cannot open twenty connections because the model asked for twenty reads.</p>
+          <p>A support agent is not really a throughput problem, so the web server and the connection pool do the rest.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/resilience/__init__.py</code> — <code>Throttle.wait</code>, <code>CircuitBreaker</code>; <code>src/support_agent/flow/__init__.py</code>; <code>loop/dispatch.py</code> for the fan-out bound.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_flow_resilience.py</code> ("under load, and when things break"), <code>tests/test_resilient_llm.py</code> — each row scripts what the provider does, call by call, and states what the harness must do about it.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip ours">in-house</span> <span class="chip oss">the web server and pool</span></p>
+          <p><strong>Adopt instead:</strong> gateway rate limiting, queue concurrency controls, LiteLLM rate limits, Envoy circuit breaking.</p>
+          <p><strong>Still ours either way:</strong> <em>what one unit of work is.</em> A rate limiter counts requests — but a runaway agent is fourteen perfectly well-behaved requests that are one task. Only the loop can tell the difference, and that is also where blast radius belongs.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · Only four trips to the hatch at a time. And when the kitchen shouts "wait!", that is waiting — not breaking, and not shouting back louder.</p>
+    </div>
+
+    <div class="cn" id="L10">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L10 · PASS 3</p>
+      <h3>Failure handling</h3>
+      <p class="owns">Owns one question: <strong>what happens when something breaks?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li>A declared degradation path for provider failure <code>AHC-0005</code> — decided in advance, not improvised at 2 a.m.</li>
+            <li><strong>Every step declares whether repeating it is safe</strong> <code>AHC-0074</code>, and each action class declares its compensating path <code>AHC-0058</code>.</li>
+            <li>A tool failure is a loop state, not an exception <code>AHC-0043</code>.</li>
+            <li>Retries are bounded, attributed and visible <code>AHC-0024</code>; a malformed model reply is <em>not</em> retried, because the same prompt to the same model mostly buys a second bill.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>Three levels, with three different lifetimes — and the reason there are three is that they answer different questions:</p>
+          <ul>
+            <li><strong>Inside the turn:</strong> typed degradation. A failure is a value the loop can reason about, with a kind attached.</li>
+            <li><strong>Around the call:</strong> bounded retries, a throttle and a breaker.</li>
+            <li><strong>Across time:</strong> Temporal. Anything that spans a restart belongs to a workflow, not to a <code>finally</code> block — because a <code>finally</code> does not run when the process is killed outright.</li>
+          </ul>
+          <p>The sharpest case: the reply to the customer is lost after the return was opened. The webhook is re-delivered. Nothing in the model's behaviour distinguishes the two, so a <strong>delivery claim</strong> does: a workflow named after the delivery id, with its own expiry timer, so a duplicate finds it already handled and a crashed run becomes claimable again without anybody sweeping.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/resilience/__init__.py</code> — <code>with_retry</code>, <code>_attempt</code>, <code>CircuitBreaker</code>; <code>contracts/failures.py</code> for the failure vocabulary; <code>trigger/log.py</code> and <code>trigger/durable.py</code> for the delivery claim.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_reliability.py</code>, <code>tests/test_break_it.py</code>, <code>tests/test_flow_resilience.py</code>, <code>tests/test_far_end_idempotency.py</code>, <code>tests/test_trigger.py</code>. Scenarios: <em>the-provider-throttles</em>, <em>the-model-fails-twice</em>, <em>the-reply-is-lost-after-the-return-opens</em>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip ours">typed degradation</span> <span class="chip oss">Temporal, for the saga</span></p>
+          <p><strong>Adopt instead:</strong> Temporal, Restate or DBOS for durable execution; <code>tenacity</code> or <code>backoff</code> for the small case.</p>
+          <p><strong>Still ours either way:</strong> which failures are recoverable <em>for this business</em>. A retry library retries. Deciding that a refused refund is a <em>result</em> and a malformed model reply is not, is yours.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · If the kitchen drops the plate, say so. Do not carry an empty plate to the table and call it dinner. And do not cook it twice because you forgot you already had.</p>
+    </div>
+
+    <div class="cn" id="L13">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L13 · PASS 3</p>
+      <h3>Cost accounting</h3>
+      <p class="owns">Owns one question: <strong>what does it cost, and who pays?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li><strong>Spend is accounted to a unit of work, not a call</strong> <code>AHC-0007</code>. Cost per <em>successful task</em> is the number that matters; every tool measures per call.</li>
+            <li>Spend is computed from a declared price table, and <strong>an unpriced call is an error</strong> <code>AHC-0101</code>.</li>
+            <li>A ceiling exists that can <em>stop work already in flight</em> <code>AHC-0030</code> — not a monthly alert after the fact.</li>
+            <li><strong>A request the specification can answer without the model is answered without it</strong> <code>AHC-0100</code>.</li>
+            <li>At most <strong>$0.50</strong> of model spend per task.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>A meter is created at the start of a run with the ceiling on it, and every model response is recorded against it from the API's own usage numbers. The price table is data; an unpriced model fails <em>before</em> the first call rather than producing an unaccounted bill. The ceiling is checked between calls, which is what makes it able to stop a run rather than merely report one.</p>
+          <p>And the largest lever is not a cheaper model — it is <strong>not calling one</strong>. "Where is AB-10001?" and "what's happening with my refund?" are answered from the order system deterministically, and opening the chat shows your orders with no model call at all.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/cost/__init__.py</code> — <code>Meter</code>, <code>price_of</code>, <code>cost_of</code>; <code>loop/spend.py</code> for the accounting hook. The no-model paths are <code>router/__init__.py</code>, <code>entrypoint/direct.py</code>, <code>entrypoint/opening.py</code>.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_cost.py</code> ("pricing, and the ceiling that can actually stop a run"), <code>tests/test_direct.py</code>, <code>tests/test_opening.py</code>. Cost is part of the committed baseline, so a cost regression fails the release gate.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip ours">in-house</span></p>
+          <p><strong>Adopt instead:</strong> LiteLLM budgets, Portkey, Helicone, Langfuse cost tracking, cloud billing exports.</p>
+          <p><strong>Still ours either way:</strong> cost per <em>successful task</em>. The number needs to know what "finished" means, and that is your definition, not a tool's.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · The till. Every question the waiter asks the kitchen costs a little money — so the cheapest answer is the one nobody had to ask about.</p>
+    </div>
+
+    <div class="cn" id="L11">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L11 · PASS 3</p>
+      <h3>Observability</h3>
+      <p class="owns">Owns one question: <strong>can a past run be explained?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li><strong>One identifier spans the whole unit of work</strong> <code>AHC-0026</code>, and one span per call, with context that survives the hops <code>AHC-0006</code>.</li>
+            <li>The numbers the system is judged on are emitted as <em>metrics</em>, apart from traces <code>AHC-0111</code> — you cannot alert on a trace.</li>
+            <li>Every failure declares what kind of failure it is, from <em>one</em> vocabulary <code>AHC-0110</code>.</li>
+            <li>Redaction happens before a payload leaves the process <code>AHC-0019</code>.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>OpenTelemetry spans following the GenAI semantic conventions, exported to Langfuse, which understands a trace shaped like an agent run. One run id from the edge to the reply, so a customer complaint resolves to exactly one trace.</p>
+          <p>The part that is not standard, and is the useful part: a <strong>span contract</strong> that fails the build when a span carries an attribute nobody declared, or omits one that was promised. Every tracing product will store whatever you send it and never once tell you a field is missing. <em>Complete against what?</em> is the question that makes tracing useful rather than decorative.</p>
+          <p>Beside the traces: 22 rules watched per turn and 21 watched per window against the system's own baseline, plus a canary — a synthetic run on a schedule, as an identity that touches no real data.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/telemetry/</code> — <code>contract.py</code>, <code>counters.py</code>, <code>meters.py</code>, <code>names.py</code>, <code>redaction.py</code>. The production watch is <code>src/support_agent/watch/</code> — <code>rules.py</code>, <code>canary.py</code>, <code>langfuse.py</code>, <code>outcomes.py</code>, <code>record.py</code>.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_telemetry.py</code> (redaction, and trace assertions), <code>tests/test_watching.py</code>, <code>tests/test_watch_rules.py</code>, <code>tests/test_watch_catalog.py</code>, <code>tests/test_alert_rules.py</code>, <code>tests/test_langfuse_live.py</code>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip oss">OpenTelemetry</span> <span class="chip oss">Langfuse, self-hosted</span> <span class="chip oss">Prometheus + Grafana</span> <span class="chip ours">the span contract</span></p>
+          <p><strong>Adopt instead:</strong> Langfuse, Arize Phoenix, LangSmith, W&amp;B Weave, Helicone — or plain OTel into Tempo or Jaeger. OTel because it is not a lock-in; Langfuse because it understands this trace shape.</p>
+          <p><strong>Still ours either way:</strong> the contract.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · CCTV — plus a checklist of which cameras must be working. "We have cameras" is not an answer when somebody complains.</p>
+    </div>
+
+    <div class="cn" id="L12">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L12 · PASS 3</p>
+      <h3>Eval harness</h3>
+      <p class="owns">Owns one question: <strong>can the system be measured at all?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li><strong>A task entrypoint an evaluation can drive</strong> <code>AHC-0010</code>. If the only way in is the HTTP edge with a browser, there is no eval.</li>
+            <li>Graders are injectable and versioned <em>apart from</em> the system <code>AHC-0028</code>.</li>
+            <li>A production record can become a dataset row without re-keying <code>AHC-0029</code>; each unit of work leaves one evaluation record <code>AHC-0114</code>.</li>
+            <li>Variance across repeated runs is bounded, and a release is gated against the previous baseline.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>A golden set <em>generated from the declared world</em> rather than hand-written, so a world that cannot exist is caught before it becomes a test case. A frozen, committed baseline. Four oracles. A conformance report. And <strong>AgentTwin</strong>, which drives the agent as a simulated customer.</p>
+          <p>The thing no grading product can do: put an order into "delivered 31 days ago", inject a stale read mid-run, or diff the world before and after — because none of them owns your data. All of them grade <em>outputs</em>. The interesting failures are about <em>state</em>.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>evals/</code> and <code>scenarios/</code> (one file per scenario, each naming what it proves), <code>src/support_agent/conformance.py</code>, <code>src/support_agent/simulation.py</code>, <code>worlds/</code> for the declared world.</p></dd>
+        <dt>Testing</dt>
+        <dd><p>The evals <em>are</em> the tests here, and they have tests of their own: <code>tests/test_golden.py</code> (the frozen set, and regression against the committed baseline), <code>tests/test_agenttwin.py</code>, <code>tests/test_scenario_files.py</code>, <code>tests/test_conformance.py</code>, <code>tests/test_reliability.py</code> (<code>pass^k</code>, and what it refuses to claim), <code>tests/test_omission.py</code>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip ours">AgentTwin, the world, the oracles</span> <span class="chip oss">promptfoo, for prompt-level checks</span></p>
+          <p><strong>Adopt instead:</strong> promptfoo, DeepEval, Ragas, Inspect, Braintrust, Langfuse datasets; LangWatch Scenario for a simulated user.</p>
+          <p><strong>Still ours either way:</strong> the world and the oracle.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · Training shifts, against orders you already know the right answer to — including the awkward ones you had to arrange on purpose, like a parcel that was delivered exactly 31 days ago.</p>
+    </div>
+
+    <div class="cn" id="L9">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L9 · PASS 3</p>
+      <h3>Determinism &amp; replay</h3>
+      <p class="owns">Owns one question: <strong>can yesterday be reproduced?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li><strong>Provider interaction is substitutable without changing the system</strong> <code>AHC-0022</code> — otherwise tests hit the real API and are slow, flaky and expensive.</li>
+            <li>Recorded fixtures carry a capture date and a re-cut path <code>AHC-0023</code>, so nobody has to guess whether a recording is stale.</li>
+            <li><strong>A recorded interaction replays only against the request that produced it, and a miss fails the run</strong> <code>AHC-0105</code>.</li>
+            <li>Sampling parameters are pinned <code>AHC-0014</code>.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>Cassettes: JSON recordings of what the model said, each carrying <em>the configuration it was recorded under</em>. Change the prompt and the replay fails loudly, rather than passing quietly against an answer to a question you no longer ask.</p>
+          <p>The honest limit, written down: <strong>a run is only as reproducible as its weakest actor.</strong> A model-driven simulated customer makes exact replay impossible however good the recording is. That is a property of the test design, not of a library, and no recorder tracks it for you.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/cassette/__init__.py</code>; recordings in <code>cassettes/</code> and <code>tests/fixtures/</code>. This is the same slot <code>LLMClient</code> made substitutable back at L2 — which is why L2's "own interface, not the provider's" was worth the paragraph.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_cassette.py</code> — the test that matters is the last one: a whole agent run recorded once, then replayed with no network at all.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip ours">cassettes</span></p>
+          <p><strong>Adopt instead:</strong> <code>vcrpy</code> or <code>betamax</code> at the HTTP level; Langfuse or LangSmith dataset replay.</p>
+          <p><strong>Still ours either way:</strong> knowing which actor is the weakest, and saying so.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · A tape of exactly what the waiter said last Tuesday — with a note of which menu was up that day, so you notice when you are testing against yesterday's menu.</p>
+    </div>
+
+    <div class="cn" id="L15">
+      <a class="up-link" href="#passes">↑ all sixteen</a>
+      <p class="tag">L15 · PASS 3</p>
+      <h3>Release &amp; configuration</h3>
+      <p class="owns">Owns one question: <strong>which version is running?</strong></p>
+      <dl>
+        <dt>Requirement</dt>
+        <dd>
+          <ul>
+            <li>The running configuration is resolved <em>once</em> and recorded <code>AHC-0003</code>, so "what changed?" has an answer.</li>
+            <li><strong>Rollback restores prompt, model and policy together</strong> <code>AHC-0032</code>. A rollback that reverts the prompt and leaves the new model is not a rollback.</li>
+            <li>What serves traffic is the artifact that was assessed <code>AHC-0033</code>.</li>
+            <li>The record states which route served the call, and why <code>AHC-0027</code>.</li>
+          </ul>
+        </dd>
+        <dt>High-level design</dt>
+        <dd>
+          <p>A <strong>config fingerprint</strong> on every run, carried on the span. A version of <em>this</em> agent is not a git sha — it is <strong>prompt plus model plus rules plus world</strong>, and changing any one of the four invalidates the committed baseline. A feature-flag system will flip a value happily and has no idea it just did that.</p>
+          <p>Two release gates back it: the baseline (quality and cost must not regress) and the assurance map, which is generated from tests that actually ran — so a capability that loses its test is found by rebuilding the map, not by somebody noticing.</p>
+        </dd>
+        <dt>Coding</dt>
+        <dd><p><code>src/support_agent/config/__init__.py</code>, <code>src/support_agent/binding.py</code>, <code>harness-profile.yaml</code> (the whole stack choice in one declarative file), <code>compose.yaml</code>, <code>deploy/</code>.</p></dd>
+        <dt>Testing</dt>
+        <dd><p><code>tests/test_config.py</code>, <code>tests/test_release_gates.py</code> ("the two release gates that had no test behind them"), <code>tests/test_harness_profile.py</code>, <code>tests/test_build_checks.py</code>, <code>tests/test_compose.py</code>, <code>tests/test_assurance_map.py</code>.</p></dd>
+        <dt>What we use</dt>
+        <dd>
+          <p><span class="chip oss">typed settings</span> <span class="chip oss">Docker Compose</span> <span class="chip ours">the fingerprint and the gates</span></p>
+          <p><strong>Adopt instead:</strong> OpenFeature with Unleash or Flagsmith, LaunchDarkly, ArgoCD/Helm; queue-level dedup for the delivery half.</p>
+          <p><strong>Still ours either way:</strong> what constitutes a <em>version of this agent</em>.</p>
+        </dd>
+      </dl>
+      <p class="kidline"><b>Like I'm five</b> · Every night's service gets a slip recording which menu, which chef and which rules were in force — so when Tuesday went wrong, you can see what Tuesday was.</p>
+    </div>
+
+    <h3>The four you should adopt without arguing</h3>
+    <p>Strictly better than anything you will write, and none of them constrains what makes the system yours:</p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Adopt</th><th>Which concern</th><th>What it also subsumes</th></tr></thead>
+      <tbody>
+        <tr><td><strong>An identity provider</strong></td><td><a href="#L16">L16</a></td><td>Login, tokens, key rotation. Leaves you the ownership rule.</td></tr>
+        <tr><td><strong>Durable execution</strong> (Temporal)</td><td><a href="#L10">L10</a></td><td>Most of <a href="#L5">L5</a>, <a href="#L14">L14</a>, and the delivery half of <a href="#L15">L15</a>. See <a href="#temporal">section 08</a>.</td></tr>
+        <tr><td><strong>A model gateway</strong></td><td><a href="#L2">L2</a></td><td>Keys, budgets and rate limits for every app at once — at the price of prompt caching.</td></tr>
+        <tr><td><strong>A trace store</strong></td><td><a href="#L11">L11</a></td><td>Storage, search and a trace viewer. Leaves you the span contract.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p><strong>Be careful with two.</strong> A guardrails product (<a href="#L7">L7</a>) makes you feel covered while leaving the grounding check unwritten. An agent framework (<a href="#L4">L4</a>) owns the control loop, which is the only position that can see a trajectory.</p>
+    <p><strong>Write these four yourself, always</strong> — not because they are hard, but because nothing else can: the ownership rule (<em>may this caller act on <strong>this</strong>?</em>), the span contract (<em>complete against <strong>what</strong>?</em>), the world your tests run against and which oracle answers, and grounding a claim against your own data.</p>
+  </section>
+
+  <section class="part" id="temporal">
+    <p class="n">Section 08</p>
+    <h2>Temporal, on its own</h2>
+    <p>Temporal gets its own section because it answers a problem that looks small and is not: <strong>a person takes an hour, and a web request takes two seconds.</strong> Everything awkward about human approval follows from that one sentence.</p>
+
+    <div class="kid">
+      <b>Explain like I'm five</b>
+      <p>Normal code cannot sleep. If you write <em>"wait for the manager to sign, then refund the money"</em>, and the server restarts while waiting, the waiting is gone. Nobody refunds anything. Nobody even knows a refund was pending.</p>
+      <p>Temporal is a program whose whole job is to <strong>remember what a function was in the middle of doing</strong> — for an hour, a day, a month — across restarts, crashes and deploys. You write what looks like an ordinary function with a <code>sleep</code> in it. Temporal records every step, and if the process dies it replays those steps on a new one and carries on from exactly where it was.</p>
+      <p>That is called <strong>durable execution</strong>. It is the difference between "we wrote down that somebody should check" and "the checking will happen".</p>
+    </div>
+
+    <h3>What "wait for a person" actually needs</h3>
+    <p>Eight things. Write them down before choosing a tool, because four of them are the ones a database cannot do:</p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>What the wait needs</th><th>A Postgres table</th><th>A job queue</th><th>LangGraph interrupt</th><th>Temporal</th></tr></thead>
+      <tbody>
+        <tr><td>Remember that something is waiting</td><td class="yes">yes, a row</td><td class="some">a pending job</td><td class="yes">yes, a checkpoint</td><td class="yes">yes, a workflow</td></tr>
+        <tr><td>Survive the process restarting</td><td class="yes">yes</td><td class="yes">if the broker is durable</td><td class="yes">with a durable checkpointer</td><td class="yes">yes — tested by killing the container</td></tr>
+        <tr><td><strong>Fire a deadline with nobody polling</strong> (expire at 24 h, lapse at 30 min)</td><td class="no">no — someone must check</td><td class="some">a delayed job, cancelled by hand if decided first</td><td class="no">no — it waits to be resumed</td><td class="yes">yes, a timer in the workflow</td></tr>
+        <tr><td><strong>Act the moment the decision arrives</strong>, not when the customer next writes</td><td class="no">no</td><td class="some">if the decider enqueues a job</td><td class="some">if the decider resumes the graph</td><td class="yes">yes, an update wakes it</td></tr>
+        <tr><td><strong>Retry the side effect after a crash, exactly where it stopped</strong></td><td class="no">no</td><td class="some">retries the whole job</td><td class="some">re-runs the node</td><td class="yes">the activity is retried; the steps before it are not</td></tr>
+        <tr><td><strong>One owner of the state, with rules checked on every change</strong></td><td class="no">anyone who can write the row</td><td class="no">no state, only jobs</td><td class="some">the caller supplies the resume value</td><td class="yes">the update's validator is our rule</td></tr>
+        <tr><td>A queue a colleague can see</td><td class="yes">a query</td><td class="some">the broker's own view</td><td class="no">build it</td><td class="yes">a queue workflow, and Temporal's UI</td></tr>
+        <tr><td>Act under a separate login from the agent</td><td class="no">build it</td><td class="yes">a separate worker</td><td class="no">it is the agent's own process</td><td class="yes">a separate worker</td></tr>
+        <tr><td><em>Extra infrastructure</em></td><td class="yes">none</td><td class="some">a broker, or none with pg-boss</td><td class="yes">none beyond the checkpointer</td><td class="no">a server — about 100 MB here</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Read the four bold rows together and the choice stops being a matter of taste. A Postgres table <em>remembers</em> that something is waiting; everything that should <em>happen</em> — the expiry, the refund on approval, the retry — is code you have to write, schedule and keep correct on every deployment target. Temporal <em>runs the wait itself</em>, in a process of its own, and we keep only the rules.</p>
+
+    <div class="note"><p><strong>The honest cost:</strong> one more server to operate. That is why the turn loop is <em>not</em> on Temporal — a customer asking "where is my order?" expects an answer in two seconds, and wrapping a two-second request in a workflow buys crash-safety for something that can simply be retried. <strong>Durability is worth its cost exactly where work spans time.</strong> Remove the hour-long human wait from the product and the answer becomes "just write the loop, no engine at all".</p></div>
+
+    <h3>The five words you need</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Word</th><th>What it is</th><th>In this agent</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Workflow</strong></td><td>The function that can wait. Its every step is recorded, so it can be replayed onto a fresh process. Must be deterministic — no clocks, no randomness, no network.</td><td><code>ApprovalWorkflow</code>, <code>EscalationWorkflow</code>, <code>DeliveryClaim</code></td></tr>
+        <tr><td><strong>Activity</strong></td><td>The part that touches the outside world, and therefore may fail and be retried. Called <em>by</em> the workflow.</td><td><code>approval.assess</code>, <code>approval.remind</code>, <code>approval.carry_out</code></td></tr>
+        <tr><td><strong>Signal</strong></td><td>A message into a running workflow. Fire and forget.</td><td><code>opened</code> / <code>closed</code> on the queue; <code>settle</code> on a delivery claim</td></tr>
+        <tr><td><strong>Update</strong></td><td>A message in that <em>returns a value</em> — and may be <strong>rejected by a validator before it is recorded</strong>. This is the one that matters most here.</td><td><code>decide(granted, by)</code>, <code>assessed()</code></td></tr>
+        <tr><td><strong>Worker</strong></td><td>A process that runs workflows and activities off a task queue. Separate from the web server, so it can act under its own login.</td><td>the agent's worker, and the reviewer desk's</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>Example 1 · The refund approval</h3>
+    <p>A customer asks for a refund of ₹14,500. The limit is ₹10,000. Here is the entire life of that request:</p>
+
+    <div class="diagram"><svg class="mid seq" viewBox="0 0 1000 460" role="img" aria-labelledby="ap-t ap-d">
+<title id="ap-t">The approval workflow as a state machine</title>
+<desc id="ap-d">The agent asks; an assess activity reads what the action would do. Under the limit the policy grants it and it is carried out at once. Over the limit it waits, listed on a reviewer queue, with a reminder before expiry. A granted decision carries it out; a refused decision refuses it; and if the expiry timer fires first it expires, which is not the same as a refusal.</desc>
+<defs>
+  <marker id="ap-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+<rect class="box" x="8" y="186" width="104" height="58" rx="8"/>
+<text class="t" x="20" y="210">The agent</text>
+<text class="d" x="20" y="227">asks · then</text>
+<text class="d" x="20" y="240">the turn ends</text>
+
+<rect class="hz" x="136" y="186" width="140" height="58" rx="8"/>
+<text class="n" x="148" y="206">ACTIVITY</text>
+<text class="t" x="148" y="225">assess</text>
+<text class="d" x="148" y="239">reads the real amount</text>
+
+<rect class="hz" x="330" y="286" width="152" height="68" rx="8"/>
+<text class="n" x="342" y="306">STATE</text>
+<text class="t" x="342" y="325">WAITING</text>
+<text class="d" x="342" y="342">up to 24 hours</text>
+
+<rect class="hz" x="560" y="96" width="172" height="66" rx="8"/>
+<text class="n" x="572" y="116">ACTIVITY · 3 TRIES</text>
+<text class="t" x="572" y="135">carry_out</text>
+<text class="d" x="572" y="152">under the stored key</text>
+
+<rect class="box" x="790" y="54" width="124" height="54" rx="8"/>
+<text class="t" x="802" y="76">DONE</text>
+<text class="d" x="802" y="94">refunded once</text>
+<rect class="box" x="790" y="124" width="124" height="54" rx="8"/>
+<text class="t" x="802" y="146">FAILED</text>
+<text class="d" x="802" y="164">told to the model</text>
+<rect class="box" x="790" y="245" width="124" height="54" rx="8"/>
+<text class="t" x="802" y="267">REFUSED</text>
+<text class="d" x="802" y="285">somebody said no</text>
+<rect class="box" x="790" y="345" width="124" height="54" rx="8"/>
+<text class="t" x="802" y="367">EXPIRED</text>
+<text class="d" x="802" y="385">nobody came</text>
+
+<rect class="sub" x="270" y="388" width="160" height="50" rx="6"/>
+<text class="n" x="280" y="406">QUEUE WORKFLOW</text>
+<text class="d" x="280" y="424">opened / closed signals</text>
+<rect class="sub" x="450" y="388" width="180" height="50" rx="6"/>
+<text class="n" x="460" y="406">ACTIVITY · BEST EFFORT</text>
+<text class="d" x="460" y="424">remind, before expiry</text>
+
+<g marker-end="url(#ap-go)">
+  <line class="go" x1="112" y1="215" x2="133" y2="215"/>
+  <path class="go" d="M276 200 C320 200 330 129 557 129"/>
+  <path class="go" d="M276 230 C310 230 300 320 327 320"/>
+  <path class="go" d="M482 300 C530 300 528 146 557 146"/>
+  <path class="go" d="M482 306 C580 306 620 272 787 272"/>
+  <path class="go" d="M482 330 C580 330 620 372 787 372"/>
+  <path class="go" d="M732 116 C760 116 766 81 787 81"/>
+  <path class="go" d="M732 142 C760 142 766 151 787 151"/>
+  <path class="go" d="M380 354 C380 370 352 372 342 386"/>
+  <path class="go" d="M440 354 C440 370 500 372 520 386"/>
+</g>
+<text class="s" x="318" y="88">the policy grants it — under ₹10,000</text>
+<text class="s" x="140" y="272">a person must decide</text>
+<text class="s" x="332" y="200">decide(granted)</text>
+<text class="d" x="332" y="216">an update, validated</text>
+<text class="s" x="566" y="288">decide(refused)</text>
+<text class="s" x="566" y="358">the timer fires</text>
+</svg></div>
+    <p class="caption">The two right-hand endings are deliberately different records. "Somebody said no" and "nobody came" are not the same event, and a system that conflates them cannot tell you whether it has a policy problem or a staffing problem.</p>
+
+    <h4>The code, with the interesting lines called out</h4>
+    <p>This is the real workflow from <code>src/support_agent/approvals/durable.py</code>, shortened. Every line reads like ordinary Python, and every line is crash-safe.</p>
+<pre><code>@workflow.defn
+class ApprovalWorkflow:
+    @workflow.run
+    async def run(self, ask: Ask) -&gt; Approval:
+        # 1. Record that it exists, before anybody is told anything.
+        self._set(approval=Approval(..., state=ApprovalState.ASSESSING))
+
+        # 2. Ask the outside world what this action would really do.
+        #    An activity, because it touches the order system and may fail.
+        assessed = await workflow.execute_activity(
+            ASSESS, ask, result_type=Assessment,
+            start_to_close_timeout=TIMEOUT, retry_policy=RETRIES)
+
+        if assessed.failed is not None:
+            return await self._settle(ApprovalState.FAILED, assessed.failed)
+
+        if assessed.reason is None:          # the policy grants it alone
+            self._set(reason="within the automatic limit")
+            self._set(decided=True, granted=True, decided_by=assessed.approver)
+        else:                                 # a person must decide
+            self._set(reason=assessed.reason, state=ApprovalState.WAITING)
+            await self._wait(ask)             # &lt;-- this can take a day
+
+        return await self._act()
+
+    async def _wait(self, ask: Ask) -&gt; None:
+        queue = workflow.get_external_workflow_handle(ask.queue)
+        await queue.signal(ApprovalQueue.opened, ask.id)
+        # Two waits, not one: the first ends in a reminder, the second in the
+        # expiry. The reminder is the workflow's job because the workflow is
+        # the only thing awake — the agent's turn ended when it asked.
+        remind_after = max(0, ask.ttl_s - ask.remind_before_s)
+        if ask.remind_before_s &gt; 0:
+            await self._until(remind_after)
+            if not self._current.decided:
+                await self._remind()
+        await self._until(ask.ttl_s - remind_after)
+        await queue.signal(ApprovalQueue.closed, ask.id)
+
+    @workflow.update
+    async def decide(self, decision: Decision) -&gt; Approval:
+        self._set(decided=True, granted=decision.granted, decided_by=decision.by)
+        await workflow.wait_condition(lambda: self._current.state in FINAL)
+        return self._current
+
+    @decide.validator
+    def check(self, decision: Decision) -&gt; None:
+        # OUR rule, run before the update is recorded at all: not the customer
+        # whose refund it is, not a second decision, not after expiry.
+        why = refusal(self.approval, by=decision.by,
+                      by_customer=decision.by_customer, now=_now())
+        if why is not None:
+            raise ApplicationError(why, type="ApprovalError", non_retryable=True)</code></pre>
+
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Line</th><th>Why it is written that way</th></tr></thead>
+      <tbody>
+        <tr><td><code>await self._wait(ask)</code></td><td>The whole point. In ordinary code this is a blocked thread you dare not restart. Here it is a recorded step, and a deploy in the middle of it costs nothing.</td></tr>
+        <tr><td><code>@decide.validator</code></td><td><strong>The rule that stays ours.</strong> It runs <em>before</em> the update enters history, so a refused decision is not a recorded event that somebody later has to interpret. No self-approval, no deciding twice, no deciding after expiry.</td></tr>
+        <tr><td><code>retry_policy=RETRIES</code> (3 tries)</td><td>Safe only because the far end recognises the stored idempotency key. An action without one <em>must not be approvable</em> — that is a design rule, not a configuration value.</td></tr>
+        <tr><td><code>queue.signal(opened / closed)</code></td><td>The reviewer's queue is a second, long-lived workflow rather than a database query, so it answers identically on a laptop, in CI and on a cluster. It <code>continue_as_new</code>s before its history grows large.</td></tr>
+        <tr><td><code>workflow.metric_meter()</code> in <code>_settle</code></td><td>An expiry is the one outcome <em>nobody is present for</em>. Counting it from inside the workflow is the only way it gets counted at all — the agent's own counter saw requests, never expiries.</td></tr>
+        <tr><td><code>_now()</code> = <code>workflow.now()</code></td><td>Never the wall clock. A replay must produce the same decisions, so time is something the workflow is <em>told</em>.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>Example 2 · The escalation, and the lapse</h3>
+    <p>Same shape, one size larger. A lost approval loses one action; a <strong>lost escalation loses a customer nobody knows is waiting.</strong></p>
+    <p>The rule is that a queued escalation nobody comes to must lapse after 30 minutes and hand the conversation back to the agent, with the customer told plainly that nobody came. Before Temporal, that rule was a sweeper function somebody had to remember to run — present in the demo server, absent everywhere else, so a conversation on a process with no sweeper was held open against a colleague who would never appear. <strong>The timer is the workflow's now, so the rule holds wherever the record lives.</strong></p>
+    <p>This ran live on 18 September against the real store. The replies are the real ones, and every turn is a trace in Langfuse.</p>
+
+    <div class="diagram"><svg class="mid seq" viewBox="0 0 1000 560" role="img" aria-labelledby="es-t es-d">
+<title id="es-t">Escalation sequence: "connect me to a human"</title>
+<desc id="es-d">The customer asks for a human. The router recognises it with no model call and starts an escalation workflow in Temporal with a thirty minute timer, then tells the customer the reference. A second message is held rather than answered. A colleague sees it on the ops queue and resolves it. The next message is served by the agent again. Had nobody come, the timer would have lapsed it and the customer would have been told so.</desc>
+<defs><marker id="es-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="box" x="18" y="14" width="150" height="42" rx="7"/>
+<text class="t" x="93" y="41" text-anchor="middle">Customer</text>
+<rect class="hz" x="268" y="14" width="164" height="42" rx="7"/>
+<text class="t" x="350" y="41" text-anchor="middle">Agent</text>
+<rect class="hz" x="520" y="14" width="200" height="42" rx="7"/>
+<text class="t" x="620" y="34" text-anchor="middle">Temporal</text>
+<text class="d" x="620" y="49" text-anchor="middle">E-AAF59125</text>
+<rect class="box" x="812" y="14" width="160" height="42" rx="7"/>
+<text class="t" x="892" y="34" text-anchor="middle">Colleague</text>
+<text class="d" x="892" y="49" text-anchor="middle">the /ops queue</text>
+<g class="up"><path d="M93 56 V540"/><path d="M350 56 V540"/><path d="M620 56 V540"/><path d="M892 56 V540"/></g>
+<rect x="612" y="138" width="16" height="262" rx="3" style="fill:var(--shade);stroke:var(--accent)"/>
+<g marker-end="url(#es-go)">
+  <line class="go" x1="93" y1="90" x2="346" y2="90"/>
+  <line class="go" x1="350" y1="142" x2="608" y2="142"/>
+  <line class="back" x1="350" y1="176" x2="97" y2="176"/>
+  <line class="go" x1="93" y1="220" x2="346" y2="220"/>
+  <line class="go" x1="350" y1="244" x2="608" y2="244"/>
+  <line class="back" x1="350" y1="276" x2="97" y2="276"/>
+  <line class="go" x1="888" y1="310" x2="634" y2="310"/>
+  <line class="go" x1="888" y1="350" x2="634" y2="350"/>
+  <line class="go" x1="93" y1="434" x2="346" y2="434"/>
+  <line class="go" x1="350" y1="458" x2="608" y2="458"/>
+  <line class="back" x1="350" y1="492" x2="97" y2="492"/>
+</g>
+<g>
+  <text class="s" x="105" y="84">"Connect me to a human"</text>
+  <text class="d" x="358" y="112">router rule asked-for-human — no model call, no cost</text>
+  <text class="s" x="358" y="136">start EscalationWorkflow · 30-minute timer</text>
+  <text class="s" x="105" y="170">"reference E-AAF59125, about 5 min"</text>
+  <text class="s" x="105" y="214">"hello? anyone there?"</text>
+  <text class="s" x="358" y="238">get E-AAF59125 → queued</text>
+  <text class="s" x="105" y="270">"still with a colleague" — the agent does not answer it</text>
+  <text class="s" x="642" y="304">queue: E-AAF59125, waited 10 s</text>
+  <text class="s" x="642" y="344">resolve · outcome "resolved"</text>
+  <text class="d" x="642" y="362">validator: not the customer, not twice, not lapsed</text>
+  <text class="s" x="105" y="428">"where is AB-10001?"</text>
+  <text class="s" x="358" y="452">get E-AAF59125 → resolved: hand back</text>
+  <text class="s" x="105" y="486">"AB-10001 is shipped"</text>
+</g>
+<rect class="box opt" x="640" y="404" width="336" height="66" rx="7"/>
+<text class="n" x="652" y="424">IF NOBODY HAD COME IN 30 MINUTES</text>
+<text class="d" x="652" y="442">the timer lapses it; the next message gets "nobody has</text>
+<text class="d" x="652" y="458">picked up E-…", and the agent serves the customer again</text>
+</svg></div>
+    <p class="caption">The shaded bar is the workflow's life, from the customer's request to the colleague's close. Nothing polls it. Temporal holds it and its timer.</p>
+
+    <h3>Example 3 · The delivery claim, which is the subtlest of the three</h3>
+    <p>This one is not about people at all, and it is the clearest demonstration of why a durable row is <em>harder</em> than no row.</p>
+    <p>A webhook arrives. The turn runs. The reply is lost in the network, so the webhook is re-delivered — and the return must not be opened twice. So: claim the delivery id before running, release it after.</p>
+    <p><strong>The difficulty is the release.</strong> It runs in a <code>finally</code>, and a <code>finally</code> does not run when a process is killed outright. In memory that is self-healing by accident: the dictionary dies with the process, so nothing is stranded. A durable row does <em>not</em> die with its writer, so one crash would wedge that message for ever.</p>
+    <p>The fix is to make the claim <em>a workflow named after the delivery</em>, so its expiry is its own timer:</p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>The claim's state</th><th>What a second delivery of the same message gets</th></tr></thead>
+      <tbody>
+        <tr><td><strong>running</strong> — somebody is handling it now</td><td>an overlapping run, refused</td></tr>
+        <tr><td><strong>completed</strong> — it was handled</td><td><em>already handled</em>, and the stored answer</td></tr>
+        <tr><td><strong>failed or expired</strong> — nobody settled it inside the window</td><td>claimable again, and it runs</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Temporal's workflow-id reuse policy does that last line on its own: a new claim may start only where the previous one did not complete. <strong>Nothing sweeps, and no operator has to decide when a claim is stale.</strong> That is the shape of the whole argument for durable execution — not "it can wait", but "the thing that decides when waiting is over is not a person's memory".</p>
+
+    <h3>What stays ours after adopting it</h3>
+    <p>Temporal subsumes a surprising amount: most of <a href="#L5">L5</a>, the wait in <a href="#L14">L14</a>, the saga in <a href="#L10">L10</a>, and the delivery half of <a href="#L15">L15</a>. It does not subsume the judgement:</p>
+    <ul>
+      <li><strong>Who may decide.</strong> Temporal will let anybody with a client send the update. That a customer may not approve their own refund is our validator.</li>
+      <li><strong>What an expired approval means.</strong> A workflow engine waits as long as you ask. Deciding that a grant made three days ago is a decision nobody made about <em>today</em> is a policy.</li>
+      <li><strong>That closing is terminal</strong>, and that an outcome comes from a declared set.</li>
+      <li><strong>Which work belongs on it at all.</strong> The chat turn does not. That call is in <code>docs/PREFERRED-STACK.md</code> with its reasoning.</li>
+    </ul>
+
+    <h3>Running it</h3>
+<pre><code># the whole stack, including the Temporal server and the workers
+docker compose up
+
+# the reviewer's queue
+open http://localhost:8000/ops
+
+# the live tests, which kill the container on purpose
+pytest tests/test_temporal_live.py tests/test_approvals.py tests/test_escalation.py</code></pre>
+    <p>Alternatives worth evaluating if one more server is the sticking point: <strong>DBOS</strong> and <strong>Hatchet</strong> are Postgres-native, so they need no cluster; <strong>Restate</strong> is a single binary; and a LangGraph <code>interrupt</code> can do part of the job if you already own a LangGraph app — though it has no timers and acts inside the agent's own process, which are the two rows in the table it loses on.</p>
+  </section>
+
+  <section class="part" id="stack">
+    <p class="n">Section 09</p>
+    <h2>One message, function by function</h2>
+    <p>Everything above is structure. This is what actually executes. Both turns below are <strong>real</strong>: every function entry and return in <code>src/</code> was recorded with Python's <code>sys.monitoring</code>, and the payloads were tapped where they leave the process. Nothing is reconstructed.</p>
+
+    <h3>Turn A · "show me my orders"</h3>
+    <p>A signed-in customer opens a new conversation. The router finds no single intent it can answer alone, so it goes to the loop. The model asks for one tool, reads the result, and answers.</p>
+
+    <div class="stats">
+      <div><b>200</b><span>HTTP · completed</span></div>
+      <div><b>2</b><span>model calls</span></div>
+      <div><b>1</b><span>tool call</span></div>
+      <div><b>2,477 / 754</b><span>tokens in / out</span></div>
+      <div><b>$0.00094</b><span>metered cost</span></div>
+      <div><b>8.2 s</b><span>end to end</span></div>
+    </div>
+
+    <div class="diagram"><svg class="wide seq" viewBox="0 0 1000 642" role="img" aria-labelledby="s1-t s1-d">
+<title id="s1-t">Turn A sequence: show me my orders</title>
+<desc id="s1-d">Eighteen messages between the customer, the edge, the agent, the loop, the model, the tools, Postgres and Temporal, top to bottom in time order.</desc>
+<defs><marker id="sq-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker><marker id="sq-bk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-back" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="box" x="4" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="60" y="31" text-anchor="middle">Customer</text>
+<text class="d" x="60" y="47" text-anchor="middle" style="font-size:9.5px">chat page</text>
+<line class="up" x1="60" y1="56" x2="60" y2="636"/>
+<rect class="hz" x="124" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="180" y="31" text-anchor="middle">Edge</text>
+<text class="d" x="180" y="47" text-anchor="middle" style="font-size:9.5px">serve</text>
+<line class="up" x1="180" y1="56" x2="180" y2="636"/>
+<rect class="hz" x="249" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="305" y="31" text-anchor="middle">Agent</text>
+<text class="d" x="305" y="47" text-anchor="middle" style="font-size:9.5px">entrypoint · router</text>
+<line class="up" x1="305" y1="56" x2="305" y2="636"/>
+<rect class="hz" x="374" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="430" y="31" text-anchor="middle">Loop</text>
+<text class="d" x="430" y="47" text-anchor="middle" style="font-size:9.5px">loop · context · policy</text>
+<line class="up" x1="430" y1="56" x2="430" y2="636"/>
+<rect class="box" x="504" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="560" y="31" text-anchor="middle">Model</text>
+<text class="d" x="560" y="47" text-anchor="middle" style="font-size:9.5px">LiteLLM → Groq</text>
+<line class="up" x1="560" y1="56" x2="560" y2="636"/>
+<rect class="box" x="634" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="690" y="31" text-anchor="middle">Tools</text>
+<text class="d" x="690" y="47" text-anchor="middle" style="font-size:9.5px">MCP → Saleor</text>
+<line class="up" x1="690" y1="56" x2="690" y2="636"/>
+<rect class="box" x="764" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="820" y="31" text-anchor="middle">Postgres</text>
+<text class="d" x="820" y="47" text-anchor="middle" style="font-size:9.5px">agent_state</text>
+<line class="up" x1="820" y1="56" x2="820" y2="636"/>
+<rect class="box" x="879" y="12" width="112" height="44" rx="7"/>
+<text class="t" x="935" y="31" text-anchor="middle">Temporal</text>
+<text class="d" x="935" y="47" text-anchor="middle" style="font-size:9.5px">delivery claim</text>
+<line class="up" x1="935" y1="56" x2="935" y2="636"/>
+<line class="go" x1="60" y1="92" x2="177" y2="92" marker-end="url(#sq-go)"/>
+<text class="s" x="68" y="86"><tspan class="n">1.</tspan> POST /chat · Bearer JWT · Idempotency-Key</text>
+<path class="go" d="M180,116 h18 v12 h-16" marker-end="url(#sq-go)"/>
+<text class="s" x="206" y="126"><tspan class="n">2.</tspan> verify JWT → Identity(C-1042)</text>
+<line class="go" x1="180" y1="152" x2="302" y2="152" marker-end="url(#sq-go)"/>
+<text class="s" x="188" y="146"><tspan class="n">3.</tspan> Agent.handle(text, identity)</text>
+<line class="go" x1="305" y1="182" x2="932" y2="182" marker-end="url(#sq-go)"/>
+<text class="s" x="313" y="176"><tspan class="n">4.</tspan> claim the delivery — start workflow</text>
+<path class="go" d="M305,206 h18 v12 h-16" marker-end="url(#sq-go)"/>
+<text class="s" x="331" y="216"><tspan class="n">5.</tspan> route() → Agentic, so the loop runs</text>
+<line class="go" x1="305" y1="242" x2="427" y2="242" marker-end="url(#sq-go)"/>
+<text class="s" x="313" y="236"><tspan class="n">6.</tspan> loop.run(goal)</text>
+<line class="go" x1="430" y1="272" x2="687" y2="272" marker-end="url(#sq-go)"/>
+<text class="s" x="438" y="266"><tspan class="n">7.</tspan> tools/list → 5 tools for these scopes</text>
+<line class="go" x1="430" y1="302" x2="557" y2="302" marker-end="url(#sq-go)"/>
+<text class="s" x="438" y="296"><tspan class="n">8.</tspan> call 1: system + user + 6 tool schemas</text>
+<line class="back" x1="560" y1="332" x2="433" y2="332" marker-end="url(#sq-bk)"/>
+<text class="s" x="438" y="326"><tspan class="n">9.</tspan> tool_call list_orders {} · 381→32 tokens</text>
+<line class="go" x1="430" y1="362" x2="687" y2="362" marker-end="url(#sq-go)"/>
+<text class="s" x="438" y="356"><tspan class="n">10.</tspan> tools/call list_orders + a session token</text>
+<path class="go" d="M690,386 h18 v12 h-16" marker-end="url(#sq-go)"/>
+<text class="s" x="716" y="396"><tspan class="n">11.</tspan> verify token · GraphQL user.orders</text>
+<line class="back" x1="690" y1="422" x2="433" y2="422" marker-end="url(#sq-bk)"/>
+<text class="s" x="438" y="416"><tspan class="n">12.</tspan> 23 orders · bounded · fenced</text>
+<line class="go" x1="430" y1="452" x2="557" y2="452" marker-end="url(#sq-go)"/>
+<text class="s" x="438" y="446"><tspan class="n">13.</tspan> call 2: + the tool result</text>
+<line class="back" x1="560" y1="482" x2="433" y2="482" marker-end="url(#sq-bk)"/>
+<text class="s" x="438" y="476"><tspan class="n">14.</tspan> reply · finish=stop · 2,096→722 tokens</text>
+<line class="back" x1="430" y1="512" x2="308" y2="512" marker-end="url(#sq-bk)"/>
+<text class="s" x="313" y="506"><tspan class="n">15.</tspan> Completed(reply) · post-model check passed</text>
+<line class="go" x1="305" y1="542" x2="817" y2="542" marker-end="url(#sq-go)"/>
+<text class="s" x="313" y="536"><tspan class="n">16.</tspan> INSERT agent_state.checkpoints</text>
+<line class="go" x1="305" y1="572" x2="932" y2="572" marker-end="url(#sq-go)"/>
+<text class="s" x="313" y="566"><tspan class="n">17.</tspan> settle the delivery — a signal</text>
+<line class="back" x1="305" y1="602" x2="63" y2="602" marker-end="url(#sq-bk)"/>
+<text class="s" x="68" y="596"><tspan class="n">18.</tspan> 200 {conversation_id, reply, outcome}</text>
+</svg></div>
+
+    <h4>Where the 8.2 seconds went</h4>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Where</th><th>Time</th><th>Share</th></tr></thead>
+      <tbody>
+        <tr><td>Model — two calls through LiteLLM to Groq</td><td>4.90 s</td><td>59%</td></tr>
+        <tr><td>Tool — <code>list_orders</code> over MCP to Saleor, including a 1.1 s sign-in</td><td>3.00 s</td><td>36%</td></tr>
+        <tr><td>Temporal — claim and settle the delivery</td><td>0.16 s</td><td>2%</td></tr>
+        <tr><td>Postgres — write the checkpoint</td><td>0.10 s</td><td>1%</td></tr>
+        <tr><td><strong>Everything else</strong> — routing, policy, context assembly, parsing</td><td><strong>0.09 s</strong></td><td><strong>1%</strong></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>That last row is worth sitting with. <strong>The entire harness — every check on this page — costs 1% of the turn.</strong> Correctness here is not bought with latency. It is bought with design.</p>
+
+    <h4>The same turn as six stages, and which concern owns each</h4>
+    <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Stage</th><th>What runs</th><th>What it decides</th><th>Concern</th></tr></thead>
+      <tbody>
+        <tr><td class="fn"><code>1 · Edge</code><span class="loc">serve/__init__.py:200</span></td><td><code>chat</code> → <code>decode</code> → <code>_customer</code> → <code>identity.verify</code></td><td>Who is asking. RS256 against JWKS; <code>aud</code>, <code>exp</code> and <code>jti</code> checked. A <code>customer_id</code> in the body would be ignored.</td><td><a href="#L16">L16</a> <a href="#L6">L6</a></td></tr>
+        <tr><td class="fn"><code>2 · Entrypoint</code><span class="loc">entrypoint/__init__.py:137</span></td><td><code>Agent.handle</code> → <code>trigger.once</code> → <code>_turn</code> → <code>_gates</code> → <code>route</code></td><td>Run at most once per delivery. Nothing pending. No single intent, so: the loop. A meter is opened with a $0.50 ceiling.</td><td><a href="#L10">L10</a> <a href="#L13">L13</a> <a href="#L4">L4</a></td></tr>
+        <tr><td class="fn"><code>3 · Loop setup</code><span class="loc">loop/__init__.py:109</span></td><td><code>loop.run</code> → <code>GatedTools.list_tools</code></td><td>Five tools for these scopes. <code>issue_refund</code> is hidden — it needs <code>refunds:write</code>.</td><td><a href="#L3">L3</a> <a href="#L16">L16</a></td></tr>
+        <tr><td class="fn"><code>4 · Step 0</code><span class="loc">loop/__init__.py:206</span></td><td><code>_ask</code> → <code>context.assembled</code> → <code>Screen.at(PRE_MODEL)</code> → <code>ResilientLLM.complete</code> → <code>_account</code> → <code>_plan</code> → <code>_act</code> → <code>dispatch</code></td><td>2 messages, 258 chars, 0 trimmed. Not circling. Key <code>run_…:0:1</code> minted. 23 orders come back, bounded and fenced as untrusted.</td><td><a href="#L1">L1</a> <a href="#L2">L2</a> <a href="#L7">L7</a> <a href="#L3">L3</a></td></tr>
+        <tr><td class="fn"><code>5 · Step 1</code><span class="loc">loop/__init__.py:206</span></td><td><code>_ask</code> → <code>_answer</code> → <code>Screen.at(POST_MODEL)</code></td><td>Every order id in the reply appears in a tool result. No invented date, no discount, no PII echo. Termination: <em>goal reached</em>.</td><td><a href="#L7">L7</a> <a href="#L4">L4</a></td></tr>
+        <tr><td class="fn"><code>6 · After</code><span class="loc">entrypoint/__init__.py:319</span></td><td><code>TurnNote.of</code> → <code>raise_on_condition</code> → <code>promise.honest</code> → <code>_screened</code> → <code>record_turn</code> → <code>persist</code> → <code>settle</code></td><td>Five escalation rules checked, none held. The reply commits to no future work. Checkpoint written. The delivery settled.</td><td><a href="#L14">L14</a> <a href="#L11">L11</a> <a href="#L5">L5</a></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <details><summary>What was actually sent to the model on call 1</summary>
+    <p>POST to the LiteLLM proxy, which holds the provider key. Note what is <em>not</em> here: no customer id, no token, no internal provenance labels. The model is told the least it needs.</p>
+<pre><code>{
+  "model": "openai/gpt-oss-120b",
+  "messages": [
+    { "role": "system",
+      "content": "You are a customer support agent for a clothing retailer.
+                  Answer only from what the tools return. Never promise a
+                  delivery date, a refund amount or a policy exception that a
+                  tool has not confirmed. If you cannot do something, say so
+                  plainly." },
+    { "role": "user", "content": "show me my orders" }
+  ],
+  "tools": [ get_order, list_orders, cancel_order,
+             open_return_request, change_address, request_refund ],
+  "max_tokens": 4096,
+  "temperature": 0.0
+}</code></pre>
+    <p>And what came back, before <code>_from_wire</code> turned it into a typed <code>ModelResponse</code>:</p>
+<pre><code>{
+  "role": "assistant",
+  "tool_calls": [ { "id": "fc_eddfac50-…",
+                    "function": { "name": "list_orders", "arguments": "{}" } } ],
+  "reasoning": "We need to list customer's orders. Use list_orders tool.",
+  "usage": { "prompt_tokens": 381, "completion_tokens": 32, "cached_tokens": 256 },
+  "finish_reason": "tool_calls"
+}</code></pre>
+    </details>
+
+    <h3>Turn B · "Connect me to a human"</h3>
+    <p>The same edge, and then an entirely different path — one that never reaches the model. The router recognises the request from the customer's words, raises the escalation, and answers. The full sequence is the diagram in <a href="#temporal">section 08</a>; what matters for reading a function stack is the contrast:</p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Turn A · "show me my orders"</th><th>Turn B · "connect me to a human"</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Route</strong></td><td>Agentic — no single intent matched</td><td>Escalate — rule <code>asked-for-human</code></td></tr>
+        <tr><td><strong>Model calls</strong></td><td>2</td><td><strong>0</strong></td></tr>
+        <tr><td><strong>Cost</strong></td><td>$0.00094</td><td><strong>$0</strong></td></tr>
+        <tr><td><strong>Tools</strong></td><td><code>list_orders</code> over MCP</td><td>none</td></tr>
+        <tr><td><strong>What is created</strong></td><td>a checkpoint</td><td>an <code>EscalationWorkflow</code> with a 30-minute timer, <em>before</em> the customer is told anything</td></tr>
+        <tr><td><strong>What the customer is told</strong></td><td>their orders, every id grounded in the tool result</td><td>a reference number, and a wait <em>measured from queue depth and observed throughput</em> — never a promise</td></tr>
+        <tr><td><strong>The next message</strong></td><td>continues normally</td><td>is <em>held</em>: while a person owns the conversation, the agent does not answer it</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Turn B is the cheapest turn in the system and the one with the most machinery behind it. That is not a contradiction — it is the point. <strong>The deterministic path never performs a write, and an effect must not be one rewording away.</strong></p>
+
+    <div class="note"><p>The complete frame-by-frame version of both turns — every function, its file and line, what it received, what it returned and what left the process — is in <code>agent-harness-tutorial/index.html</code>, question 05. Re-capture it with <code>agent-harness-tutorial/capture/capture_turn.py</code>.</p></div>
+  </section>
+
+  <section class="part" id="next">
+    <p class="n">Section 10</p>
+    <h2>Where to go next</h2>
+
+    <h3>If you read one more thing</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>You want</th><th>Read</th></tr></thead>
+      <tbody>
+        <tr><td>The same sixteen, question by question, with more depth on the shapes of AI application</td><td><code>agent-harness-tutorial/index.html</code></td></tr>
+        <tr><td>What to adopt instead of each hand-built piece, and what adopting it would still leave you holding</td><td><code>docs/PRODUCTION-STACK.md</code></td></tr>
+        <tr><td>The opinionated version: what <em>I</em> would build this on, and why the turn loop is not on Temporal</td><td><code>docs/PREFERRED-STACK.md</code></td></tr>
+        <tr><td>Every requirement grouped by the quality it serves, generated from the specs rather than maintained</td><td><code>docs/CONCERN-VIEW.md</code></td></tr>
+        <tr><td>The whole stack choice as one declarative file, including the gaps we knowingly accept</td><td><code>harness-profile.yaml</code></td></tr>
+        <tr><td>The agent running, with every dependency: Saleor, Keycloak, Postgres, Temporal, LiteLLM, Langfuse</td><td><code>docker compose up</code>, then <code>/chat</code> and <code>/ops</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>Glossary, in the order the words appear</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Word</th><th>Plainly</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Model</strong> / LLM</td><td>Trained weights that turn text into more text. Rented, and one configuration value here.</td></tr>
+        <tr><td><strong>Harness</strong></td><td>Everything around the model that makes it a system: this whole page.</td></tr>
+        <tr><td><strong>Agent</strong></td><td>A program that lets the model decide the next step — call a tool, ask again, or stop.</td></tr>
+        <tr><td><strong>Turn</strong></td><td>One message from a person, and everything the system does before answering. May contain many model calls.</td></tr>
+        <tr><td><strong>Tool</strong> / function call</td><td>Something real the model may ask for by name, with arguments it writes. The only route to truth.</td></tr>
+        <tr><td><strong>MCP</strong></td><td>Model Context Protocol — a standard way for an agent to discover and call tools that live in another process.</td></tr>
+        <tr><td><strong>Token</strong></td><td>A chunk of text, roughly a word-part. What you are billed by.</td></tr>
+        <tr><td><strong>Context</strong></td><td>Everything handed to the model on one call: instructions, the conversation, tool results, tool schemas.</td></tr>
+        <tr><td><strong>Prompt injection</strong></td><td>Text in <em>data</em> — an email, a product review, a tool result — that the model may read as an instruction. Fencing and labelling is the defence.</td></tr>
+        <tr><td><strong>Grounding</strong></td><td>Checking that what the reply claims is supported by what a tool actually returned.</td></tr>
+        <tr><td><strong>Idempotency key</strong></td><td>A name for an action, so that doing it twice by accident happens once in effect.</td></tr>
+        <tr><td><strong>Span</strong> / trace</td><td>One recorded operation, and the tree of them that makes up a run.</td></tr>
+        <tr><td><strong>Eval</strong></td><td>A test for a non-deterministic system: run known inputs, grade the outputs, compare against a committed baseline.</td></tr>
+        <tr><td><strong>Cassette</strong></td><td>A recording of what the model said, replayed so tests need no network.</td></tr>
+        <tr><td><strong>Durable execution</strong></td><td>Code that survives a restart mid-function, because every step it took was recorded. Temporal.</td></tr>
+        <tr><td><strong>AHC / AAC</strong></td><td>The AI Harness Catalog and the AI Assurance Catalog: the numbered requirements cited throughout, so a claim can be checked rather than believed.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>The one thing to take away</h3>
+    <p>The model is one box on the far right of section 02, and you rent it. Everything that decides whether the thing can be trusted with a customer, a refund and a company's name lives in the box to its left — and 1% of the clock.</p>
+  </section>
+</main>
+<footer>
+  <p><strong>Agent Harness Engineering</strong> — written for somebody who has not built one, using this repository's support agent as the worked example. Every requirement number is from the AI Harness Catalog (AHC) or the AI Assurance Catalog (AAC); every file path and test name is real; the two turns in section 09 were captured from a live run against a real store.</p>
+  <p>Source for the deeper versions: <code>agent-harness-tutorial/index.html</code>, <code>docs/SUPPORT-AGENT.html</code>, <code>docs/PRODUCTION-STACK.md</code>, <code>docs/PREFERRED-STACK.md</code>, <code>harness-profile.yaml</code>.</p>
+</footer>
+</body>
+</html>
