@@ -21,17 +21,35 @@ import urllib.request
 PROXY = os.environ.get("LITELLM_URL", "http://litellm:4000")
 MASTER = os.environ["LITELLM_MASTER_KEY"]
 
-KEY = {
-    "key": os.environ["AGENT_GATEWAY_KEY"],
-    "key_alias": "support-agent",
-    # The agent's own allowlist, restated: the gateway refuses what the agent
-    # would have refused at startup, for any caller holding this key.
-    "models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"],
-    "rpm_limit": int(os.environ.get("AGENT_GATEWAY_RPM", "30")),
-    "max_budget": float(os.environ.get("AGENT_GATEWAY_BUDGET_USD", "5")),
-    "budget_duration": os.environ.get("AGENT_GATEWAY_BUDGET_PERIOD", "30d"),
-    "metadata": {"caller": "support-agent"},
-}
+MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
+"""The agent's own allowlist, restated: the gateway refuses what the agent would
+have refused at startup, for any caller holding one of these keys."""
+
+KEYS = [
+    {
+        "key": os.environ["AGENT_GATEWAY_KEY"],
+        "key_alias": "support-agent",
+        "models": MODELS,
+        "rpm_limit": int(os.environ.get("AGENT_GATEWAY_RPM", "30")),
+        "max_budget": float(os.environ.get("AGENT_GATEWAY_BUDGET_USD", "5")),
+        "budget_duration": os.environ.get("AGENT_GATEWAY_BUDGET_PERIOD", "30d"),
+        "metadata": {"caller": "support-agent"},
+    },
+    {
+        # Measurement is not customer traffic, and borrowing the agent's key
+        # made the reliability run measure the rate limiter: every retry spent
+        # another of the thirty requests a minute the agent is held to (T-007).
+        # Its own key, so its spend is attributable and the agent's limit is
+        # never relaxed to make a report finish.
+        "key": os.environ.get("EVAL_GATEWAY_KEY", "sk-support-eval-local-dev-only"),
+        "key_alias": "support-eval",
+        "models": MODELS,
+        "rpm_limit": int(os.environ.get("EVAL_GATEWAY_RPM", "600")),
+        "max_budget": float(os.environ.get("EVAL_GATEWAY_BUDGET_USD", "10")),
+        "budget_duration": os.environ.get("EVAL_GATEWAY_BUDGET_PERIOD", "30d"),
+        "metadata": {"caller": "support-eval"},
+    },
+]
 
 
 def call(path: str, body: dict[str, object]) -> tuple[int, dict[str, object]]:
@@ -47,18 +65,24 @@ def call(path: str, body: dict[str, object]) -> tuple[int, dict[str, object]]:
         return error.code, json.loads(error.read() or b"{}")
 
 
-def main() -> int:
-    limits = f"{KEY['rpm_limit']} rpm, ${KEY['max_budget']} per {KEY['budget_duration']}"
-    status, created = call("/key/generate", KEY)
+def provision(key: dict[str, object]) -> int:
+    alias = key["key_alias"]
+    limits = f"{key['rpm_limit']} rpm, ${key['max_budget']} per {key['budget_duration']}"
+    status, created = call("/key/generate", key)
     if status == 200:
-        print(f"created the support-agent key: {limits}")
+        print(f"created the {alias} key: {limits}")
         return 0
-    status, updated = call("/key/update", KEY)
+    status, updated = call("/key/update", key)
     if status == 200:
-        print(f"updated the support-agent key: {limits}")
+        print(f"updated the {alias} key: {limits}")
         return 0
-    print(f"could not create or update the key: {created} / {updated}", file=sys.stderr)
+    print(f"could not create or update the {alias} key: {created} / {updated}", file=sys.stderr)
     return 1
+
+
+def main() -> int:
+    """Every key, converging: created if new, updated if it exists."""
+    return 1 if any(provision(key) for key in KEYS) else 0
 
 
 if __name__ == "__main__":

@@ -89,6 +89,9 @@ services:
     environment:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-local-dev-only}
       AGENT_GATEWAY_KEY: ${AGENT_GATEWAY_KEY:-sk-support-agent-local-dev-only}
+      # Measurement is not customer traffic: its own key, its own limit, its own
+      # attributable spend — so a reliability run never relaxes the agent's (T-007).
+      EVAL_GATEWAY_KEY: ${EVAL_GATEWAY_KEY:-sk-support-eval-local-dev-only}
       AGENT_GATEWAY_RPM: ${AGENT_GATEWAY_RPM:-30}
       AGENT_GATEWAY_BUDGET_USD: ${AGENT_GATEWAY_BUDGET_USD:-5}
     volumes:

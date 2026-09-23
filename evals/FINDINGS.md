@@ -1863,3 +1863,49 @@ store disagreed with the person.
 refused it is neither done nor failed, and the state vocabulary has no word for
 it yet. Related to AACP-0029 — a claimed action without its effect — one layer
 down, where the claim is the record's rather than the reply's.
+
+## F-052 · The laptop is the bottleneck, and it has been shaping the findings
+
+**Found** 2026-09-20, chasing a reliability measurement that read 0.00 because
+every run crashed with *the provider is unreachable*. LiteLLM had restarted,
+lost its database connection and never recovered. The cause was underneath it:
+`docker stats` showed **Saleor alone holding 2.5 GiB of the 3.8 GiB Docker has,
+at 111% of a CPU**, with Langfuse's ClickHouse and MinIO, Chatwoot, Temporal,
+Keycloak, Postgres, Prometheus and Grafana around it. LiteLLM came healthy
+within a minute of stopping what the measurement did not need.
+
+This is not only a nuisance. It is very likely behind several findings recorded
+this week as though they were about the code: Langfuse timing out and losing
+two of seven turns (AACP-0056), the Saleor seed timing out at 60 s, the test
+suite going from 78 seconds to 48 minutes, and the escalation scenarios that
+fail differently on every loaded run (F-049). A machine that cannot hold the
+stack produces failures that look like defects.
+
+**What it changes.** The compose file already puts each heavy product behind a
+profile for exactly this reason, and the discipline is to use them: the default
+set for development, one profile at a time for what is being worked on. What is
+missing is anything that *says* the machine is short — the stack has no
+low-memory signal, and the first symptom is a dependency behaving strangely.
+
+**Open.** A cheap fix is available: the collector already scrapes container
+metrics elsewhere in the industry, and one alert on container memory against
+the Docker limit would have named this in seconds rather than an hour.
+
+## F-053 · Measuring reliability with the agent's own key measures the rate limiter
+
+**Found** 2026-09-20, immediately after F-052. With the machine healthy, the
+reliability run still failed: every attempt came back `429`. The agent's
+gateway key is held to **30 requests a minute** by design (T-029), a run makes
+several model calls, and each retry spends another request — so a measurement
+borrowing that key throttles itself and every run is recorded as *not measured*.
+
+**Fixed:** `deploy/litellm/keys.py` provisions a second key, `support-eval`,
+with its own limit and its own budget. A gateway key per caller was already the
+design; the measurement was the caller nobody had given one to. Its spend is
+attributable like the agent's, and the agent's limit is never relaxed to make a
+report finish.
+
+**Left, and honest:** with the gateway out of the way the ceiling is the
+provider account's own rate limit, so a full 34-scenario run at four attempts
+each does not fit in one sitting on this account. The reported figure names the
+scenarios it covers.
