@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Working Sessions</title>
+<meta name="description" content="Sixteen people, five groups, one codebase. What each group owns, how deep is deep enough, where the seams are, and how to run the sessions.">
+<style>
+:root{--ink:#16181d;--dim:#646b79;--rule:#e2e5ea;--bg:#fbfaf8;--card:#fff;
+ --accent:#2f5d50;--shade:#f3f4f7;--warm:#8a5a24;--cool:#2d5680;--wait:#6b4c8a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;--bg:#111318;--card:#181b21;
+ --accent:#6fc0a6;--shade:#20242b;--warm:#d8a463;--cool:#7fb0e0;--wait:#b499d6}}
+:root[data-theme="dark"]{--ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;
+ --bg:#111318;--card:#181b21;--accent:#6fc0a6;--shade:#20242b;
+ --warm:#d8a463;--cool:#7fb0e0;--wait:#b499d6}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.shell{max-width:860px;margin:0 auto;padding:60px 28px 40px}
+.eyebrow{font:600 11px/1 ui-monospace,monospace;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--accent);margin:0 0 16px}
+h1{font:600 42px/1.08 "Iowan Old Style",Palatino,Georgia,serif;margin:0 0 16px;
+ letter-spacing:-.02em;text-wrap:balance}
+.lede{color:var(--dim);font-size:17.5px;max-width:62ch;margin:0 0 10px}
+.who{font-size:14.5px;color:var(--dim);max-width:62ch;margin:18px 0 0;
+ padding:12px 0 0;border-top:1px solid var(--rule)}
+.contents{margin:36px 0 0;padding:24px 0 0;border-top:1px solid var(--rule)}
+.contents h2{font:600 10px/1 ui-monospace,monospace;letter-spacing:.12em;
+ text-transform:uppercase;color:var(--accent);margin:0 0 14px}
+.contents ol{margin:0;padding:0;list-style:none;font-size:15px}
+.contents li{margin:0 0 9px;display:flex;gap:12px}
+.contents li span{font:600 11px/1.9 ui-monospace,monospace;color:var(--dim);flex:none;width:3ch}
+.contents a{color:var(--ink);text-decoration:none;border-bottom:1px solid transparent}
+.contents a:hover{border-bottom-color:var(--accent);color:var(--accent)}
+.contents em{color:var(--dim);font-size:13.5px;font-style:normal}
+section.part{border-top:1px solid var(--rule);padding:52px 0 8px;scroll-margin-top:12px}
+section.part>.n{font:600 11px/1 ui-monospace,monospace;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--accent);margin:0}
+section.part>h2{font:600 30px/1.18 "Iowan Old Style",Palatino,Georgia,serif;
+ margin:12px 0 18px;letter-spacing:-.015em;text-wrap:balance}
+p,li{max-width:68ch}
+main a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--rule)}
+main a:hover{border-bottom-color:var(--accent)}
+h3{font-size:17px;margin:32px 0 8px;text-wrap:balance}
+h4{font-size:14.5px;margin:26px 0 6px}
+.note{background:var(--shade);border-left:3px solid var(--accent);
+ padding:12px 18px;border-radius:0 8px 8px 0;margin:20px 0}
+.note p{margin:0 0 8px}.note p:last-child{margin:0}
+.warn{background:var(--shade);border-left:3px solid var(--warm);
+ padding:12px 18px;border-radius:0 8px 8px 0;margin:20px 0}
+.warn p{margin:0 0 8px}.warn p:last-child{margin:0}
+.warn b{display:block;font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--warm);margin:0 0 8px}
+code{font:14px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--shade);
+ padding:1px 5px;border-radius:4px}
+pre{background:var(--card);border:1px solid var(--rule);border-radius:8px;
+ padding:16px 18px;overflow-x:auto;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre code{background:none;padding:0;font-size:inherit}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:16px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:600;color:var(--dim);font-size:13.5px}
+.table-wrap{overflow-x:auto;margin:16px 0}
+.diagram{overflow-x:auto;margin:24px 0;border:1px solid var(--rule);border-radius:10px;
+ background:var(--bg)}
+.diagram svg{display:block;width:100%;height:auto}
+.diagram svg.wide{min-width:780px}
+.caption{font-size:13.5px;color:var(--dim);margin:-14px 0 24px;max-width:70ch}
+.box{fill:var(--card);stroke:var(--rule);stroke-width:1.2}
+.hz{fill:var(--card);stroke:var(--accent);stroke-width:1.8}
+.sub{fill:var(--shade);stroke:none}
+.subl{fill:var(--shade);stroke:var(--rule);stroke-width:1}
+.t{fill:var(--ink);font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.s{fill:var(--ink);font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.d{fill:var(--dim);font:11.5px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.n{fill:var(--accent);font:700 10.5px ui-monospace,Menlo,monospace;letter-spacing:.08em}
+.go{stroke:var(--ink);stroke-width:1.4;fill:none}
+.up{stroke:var(--dim);stroke-width:1.2;fill:none;stroke-dasharray:3 3}
+.hu{fill:var(--accent);stroke:none}
+.cn{border:1px solid var(--rule);border-radius:12px;background:var(--card);
+ padding:20px 22px;margin:26px 0;scroll-margin-top:16px}
+.cn>.tag{font:700 11px/1 ui-monospace,monospace;letter-spacing:.1em;color:var(--accent)}
+.cn>h3{margin:10px 0 2px;font:600 21px/1.2 "Iowan Old Style",Palatino,Georgia,serif}
+.cn>.owns{color:var(--dim);font-size:14.5px;margin:0 0 4px}
+.cn dl{margin:16px 0 0;display:grid;grid-template-columns:104px minmax(0,1fr);gap:0}
+.cn dt{font:600 10.5px/1.5 ui-monospace,monospace;letter-spacing:.06em;
+ text-transform:uppercase;color:var(--accent);padding:11px 0;
+ border-top:1px solid var(--rule)}
+.cn dd{margin:0;padding:11px 0;border-top:1px solid var(--rule);font-size:14.5px;min-width:0}
+.cn dd p{margin:0 0 7px;max-width:none}.cn dd p:last-child{margin:0}
+.cn dd ul,.cn dd ol{margin:0;padding-left:18px}
+.cn dd li{max-width:none;margin:0 0 5px}
+.cn dd code{font-size:12.5px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px;margin:18px 0}
+.stats div{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
+.stats b{display:block;font:600 18px/1.2 ui-monospace,Menlo,monospace;color:var(--accent)}
+.stats span{font-size:12.5px;color:var(--dim)}
+footer{max-width:860px;margin:0 auto;padding:44px 28px 90px;
+ border-top:1px solid var(--rule);color:var(--dim);font-size:13.5px}
+footer a{color:var(--accent)}
+@media (max-width:620px){
+ .shell{padding:40px 16px 30px}h1{font-size:30px}
+ section.part>h2{font-size:24px}
+ .cn{padding:16px;border-radius:10px}
+ .cn dl{grid-template-columns:minmax(0,1fr);gap:0}
+ .cn dt{padding:12px 0 2px;border-top:1px solid var(--rule)}
+ .cn dd{padding:0 0 12px;border-top:none}
+ footer{padding:30px 16px 70px}
+}
+</style>
+</head>
+<body>
+<main class="shell">
+  <p class="eyebrow">Sixteen people · five groups · one codebase</p>
+  <h1>Working Sessions</h1>
+  <p class="lede">Each group takes one area of the harness, goes deep enough to teach it, and then does — runs a working session for everyone else. The point is not five presentations. The point is that by the end, sixteen people can argue about the seams.</p>
+  <p class="who"><strong>Companion to</strong> <a href="AGENT-HARNESS-EXPLAINED.html">AGENT-HARNESS-EXPLAINED.html</a>, which is the reading. This is the doing.</p>
+
+  <nav class="contents">
+    <h2>The plan</h2>
+    <ol>
+      <li><span>01</span><a href="#shape">The shape</a> <em>— five groups, and why these five</em></li>
+      <li><span>02</span><a href="#depth">How deep is deep enough</a> <em>— the same six questions for everyone</em></li>
+      <li><span>03</span><a href="#briefs">The five briefs</a> <em>— what each group owns, runs, shows and must answer</em></li>
+      <li><span>04</span><a href="#seams">The seams</a> <em>— where two groups must agree</em></li>
+      <li><span>05</span><a href="#format">Running the sessions</a> <em>— two weeks, and the two rules that matter</em></li>
+      <li><span>06</span><a href="#facilitator">Facilitator notes</a> <em>— prep, and what to watch for</em></li>
+    </ol>
+  </nav>
+
+  <section class="part" id="shape">
+    <p class="n">Section 01</p>
+    <h2>The shape</h2>
+
+    <div class="stats">
+      <div><b>16</b><span>people</span></div>
+      <div><b>5</b><span>groups</span></div>
+      <div><b>2</b><span>weeks</span></div>
+      <div><b>1</b><span>finding each</span></div>
+    </div>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 268" role="img" aria-labelledby="gr-t gr-d">
+<title id="gr-t">The five groups and what each one owns</title>
+<desc id="gr-d">Five groups side by side. Group one, four people, takes the turn — how one message becomes a reply. Group two, three people, takes tools and MCP — how the agent acts on the world. Group three, four people, takes durability and human waits. Group four, three people, takes watching and proving. Group five, two or three people, takes guardrails, identity and cost. Groups one and three are the largest because they are the hardest.</desc>
+<defs><g id="who"><circle class="hu" cx="0" cy="0" r="5"/><path class="hu" d="M-8,14 a8,8 0 0 1 16,0 z"/></g></defs>
+
+<rect class="hz" x="14" y="30" width="186" height="220" rx="9"/>
+<text class="n" x="28" y="54">GROUP 1</text>
+<text class="t" x="28" y="82">The turn</text>
+<use href="#who" x="40" y="108"/><use href="#who" x="66" y="108"/>
+<use href="#who" x="92" y="108"/><use href="#who" x="118" y="108"/>
+<text class="d" x="28" y="152">how one message</text>
+<text class="d" x="28" y="168">becomes a reply</text>
+<text class="d" x="28" y="200">router · loop · llm</text>
+<text class="d" x="28" y="216">context · entrypoint</text>
+<text class="n" x="28" y="240">~3 400 LINES</text>
+
+<rect class="box" x="214" y="30" width="186" height="220" rx="9"/>
+<text class="n" x="228" y="54">GROUP 2</text>
+<text class="t" x="228" y="82">Tools &amp; MCP</text>
+<use href="#who" x="240" y="108"/><use href="#who" x="266" y="108"/>
+<use href="#who" x="292" y="108"/>
+<text class="d" x="228" y="152">how it acts on</text>
+<text class="d" x="228" y="168">the world</text>
+<text class="d" x="228" y="200">tools · order_system</text>
+<text class="d" x="228" y="216">worlds · contracts</text>
+<text class="n" x="228" y="240">~2 000 LINES</text>
+
+<rect class="hz" x="414" y="30" width="186" height="220" rx="9"/>
+<text class="n" x="428" y="54">GROUP 3</text>
+<text class="t" x="428" y="82">Durability</text>
+<use href="#who" x="440" y="108"/><use href="#who" x="466" y="108"/>
+<use href="#who" x="492" y="108"/><use href="#who" x="518" y="108"/>
+<text class="d" x="428" y="152">what survives, and</text>
+<text class="d" x="428" y="168">waiting for a person</text>
+<text class="d" x="428" y="200">state · idempotency</text>
+<text class="d" x="428" y="216">approvals · escalation</text>
+<text class="n" x="428" y="240">~4 000 LINES</text>
+
+<rect class="box" x="614" y="30" width="186" height="220" rx="9"/>
+<text class="n" x="628" y="54">GROUP 4</text>
+<text class="t" x="628" y="82">Watching</text>
+<use href="#who" x="640" y="108"/><use href="#who" x="666" y="108"/>
+<use href="#who" x="692" y="108"/>
+<text class="d" x="628" y="152">traces, metrics,</text>
+<text class="d" x="628" y="168">rules, evals</text>
+<text class="d" x="628" y="200">telemetry · watch</text>
+<text class="d" x="628" y="216">cassette · evals</text>
+<text class="n" x="628" y="240">~3 000 LINES</text>
+
+<rect class="box" x="814" y="30" width="172" height="220" rx="9"/>
+<text class="n" x="828" y="54">GROUP 5</text>
+<text class="t" x="828" y="82">Guardrails</text>
+<use href="#who" x="840" y="108"/><use href="#who" x="866" y="108"/>
+<use href="#who" x="892" y="108"/>
+<text class="d" x="828" y="152">what constrains it</text>
+<text class="d" x="828" y="200">policy · identity</text>
+<text class="d" x="828" y="216">cost · config · flow</text>
+<text class="n" x="828" y="240">~2 000 LINES</text>
+</svg></div>
+    <p class="caption">Groups 1 and 3 get four people because they are the hardest — the loop, and distributed waits. Group 5 is smallest but touches everything, so put a strong person there.</p>
+
+    <h3>Why these five and not the obvious four</h3>
+    <p>The instinct is <em>orchestration · durability · observability · MCP</em>. It is close, but uneven — MCP is a day and observability is a week, and it leaves policy, identity and cost with no home at all. Five groups balances the code and gives each one a sharp identity.</p>
+
+    <h3>Each group gets a question, not just a topic</h3>
+    <p>From the twelve roles in the explainer. Knowing <em>who you are teaching for</em> changes what you look at.</p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Group</th><th>The question they answer</th><th>Asked by</th></tr></thead>
+      <tbody>
+        <tr><td><strong>1 · The turn</strong></td><td>Can I change this without breaking it?</td><td>Developer</td></tr>
+        <tr><td><strong>2 · Tools &amp; MCP</strong></td><td>Who can do what, and to whose data?</td><td>Security</td></tr>
+        <tr><td><strong>3 · Durability</strong></td><td>What do I do when it hands me a customer?</td><td>Support desk</td></tr>
+        <tr><td><strong>4 · Watching</strong></td><td>Will this page me at three in the morning?</td><td>Platform · SRE</td></tr>
+        <tr><td><strong>5 · Guardrails</strong></td><td>What does one turn cost, and can you prove what it did?</td><td>Finance · Audit</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section class="part" id="depth">
+    <p class="n">Section 02</p>
+    <h2>How deep is deep enough</h2>
+
+    <div class="note"><p style="font-size:17px"><strong>You can draw it from memory, point at the line that enforces it, and name the bug that proves why it is there.</strong></p></div>
+
+    <p>Six questions, identical for all five groups. A group that can answer these is deep enough to teach.</p>
+    <ol>
+      <li><strong>Draw it.</strong> Where does control enter, where does it leave?</li>
+      <li><strong>What one decision does this area own</strong> that nothing else may make?</li>
+      <li><strong>Show the line</strong> where that is enforced — not the docstring, the code.</li>
+      <li><strong>What broke?</strong> Find the F-number or the scarred comment. Every area has one.</li>
+      <li><strong>How is it tested</strong>, and what does the test <em>not</em> cover?</li>
+      <li><strong>Adopt or build</strong> — and what stays ours either way?</li>
+    </ol>
+
+    <div class="note"><p><strong>Question 4 is the one that changes the exercise.</strong> This codebase documents its own defects in the comments — F-004, F-006, F-013, F-022, F-023, F-031, F-039, R-017, AACP-0056 and more. Each group finds theirs and explains <em>what the code looked like before</em>. That is the difference between reading code and understanding it.</p></div>
+  </section>
+
+  <section class="part" id="briefs">
+    <p class="n">Section 03</p>
+    <h2>The five briefs</h2>
+    <p>The deep questions below are hard on purpose. They are all answerable from the code, and none of them is answerable by skimming.</p>
+
+    <div class="cn" id="g1">
+      <p class="tag">GROUP 1 · FOUR PEOPLE</p>
+      <h3>The turn</h3>
+      <p class="owns">How one message becomes a reply.</p>
+      <dl>
+        <dt>Code</dt>
+        <dd><p><code>router/</code> · <code>loop/</code> · <code>llm/</code> · <code>context/</code> · <code>entrypoint/</code></p></dd>
+        <dt>Read</dt>
+        <dd><p>§05 the path of one message · §06 pass 1 · §10 tool calling, message by message</p></dd>
+        <dt>Run</dt>
+        <dd><p><code>python scripts/run_server.py</code>, then again with <code>--real</code></p></dd>
+        <dt>Show</dt>
+        <dd><ul>
+          <li>a refusal that costs <strong>no model call</strong></li>
+          <li>a two-step loop, with the full <code>messages[]</code> on each call</li>
+          <li>the four exits: step budget, oscillation, cost ceiling, escalation</li>
+        </ul></dd>
+        <dt>Answer</dt>
+        <dd><ul>
+          <li>Why does the router run <strong>per turn</strong>, not per conversation?</li>
+          <li>Why may the router never call the loop — and what enforces that rather than discipline?</li>
+          <li>The loop has four exits. Name them. Which is hardest to test?</li>
+          <li><code>wants_tools</code> is the only branch, but <strong>four</strong> shapes can arrive. What happens to the fourth?</li>
+          <li>Why do we send <code>content: ""</code> when the provider sent <code>null</code>?</li>
+          <li>Where is a call's signature computed, and why are the keys sorted?</li>
+          <li><strong>F-031</strong> — what did an empty completion used to do to the customer?</li>
+        </ul></dd>
+      </dl>
+    </div>
+
+    <div class="cn" id="g2">
+      <p class="tag">GROUP 2 · THREE PEOPLE</p>
+      <h3>Tools &amp; MCP</h3>
+      <p class="owns">How the agent acts on the world, and who checks it.</p>
+      <dl>
+        <dt>Code</dt>
+        <dd><p><code>tools/</code> · <code>contracts/tools.py</code> · <code>order_system/</code> · <code>worlds/</code></p></dd>
+        <dt>Read</dt>
+        <dd><p>§09 the tools in full · §10 tool calling, all nine parts</p></dd>
+        <dt>Run</dt>
+        <dd><p><code>docker compose --profile store up -d</code> → <code>python deploy/saleor/seed.py</code> → <code>run_server.py --store</code></p></dd>
+        <dt>Show</dt>
+        <dd><ul>
+          <li>the four gate checks, and a call stopped at each</li>
+          <li>a <code>tools/list</code> that differs by identity</li>
+          <li>the two MCP error channels, side by side</li>
+          <li>the far end refusing a call the agent thought was fine</li>
+        </ul></dd>
+        <dt>Answer</dt>
+        <dd><ul>
+          <li>Why does <code>list_tools</code> take an <em>identity</em>?</li>
+          <li>Why is <code>idempotency_key</code> a <strong>required positional argument</strong> rather than a keyword with a default?</li>
+          <li>MCP has two error channels. Why does handling one and not the other look healthy until production?</li>
+          <li>MCP says <code>output_schema</code> is optional. Why is it mandatory here?</li>
+          <li><strong>F-023</strong> — the bound measured one thing and the context sent another. Which, and why did it matter?</li>
+          <li>Why is <code>allowed: false</code> counted as <code>refused</code> and not <code>error</code>?</li>
+          <li>Walk the <strong>seven</strong> checks in <code>_approved</code>. Which one is F-013?</li>
+        </ul></dd>
+      </dl>
+    </div>
+
+    <div class="cn" id="g3">
+      <p class="tag">GROUP 3 · FOUR PEOPLE</p>
+      <h3>Durability &amp; human waits</h3>
+      <p class="owns">What survives a restart, and what happens when a person is needed.</p>
+      <dl>
+        <dt>Code</dt>
+        <dd><p><code>state/</code> · <code>idempotency/</code> · <code>approvals/</code> · <code>escalation/</code> · <code>trigger/</code> · <code>reviewer/</code></p></dd>
+        <dt>Read</dt>
+        <dd><p>§11 the data model · §12 Temporal, on its own</p></dd>
+        <dt>Run</dt>
+        <dd><p><code>docker compose --profile durable up -d</code>, start an approval, <strong>kill the process</strong>, restart it, then decide the approval</p></dd>
+        <dt>Show</dt>
+        <dd><ul>
+          <li>the three idempotency layers, and the question each answers</li>
+          <li>an approval outliving its own process</li>
+          <li><code>ep.build</code> refusing a half-durable store set</li>
+          <li>a reviewer approving twice, causing one refund</li>
+        </ul></dd>
+        <dt>Answer</dt>
+        <dd><ul>
+          <li>Three idempotency layers answering three different questions. Name all three.</li>
+          <li><strong>F-039</strong> — a retry keeps its key, a second execution changes it. What was minting the key before, and why did every retry re-execute?</li>
+          <li>Why does an approval <strong>return</strong> rather than block?</li>
+          <li>Why is <code>decide</code> a Temporal <em>update with a validator</em> and not an activity?</li>
+          <li>What does a durable delivery claim have that the in-memory log does not — and why is the in-memory one self-healing <em>by accident</em>?</li>
+          <li>Why does <code>ep.build</code> refuse a mixed store set? What did the conversation used to say after a restart?</li>
+          <li>Who carries the refund out, under whose login, and why not the agent's?</li>
+        </ul></dd>
+      </dl>
+    </div>
+
+    <div class="cn" id="g4">
+      <p class="tag">GROUP 4 · THREE PEOPLE</p>
+      <h3>Watching &amp; proving</h3>
+      <p class="owns">Traces, metrics, rules, evals — and producing proof on demand.</p>
+      <dl>
+        <dt>Code</dt>
+        <dd><p><code>telemetry/</code> · <code>watch/</code> · <code>cassette/</code> · <code>evals/</code> · <code>deploy/prometheus/</code> · <code>deploy/grafana/</code></p></dd>
+        <dt>Read</dt>
+        <dd><p>§13 OpenTelemetry, Langfuse and the rules · §14 from the agent to Prometheus and Langfuse</p></dd>
+        <dt>Run</dt>
+        <dd><p><code>docker compose --profile obs --profile watch up -d</code></p></dd>
+        <dt>Show</dt>
+        <dd><ul>
+          <li>one trace end to end in Langfuse, found by customer</li>
+          <li>the same turn as numbers in Prometheus</li>
+          <li><strong>an alert actually firing</strong>, and Alertmanager routing it</li>
+          <li>the online rules writing scores back</li>
+        </ul></dd>
+        <dt>Answer</dt>
+        <dd><ul>
+          <li>Why can you not alert on a trace? Quote the two words in <code>counters.py</code>.</li>
+          <li>Why does the in-memory exporter stay in <strong>production</strong>?</li>
+          <li>Which labels may a counter carry? Do the arithmetic for <code>agent.turns</code>.</li>
+          <li>Two mechanisms count. Why is one of them a <em>span processor</em>?</li>
+          <li>What is <code>agent.online.evaluated</code> for, and what goes wrong without it?</li>
+          <li>Why does the collector exist at all? <strong>AACP-0056</strong> — what was lost, and how much?</li>
+          <li><code>absent_over_time</code> — why can no trace store do this?</li>
+        </ul></dd>
+      </dl>
+    </div>
+
+    <div class="cn" id="g5">
+      <p class="tag">GROUP 5 · TWO OR THREE PEOPLE</p>
+      <h3>Guardrails, identity &amp; cost</h3>
+      <p class="owns">Everything that constrains the system, and everything that fails at startup.</p>
+      <dl>
+        <dt>Code</dt>
+        <dd><p><code>policy/</code> · <code>identity/</code> · <code>resilience/</code> · <code>flow/</code> · <code>cost/</code> · <code>config/</code> · <code>serve/</code> · <code>portal/</code></p></dd>
+        <dt>Read</dt>
+        <dd><p>§07 pass 2 · §08 pass 3</p></dd>
+        <dt>Run</dt>
+        <dd><p>Set <code>AGENT_MODEL</code> to something unapproved and watch the process <strong>refuse to start</strong>. Then ask about order <code>AB-66666</code>.</p></dd>
+        <dt>Show</dt>
+        <dd><ul>
+          <li>the five policy positions, and a reply changed at the fifth</li>
+          <li>the poisoned note in <code>AB-66666</code> trying to cancel an order</li>
+          <li>a cost ceiling stopping a run mid-way</li>
+          <li>four different things refusing to start</li>
+        </ul></dd>
+        <dt>Answer</dt>
+        <dd><ul>
+          <li>Five policy positions. Why is the fifth <strong>outside</strong> the loop?</li>
+          <li><strong>F-004</strong> — a guardrail matched the bare verb. Which <em>correct</em> behaviour did it block?</li>
+          <li>Why does a customer session never hold <code>refunds:write</code>? Name the <em>second</em> control.</li>
+          <li>Why does the far end verify a token instead of trusting an asserted <code>customer_id</code>?</li>
+          <li>Why is cost per <strong>task</strong> and not per call? What did per-call spend do to the histogram?</li>
+          <li>List everything that fails at <strong>startup</strong>. Why there and not mid-conversation?</li>
+          <li><strong>T-018</strong> — why is the provider <em>declared</em> rather than read off the URL?</li>
+        </ul></dd>
+      </dl>
+    </div>
+
+    <div class="warn"><b>One anchor for group 5</b>
+    <p>Group 5 is the widest and shallowest — six modules, none large, and the risk is skimming. Give them one concrete artefact: <strong>trace the poisoned note in <code>AB-66666</code></strong> from the tool result, through all five policy positions, to the reply. That single trace touches policy, identity, context fencing and the tool boundary at once.</p></div>
+  </section>
+
+  <section class="part" id="seams">
+    <p class="n">Section 04</p>
+    <h2>The seams</h2>
+    <p>This is where the learning is. Each seam is a place two groups <strong>must</strong> agree, and where the interesting arguments happen.</p>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 404" role="img" aria-labelledby="sm-t sm-d">
+<title id="sm-t">The seams between the five groups</title>
+<desc id="sm-d">Four groups sit at the corners and the fourth sits in the middle. Group one and group two share the idempotency key. Group two and group three share the ledger. Group three and group five share who may approve. Group five and group one share the five policy positions. Group four sits in the centre and connects to all four by dashed lines, because every group's code emits spans and group four owns the contract those spans must satisfy.</desc>
+
+<rect class="hz" x="120" y="40" width="200" height="70" rx="9"/>
+<text class="n" x="134" y="64">GROUP 1</text>
+<text class="t" x="134" y="90">The turn</text>
+
+<rect class="box" x="680" y="40" width="200" height="70" rx="9"/>
+<text class="n" x="694" y="64">GROUP 2</text>
+<text class="t" x="694" y="90">Tools &amp; MCP</text>
+
+<rect class="hz" x="680" y="300" width="200" height="70" rx="9"/>
+<text class="n" x="694" y="324">GROUP 3</text>
+<text class="t" x="694" y="350">Durability</text>
+
+<rect class="box" x="120" y="300" width="200" height="70" rx="9"/>
+<text class="n" x="134" y="324">GROUP 5</text>
+<text class="t" x="134" y="350">Guardrails</text>
+
+<rect class="hz" x="400" y="170" width="200" height="70" rx="9" stroke-width="2.4"/>
+<text class="n" x="414" y="194">GROUP 4</text>
+<text class="t" x="414" y="220">Watching</text>
+
+<line class="go" x1="320" y1="75" x2="678" y2="75"/>
+<line class="go" x1="780" y1="110" x2="780" y2="298"/>
+<line class="go" x1="678" y1="335" x2="322" y2="335"/>
+<line class="go" x1="220" y1="298" x2="220" y2="112"/>
+
+<line class="up" x1="398" y1="192" x2="322" y2="98"/>
+<line class="up" x1="602" y1="192" x2="678" y2="98"/>
+<line class="up" x1="602" y1="220" x2="678" y2="312"/>
+<line class="up" x1="398" y1="220" x2="322" y2="312"/>
+
+<text class="d" x="388" y="66">the idempotency key</text>
+<text class="d" x="792" y="200">the ledger</text>
+<text class="d" x="410" y="356">who may approve</text>
+<text class="d" x="34" y="200">the five</text>
+<text class="d" x="34" y="216">positions</text>
+<text class="d" x="424" y="264">the span contract — everyone's</text>
+</svg></div>
+
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Seam</th><th>Between</th><th>The question to settle</th></tr></thead>
+      <tbody>
+        <tr><td><strong>The idempotency key</strong></td><td>1 ↔ 2 ↔ 3</td><td>Minted in the loop, checked at the boundary, stored in a ledger, sent to the far end. <strong>Who owns it?</strong></td></tr>
+        <tr><td><strong>The checkpoint</strong></td><td>1 ↔ 3</td><td>What exactly does a turn save, and why does a half-durable set refuse to start?</td></tr>
+        <tr><td><strong>Who may approve</strong></td><td>3 ↔ 5</td><td>HTTP scope, workflow validator, far-end record — three checks, three <em>different</em> questions. Which is which?</td></tr>
+        <tr><td><strong>Surface = scopes</strong></td><td>2 ↔ 5</td><td>One <code>operation → scope</code> table drives both the model's tool surface and the far end's demand. Trace both.</td></tr>
+        <tr><td><strong>The span contract</strong></td><td>4 ↔ <strong>everyone</strong></td><td>Every group's code emits spans. Group 4 owns the contract that fails the build. Does each area actually satisfy it?</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="note"><p><strong>Group 4 presents last.</strong> Their topic is everyone else's code. They get far more out of it once the other four have gone — and they can close by showing each group where <em>their</em> concern appears in a single trace.</p></div>
+  </section>
+
+  <section class="part" id="format">
+    <p class="n">Section 05</p>
+    <h2>Running the sessions</h2>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 262" role="img" aria-labelledby="tl-t tl-d">
+<title id="tl-t">Two weeks: five slots, then the seams</title>
+<desc id="tl-d">Week one has five forty-minute slots in the order one, two, three, five, four — with group four last because its topic is everyone else's code. Week two puts the seam pairs in a room to settle five questions between them.</desc>
+
+<text class="n" x="14" y="26">WEEK 1 · FIVE SLOTS, 40 MINUTES EACH</text>
+<rect class="hz" x="14" y="38" width="180" height="66" rx="8"/>
+<text class="t" x="28" y="62">1 · The turn</text>
+<text class="d" x="28" y="84">start where a message does</text>
+<rect class="box" x="208" y="38" width="180" height="66" rx="8"/>
+<text class="t" x="222" y="62">2 · Tools &amp; MCP</text>
+<text class="d" x="222" y="84">now it can act</text>
+<rect class="box" x="402" y="38" width="180" height="66" rx="8"/>
+<text class="t" x="416" y="62">3 · Durability</text>
+<text class="d" x="416" y="84">and it remembers</text>
+<rect class="box" x="596" y="38" width="180" height="66" rx="8"/>
+<text class="t" x="610" y="62">5 · Guardrails</text>
+<text class="d" x="610" y="84">what holds it back</text>
+<rect class="hz" x="790" y="38" width="196" height="66" rx="8" stroke-width="2.4"/>
+<text class="t" x="804" y="62">4 · Watching</text>
+<text class="d" x="804" y="84">last — it is about all of it</text>
+
+<text class="n" x="14" y="150">WEEK 2 · THE SEAMS, IN PAIRS</text>
+<rect class="subl" x="14" y="162" width="180" height="66" rx="8"/>
+<text class="s" x="28" y="186">1 ↔ 2 ↔ 3</text>
+<text class="d" x="28" y="208">the idempotency key</text>
+<rect class="subl" x="208" y="162" width="180" height="66" rx="8"/>
+<text class="s" x="222" y="186">1 ↔ 3</text>
+<text class="d" x="222" y="208">the checkpoint</text>
+<rect class="subl" x="402" y="162" width="180" height="66" rx="8"/>
+<text class="s" x="416" y="186">3 ↔ 5</text>
+<text class="d" x="416" y="208">who may approve</text>
+<rect class="subl" x="596" y="162" width="180" height="66" rx="8"/>
+<text class="s" x="610" y="186">2 ↔ 5</text>
+<text class="d" x="610" y="208">surface = scopes</text>
+<rect class="subl" x="790" y="162" width="196" height="66" rx="8"/>
+<text class="s" x="804" y="186">4 ↔ everyone</text>
+<text class="d" x="804" y="208">the span contract</text>
+
+<text class="d" x="14" y="252">Order matters: each slot builds on the one before it, and watching only makes sense once there is something to watch.</text>
+</svg></div>
+
+    <h3>The forty minutes</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Time</th><th>What</th><th>Rule</th></tr></thead>
+      <tbody>
+        <tr><td><strong>5 min</strong></td><td>The claim — one sentence: <em>"this area owns X, and nothing else may decide it"</em></td><td>no preamble</td></tr>
+        <tr><td><strong>10 min</strong></td><td>Run it live</td><td>a terminal, not a screenshot</td></tr>
+        <tr><td><strong>10 min</strong></td><td>Walk one path through the code</td><td>real files, <strong>no slides</strong></td></tr>
+        <tr><td><strong>5 min</strong></td><td>The defect — what broke, what it looked like, the fix</td><td>name the F-number</td></tr>
+        <tr><td><strong>10 min</strong></td><td>Questions, and the handoff to the group you share a seam with</td><td>—</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>The two rules that do the work</h3>
+    <div class="note"><p><strong>1 · No slides except the diagram you drew.</strong> Not copied from the explainer — drawn. If a group needs slides, they have not understood it yet.</p>
+    <p><strong>2 · Each group sets three questions for the room</strong>, asked at the end of their slot, and anyone may be called on. This is the single change that turns an audience into participants. People listen differently when they might be asked.</p></div>
+
+    <h3>Every group produces the same three things</h3>
+    <p>Otherwise you get five presentations of wildly different shapes.</p>
+    <ol>
+      <li><strong>One diagram they drew themselves.</strong> Drawing it is where the understanding happens.</li>
+      <li><strong>One thing they ran live.</strong> Every command in the briefs works.</li>
+      <li><strong>One finding.</strong> A question the code does not answer, a comment that no longer matches the code, or a gap. <strong>Capped at one</strong>, so they hunt rather than list.</li>
+    </ol>
+  </section>
+
+  <section class="part" id="facilitator">
+    <p class="n">Section 06</p>
+    <h2>Facilitator notes</h2>
+
+    <h3>A week before</h3>
+    <p>Everyone reads the two prologues in the explainer — <em>An agentic system is a software system</em> and <em>Who it has to work for</em>. Fifteen minutes, and it stops five groups independently concluding that agents are a new discipline.</p>
+
+    <h3>The mid-week check</h3>
+    <p>Ask each group for <strong>their diagram only</strong>. Nothing else. If it is a copy of one from the explainer, they are behind — and you will know four days early rather than in the room.</p>
+
+    <h3>Where the time will go wrong</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Group</th><th>Risk</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><td><strong>3 · Durability</strong></td><td>Deepest by a distance — distributed waits, three idempotency layers, Temporal's model</td><td>four people <em>and</em> a head start</td></tr>
+        <tr><td><strong>5 · Guardrails</strong></td><td>Widest and shallowest; will skim six modules</td><td>anchor on the <code>AB-66666</code> trace</td></tr>
+        <tr><td><strong>1 · The turn</strong></td><td>Will spend all their time in <code>loop/</code> and never reach the router</td><td>make them present the router first</td></tr>
+        <tr><td><strong>4 · Watching</strong></td><td>Breadth without depth — six products is a lot of UI to admire</td><td>one trace, one metric, one firing alert. Nothing else.</td></tr>
+        <tr><td><strong>2 · Tools &amp; MCP</strong></td><td>Most self-contained; may finish early</td><td>give them the far end's seven checks as the stretch</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>What you are really collecting</h3>
+    <p>One finding per group. There are live ones already in the code, waiting to be found:</p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Finding</th><th>Whose</th></tr></thead>
+      <tbody>
+        <tr><td><code>InMemorySpanExporter</code> is never cleared, so a long-running process accumulates every span</td><td>Group 4</td></tr>
+        <tr><td><code>ApprovalRequested</code> discards a sibling's result mid-batch, so an effect can happen with no record in the transcript</td><td>Groups 1 + 3</td></tr>
+        <tr><td>A <code>content_filter</code> finish is reported as <code>ModelMalformed</code> — a refusal recorded as unreadability</td><td>Group 1</td></tr>
+        <tr><td><code>agent.tool.calls</code> has no <code>truncated</code> label, so AACP-0004's signal cannot be computed</td><td>Group 4</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="warn"><b>Do not hand these out</b>
+    <p>If a group finds one of these independently, that tells you more about their depth than any presentation will. If a group finds something <em>not</em> on this list, better still.</p></div>
+
+    <h3>The one outcome to aim for</h3>
+    <div class="note"><p>Not five people who know their area. <strong>Sixteen people who can argue about a seam</strong> — because that is the only conversation where design actually happens, and it is the one nobody can have alone.</p></div>
+  </section>
+</main>
+
+<footer>
+  <p>Companion to <a href="AGENT-HARNESS-EXPLAINED.html">AGENT-HARNESS-EXPLAINED.html</a>. Section numbers refer to that document.</p>
+  <p>All commands in the briefs run against this repository as it stands. The findings in §06 were noticed while writing the explainer and have not been fixed.</p>
+</footer>
+</body>
+</html>
