@@ -2121,3 +2121,65 @@ a chat and a trace store somebody else operates.
 adopt and is design work: retention and erasure are different questions, and
 only one of them is answered by a schedule (F-056, and the open question in
 `docs/DESIGN-state.md`).
+
+## F-058 · Every copy of the far end is a replica, and only two of four are kept honest
+
+**Found** 2026-09-25, from a question rather than from a test: *the moment you
+replicate state you are bound either to refresh it or to treat it as stale and
+handle the request accordingly.* That is an ordinary rule about ordinary
+software. Asked of this agent it has an uncomfortable answer.
+
+Four things in this system are copies of what a far end holds. Two have a
+refresh rule; two have none at all:
+
+| The copy | Lives for | Refresh rule |
+|---|---|---|
+| `Freshness.value` — rows read this run | one run, seconds | 30s window, re-read before an irreversible action |
+| `Approval.decided_against` | hours, across the human wait | re-read before the effect; moved → `STALE` (F-054) |
+| **the reply text on the conversation** | **for ever** | **none** |
+| **`requests.outcome`** | **until erased** | **none** |
+
+**The second column is the finding.** The two guarded copies are the
+short-lived ones. The two unguarded copies are the ones that outlive everything
+— and the longest-lived of them is the one that already reached a person.
+
+**What the reply text actually does.** It is not only shown to the customer. It
+is fed back to the model as history on every later turn, so a sentence composed
+from a stale read becomes a premise the model reasons from:
+
+    turn 1   read: status=pending  ->  "Your order hasn't shipped, I can cancel it."
+             ... the warehouse ships it ...
+    turn 5   the model reads its own turn-1 sentence as a fact about today
+
+`loop/freshness.py` states this in its own docstring — *"What it cannot do is
+stop the agent having already composed a reply from the stale value"* — and
+then does not act on it. The window guards the **action**. Nothing guards the
+**narration**, and the narration is what persists.
+
+**What `requests.outcome` does.** A redelivery replays the stored reply
+verbatim, however long afterwards. That is correct for the question the store
+answers (*were we already told an answer under this name*) and wrong for the
+question a caller reading the reply will believe it answers (*what is true*).
+The store is not at fault; nothing above it distinguishes the two.
+
+**Why this is harder here than in ordinary software.** A cache has three honest
+options: refresh, invalidate, or serve stale and say so. All three work because
+the replica sits behind an API. An agent has a fourth path the others do not:
+**the replica escapes into prose and reaches a human.** A cache entry can be
+invalidated. A sentence already said cannot. That is what makes the reply text
+the worst of the four rows — longest life, widest reach, no handle to
+invalidate it by.
+
+**What it is not.** Not T-060. That asks what a *far end* offers — a version
+precondition, key recognition — and is answerable only per binding. This asks
+what *we* hold and who keeps it honest, and it applies unchanged to a far end
+that offers nothing.
+
+**Open.** Routed to T-066. The shape of the rule is clear — nothing is copied
+out of a far end without declaring how long the copy is good for and what
+happens when it is not, refused at startup rather than remembered — and two of
+the four rows need a design decision before any of it is built. Replaying a
+`requests.outcome` past its window could re-read instead, which is mechanical.
+What to do about a reply already given is not: *"as of Tuesday you were told…"*
+is one answer, re-deriving before reuse is another, and both change what the
+customer reads.
