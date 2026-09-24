@@ -2183,3 +2183,47 @@ the four rows need a design decision before any of it is built. Replaying a
 What to do about a reply already given is not: *"as of Tuesday you were told…"*
 is one answer, re-deriving before reuse is another, and both change what the
 customer reads.
+
+## F-059 · A colleague's account of what they did is written and never read
+
+**Found** 2026-09-25, tracing one escalation end to end: a customer asks for a
+person, a colleague talks to them for twenty minutes, resolves the ticket, and
+the customer's next message comes back to the agent.
+
+`Escalation` has the field the situation needs:
+
+    resolved_at:  int | None = None
+    outcome:      EscalationOutcome | None = None
+    outcome_by:   str | None = None
+    outcome_note: str | None = None
+
+`outcome_note` is populated on every resolution by
+`escalation/durable.py:114`. **It has exactly one reference in the codebase, and
+that is the write.** Nothing reads it back — not `hold()`, which decides what
+the customer is told on the next turn, and not the context the model is given.
+
+This is not a design tension. It is a field that exists, is filled in, and is
+never opened.
+
+**Two other mechanisms remove the rest of the same window**, which is why the
+loss is total rather than partial. The channel drops the colleague's messages
+before anything looks at them, because they are `outgoing`
+(`channel/__init__.py:187`); and the customer's own messages during the hold are
+never appended either, because `_gates` returns before
+`with_messages(ctx.user_message(text))` is reached. So the agent resumes from
+exactly the conversation state that existed before the handover.
+
+**What is and is not lost.** Anything the colleague *did* — a refund, a
+cancellation, a reshipment — is in the far end and is read fresh on the next
+turn, so the agent stays correct about the world. Anything the colleague *said*
+— promised, explained, apologised for — exists only as channel text nobody
+ingests. *"Where is my order"* is answered correctly after a handover. *"When is
+my voucher coming"* is met with nothing.
+
+**Open.** The narrow half is this finding and is small: `hold()` already reads
+the escalation record on the turn that resumes, so the note is one field away
+from the place that decides what to say. What that turn should *do* with it is
+the part that is not small, and it belongs to the design question in
+`docs/DESIGN-shared-record.md` — which is **parked**, on purpose: it was found
+by inspection, and inspection has no stopping rule. T-034's first diff is the
+stopping rule, and this finding waits for it.
