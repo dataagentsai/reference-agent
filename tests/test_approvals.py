@@ -96,6 +96,112 @@ def test_which_refunds_need_a_human(name: str, order: dict, needs: bool) -> None
 
 
 # --------------------------------------------------------------------------- #
+# What a decision was decided against — F-054.
+#
+# Every other control on this path asks about the decision: who made it, when,
+# whether it is still inside its window. None of them asks whether the thing it
+# was made about is still the same thing. That is the one an hour-long wait
+# needs, because the expiry is satisfied by a grant made a minute ago and the
+# row can move in a minute.
+# --------------------------------------------------------------------------- #
+
+# (why, the order as it read when assessed, what is recorded)
+JUDGED_CASES = [
+    ("what the decision rests on, and as strings",
+     {"status": "returned", "total": 12400}, {"status": "returned", "total": "12400"}),
+    ("a total nobody could read is still recorded, so a later None is a change",
+     {"status": "returned"}, {"status": "returned", "total": "None"}),
+    ("what moves on its own is left out, or midnight would expire every grant",
+     {"status": "returned", "total": 12400, "days_since_delivery": 3},
+     {"status": "returned", "total": "12400"}),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("why", "order", "recorded"), JUDGED_CASES, ids=[c[0] for c in JUDGED_CASES]
+)
+@pytest.mark.discharges("AAC-0078", "AHC-0057")
+def test_what_a_refund_decision_is_recorded_against(why: str, order: dict, recorded: dict) -> None:
+    """The recorded fields are the judged fields and nothing else.
+
+    Recording more is not free caution: a field that changes by itself makes
+    the check cry wolf, and a control that cries wolf is switched off.
+    """
+    assert ap.judged(order) == recorded
+
+
+WAS = {"status": "returned", "total": "12400"}
+
+# (why, what was recorded, what the order says now, what has moved)
+MOVED_CASES = [
+    ("nothing has moved", WAS, {"status": "returned", "total": "12400"}, None),
+    ("the total moved — the money case", WAS, {"status": "returned", "total": "41000"},
+     "total was '12400' and is now '41000'"),
+    ("somebody else refunded it meanwhile", WAS, {"status": "refunded", "total": "12400"},
+     "status was 'returned' and is now 'refunded'"),
+    ("a judged field can no longer be read", WAS, {"status": "returned"},
+     "total was '12400' and is now None"),
+    ("both, and a person is told both", WAS, {"status": "cancelled", "total": "0"},
+     "status was 'returned' and is now 'cancelled', total was '12400' and is now '0'"),
+    ("fields nobody judged do not invalidate a grant", WAS,
+     {"status": "returned", "total": "12400", "days_since_delivery": "40"}, None),
+    ("nothing was recorded, so nothing can be compared", {},
+     {"status": "cancelled", "total": "41000"}, None),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("why", "was", "now", "changed"), MOVED_CASES, ids=[c[0] for c in MOVED_CASES]
+)
+@pytest.mark.discharges("AAC-0078", "AHC-0057")
+def test_what_has_moved_since_a_decision_was_made(
+    why: str, was: dict, now: dict, changed: str | None
+) -> None:
+    """The comparison, in words a person can act on.
+
+    The last row is the honest limit of this control rather than a hole in it:
+    an approval with nothing recorded is one nobody judged any facts for, and
+    inventing a refusal for it would fail every approval raised before this
+    field existed. What keeps it from mattering is the row above it in
+    `JUDGED_CASES` — the assessment always records.
+    """
+    assert ap.moved(record(decided_against=was), now) == changed
+
+
+@pytest.mark.discharges("AAC-0078", "AAC-0053")
+async def test_a_blip_on_the_recheck_is_not_news_about_the_order() -> None:
+    """A read that fails for a protocol reason raises, so the activity retries.
+
+    The distinction this rests on is the one the tool boundary already draws.
+    An *execution* error is the far end speaking about the order — no such
+    order, not this customer's — and is the strongest evidence the facts moved.
+    A *protocol* error is the far end not speaking at all, and says nothing
+    about the order. Answering "stale" to silence would make one dropped
+    connection destroy a decision a person had already made.
+
+    Reaching for the private method deliberately: the public path is a Temporal
+    activity that wants an activity context, and what is being pinned here is
+    the branch, not the plumbing around it.
+    """
+    from support_agent.approvals.refund import RefundWork
+    from support_agent.contracts import ToolUnavailable
+
+    class Unreachable:
+        async def list_tools(self, identity: Identity):
+            raise ToolUnavailable("the order system is not answering")
+
+        async def call(self, *args: object, **kwargs: object):
+            raise AssertionError("nothing may be called when the order cannot be read")
+
+    async def acting_for(customer_id: str) -> Identity:
+        return customer()
+
+    work = RefundWork(tools=Unreachable(), acting_for=acting_for)  # type: ignore[arg-type]
+    with pytest.raises(ToolUnavailable):
+        await work._changed(granted(decided_against=WAS), customer())
+
+
+# --------------------------------------------------------------------------- #
 # Who may decide. The workflow runs this as its update's validator.
 # --------------------------------------------------------------------------- #
 
@@ -207,12 +313,15 @@ ORDERS = {
 @pytest.fixture
 def server():
     srv = MCPServer("ecom")
-    srv.state = {"refunds": 0, "refunded": []}  # type: ignore[attr-defined]
+    # Its own copy of the orders, because F-054 is only reachable in a world
+    # that can move: a test has to change one *between* the decision and the
+    # effect, and a shared dict would leak that change into every other test.
+    srv.state = {"refunds": 0, "refunded": [], "orders": dict(ORDERS)}  # type: ignore[attr-defined]
 
     @srv.tool(meta={META_SIDE_EFFECT: SideEffectClass.READ.value})
     def get_order(order_id: str) -> OrderOut:
         """Look up an order."""
-        return ORDERS[order_id]
+        return srv.state["orders"][order_id]  # type: ignore[attr-defined]
 
     @srv.tool(
         meta={
@@ -393,22 +502,27 @@ def wants_refund(order_id: str = "AB-201", **stated: object):
     )
 
 
-# (why, what the colleague does, seconds before they do, refunds before the
-#  customer speaks again, what the next turn is, what it says)
+# (why, what the colleague does, seconds before they do, what the order does
+#  while they think, refunds before the customer speaks again, what the next
+#  turn is, what it says)
 ACROSS_TURNS = [
-    ("granted: refunded before the customer asks, and told so", True, HOUR, 1,
+    ("granted: refunded before the customer asks, and told so", True, HOUR, None, 1,
      "Completed", "refund is on its way"),
-    ("refused: nothing refunded, and told so", False, HOUR, 0,
+    ("refused: nothing refunded, and told so", False, HOUR, None, 0,
      "Completed", "could not authorise"),
-    ("nobody yet: still with a colleague", None, HOUR, 0,
+    ("nobody yet: still with a colleague", None, HOUR, None, 0,
      "Completed", "still with a colleague"),
-    ("nobody in time: the authorisation lapsed", None, DAY + 300, 0,
+    ("nobody in time: the authorisation lapsed", None, DAY + 300, None, 0,
      "Failed", "no longer valid"),
+    ("the total moved under them: granted, and no money leaves", True, HOUR, {"total": 41000}, 0,
+     "Failed", "changed while a colleague was reviewing"),
+    ("refunded by someone else meanwhile: granted, and not again", True, HOUR,
+     {"status": "refunded"}, 0, "Failed", "changed while a colleague was reviewing"),
 ]  # fmt: skip
 
 
 @pytest.mark.parametrize(
-    ("why", "grant", "later", "refunds", "outcome", "says"),
+    ("why", "grant", "later", "moves", "refunds", "outcome", "says"),
     ACROSS_TURNS,
     ids=[a[0] for a in ACROSS_TURNS],
 )
@@ -423,13 +537,26 @@ ACROSS_TURNS = [
     "P-APPROVAL-WAIT",
 )
 async def test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it(
-    server, why: str, grant: bool | None, later: int, refunds: int, outcome: str, says: str
+    server,
+    why: str,
+    grant: bool | None,
+    later: int,
+    moves: dict[str, object] | None,
+    refunds: int,
+    outcome: str,
+    says: str,
 ) -> None:
     """The whole gate, through the drivable surface.
 
     Turn one asks and is told nothing has been refunded. A colleague decides,
     or does not, and a granted refund is issued then, not when the customer
     next speaks. Turn two only reports it, without the model.
+
+    The last two rows are F-054. Everything about the decision is correct — a
+    live grant, the right reviewer, inside the window, the original key — and
+    the order is no longer the order that was judged. A grant is permission to
+    do a particular thing to a particular row, so when the row moves the
+    permission is spent on nothing and the customer is asked to ask again.
     """
     from support_agent.contracts import NeedsApproval
 
@@ -449,6 +576,9 @@ async def test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it(
         assert conversation.pending_approval_id == first.approval_id
 
         moment[0] = T0 + later
+        if moves is not None:
+            order = server.state["orders"]["AB-201"]
+            server.state["orders"]["AB-201"] = order.model_copy(update=moves)
         if grant is not None:
             await waits.desk.decide(first.approval_id, granted=grant, by="ops-7", now=moment[0])
         assert server.state["refunds"] == refunds, "the grant acts, not the next turn"

@@ -17,8 +17,8 @@ from temporalio import activity
 
 from support_agent import telemetry as tel
 from support_agent.approvals.durable import ASSESS, CARRY_OUT, Ask, Assessment, CarriedOut
-from support_agent.approvals.policy import REFUND_ACTION, Policy, requires_approval
-from support_agent.approvals.workflow import ApprovalError, carry_out, stored_key
+from support_agent.approvals.policy import REFUND_ACTION, Policy, judged, requires_approval
+from support_agent.approvals.workflow import ApprovalError, carry_out, moved, stored_key
 from support_agent.contracts import (
     Approval,
     ApprovalRequested,
@@ -158,7 +158,11 @@ class RefundWork:
         total = order.get("total")
         args = {**ask.args, "amount": None if total is None else str(total)}
         reason = requires_approval(order, self.policy)
-        return Assessment(args=args, reason=reason, approver=POLICY_APPROVER)
+        # What the decision rests on, recorded at the moment it is read, so the
+        # carry-out an hour later can tell whether it still rests on anything.
+        return Assessment(
+            args=args, reason=reason, approver=POLICY_APPROVER, decided_against=judged(order)
+        )
 
     @activity.defn(name=CARRY_OUT)
     async def carry_out(self, approval: Approval) -> CarriedOut:
@@ -167,11 +171,40 @@ class RefundWork:
         # workflow's clock and not this machine's.
         now = int(activity.info().current_attempt_scheduled_time.timestamp())
         with tel.span("agent.approval.carry_out", **{"agent.approval.id": approval.id}):
+            changed = await self._changed(approval, who)
+            if changed is not None:
+                return CarriedOut(ok=False, stale=True, text=changed)
             try:
                 result = await carry_out(approval, who, self.tools, policy=self.policy, now=now)
             except ApprovalError as exc:
                 return CarriedOut(ok=False, text=str(exc))
         return CarriedOut(ok=not result.is_error, text=result.text)
+
+    async def _changed(self, approval: Approval, who: Identity) -> str | None:
+        """Re-read the order and say what has moved since it was assessed, if
+        anything — F-054, and the only check on this path that looks at the
+        world rather than at the record.
+
+        **Before the grant is spent, not after.** `carry_out` mints the elevated
+        identity and calls the far end in one step, so a check that ran inside
+        it would be checking a refund that had already left.
+
+        A read that fails for a *protocol* reason is raised rather than
+        answered, so the activity retries under its own policy: a momentary
+        blip is not news about the order, and turning one into a dead approval
+        would make a person decide again for nothing. A read that fails for an
+        *execution* reason — no such order, not this customer's any more — is
+        the strongest possible statement that the facts moved.
+        """
+        reading = who.model_copy(update={"grant": approval.id})
+        order = await _order(
+            self.tools, approval.args.get("order_id"), reading, stored_key(approval)
+        )
+        if not isinstance(order, dict):
+            if order.error_channel == "protocol":
+                raise ToolUnavailable(order.text)
+            return f"the order could not be read again: {order.text}"
+        return moved(approval, judged(order))
 
 
 def _keyed(ask: Ask) -> Approval:

@@ -37,6 +37,28 @@ class Policy:
     the agent only what is owed."""
 
 
+JUDGED = ("status", "total")
+"""The fields a refund decision depends on — and so the fields that invalidate
+it if they move (F-054).
+
+Exactly what `requires_approval` reads below, and exactly what `amount_from`
+takes. It is a deliberately short list: `days_since_delivery` moves on its own
+every midnight and no decision here rests on it, so including it would expire
+grants for the passage of time and teach everyone to ignore the control.
+"""
+
+
+def judged(order: Mapping[str, object]) -> dict[str, str]:
+    """The facts a decision about this order rests on, ready to compare later.
+
+    One function, called on both sides of the wait — by the assessment that
+    records them and by the carry-out that re-reads them. Two functions here
+    would be two chances for the recording and the check to drift apart, and
+    the drift would show as a control that silently passes.
+    """
+    return {field: str(order.get(field)) for field in JUDGED}
+
+
 def requires_approval(order: Mapping[str, object], policy: Policy) -> str | None:
     """The reason refunding this order needs a human, or `None` when the agent
     may issue it alone — every `agent_when` condition holds.
@@ -64,4 +86,4 @@ def requires_approval(order: Mapping[str, object], policy: Policy) -> str | None
     return None
 
 
-__all__ = ["Policy", "REFUND_ACTION", "requires_approval"]
+__all__ = ["JUDGED", "Policy", "REFUND_ACTION", "judged", "requires_approval"]

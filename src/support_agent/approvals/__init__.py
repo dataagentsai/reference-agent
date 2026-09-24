@@ -55,6 +55,7 @@ from support_agent.approvals.notify import Nobody, Notifier, Reminders, message
 from support_agent.approvals.policy import (
     REFUND_ACTION,
     Policy,
+    judged,
     requires_approval,
 )
 from support_agent.approvals.refund import (
@@ -72,6 +73,7 @@ from support_agent.approvals.workflow import (
     carry_out,
     granted_identity,
     is_executable,
+    moved,
     refusal,
     stored_key,
 )
@@ -105,6 +107,8 @@ __all__ = [
     "metrics_runtime",
     "granted_identity",
     "is_executable",
+    "judged",
+    "moved",
     "refusal",
     "refund_tool",
     "requires_approval",

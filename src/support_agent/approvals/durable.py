@@ -50,7 +50,13 @@ because the workflow is what holds the clock (T-059)."""
 CARRY_OUT = "approval.carry_out"
 
 FINAL = frozenset(
-    {ApprovalState.DONE, ApprovalState.FAILED, ApprovalState.REFUSED, ApprovalState.EXPIRED}
+    {
+        ApprovalState.DONE,
+        ApprovalState.FAILED,
+        ApprovalState.STALE,
+        ApprovalState.REFUSED,
+        ApprovalState.EXPIRED,
+    }
 )
 SETTLED = FINAL | {ApprovalState.WAITING}
 """Where a caller may be answered: nothing is running on its behalf."""
@@ -90,6 +96,10 @@ class Assessment(BaseModel):
     """Why a person must decide, or `None` when the policy grants it."""
     approver: str = ""
     """Who grants when the policy does, named on the record."""
+    decided_against: dict[str, str] = {}
+    """The facts this assessment judged, to be re-read before the action runs
+    (F-054). The assessment names them because the assessment is what read
+    them; the workflow only carries them across the wait."""
     failed: str | None = None
     """Why the action could not be assessed at all, told to the model."""
 
@@ -107,6 +117,10 @@ class CarriedOut(BaseModel):
 
     ok: bool
     text: str
+    stale: bool = False
+    """The action did not run because what it was decided against had changed.
+    Not a failure: nothing was attempted, nothing is half-done, and what the
+    approval needs is a person deciding again rather than a retry."""
 
 
 def _now() -> int:
@@ -144,6 +158,7 @@ class ApprovalWorkflow:
         )
         if assessed.failed is not None:
             return await self._settle(ApprovalState.FAILED, assessed.failed)
+        self._set(decided_against=assessed.decided_against)
         if assessed.reason is None:
             self._set(args=assessed.args, reason="within the automatic limit")
             self._set(decided=True, granted=True, decided_by=assessed.approver)
@@ -204,7 +219,10 @@ class ApprovalWorkflow:
             start_to_close_timeout=TIMEOUT,
             retry_policy=RETRIES,
         )
-        state = ApprovalState.DONE if done.ok else ApprovalState.FAILED
+        if done.ok:
+            state = ApprovalState.DONE
+        else:
+            state = ApprovalState.STALE if done.stale else ApprovalState.FAILED
         return await self._settle(state, done.text)
 
     async def _settle(self, state: ApprovalState, result: str | None = None) -> Approval:

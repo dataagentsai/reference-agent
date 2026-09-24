@@ -130,6 +130,21 @@ class ApprovalFlow:
                     detail=f"approval {approval.id} expired before anyone decided",
                 )
                 return expired, cleared
+            if state is ApprovalState.STALE:
+                # Nothing was attempted, so there is nothing half-done to
+                # explain — only a decision that no longer fits what it was
+                # about. Said as a fact about the order rather than as an
+                # error, because from here it is neither side's mistake.
+                stale = Failed(
+                    customer_message=(
+                        "The order changed while a colleague was reviewing this, so their "
+                        "authorisation no longer matches it. Nothing has been refunded — "
+                        "please ask again and I will raise it against today's details."
+                    ),
+                    detail=f"approval {approval.id} was granted against facts that moved: "
+                    f"{approval.result or ''}",
+                )
+                return stale, cleared
             if state is ApprovalState.FAILED:
                 return Failed(customer_message=REFUND_FAILED, detail=approval.result or ""), cleared
             done = Completed(reply="That has been authorised and the refund is on its way.")

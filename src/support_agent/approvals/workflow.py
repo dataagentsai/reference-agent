@@ -13,6 +13,8 @@ the agent that asked for it.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from support_agent.approvals.policy import Policy
 from support_agent.contracts import (
     Approval,
@@ -68,6 +70,30 @@ def refusal(approval: Approval, *, by: str, by_customer: str | None = None, now:
 def is_executable(approval: Approval, *, now: int) -> bool:
     """Granted, and still within its window."""
     return approval.decided and approval.granted and now < approval.expires_at
+
+
+def moved(approval: Approval, facts: Mapping[str, str]) -> str | None:
+    """What has changed since this decision was made, or `None`.
+
+    The expiry above asks *how long ago* a person decided; this asks *whether
+    what they decided about still holds*, and the second is the one that costs
+    money. A grant one minute old is within every window and worthless if the
+    row it was granted against moved in that minute.
+
+    Only the recorded fields are compared, and a field that was recorded and is
+    now unreadable counts as moved — a check that cannot see the fact it is
+    checking must not conclude the fact is unchanged.
+
+    Returns the difference in words, because this ends up in front of a person
+    who has to decide the same thing again and "it changed" does not tell them
+    what to look at.
+    """
+    changed = [
+        f"{field} was {was!r} and is now {facts.get(field)!r}"
+        for field, was in approval.decided_against.items()
+        if facts.get(field) != was
+    ]
+    return ", ".join(changed) if changed else None
 
 
 def granted_identity(
@@ -144,6 +170,7 @@ __all__ = [
     "carry_out",
     "granted_identity",
     "is_executable",
+    "moved",
     "refusal",
     "stored_key",
 ]

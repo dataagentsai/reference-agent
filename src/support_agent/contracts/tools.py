@@ -214,6 +214,12 @@ class ApprovalState(StrEnum):
     """Granted and carried out. `result` is what the far end said."""
     FAILED = "failed"
     """Could not be assessed, or was granted and the far end refused it."""
+    STALE = "stale"
+    """Granted, and the facts it was granted against had changed by the time it
+    ran (F-054). Told apart from `FAILED` because the two ask different things
+    of an operator: a failure is the far end refusing, and this is nobody's
+    fault — the world moved during a human wait, and the decision has to be
+    made again against today's facts."""
     REFUSED = "refused"
     """A person said no."""
     EXPIRED = "expired"
@@ -238,6 +244,23 @@ class Approval(BaseModel):
     a script — and what a reminder is addressed to when one waits too long
     (T-059): the desk finds the conversation by it, and the channel finds the
     inbox, because a conversation id carries the channel's own ids."""
+    decided_against: dict[str, str] = Field(default_factory=dict)
+    """The facts this decision was made about, as they read when it was assessed.
+
+    F-054. Every other field here says *what was decided*; none of them said
+    what it was decided **against**, and an approval is the one place in the
+    system where minutes or hours pass between reading a row and acting on it.
+    Where the amount is a field on a row rather than an argument on the call —
+    `amount_from: order.total` — both sides read it separately, an hour apart,
+    and the far end's check compares argument values it never sees move. So a
+    person approves ₹25,000, the row changes underneath, and ₹41,000 leaves.
+
+    Values are strings so that what is compared is what was recorded, whatever
+    the far end's JSON did with the types between two reads. Which fields belong
+    here is the assessment's to say: they are the ones its decision depended on,
+    and a field nobody judged has no business invalidating a grant.
+    """
+
     idempotency_key: str
     """The key minted when the action was *requested*, carried across the wait.
 
