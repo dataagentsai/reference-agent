@@ -162,7 +162,7 @@ Absent in the support agent. The product in a personal assistant.
 
 ---
 
-## Two properties, not ports
+## Three properties, not ports
 
 **Tenant scoping is structural.** Today it is an `if` in application code:
 
@@ -176,6 +176,43 @@ threaded from intake, *structurally impossible to forget*. One missed `WHERE`
 in one query is cross-account leakage, and it is the most mundane possible bug.
 
 **Erasure crosses every port.** F-056: two of the five have no `DELETE` at all.
+
+**The far end's capabilities are declared, and verified at startup.** Several
+claims in this design are really claims about a *particular* far end: that it
+offers a version precondition, that it honours an idempotency key, that it can
+erase by subject. None of those is true of far ends in general, and none is
+knowable until a binding names one.
+
+So they are declared where every other binding decision is, and checked the way
+the model provider already is. T-018 does not assume Groq is behind the URL — it
+declares the provider and holds the endpoint to it at startup, with three
+outcomes: verified, unverified, or a mismatch that stops the process.
+
+```yaml
+tool_runtime:
+  adapter: saleor-mcp
+  far_end:
+    optimistic_concurrency: none        # declared here, verified at startup
+    idempotency_keys: honoured
+    erasure: none
+```
+
+And the compensating control is switched on what is found, not left running for
+ever in case:
+
+| Declared | What runs |
+|---|---|
+| `optimistic_concurrency: supported` | the version check; `freshness.py` is not loaded |
+| `none` | freshness, with `agent.freshness.compensating` on the span |
+| declared one way, found another | the process does not start |
+
+This is what makes a compensating control temporary rather than permanent. It
+can be counted — *how many of our bindings need it* — and retired on a date
+rather than carried out of habit. Today nothing declares the capability, so the
+question has no answer and freshness runs unconditionally whether it is
+protecting anything or not.
+
+**A guarantee that silently degrades is worse than one that is absent.**
 
 ---
 
@@ -223,17 +260,25 @@ Three things generalised across all five:
    a status column. Reaching for the harness to manage fan-out would be solving
    a queue problem with a language model.
 
-One claim needed qualifying: ***the far end owns correctness* assumes there is
-one far end.** *"Book the meeting and email them"* is two systems that do not
-know about each other; half-done is reachable and only compensation answers it.
+One claim needed qualifying twice, and is now retired. ***The far end owns
+correctness*** assumes there is **one** far end — *"book the meeting and email
+them"* is two that do not know about each other, so half-done is reachable and
+only compensation answers it. It also assumes that far end is **capable**, which
+is a property of a binding rather than a principle of the design. It is not a
+rule. It is something a particular binding either does or does not do, and the
+harness has to know which.
 
 ---
 
 ## Open
 
-**Does Saleor support a version precondition on order mutations?** This decides
-T-060, and T-060 decides whether `freshness.py` is deleted or marked
-compensating. Nothing else should start before it is answered.
+**What does each binding's far end supply, and what does the harness do when it
+supplies nothing?** The earlier form of this question — *does Saleor support a
+version precondition* — was too narrow. One store's answer decides nothing,
+because the next store answers differently and neither is chosen by us. What is
+needed is the declaration above, a way to verify it, and a decision about the
+compensating path for far ends that supply nothing. Saleor is then the first
+binding to fill in rather than the question itself.
 
 **What does erasure mean for `requests`?** Removing a ledger row makes a
 replayed call executable again. Keeping it keeps a record of what was done for
