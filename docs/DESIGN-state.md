@@ -1,14 +1,19 @@
 # What the agent remembers — a design
 
-*Written 2026-09-24, before any of it is built. Version 2: version 1 was four
-stores, and the fifth shape it was tested against changed it. Logged as
+*Written 2026-09-24. Version 1 was four stores; the fifth agent shape tested
+against it changed the drawing, and reading two of the modules changed it again.
+What has been **built** is the `requests` merge — six stores are five. The rest
+is undecided. Logged as
 [T-062](../../clean-ai-engineering/TODO.md). Carries [F-054](../evals/FINDINGS.md),
 [F-055](../evals/FINDINGS.md) and [F-056](../evals/FINDINGS.md).*
 
-> **Status: undecided, and written to be attacked.** Nothing here is built.
-> Every claim below is stated so it can be shown false, and the cases table at
-> the end is the part to break first. A case that does not fit means the design
-> is wrong, not the case.
+> **Status: partly built, and written to be attacked.** §3 `requests` shipped on
+> 2026-09-24 — the delivery claim and the idempotency ledger are one store with
+> one rule, and Temporal lost a workflow with them. Everything else is undecided,
+> and one thing proposed here has already been **withdrawn** on reading the code
+> it described (§4 and 5). Every claim below is stated so it can be shown false,
+> and the cases table is the part to break first. A case that does not fit means
+> the design is wrong, not the case.
 
 ---
 
@@ -77,7 +82,7 @@ distinction, made for model calls and not for tool calls.
 
 ---
 
-## The five ports
+## The ports
 
 They are **ports, not tables**. How many you build depends on what the domain
 already runs.
@@ -124,10 +129,35 @@ hold the delivery claim.
 
 Gains a `DELETE`, and the hard question that comes with it — see *Open*.
 
-### 4 · `human_decision` — somebody owes an answer
+### 4 and 5 · `approvals` and `escalations` — somebody owes an answer
 
-**Absorbs approvals and escalations.** Same wait, same timer, same outcome, same
-queue. What differs is the decision rule, and that is a parameter.
+**They stay two. The merge proposed here was withdrawn on 2026-09-24, after
+reading both rather than reasoning about them from outside.**
+
+They share an engine and not a meaning. *May this action happen?* and *will a
+person take this conversation?* are different questions, and the code says so:
+the approval workflow runs **three** activities — assess, remind, carry out —
+and the escalation workflow runs **none**, because it never touches the world.
+One assesses, waits, then refunds; the other waits, then closes.
+
+Merging them would replace two explicit workflows with one generic workflow and
+optional before- and after-hooks, which is more to hold in your head rather than
+less. The saving is about 150 lines of roughly 2,000, because what does not
+merge is the bulk: the rules, the capacity, the wording, the two desks, the
+refund. Those are domain, and they are different domains.
+
+And it would take on Temporal's versioning exposure permanently — a changed
+`@workflow.defn` breaks executions already in flight, and a merged definition
+changes for either concern's reasons.
+
+**Why 6→5 was different, and this is not.** The delivery claim and the ledger
+answered *one* question with *contradictory* rules. That is a defect, and
+merging removed it. These two do not contradict each other. Deduplicating a
+mechanism is not the same as resolving a disagreement, and only the second is
+worth a rewrite.
+
+What they do need is in the three bullets below, and none of it requires them to
+be one thing.
 
 Three things it must carry that today's approvals do not:
 
@@ -152,7 +182,7 @@ And the TTL is a **function of the row**, not a constant. An unresolved question
 about a guest arriving tomorrow is urgent; the same question about a guest
 arriving in March is routine.
 
-### 5 · `memory` — what is known across runs
+### 6 · `memory` — what is known across runs
 
 **New in version 2.** *"He prefers morning meetings"* is not the conversation, and
 no far end holds it. Different lifetime from `conversation`, different query
@@ -269,6 +299,17 @@ rule. It is something a particular binding either does or does not do, and the
 harness has to know which.
 
 ---
+
+## The count, plainly
+
+    built       conversation · logins · requests          3
+    built       approvals · escalations                   2   (staying two)
+    proposed    memory                                    1
+                                                          ─
+                                                          6
+
+Six stores became five, and a sixth is proposed. The number was never the point
+— *one rule where there were two* was, and that part is done.
 
 ## Open
 
