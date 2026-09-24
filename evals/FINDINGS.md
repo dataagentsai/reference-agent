@@ -2025,3 +2025,43 @@ question of what an idempotency row means once the conversation that produced it
 is gone — because removing the ledger entry makes a replayed call executable
 again, and keeping it keeps a record of what was done for somebody who asked to
 be forgotten.
+
+## F-057 · Four regexes answer an obligation with two halves
+
+**Found** 2026-09-24, asking what actually handles personal data rather than
+what is declared about it. Logged, not fixed.
+
+`AAC-0095` reads *"logged prompts and responses are redacted **and
+retention-bounded**"*. Both halves are thinner than the obligation.
+
+**Redaction is four patterns.** `telemetry/redaction.py`, thirty-four lines:
+
+    card       \b\d{13,19}\b
+    email      [\w.+-]+@[\w-]+\.[\w.]+
+    phone      \b(?:\+91[- ]?)?[6-9]\d{9}\b
+    secret     \b(sk|gsk|key)[-_][A-Za-z0-9]{8,}
+
+A name is not detected. Nor an address, a passport or national id number, a date
+of birth, a bank account, or a telephone number written in any convention other
+than Indian mobile. The AOAS names *passport and identity document numbers typed
+into the chat* as personal data in conversation, and nothing here recognises one.
+The single policy rule beside it, `no_pii_echo`, checks a reply for a
+**card-shaped number and nothing else**.
+
+**Retention is bounded nowhere.** Spans go to a backend whose retention is its
+own; the in-memory exporter beside them is never cleared for the life of the
+process; and the two Postgres tables that hold conversation text and tool results
+have no `DELETE` and no schedule (F-056). `capture_sample` bounds how *many*
+turns are kept, not for how long — which is a different obligation wearing the
+same word.
+
+**Why it has stayed this way.** The adoption that fixes the first half is
+already logged: T-030, *Presidio for PII in place of our patterns*, estimated a
+day, and recorded as blocking nothing downstream. That is true of the schedule
+and false of the risk — it is the item standing between a card number typed into
+a chat and a trace store somebody else operates.
+
+**Open.** The first half is T-030 and is a day. The second half has no product to
+adopt and is design work: retention and erasure are different questions, and
+only one of them is answered by a schedule (F-056, and the open question in
+`docs/DESIGN-state.md`).
