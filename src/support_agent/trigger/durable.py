@@ -26,6 +26,7 @@ when a claim is stale.
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -67,6 +68,7 @@ class DeliveryClaim:
 
     def __init__(self) -> None:
         self.settled = False
+        self.outcome: dict[str, object] | None = None
 
     @workflow.run
     async def run(self, ttl_s: int) -> None:
@@ -80,12 +82,19 @@ class DeliveryClaim:
             ) from None
 
     @workflow.signal
-    def settle(self) -> None:
+    def settle(self, outcome: dict[str, object] | None = None) -> None:
+        self.outcome = outcome
         self.settled = True
 
     @workflow.query
     def held(self) -> bool:
         return not self.settled
+
+    @workflow.query
+    def answered(self) -> dict[str, object] | None:
+        """What the run that held this claim answered, for a redelivery to be
+        told rather than merely refused."""
+        return self.outcome
 
 
 WORKFLOWS = [DeliveryClaim]
@@ -118,8 +127,8 @@ class TemporalDeliveries:
             raise await self._refusal(delivery_id) from None
         return Delivery(id=delivery_id, state=State.IN_FLIGHT)
 
-    async def settle(self, delivery_id: str) -> None:
-        """Release the claim, and wait until it is actually released.
+    async def settle(self, delivery_id: str, outcome: dict[str, object] | None = None) -> None:
+        """Release the claim with what the run answered, and wait until it is released.
 
         The wait matters: a signal is delivered asynchronously, so a redelivery
         arriving immediately afterwards would otherwise find the claim still
@@ -127,7 +136,7 @@ class TemporalDeliveries:
         """
         handle = self.client.get_workflow_handle(self._id(delivery_id))
         try:
-            await handle.signal(DeliveryClaim.settle)
+            await handle.signal(DeliveryClaim.settle, outcome)
             await handle.result()
         except WorkflowFailureError:
             # The claim expired while this run was working. Somebody else may
@@ -152,7 +161,26 @@ class TemporalDeliveries:
         status = await self._status(delivery_id)
         if status is WorkflowExecutionStatus.RUNNING:
             return OverlappingRun(f"delivery {delivery_id!r} is already running")
-        return DuplicateDelivery(f"delivery {delivery_id!r} was already handled")
+        return DuplicateDelivery(
+            f"delivery {delivery_id!r} was already handled",
+            outcome=await self._answered(delivery_id),
+        )
+
+    async def _answered(self, delivery_id: str) -> dict[str, object] | None:
+        """What the run that held this claim answered, if it recorded one.
+
+        Best effort: a query against a completed workflow can fail for reasons
+        that have nothing to do with the answer — history dropped by retention,
+        a worker with no cached handler — and none of them is a reason to turn a
+        routine redelivery into an error. The caller says "already handled" when
+        this is `None`, which is what it always said.
+        """
+        with contextlib.suppress(Exception):
+            handle = self.client.get_workflow_handle(self._id(delivery_id))
+            answered = await handle.query(DeliveryClaim.answered)
+            if isinstance(answered, dict):
+                return answered
+        return None
 
     async def _status(self, delivery_id: str) -> WorkflowExecutionStatus | None:
         try:

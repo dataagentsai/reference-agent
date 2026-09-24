@@ -255,10 +255,17 @@ async def _run_turn(
             conversation=conversation,
             delivery_id=inbound.delivery_id,
         )
-    except trg.DuplicateDelivery:
+    except trg.DuplicateDelivery as again:
         # 200, not an error. The caller did the right thing by retrying; we are
         # telling them it already happened. A 4xx here would make every
         # well-behaved queue look like a client fault.
+        #
+        # And where the first attempt recorded what it answered, that is what
+        # comes back — the same body, byte for byte. A browser whose reply was
+        # lost resends and gets the reply, rather than a note saying one exists
+        # somewhere it cannot reach. `status` says the run did not happen again.
+        if again.outcome is not None:
+            return JSONResponse({**again.outcome, "status": "already handled"}, status_code=200)
         return JSONResponse(
             {"status": "already handled", "delivery_id": inbound.delivery_id}, status_code=200
         )

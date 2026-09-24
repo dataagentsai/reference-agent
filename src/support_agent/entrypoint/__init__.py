@@ -156,8 +156,15 @@ class Agent:
         # idempotency key space and every control below this line is scoped to
         # one run. Refusing here is the only place it can be refused.
         if self.deliveries is not None and delivery_id is not None:
-            async with trg.once(self.deliveries, delivery_id):
-                return await self._turn(text, identity, conversation, run_id)
+            async with trg.once(self.deliveries, delivery_id) as claim:
+                answer = await self._turn(text, identity, conversation, run_id)
+                # What a redelivery is told. Written onto the claim rather than
+                # returned, because the claim is settled in a `finally` that
+                # also runs when the turn raised — and a turn that failed still
+                # answered something, even if only that it could not.
+                if claim is not None:
+                    claim.outcome = ending.as_answer(*answer)
+                return answer
         return await self._turn(text, identity, conversation, run_id)
 
     async def _turn(

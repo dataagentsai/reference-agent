@@ -227,6 +227,26 @@ def test_a_repeated_delivery_is_answered_not_repeated(client) -> None:
     assert second.json()["status"] == "already handled"
 
 
+@pytest.mark.discharges("AAC-0076", "AHC-0053")
+def test_a_repeated_delivery_is_told_what_the_first_one_answered(client) -> None:
+    """The answer, not the news that one exists.
+
+    A reply lost in transit and a turn that never ran look identical to the
+    browser, so it resends — and the order it asked about really was cancelled.
+    Answering `already handled` and nothing else leaves that customer with no
+    way to learn what happened except by asking again, and the answer was in
+    the conversation the whole time with nothing able to reach it: the resend
+    carries no conversation id, because it only ever learned one from the
+    response that was lost.
+    """
+    first = post(client, "cancel AB-10002", tok=token(), delivery="msg-2")
+    second = post(client, "cancel AB-10002", tok=token(), delivery="msg-2")
+
+    assert second.json()["status"] == "already handled"
+    for field in ("conversation_id", "reply", "outcome"):
+        assert second.json()[field] == first.json()[field], field
+
+
 @pytest.mark.discharges("AHC-0053")
 def test_without_an_idempotency_key_the_turn_runs_unguarded(client) -> None:
     """Stated rather than defaulted. Inventing an id here would produce a guard

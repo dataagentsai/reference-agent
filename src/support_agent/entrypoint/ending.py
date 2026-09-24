@@ -69,4 +69,20 @@ def closed(
         )
 
 
-__all__ = ["closed", "opened"]
+def as_answer(result: TurnResult, conversation: Conversation) -> dict[str, object]:
+    """What a redelivery of this turn is told — the same three fields `/chat`
+    answers with, kept so the second arrival gets the answer rather than the
+    news that one exists.
+
+    Here rather than in `serve`, because a delivery may arrive over any
+    transport and the answer belongs to the turn, not to HTTP. `serve` renders
+    it; the channel could too.
+    """
+    return {
+        "conversation_id": conversation.conversation_id,
+        "reply": getattr(result, "reply", "") or getattr(result, "customer_message", ""),
+        "outcome": type(result).__name__.lower(),
+    }
+
+
+__all__ = ["as_answer", "closed", "opened"]

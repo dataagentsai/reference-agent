@@ -23,8 +23,17 @@ class TriggerRefused(AgentFailure):
 
 
 class DuplicateDelivery(TriggerRefused):
-    """Already handled. The caller should treat the first outcome as the outcome
-    rather than retrying — a redelivery is normal and is not an error."""
+    """Already handled, and `outcome` is what the first attempt answered.
+
+    A redelivery is normal and is not an error, so the caller is handed the
+    answer rather than told that one exists. `outcome` is `None` only where the
+    first attempt recorded nothing — a claim taken before this carried one, or
+    a caller that had nothing to record — and the caller then has to say so.
+    """
+
+    def __init__(self, message: str, *, outcome: dict[str, object] | None = None) -> None:
+        self.outcome = outcome
+        super().__init__(message)
 
 
 class OverlappingRun(TriggerRefused):
@@ -38,10 +47,15 @@ class State(StrEnum):
     SETTLED = "settled"
 
 
-@dataclass(frozen=True)
+@dataclass
 class Delivery:
+    """A held claim. Not frozen, because `outcome` is written by the body that
+    holds it: the claim is taken before the work and settled after it, and what
+    the work answered is the only thing worth keeping."""
+
     id: str
     state: State
+    outcome: dict[str, object] | None = None
 
 
 class InMemoryDeliveryLog:
@@ -61,26 +75,29 @@ class InMemoryDeliveryLog:
     durable = False
 
     def __init__(self) -> None:
-        self._seen: dict[str, State] = {}
+        self._seen: dict[str, tuple[State, dict[str, object] | None]] = {}
         self._lock = asyncio.Lock()
 
     async def claim(self, delivery_id: str) -> Delivery:
         async with self._lock:
             existing = self._seen.get(delivery_id)
-            if existing is State.SETTLED:
-                raise DuplicateDelivery(f"delivery {delivery_id!r} was already handled")
-            if existing is State.IN_FLIGHT:
+            if existing is not None and existing[0] is State.SETTLED:
+                raise DuplicateDelivery(
+                    f"delivery {delivery_id!r} was already handled", outcome=existing[1]
+                )
+            if existing is not None and existing[0] is State.IN_FLIGHT:
                 raise OverlappingRun(f"delivery {delivery_id!r} is already running")
-            self._seen[delivery_id] = State.IN_FLIGHT
+            self._seen[delivery_id] = (State.IN_FLIGHT, None)
             return Delivery(id=delivery_id, state=State.IN_FLIGHT)
 
-    async def settle(self, delivery_id: str) -> None:
+    async def settle(self, delivery_id: str, outcome: dict[str, object] | None = None) -> None:
         async with self._lock:
-            self._seen[delivery_id] = State.SETTLED
+            self._seen[delivery_id] = (State.SETTLED, outcome)
 
     async def state_of(self, delivery_id: str) -> State | None:
         async with self._lock:
-            return self._seen.get(delivery_id)
+            entry = self._seen.get(delivery_id)
+            return None if entry is None else entry[0]
 
 
 class DeliveryLog(Protocol):
@@ -93,7 +110,7 @@ class DeliveryLog(Protocol):
 
     async def claim(self, delivery_id: str) -> Delivery: ...
 
-    async def settle(self, delivery_id: str) -> None: ...
+    async def settle(self, delivery_id: str, outcome: dict[str, object] | None = None) -> None: ...
 
 
 @asynccontextmanager
@@ -116,7 +133,13 @@ async def once(log: DeliveryLog, delivery_id: str | None) -> AsyncIterator[Deliv
         # Settled even on failure: a delivery that was tried and failed has
         # still been delivered, and re-running it on redelivery would repeat
         # whatever effects it managed before failing.
-        await log.settle(delivery_id)
+        #
+        # And settled *with what it answered*, which the body wrote onto the
+        # claim. Without it a redelivery learns only that something happened,
+        # never what — so a customer whose reply was lost, and whose order was
+        # in fact cancelled, is told "already handled" and nothing else. The
+        # answer existed the whole time and nothing could reach it.
+        await log.settle(delivery_id, claim.outcome)
 
 
 __all__ = [
