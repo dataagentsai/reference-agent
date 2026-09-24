@@ -1988,3 +1988,40 @@ lands, rather than inferred from a role that may since have changed.
 **Open.** Routed with T-060: the same shape of fix, a fact captured at decision
 time and verified at execution time, and the same reason a time window cannot
 substitute for it.
+
+## F-056 · Nothing can be forgotten
+
+**Found** 2026-09-24, testing the four ports against the personal-assistant
+shape, whose specification states the requirement as a sentence about an answer
+nobody can give: *a user will ask you to forget something and the answer cannot
+be "the vector store does not support that"*. The shape made it a product
+requirement. It is a gap here already.
+
+Three durable stores, and one delete between them:
+
+    agent_state.checkpoints    no DELETE anywhere
+    agent_state.idempotency    no DELETE anywhere
+    agent_state.sessions       DELETE on logout
+
+A customer's conversations hold what they said and what the agent told them; the
+ledger holds the results of every write made on their behalf. Both are keyed by
+something that identifies them — `conversation_id` beside `customer_id` in the
+row, and a run id minted inside a turn that was theirs. Neither has a path that
+removes them, and neither has a retention rule that would remove them in time.
+
+This was noticed twice while walking the tables and written down as an open
+question both times, which is how a requirement gets treated as a curiosity: the
+agent works, the tables grow, and the day somebody asks is the day it becomes
+urgent.
+
+**What it is not.** Not the same as retention. A schedule that drops rows after
+ninety days answers a storage bill; it does not answer a person who asks today
+about a conversation from last week. The two want different mechanisms and only
+one of them is a `DELETE`.
+
+**Open.** Routed with T-062, where the ports are being redrawn anyway: erasure by
+subject across every port that holds anything attributable to them, and the
+question of what an idempotency row means once the conversation that produced it
+is gone — because removing the ledger entry makes a replayed call executable
+again, and keeping it keeps a record of what was done for somebody who asked to
+be forgotten.
