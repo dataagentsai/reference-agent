@@ -71,8 +71,12 @@ def test_the_manifest_holds_every_a6_obligation() -> None:
     52 → 55 on 2026-09-19: AAC-0114, AAC-0115 and AAC-0116, written when asking
     whether an operator would learn of a broken agent before a customer did
     found that nothing in the catalog required it (T-055, T-056, T-057).
+
+    55 → 56 on 2026-09-25: AAC-0117, because F-056 asked a person's question —
+    *forget what I told you* — and the nearest existing obligation was about
+    processing region. Tagging that one would have been coverage theatre.
     """
-    assert len(load()) == 55
+    assert len(load()) == 56
 
 
 # --------------------------------------------------------------------------- #

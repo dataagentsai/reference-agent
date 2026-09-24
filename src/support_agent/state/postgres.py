@@ -39,24 +39,55 @@ class PostgresCheckpointStore:
         self._pool = pool
 
     async def checkpoint(
-        self, run_id: RunId, state: bytes, *, conversation_id: ConversationId
+        self,
+        run_id: RunId,
+        state: bytes,
+        *,
+        conversation_id: ConversationId,
+        customer_id: str = "",
     ) -> None:
         async with self._pool.connection() as conn:
             # One statement, both indexes — F-006. The conversation id goes in
             # the same row rather than a second table, so the two can never
-            # disagree and no transaction is needed to keep them together.
+            # disagree and no transaction is needed to keep them together. The
+            # customer id rides along for the same reason (F-056): a second
+            # table mapping runs to people is a table that can fall behind.
             await conn.execute(
                 """
                 INSERT INTO agent_state.checkpoints
-                    (run_id, conversation_id, state, updated_at)
-                VALUES (%s, %s, %s, now())
+                    (run_id, conversation_id, customer_id, state, updated_at)
+                VALUES (%s, %s, %s, %s, now())
                 ON CONFLICT (run_id) DO UPDATE
                     SET state = EXCLUDED.state,
                         conversation_id = EXCLUDED.conversation_id,
+                        customer_id = EXCLUDED.customer_id,
                         updated_at = now()
                 """,
-                (run_id, conversation_id, state),
+                (run_id, conversation_id, customer_id or None, state),
             )
+
+    async def forget(self, customer_id: str) -> tuple[RunId, ...]:
+        """One statement — F-056.
+
+        `DELETE ... RETURNING` rather than select-then-delete, because between
+        those two the same customer can start another turn, and it would be
+        returned as erased while its row is still there.
+
+        An empty id matches nothing. It is what an unattributed row carries,
+        and `customer_id = NULL` never equals anything anyway — but the guard
+        is here rather than left to SQL's three-valued logic, because the cost
+        of being wrong about that once is every conversation in the table.
+        """
+        if not customer_id:
+            return ()
+        async with self._pool.connection() as conn:
+            rows = await (
+                await conn.execute(
+                    "DELETE FROM agent_state.checkpoints WHERE customer_id = %s RETURNING run_id",
+                    (customer_id,),
+                )
+            ).fetchall()
+        return tuple(RunId(row[0]) for row in rows)
 
     async def latest(self, conversation_id: ConversationId) -> bytes | None:
         """The newest turn of this conversation.

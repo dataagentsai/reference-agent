@@ -66,7 +66,7 @@ PATH = [
         "PHASE 4b — THE TOOL BOUNDARY",
         [
             ("src/support_agent/tools/__init__.py", "GatedTools.call"),
-            ("src/support_agent/tools/__init__.py", "MCPTransport.invoke"),
+            ("src/support_agent/tools/mcp.py", "MCPTransport.invoke"),
         ],
     ),
     (

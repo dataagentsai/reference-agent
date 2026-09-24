@@ -1949,11 +1949,37 @@ The gap is in the vocabulary rather than in any line of code: an approval says
 *what was decided* and has no place to say *what it was decided against*. Every
 other control on that path is correct and none of them is looking at this.
 
-**Open.** Routed to T-060, where it is the case that motivates the fix: the
-version of the row an approval was raised against, carried through the wait and
-checked when the effect lands. A time window cannot help — the hour is the
-normal case, not the exceptional one. Related to AAC-0113, whose second half is
-about the caller holding what the far end cannot.
+**Fixed — 2026-09-25 (T-064), as the small half of T-060 rather than as T-060.**
+
+The fix is not a version on the entity, which is the far end's to offer and the
+subject of T-060 proper. It is one field on the approval and one read before the
+effect: `Approval.decided_against` records the facts the assessment judged, and
+the carry-out activity re-reads them and refuses where any has moved. A refused
+grant settles as `ApprovalState.STALE` — its own outcome rather than `FAILED`,
+because a failure asks an operator to find what broke and here nothing did.
+
+Three judgements the code makes, each of which could have gone the other way:
+
+*Which fields.* The ones `requires_approval` reads and `amount_from` takes —
+`status` and `total` — named by the assessment because the assessment is what
+read them. Comparing the whole row would expire every grant at midnight when
+`days_since_delivery` ticks, and a control that cries wolf is switched off.
+
+*A field that can no longer be read counts as moved.* A check that cannot see
+the fact it is checking must not conclude the fact is unchanged.
+
+*A blip is not news about the order.* A re-read that fails for a `protocol`
+reason raises and the activity retries; one that fails for an `execution`
+reason — no such order, not theirs any more — is the strongest statement that
+the facts moved. The distinction was already at the tool boundary.
+
+What remains T-060: the far end declaring `optimistic_concurrency`,
+`idempotency_keys` and `erasure` and being verified at startup, and deleting
+`loop/freshness.py` once it does. This closes the money case without it.
+
+Widened in the catalogs rather than only fixed here: AHC-0057 now requires the
+recording and the re-check, with the two design decisions above; AAC-0078 now
+asks that the case where the facts changed during the pause be tested.
 
 ## F-055 · A decision records who made it, never what they were allowed to do
 
@@ -2019,12 +2045,42 @@ ninety days answers a storage bill; it does not answer a person who asks today
 about a conversation from last week. The two want different mechanisms and only
 one of them is a `DELETE`.
 
-**Open.** Routed with T-062, where the ports are being redrawn anyway: erasure by
-subject across every port that holds anything attributable to them, and the
-question of what an idempotency row means once the conversation that produced it
-is gone — because removing the ledger entry makes a replayed call executable
-again, and keeping it keeps a record of what was done for somebody who asked to
-be forgotten.
+**Fixed — 2026-09-25.** `support_agent/erasure.forget()`, one call across every
+store that holds anything attributable to a person, plus the column that makes
+it possible at all.
+
+*The column first.* `agent_state.checkpoints` gained `customer_id`. Everything
+identifying a person was inside the serialized state, and a `bytea` cannot be
+searched — so before this the table held their conversations and could not find
+them. The in-memory and file stores keep the same fact beside the state, for the
+same reason.
+
+*The order is the design.* The ledger is keyed by run, and run ids exist only on
+the conversation rows. `CheckpointStore.forget()` therefore deletes and
+**returns the runs it deleted** — `DELETE ... RETURNING`, one statement, so a
+turn arriving between a select and a delete cannot be reported as erased while
+its row survives. Erasing conversations first without taking the run ids back
+would leave the ledger unreachable and the report would still say success.
+
+*And the open question this finding left is answered by refusing both answers.*
+Deleting a ledger row makes that call executable again — a queue draining weeks
+later, running a refund a second time for somebody who asked to be forgotten.
+Keeping the row whole keeps the far end's reply about that person. So
+`Requests.redact()` keeps the name and `state = 'answered'` and drops the
+outcome: the guard was never the stored body, it is the name being taken. Both
+replay paths already had to cope with an answer that is not there — the HTTP one
+did, and `tools.call` now does.
+
+**What it does not reach**, stated rather than left to be found: a
+delivery-scope row is named by the channel that minted it —
+`chatwoot:<account>:<message>` — and carries no customer, so the reply stored
+against it is not findable from here. That needs the channel's own record of
+which messages were whose, which is a second system's question.
+
+New obligations rather than a tag on an approximate one: AAC-0117 (*what is held
+about one person can be found and removed*) and AHC-0115. AAC-0097 was the
+nearest existing case and is about processing **region** — tagging it would have
+been coverage theatre.
 
 ## F-057 · Four regexes answer an obligation with two halves
 

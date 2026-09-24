@@ -16,7 +16,7 @@ behind the specs, because it is made of them.
 |---|---|---|---|---|
 | **functional-suitability** | 15 | 8 | 15 | 3 |
 | **safety** | 16 | 3 | 4 | 3 |
-| **security** | 5 | 14 | 8 | 3 |
+| **security** | 5 | 15 | 9 | 3 |
 | **reliability** | 6 | 13 | 7 | 4 |
 | **cost** | 4 | 9 | 6 | 3 |
 | **maintainability** | 6 | 22 | 10 | 0 |
@@ -122,7 +122,7 @@ behind the specs, because it is made of them.
 - `the-reviewer-comes-too-late` the reviewer answers after the grant has expired
 
 
-## security — 30
+## security — 32
 
 **AOAS**
 
@@ -148,6 +148,7 @@ behind the specs, because it is made of them.
 - `AHC-0094` Output-side enforcement is its own point, with its own semantics *(resistance)*
 - `AHC-0099` The identity a run acts as is established from a credential the caller cannot author *(authenticity)*
 - `AHC-0109` A summary carries the least trusted provenance of what it summarised *(resistance)*
+- `AHC-0115` Every store the harness writes to can be asked about one person, and emptied of them *(confidentiality)*
 
 **AAC**
 
@@ -159,6 +160,7 @@ behind the specs, because it is made of them.
 - `AAC-0106` The system prompt is not a security boundary
 - `AAC-0107` Serving artifacts are the ones that were evaluated
 - `AAC-0111` A request acts only as the identity its credential proves
+- `AAC-0117` What is held about one person can be found and removed
 
 **scenario**
 

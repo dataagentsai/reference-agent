@@ -38,7 +38,15 @@ class TurnPersister:
         )
         raw = bounded.encode()
         tel.set_current_attribute(tel.CONTEXT_STORED, len(raw))
-        await self.store.checkpoint(run_id, raw, conversation_id=bounded.conversation_id)
+        await self.store.checkpoint(
+            run_id,
+            raw,
+            conversation_id=bounded.conversation_id,
+            # Whose, from the conversation rather than from the caller's
+            # identity — F-056. The conversation is what the turn was
+            # recorded against, and an identity can be elevated.
+            customer_id=bounded.customer_id,
+        )
         return bounded
 
 

@@ -22,9 +22,25 @@ CREATE TABLE IF NOT EXISTS agent_state.checkpoints (
     -- anything outside the process that wrote it. The conversation id is the
     -- only handle a caller actually has.
     conversation_id text,
+    -- F-056. Whose this is, in a column rather than only inside `state`.
+    -- Everything a person could ask to have erased is in the serialized state,
+    -- and a bytea cannot be searched, so without this the table holds their
+    -- conversations and cannot find them. It is written from the conversation
+    -- rather than from the caller's identity: the conversation is what the
+    -- turn actually recorded against.
+    customer_id     text,
     state           bytea       NOT NULL,
     updated_at      timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE agent_state.checkpoints ADD COLUMN IF NOT EXISTS customer_id text;
+
+-- Erasure reads by customer and nothing else does, so this index exists for a
+-- path that runs rarely. That is the point: the alternative is a table scan on
+-- the largest table in the schema, at the moment somebody is waiting for an
+-- answer about their own data.
+CREATE INDEX IF NOT EXISTS checkpoints_customer
+    ON agent_state.checkpoints (customer_id);
 
 -- Reading a conversation always asks for its newest turn, so the index carries
 -- the sort as well as the filter — otherwise every lookup reads every turn the

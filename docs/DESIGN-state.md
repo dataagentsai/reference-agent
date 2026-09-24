@@ -2,14 +2,18 @@
 
 *Written 2026-09-24. Version 1 was four stores; the fifth agent shape tested
 against it changed the drawing, and reading two of the modules changed it again.
-What has been **built** is the `requests` merge — six stores are five. The rest
-is undecided. Logged as
+What has been **built** is the `requests` merge — six stores are five — and, on
+2026-09-25, erasure across every port that holds anything attributable to a
+person. The rest is undecided. Logged as
 [T-062](../../clean-ai-engineering/TODO.md). Carries [F-054](../evals/FINDINGS.md),
 [F-055](../evals/FINDINGS.md) and [F-056](../evals/FINDINGS.md).*
 
 > **Status: partly built, and written to be attacked.** §3 `requests` shipped on
 > 2026-09-24 — the delivery claim and the idempotency ledger are one store with
-> one rule, and Temporal lost a workflow with them. Everything else is undecided,
+> one rule, and Temporal lost a workflow with them. Erasure shipped on
+> 2026-09-25, and the *Open* question below about what it means for `requests`
+> is answered in the section where it was asked rather than deleted, because the
+> answer is the interesting part. Everything else is undecided,
 > and one thing proposed here has already been **withdrawn** on reading the code
 > it described (§4 and 5). Every claim below is stated so it can be shown false,
 > and the cases table is the part to break first. A case that does not fit means
@@ -91,8 +95,13 @@ already runs.
 
 Per run, read at the start of a turn, written at the end. Bounded on the way in.
 
-Unchanged from today's `checkpoints`, except that it gains a `DELETE` (F-056)
-and its bound becomes a property of the binding rather than a constant.
+Unchanged from today's `checkpoints`, except that it gained a `DELETE` on
+2026-09-25 (F-056) and its bound becomes a property of the binding rather than a
+constant. The `DELETE` needed a column before it needed a statement: everything
+identifying a person was inside the serialized state, and a `bytea` cannot be
+searched, so `customer_id` sits beside `conversation_id` now. It deletes and
+**returns the run ids it deleted**, because nothing else in the system can name
+them once the rows are gone.
 
 ### 2 · `logins` — who is asking
 
@@ -127,7 +136,11 @@ ON CONFLICT (name) DO UPDATE
 Zero rows affected means somebody holds it. That was Temporal's only reason to
 hold the delivery claim.
 
-Gains a `DELETE`, and the hard question that comes with it — see *Open*.
+Gained *not* a `DELETE` on 2026-09-25, which is the answer to the hard question
+in *Open*: `redact` keeps the name and `state = 'answered'` and drops the
+outcome. The guard was never the stored body — it is the name being taken — so a
+replay arriving weeks later is still refused, and what it loses is the ability to
+be told what the first attempt said.
 
 ### 4 and 5 · `approvals` and `escalations` — somebody owes an answer
 
@@ -161,8 +174,11 @@ be one thing.
 
 Three things it must carry that today's approvals do not:
 
-- **what it was decided against** — the row's version at the moment it was
-  raised, checked when the effect lands (F-054)
+- **what it was decided against** — ✅ **built 2026-09-25**, and not as a version:
+  a version belongs to the far end and is T-060's to obtain, so what is recorded
+  is the fields the assessment judged, re-read before the effect lands, with a
+  grant whose facts have moved settling as `stale` rather than as a failure
+  (F-054)
 - **what authority the decider held** — captured at the decision, verified at
   execution, rather than inferred from a role that may since have changed
   (F-055)
@@ -205,7 +221,12 @@ For thousands of mailboxes that wants row-level security with the tenant key
 threaded from intake, *structurally impossible to forget*. One missed `WHERE`
 in one query is cross-account leakage, and it is the most mundane possible bug.
 
-**Erasure crosses every port.** F-056: two of the five have no `DELETE` at all.
+**Erasure crosses every port.** F-056, and **built on 2026-09-25**: one
+`erasure.forget()` calls each store in a declared order, because the ledger is
+keyed by run and run ids exist only on the conversation rows. Ask them in the
+other order and the erasure reports success with the ledger untouched. It does
+not reach a delivery-scope row, which carries a channel's message id and no
+customer — that needs the channel's own record of which messages were whose.
 
 **The far end's capabilities are declared, and verified at startup.** Several
 claims in this design are really claims about a *particular* far end: that it
@@ -258,7 +279,7 @@ protecting anything or not.
 | the same tool call | a refusal from the far end | the original refusal |
 | the same tool call | a timeout | **runs again, same name** — the far end decides |
 | the same human decision | granted | the first decision |
-| a decision whose row has moved since | granted at an older version | **refused** — raise it again (F-054) |
+| a decision whose row has moved since | granted against facts that changed | **refused** — raise it again ✅ (F-054) |
 | a decision by someone whose authority has gone | granted | **refused** at execution (F-055) |
 | a genuinely new request | — | it runs |
 
@@ -321,11 +342,14 @@ needed is the declaration above, a way to verify it, and a decision about the
 compensating path for far ends that supply nothing. Saleor is then the first
 binding to fill in rather than the question itself.
 
-**What does erasure mean for `requests`?** Removing a ledger row makes a
-replayed call executable again. Keeping it keeps a record of what was done for
-somebody who asked to be forgotten. Both are wrong; the resolution is probably
-to keep the name and drop the outcome, and that needs stating rather than
-assuming.
+**~~What does erasure mean for `requests`?~~ Answered, 2026-09-25.** Removing a
+ledger row makes a replayed call executable again. Keeping it keeps a record of
+what was done for somebody who asked to be forgotten. Both are wrong, and the
+resolution guessed at here — keep the name, drop the outcome — is what was
+built, with one thing the guess missed: both replay paths have to cope with an
+answer that is not there. The HTTP one already did. `tools.call` did not, and
+would have raised a validation error on a `None` outcome; it now returns a
+result saying the call already happened and what it returned is no longer held.
 
 **Is `memory` really a port, or is it the application?** The specification that
 produced it calls it *an application data problem in an AI costume*, which

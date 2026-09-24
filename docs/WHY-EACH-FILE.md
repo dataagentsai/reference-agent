@@ -83,7 +83,9 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `watch/canary.py` | AHC-0113, AAC-0116 |
 | `telemetry/names.py` | AAC-0020, AAC-0100, AAC-0103, AAC-0104, AHC-0001, AHC-0107 |
 | `tools/__init__.py` | AAC-0105, Q-TOOL-RESULT |
+| `tools/mcp.py` | AHC-0034, T-002, F-017 |
 | `requests/__init__.py` | AAC-0076, AHC-0053, AHC-0055, AHC-0074 |
+| `erasure/__init__.py` | AAC-0117, AHC-0115 |
 
 ---
 

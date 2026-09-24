@@ -112,6 +112,18 @@ class InMemoryRequests:
             if row is not None and row.state is _Held.IN_FLIGHT:
                 del self._rows[name]
 
+    async def redact(self, runs: tuple[str, ...]) -> int:
+        """Keep the name, drop the answer — F-056."""
+        wanted = set(runs)
+        if not wanted:
+            return 0
+        async with self._lock:
+            names = [n for n in self._rows if n.split(":")[0] in wanted]
+            for name in names:
+                row = self._rows[name]
+                self._rows[name] = _Row(row.state, outcome=None, expires_at=row.expires_at)
+            return len(names)
+
     def __len__(self) -> int:
         return sum(1 for r in self._rows.values() if r.state is _Held.ANSWERED)
 

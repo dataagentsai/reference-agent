@@ -43,7 +43,10 @@ async def _pool():
 async def pool():
     p = await _pool()
     async with p.connection() as conn:
-        await conn.execute("TRUNCATE agent_state.checkpoints, agent_state.idempotency")
+        # `requests` since T-062, when the ledger and the delivery claim became
+        # one table. The old name survived here because the local database
+        # still had the dropped table and TRUNCATE was happy to find it.
+        await conn.execute("TRUNCATE agent_state.checkpoints, agent_state.requests")
     yield p
     await p.close()
 
@@ -191,6 +194,106 @@ async def test_an_abandoned_name_is_free_again(pool) -> None:
     await store.abandon(name)
 
     assert (await store.claim(name, scope=req.Scope.TOOL)).name == name
+
+
+# --------------------------------------------------------------------------- #
+# Erasure — F-056, against the substrate that actually keeps the data.
+#
+# The in-memory tests in `test_erasure.py` pin the behaviour; these pin that the
+# statements say the same thing. That distinction earned its place: the column
+# `customer_id` is what makes any of it possible, and it did not exist until
+# this finding — everything identifying a person was inside a `bytea` that no
+# `WHERE` can reach.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.discharges("AAC-0117", "AHC-0115")
+async def test_erasure_takes_their_rows_and_leaves_everyone_elses(pool) -> None:
+    from support_agent.state.postgres import PostgresCheckpointStore
+
+    store = PostgresCheckpointStore(pool)
+    mine, theirs = named("mine"), named("theirs")
+    await store.checkpoint(
+        RunId(f"run_{mine}"),
+        conversation().encode(),
+        conversation_id=ConversationId(f"cnv_{mine}"),
+        customer_id=mine,
+    )
+    await store.checkpoint(
+        RunId(f"run_{theirs}"),
+        conversation().encode(),
+        conversation_id=ConversationId(f"cnv_{theirs}"),
+        customer_id=theirs,
+    )
+
+    gone = await store.forget(mine)
+
+    assert gone == (RunId(f"run_{mine}"),)
+    assert await store.latest(ConversationId(f"cnv_{mine}")) is None
+    assert await store.latest(ConversationId(f"cnv_{theirs}")) is not None
+
+
+@pytest.mark.discharges("AAC-0117", "AHC-0115")
+async def test_an_empty_customer_erases_nothing_in_postgres(pool) -> None:
+    """The input where SQL's three-valued logic is most likely to surprise, and
+    where a surprise costs the whole table."""
+    from support_agent.state.postgres import PostgresCheckpointStore
+
+    store = PostgresCheckpointStore(pool)
+    who = named("kept")
+    await store.checkpoint(
+        RunId(f"run_{who}"),
+        conversation().encode(),
+        conversation_id=ConversationId(f"cnv_{who}"),
+        customer_id=who,
+    )
+
+    assert await store.forget("") == ()
+    assert await store.latest(ConversationId(f"cnv_{who}")) is not None
+
+
+@pytest.mark.discharges("AAC-0117", "AHC-0074")
+async def test_a_redacted_row_still_refuses_the_repeat(pool) -> None:
+    """The statement keeps the row and empties it, so the guard is untouched.
+
+    A `DELETE` here would pass an erasure test and fail this one, which is the
+    whole reason this one exists.
+    """
+    from support_agent import requests as req
+    from support_agent.requests.postgres import PostgresRequests
+
+    store = PostgresRequests(pool)
+    run = f"run_{named('redact').replace(':', '_')}"
+    name = f"{run}:2:1"
+    await store.claim(name, scope=req.Scope.TOOL)
+    await store.settle(name, {"text": "delivered to 4 Elm Road"})
+
+    assert await store.redact((run,)) == 1
+
+    with pytest.raises(req.AlreadyAnswered) as refused:
+        await store.claim(name, scope=req.Scope.TOOL)
+    assert refused.value.outcome is None
+
+
+@pytest.mark.discharges("AAC-0117")
+async def test_redacting_matches_the_whole_run_id_not_a_prefix(pool) -> None:
+    """`split_part`, not `LIKE`. A run whose id merely starts the same way
+    belongs to a different turn and possibly to a different person."""
+    from support_agent import requests as req
+    from support_agent.requests.postgres import PostgresRequests
+
+    store = PostgresRequests(pool)
+    run = f"run_{named('prefix').replace(':', '_')}"
+    longer = f"{run}extra"
+    for owner in (run, longer):
+        await store.claim(f"{owner}:2:1", scope=req.Scope.TOOL)
+        await store.settle(f"{owner}:2:1", {"text": "kept"})
+
+    assert await store.redact((run,)) == 1
+
+    with pytest.raises(req.AlreadyAnswered) as kept:
+        await store.claim(f"{longer}:2:1", scope=req.Scope.TOOL)
+    assert kept.value.outcome is not None
 
 
 @pytest.mark.discharges("AHC-0102")

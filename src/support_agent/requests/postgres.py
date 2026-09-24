@@ -101,21 +101,37 @@ class PostgresRequests:
                 (name,),
             )
 
-    async def forget(self, names: list[str]) -> int:
-        """Erasure. Returns how many rows went (F-056).
+    async def redact(self, runs: tuple[str, ...]) -> int:
+        """Keep the name, drop the answer — F-056. Returns how many rows changed.
 
-        Here rather than left to a caller with a connection, because *which*
-        names belong to a subject is the caller's question and *what removing
-        one means* is this module's. Removing an answered row makes that name
-        executable again, so a caller that erases a name still inside its
-        far end's own retry window has widened the window this module exists
-        to close. Stated, not solved.
+        This was a `DELETE` when the finding was written, and the finding's own
+        open question is why it is not one now: removing an answered row makes
+        that name executable again, so a replay arriving months later — a queue
+        draining, a retry nobody remembered — would run a refund again for
+        somebody who asked to be forgotten. The row is what refuses it.
+
+        Keeping the row intact is the other wrong answer: the outcome is the
+        far end's reply, and a reply about a person is about that person.
+
+        So the name and `state = 'answered'` stay and the outcome goes. The
+        guard was never the body; it is the name being taken.
+
+        `split_part` rather than `LIKE 'run:%'`, which would also match a run
+        whose id merely starts the same way. It is a sequential scan over a
+        table nobody else scans, on a path that runs when a person asks — the
+        cost is real and it is paid rarely, which is the right way round.
         """
-        if not names:
+        if not runs:
             return 0
         async with self._pool.connection() as conn:
             done = await conn.execute(
-                "DELETE FROM agent_state.requests WHERE name = ANY(%s)", (names,)
+                """
+                UPDATE agent_state.requests
+                   SET outcome = NULL
+                 WHERE split_part(name, ':', 1) = ANY(%s)
+                   AND outcome IS NOT NULL
+                """,
+                (list(runs),),
             )
         return done.rowcount
 

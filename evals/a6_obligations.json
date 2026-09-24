@@ -3,7 +3,7 @@
   "archetype": "A6",
   "note": "Identifiers and metadata only. The normative `statement` of each obligation is deliberately NOT copied \u2014 cite, don't restate.",
   "catalog_version": "0.16.0",
-  "generated": "2026-09-18",
+  "generated": "2026-09-24",
   "obligations": [
     {
       "id": "AAC-0001",
@@ -792,6 +792,20 @@
       "mechanisms": [
         "M1",
         "M5"
+      ]
+    },
+    {
+      "id": "AAC-0117",
+      "title": "What is held about one person can be found and removed",
+      "dimension": "privacy",
+      "level": "MUST",
+      "gate": true,
+      "stages": [
+        "S2",
+        "S4"
+      ],
+      "mechanisms": [
+        "M1"
       ]
     }
   ],

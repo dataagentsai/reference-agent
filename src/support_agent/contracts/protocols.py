@@ -72,7 +72,12 @@ class CheckpointStore(Protocol):
     """
 
     async def checkpoint(
-        self, run_id: RunId, state: bytes, *, conversation_id: ConversationId
+        self,
+        run_id: RunId,
+        state: bytes,
+        *,
+        conversation_id: ConversationId,
+        customer_id: str = "",
     ) -> None: ...
 
     async def resume(self, run_id: RunId) -> bytes | None: ...
@@ -90,6 +95,23 @@ class CheckpointStore(Protocol):
     through in memory. It took writing an actual HTTP handler for the gap to
     become unavoidable: that handler cannot be written without this method.
     """
+
+    async def forget(self, customer_id: str) -> tuple[RunId, ...]:
+        """Remove everything held for this customer, and say which runs went.
+
+        F-056. The store held their conversations and had no way to find them:
+        what identifies a person is inside the serialized state, and serialized
+        state cannot be searched. `customer_id` on the row is what makes this
+        answerable at all, and it is why the method belongs on the seam rather
+        than in a script somebody runs with a connection.
+
+        **It returns the run ids** because they are the only handle anything
+        else has on what this person's turns did. The request ledger is keyed
+        by run, and once these rows are gone nothing can derive that list
+        again — so a caller that erases the conversations first and looks for
+        the ledger rows afterwards finds nothing, every time.
+        """
+        ...
 
 
 @runtime_checkable
@@ -111,6 +133,25 @@ class Requests(Protocol):
         """No definite answer. Nothing is stored and the name is free again, so
         a retry may go out **under the same name** for the far end to recognise.
         Storing a guess here is how one refund becomes two."""
+        ...
+
+    async def redact(self, runs: tuple[RunId, ...]) -> int:
+        """Forget what these runs' calls answered, keeping that they happened.
+
+        F-056, and the answer to the question it left open. Deleting the rows
+        would make every one of those calls executable again — a replayed
+        refund, months later, for somebody who asked to be forgotten. Keeping
+        them intact keeps a record of what was done for that person.
+
+        So neither: the name and the fact of a definite answer stay, and the
+        answer itself goes. The guard is unchanged, because the guard was never
+        the stored body — it is the name being taken. What a caller loses is
+        the ability to be told what the first attempt said, which is the right
+        thing to lose, and both replay paths already have to handle an answer
+        that is not there.
+
+        Returns how many rows were changed.
+        """
         ...
 
 

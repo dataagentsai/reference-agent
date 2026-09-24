@@ -164,7 +164,7 @@ layers = [
     "router | loop",
     "context | tools | approvals | escalation",
     "binding",
-    "llm | state | policy | cost | requests | resilience | flow | identity | cassette",
+    "llm | state | policy | cost | requests | erasure | resilience | flow | identity | cassette",
     "config | telemetry | ui",
     "conformance | contracts",
 ]

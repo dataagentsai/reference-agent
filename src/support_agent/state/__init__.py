@@ -210,10 +210,16 @@ class InMemoryCheckpointStore:
     def __init__(self) -> None:
         self._runs: dict[str, bytes] = {}
         self._conversations: dict[str, bytes] = {}
+        self._whose: dict[str, tuple[str, ConversationId]] = {}
         self._lock = asyncio.Lock()
 
     async def checkpoint(
-        self, run_id: RunId, state: bytes, *, conversation_id: ConversationId
+        self,
+        run_id: RunId,
+        state: bytes,
+        *,
+        conversation_id: ConversationId,
+        customer_id: str = "",
     ) -> None:
         async with self._lock:
             self._runs[run_id] = state
@@ -222,6 +228,27 @@ class InMemoryCheckpointStore:
             # reach, because a customer holds a conversation id and never a run
             # id. One write, because two writes can disagree.
             self._conversations[conversation_id] = state
+            # Whose, kept beside rather than inside — F-056. The state is the
+            # only other place it appears, and erasure would have to decode
+            # every turn ever stored to find one person's.
+            self._whose[run_id] = (customer_id, conversation_id)
+
+    async def forget(self, customer_id: str) -> tuple[RunId, ...]:
+        """Their runs and conversations go; what is returned is the runs.
+
+        An empty `customer_id` matches nothing, deliberately. It is what an
+        unattributed checkpoint carries, and a blank request that erased all of
+        them would be the worst possible failure of this method.
+        """
+        if not customer_id:
+            return ()
+        async with self._lock:
+            runs = tuple(r for r, (c, _) in self._whose.items() if c == customer_id)
+            for run in runs:
+                _, conversation_id = self._whose.pop(run)
+                self._runs.pop(run, None)
+                self._conversations.pop(conversation_id, None)
+            return tuple(RunId(r) for r in runs)
 
     async def resume(self, run_id: RunId) -> bytes | None:
         async with self._lock:
@@ -276,10 +303,31 @@ class FileCheckpointStore:
         return self._dir / f"conversation-{conversation_id}.json"
 
     async def checkpoint(
-        self, run_id: RunId, state: bytes, *, conversation_id: ConversationId
+        self,
+        run_id: RunId,
+        state: bytes,
+        *,
+        conversation_id: ConversationId,
+        customer_id: str = "",
     ) -> None:
         async with self._lock:
             self._write(self._path(run_id), state)
+            if customer_id:
+                # A third file, holding only which run and which conversation
+                # belong to whom — F-056. A directory cannot be queried, so
+                # erasure either reads and decodes every file or something
+                # writes down the one fact it needs. This is that fact, and it
+                # is small enough that reading all of them is cheap.
+                self._write(
+                    self._dir / f"whose-{run_id}.json",
+                    json.dumps(
+                        {
+                            "customer_id": customer_id,
+                            "run_id": run_id,
+                            "conversation_id": conversation_id,
+                        }
+                    ).encode(),
+                )
             # Written second and separately rather than symlinked or indexed:
             # both are atomic replaces, so a crash between them leaves the run
             # record correct and the conversation pointer one turn stale, which
@@ -298,6 +346,31 @@ class FileCheckpointStore:
 
     async def latest(self, conversation_id: ConversationId) -> bytes | None:
         return await self._read(self._conversation_path(conversation_id))
+
+    async def forget(self, customer_id: str) -> tuple[RunId, ...]:
+        """Every file this customer's turns produced, removed — F-056.
+
+        The index files go last. Each one is what makes its own run findable,
+        so removing it before the state it points at would strand that state
+        where nothing could ever ask for it again — which looks like erasure
+        and is the opposite.
+        """
+        if not customer_id:
+            return ()
+        async with self._lock:
+            runs: list[RunId] = []
+            for index in sorted(self._dir.glob("whose-*.json")):
+                try:
+                    whose = json.loads(index.read_bytes())
+                except (OSError, ValueError):  # pragma: no cover - a torn write
+                    continue
+                if whose.get("customer_id") != customer_id:
+                    continue
+                self._path(RunId(whose["run_id"])).unlink(missing_ok=True)
+                self._conversation_path(whose["conversation_id"]).unlink(missing_ok=True)
+                index.unlink(missing_ok=True)
+                runs.append(RunId(whose["run_id"]))
+            return tuple(runs)
 
     async def _read(self, target: Path) -> bytes | None:
         async with self._lock:
