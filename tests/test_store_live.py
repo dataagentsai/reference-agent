@@ -29,7 +29,7 @@ from order_system import server as store_server
 from order_system.store import Saleor, Store
 from support_agent import identity as ident
 from support_agent.contracts import IdempotencyKey, Identity, RunId
-from support_agent.idempotency import InMemoryLedger
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import connect
 
 URL = os.environ.get("SALEOR_URL", "http://localhost:8100/graphql/")
@@ -75,7 +75,7 @@ def tools_for(store: Store, approvals=None):
         clock=lambda: int(time.time()),
         approvals=approvals or durable.Remembered(),
     )
-    return connect(server, ledger=InMemoryLedger(), exchange=issuing.LocalExchange())
+    return connect(server, requests=InMemoryRequests(), exchange=issuing.LocalExchange())
 
 
 # (why, the order, the tool, what the agent's surface must conclude)

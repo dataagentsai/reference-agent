@@ -43,10 +43,18 @@ from support_agent.contracts.protocols import (
     CheckpointStore,
     Clock,
     Escalations,
-    IdempotencyLedger,
     LLMClient,
+    Requests,
     SessionStore,
     ToolClient,
+)
+from support_agent.contracts.requests import (
+    CLAIM_TTL_S,
+    AlreadyAnswered,
+    Claim,
+    RequestRefused,
+    Scope,
+    StillRunning,
 )
 from support_agent.contracts.results import (
     Agentic,
@@ -77,6 +85,13 @@ from support_agent.contracts.tools import (
 )
 
 __all__ = [
+    "RequestRefused",
+    "StillRunning",
+    "Scope",
+    "Requests",
+    "Claim",
+    "AlreadyAnswered",
+    "CLAIM_TTL_S",
     "SessionStore",
     "StoredSession",
     "ModelBudgetExhausted",
@@ -103,7 +118,6 @@ __all__ = [
     "Escalations",
     "Failed",
     "IdempotencyKey",
-    "IdempotencyLedger",
     "Identity",
     "Intent",
     "LLMClient",

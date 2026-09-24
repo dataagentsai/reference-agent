@@ -22,7 +22,7 @@ from support_agent.contracts import (
     ToolResult,
     UnknownTool,
 )
-from support_agent.idempotency import InMemoryLedger
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import META_REQUIRED_SCOPE, META_SIDE_EFFECT, connect
 
 RUN = RunId("run_tools")
@@ -86,7 +86,7 @@ def open_client(server):
     task, which is what structured concurrency requires — a fixture that yields
     across the boundary is exactly the pattern that broke."""
     tel.configure()
-    return connect(server, ledger=InMemoryLedger())
+    return connect(server, requests=InMemoryRequests())
 
 
 # --------------------------------------------------------------------------- #

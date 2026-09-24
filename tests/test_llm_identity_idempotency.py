@@ -25,11 +25,8 @@ from support_agent.contracts import (
     ModelResponse,
     ModelUnavailable,
     RunId,
-    SideEffectClass,
-    ToolResult,
     Usage,
 )
-from support_agent.idempotency import InMemoryLedger, once
 from support_agent.llm import ScriptedClient, UnavailableClient
 
 ISSUER = issuing.issuer()
@@ -229,90 +226,12 @@ def test_confused_deputy_needs_a_different_token_not_a_different_claim() -> None
 
 
 # --------------------------------------------------------------------------- #
-# The ledger. One refund, or two.
+# Idempotency moved out — T-062.
+#
+# It lived here as `idempotency.once(ledger, key, side_effect, action)`, beside
+# the identity a call carries, because the key is minted from the run and the
+# call is made as somebody. The store is now one thing at two scopes and its
+# rule is one sentence, so the tests are `tests/test_requests.py`: the same six
+# cases, plus the delivery scope that used to be a second store answering the
+# same question differently. What stays here is the identity half.
 # --------------------------------------------------------------------------- #
-
-
-def ok(name: str = "issue_refund") -> ToolResult:
-    return ToolResult(name=name, structured={"refund_id": "rf_1"})
-
-
-@pytest.mark.discharges("AAC-0047")
-async def test_retry_under_the_same_key_does_not_execute_twice() -> None:
-    """The timeout case: the call succeeded, the response was lost, the harness
-    believes it failed. Without a key nothing can tell that from a fresh call."""
-    ledger, calls = InMemoryLedger(), []
-
-    async def action() -> ToolResult:
-        calls.append(1)
-        return ok()
-
-    first, replayed_1 = await once(ledger, key(), SideEffectClass.IRREVERSIBLE, action)
-    second, replayed_2 = await once(ledger, key(), SideEffectClass.IRREVERSIBLE, action)
-
-    assert len(calls) == 1
-    assert first == second
-    assert (replayed_1, replayed_2) == (False, True)
-
-
-@pytest.mark.discharges("AHC-0074")
-async def test_a_legitimate_second_execution_does_run() -> None:
-    """Same step, next iteration — the loop genuinely came round again."""
-    ledger, calls = InMemoryLedger(), []
-
-    async def action() -> ToolResult:
-        calls.append(1)
-        return ok()
-
-    await once(ledger, key(1, 0), SideEffectClass.IRREVERSIBLE, action)
-    await once(ledger, key(1, 1), SideEffectClass.IRREVERSIBLE, action)
-    assert len(calls) == 2
-
-
-@pytest.mark.discharges("AHC-0074")
-async def test_reads_bypass_the_ledger() -> None:
-    ledger, calls = InMemoryLedger(), []
-
-    async def action() -> ToolResult:
-        calls.append(1)
-        return ok("get_order")
-
-    await once(ledger, key(), SideEffectClass.READ, action)
-    await once(ledger, key(), SideEffectClass.READ, action)
-    assert len(calls) == 2
-    assert len(ledger) == 0
-
-
-@pytest.mark.discharges("AAC-0046")
-async def test_failures_are_not_recorded_so_a_retry_can_reach_the_tool() -> None:
-    """Recording failures would turn one transient 503 into a permanent refusal."""
-    ledger, calls = InMemoryLedger(), []
-
-    async def flaky() -> ToolResult:
-        calls.append(1)
-        if len(calls) == 1:
-            return ToolResult(name="issue_refund", is_error=True, error_channel="execution")
-        return ok()
-
-    first, _ = await once(ledger, key(), SideEffectClass.IRREVERSIBLE, flaky)
-    second, replayed = await once(ledger, key(), SideEffectClass.IRREVERSIBLE, flaky)
-
-    assert first.is_error and not second.is_error
-    assert len(calls) == 2
-    assert not replayed
-
-
-@pytest.mark.discharges("AHC-0074", "AAC-0047")
-async def test_the_first_outcome_for_a_key_is_the_outcome() -> None:
-    ledger = InMemoryLedger()
-    await ledger.record(key(), ok("first"))
-    await ledger.record(key(), ok("second"))
-    stored = await ledger.seen(key())
-    assert stored is not None and stored.name == "first"
-
-
-@pytest.mark.discharges("AHC-0102")
-def test_in_memory_ledger_declares_it_is_not_durable() -> None:
-    """P6 exists because enforcement must survive process death. This one does
-    not, and says so rather than being quietly wrong in production."""
-    assert InMemoryLedger.durable is False

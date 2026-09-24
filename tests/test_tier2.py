@@ -33,8 +33,8 @@ from support_agent.contracts import (
     Usage,
 )
 from support_agent.escalation import rules as t2
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import Conversation, InMemoryCheckpointStore, TurnNote
 from support_agent.tools import META_SIDE_EFFECT, connect
 
@@ -199,7 +199,7 @@ async def test_a_repeatedly_refused_customer_reaches_a_person(server) -> None:
     """Nobody asked for one. The agent refused twice, which is the agent working
     correctly *and* a sign that a person should decide."""
     store = durable.RememberedEscalations()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = agent_with(tools, escalations=store)
         first, conversation = await agent.handle("can I get a discount?", identity=customer())
         second, conversation = await agent.handle(
@@ -225,7 +225,7 @@ async def test_the_same_rule_does_not_raise_again_after_it_lapses(server) -> Non
     this mints a second reference, and a third, for as long as they keep talking.
     """
     store = durable.RememberedEscalations()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = agent_with(tools, escalations=store)
         await agent.handle("can I get a discount?", identity=customer())
         _, conversation = await agent.handle("can I get a discount?", identity=customer())
@@ -252,7 +252,7 @@ async def test_the_same_rule_does_not_raise_again_after_it_lapses(server) -> Non
 async def test_a_tier_one_escalation_is_not_overridden(server) -> None:
     """A turn that already fetched a person does not need a second reason to."""
     store = durable.RememberedEscalations()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = agent_with(tools, escalations=store)
         conversation = Conversation(
             conversation_id="cnv_x",  # type: ignore[arg-type]
@@ -273,7 +273,7 @@ async def test_a_tier_one_escalation_is_not_overridden(server) -> None:
 async def test_without_a_store_tier_two_never_fires(server) -> None:
     """Same honesty as everywhere else: an agent with nowhere to write cannot
     escalate, and does not pretend to."""
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([says("ok")] * 5),
             tools=tools,
@@ -295,7 +295,7 @@ async def test_without_a_store_tier_two_never_fires(server) -> None:
 
 @pytest.mark.discharges("fact:turn_count", "fact:repeated_intent")
 async def test_a_turn_is_recorded_as_facts_not_prose(server) -> None:
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = agent_with(tools, escalations=durable.RememberedEscalations())
         _, conversation = await agent.handle("where is my order AB-12345", identity=customer())
 
@@ -350,7 +350,7 @@ async def test_a_customer_asking_the_same_thing_three_times_reaches_a_person(ser
     ask never reached the threshold it was written for.
     """
     store = durable.RememberedEscalations()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = agent_with(tools, escalations=store)
         conversation = None
         results = []
@@ -378,7 +378,7 @@ async def test_the_cap_holds_however_the_escalation_was_raised(server) -> None:
     progress and none of it being any.
     """
     store = durable.RememberedEscalations()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = agent_with(tools, escalations=store)
         conversation = None
         results = []

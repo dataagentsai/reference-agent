@@ -30,8 +30,8 @@ from support_agent import context as ctx
 from support_agent import escalation as esc
 from support_agent import loop as agent_loop
 from support_agent import policy as pol
+from support_agent import requests as req
 from support_agent import telemetry as tel
-from support_agent import trigger as trg
 from support_agent.config import Budgets, RunConfig
 from support_agent.contracts import (
     Agentic,
@@ -84,7 +84,7 @@ class Agent:
     pretending: with no store the request is refused and nothing is claimed.
     Same honesty as the approval flow refusing to offer a refund tool when no
     approval store is wired."""
-    deliveries: trg.DeliveryLog | None = None
+    deliveries: req.Requests | None = None
     clock: Clock | None = None
     """Epoch seconds, injected. Defaults to the wall clock.
 
@@ -156,12 +156,11 @@ class Agent:
         # idempotency key space and every control below this line is scoped to
         # one run. Refusing here is the only place it can be refused.
         if self.deliveries is not None and delivery_id is not None:
-            async with trg.once(self.deliveries, delivery_id) as claim:
+            async with req.once(self.deliveries, delivery_id, scope=req.Scope.DELIVERY) as claim:
                 answer = await self._turn(text, identity, conversation, run_id)
-                # What a redelivery is told. Written onto the claim rather than
-                # returned, because the claim is settled in a `finally` that
-                # also runs when the turn raised — and a turn that failed still
-                # answered something, even if only that it could not.
+                # What a redelivery is told. A turn that *raised* settles too,
+                # with nothing to say — `Scope.DELIVERY` decides that, because
+                # arriving at the end at all means the turn ran.
                 if claim is not None:
                     claim.outcome = ending.as_answer(*answer)
                 return answer
@@ -363,7 +362,7 @@ def build(
     approvals: Approvals | None = None,
     escalations: Escalations | None = None,
     capacity: esc.Capacity | None = None,
-    deliveries: trg.DeliveryLog | None = None,
+    deliveries: req.Requests | None = None,
     clock: Clock | None = None,
     config: RunConfig | None = None,
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,

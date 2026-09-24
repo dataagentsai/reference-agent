@@ -29,8 +29,8 @@ from order_system.store import Saleor, Store
 from support_agent import entrypoint as ep
 from support_agent import identity as ident
 from support_agent.contracts import Identity, ModelResponse, ToolCall
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -68,7 +68,7 @@ def talking(shop: Store, llm: ScriptedClient):
         clock=lambda: int(time.time()),
         approvals=durable.Remembered(),
     )
-    return connect(server, ledger=InMemoryLedger(), exchange=issuing.LocalExchange())
+    return connect(server, requests=InMemoryRequests(), exchange=issuing.LocalExchange())
 
 
 @pytest.mark.discharges("P-OPEN", "op:list_orders", "P-OWNERSHIP")

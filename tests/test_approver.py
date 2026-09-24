@@ -24,8 +24,8 @@ from support_agent import entrypoint as ep
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.contracts import Identity, ModelResponse, ToolCall
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -78,7 +78,7 @@ async def conversation(decision: str, *, by: str = "ops-7", turns: int = 3, step
     actor = ScriptedActor([f"please refund my order {ORDER}", "any update?", "any update?"][:turns])
 
     async with (
-        connect(project(world), ledger=InMemoryLedger()) as tools,
+        connect(project(world), requests=InMemoryRequests()) as tools,
         durable.approvals_for(tools, clock=clock) as waits,
     ):
         approver = DECISIONS[decision](

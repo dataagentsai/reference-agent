@@ -23,8 +23,8 @@ from support_agent.contracts import (
     ToolCall,
     ToolResult,
 )
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import META_REQUIRED_SCOPE, META_SIDE_EFFECT, connect
 
 
@@ -208,7 +208,7 @@ def server():
 @pytest.mark.discharges("AAC-0003", "AAC-0005", "AAC-0110", "AHC-0094")
 async def test_a_false_claim_never_reaches_the_customer(server) -> None:
     """End to end: the model lies, the customer does not hear it."""
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         result, trace = await agent_loop.run(
             "refund me",
             identity=customer(),
@@ -224,7 +224,7 @@ async def test_a_false_claim_never_reaches_the_customer(server) -> None:
 
 @pytest.mark.discharges("AAC-0088")
 async def test_a_truthful_reply_passes_through_untouched(server) -> None:
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         result, trace = await agent_loop.run(
             "where is AB-1",
             identity=customer(),
@@ -247,7 +247,7 @@ async def test_a_truthful_reply_passes_through_untouched(server) -> None:
 
 @pytest.mark.discharges("AHC-0018")
 async def test_the_blocking_rule_is_named_on_the_trace(server, exporter) -> None:
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         await agent_loop.run(
             "refund me",
             identity=customer(),

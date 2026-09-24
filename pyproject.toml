@@ -164,7 +164,7 @@ layers = [
     "router | loop",
     "context | tools | approvals | escalation",
     "binding",
-    "llm | state | policy | cost | idempotency | trigger | resilience | flow | identity | cassette",
+    "llm | state | policy | cost | requests | resilience | flow | identity | cassette",
     "config | telemetry | ui",
     "conformance | contracts",
 ]
@@ -205,7 +205,7 @@ unmatched_ignore_imports_alerting = "none"
 [[tool.importlinter.contracts]]
 # T-028. Durable waits are Temporal's, and only the packages that wait know it:
 # the agent's turn sees `Approvals` and `Escalations`, protocols, never a workflow.
-name = "Only the waits and the claim know Temporal"
+name = "Only the waits know Temporal"
 type = "forbidden"
 source_modules = ["support_agent"]
 forbidden_modules = ["temporalio"]
@@ -214,20 +214,18 @@ ignore_imports = [
     "support_agent.approvals.* -> temporalio",
     "support_agent.escalation.* -> temporalio.*",
     "support_agent.escalation.* -> temporalio",
-    "support_agent.trigger.* -> temporalio.*",
-    "support_agent.trigger.* -> temporalio",
 ]
 unmatched_ignore_imports_alerting = "none"
 
 [[tool.importlinter.contracts]]
-name = "Only state and idempotency touch the database"
+name = "Only state and requests touch the database"
 type = "forbidden"
 source_modules = ["support_agent"]
 forbidden_modules = ["psycopg"]
 ignore_imports = [
     "support_agent.state -> psycopg",
     "support_agent.state.* -> psycopg",
-    "support_agent.idempotency -> psycopg",
-    "support_agent.idempotency.* -> psycopg",
+    "support_agent.requests -> psycopg",
+    "support_agent.requests.* -> psycopg",
 ]
 unmatched_ignore_imports_alerting = "none"

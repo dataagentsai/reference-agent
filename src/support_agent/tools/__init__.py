@@ -12,11 +12,12 @@ anything the model said:
 1. the tool must be in the registry for *this identity*
 2. arguments must validate against the declared input schema
 3. the identity must hold the declared scope
-4. a non-read effect must pass the idempotency ledger
+4. a non-read effect must pass the requests store
 
-`idempotency` is a sibling module and may not be imported. The ledger arrives as
-an `IdempotencyLedger` — the protocol from `contracts` — which is the same seam
-working one layer down.
+`requests` is a sibling module: its `Requests` protocol arrives as an argument
+rather than being reached for, which is the same seam working one layer down. It
+is one store at two scopes since T-062 — a message name and a tool-call name
+obey one rule, and which you are holding stops changing the answer.
 """
 
 from __future__ import annotations
@@ -32,10 +33,10 @@ from mcp.client import Client
 from mcp_types import RequestParamsMeta
 from opentelemetry.trace import Span
 
+from support_agent import requests as req
 from support_agent import telemetry as tel
 from support_agent.contracts import (
     IdempotencyKey,
-    IdempotencyLedger,
     Identity,
     SideEffectClass,
     ToolRegistry,
@@ -55,7 +56,7 @@ may not import its simulator — and belongs in the binding spec."""
 
 IDEMPOTENCY_META = "aoas/idempotency-key"
 """Where a write's idempotency key travels, so the system the effect lands on can
-recognise a retry — the harness's ledger cannot, when the effect landed and the
+recognise a retry — the harness's store cannot, when the effect landed and the
 reply was lost (F-017). The same binding as `SESSION_META`."""
 
 APPROVAL_META = "aoas/approval"
@@ -88,7 +89,7 @@ def _spec_from(tool: Any) -> ToolSpec:
     comparison. A tool without one cannot be asserted against cheaply.
 
     **No declared side effect.** Defaulting to READ would let an undeclared
-    refund tool skip the idempotency ledger entirely, so silence is refused
+    refund tool skip the requests store entirely, so silence is refused
     rather than assumed. Nothing is exposed without naming what it costs to
     repeat.
     """
@@ -229,15 +230,15 @@ class GatedTools:
 
     None of them trusts anything the model said: the tool must be on this
     identity's surface, its arguments must validate, a non-read effect must pass
-    the idempotency ledger, and what comes back is bounded before it can enter
+    the requests store, and what comes back is bounded before it can enter
     context.
     """
 
     def __init__(
-        self, transport: Transport, *, ledger: IdempotencyLedger, max_result_chars: int = 8000
+        self, transport: Transport, *, requests: req.Requests, max_result_chars: int = 8000
     ) -> None:
         self._transport = transport
-        self._ledger = ledger
+        self._requests = requests
         self._max_result_chars = max_result_chars
         self.rejected: tuple[str, ...] = ()
 
@@ -311,18 +312,28 @@ class GatedTools:
             result = await self._transport.invoke(name, arguments, caller=identity)
             return self._bound(result, span), _outcome(result)
 
-        previous = await self._ledger.seen(idempotency_key)
-        if previous is not None:
+        # One name, one outcome — T-062. The claim is taken before the call and
+        # answered after it, so a repeat under this name is handed what the
+        # first attempt produced rather than making a second one.
+        try:
+            async with req.once(
+                self._requests, idempotency_key.value, scope=req.Scope.TOOL
+            ) as claim:
+                answer = await self._transport.invoke(
+                    name, arguments, caller=identity, idempotency_key=idempotency_key
+                )
+                result = self._bound(answer, span)
+                # An error is indefinite: the call may have landed and had its
+                # reply lost, and only the far end can tell. Leaving the outcome
+                # unset abandons the name, so a retry goes out under *the same*
+                # one — which is the only thing that lets the far end recognise
+                # it. Storing a guess here is how one refund becomes two.
+                if claim is not None and not result.is_error:
+                    claim.outcome = json.loads(result.model_dump_json())
+                return result, _outcome(result)
+        except req.AlreadyAnswered as answered:
             span.set_attribute("agent.tool.replayed", True)
-            return previous, "replayed"
-
-        answer = await self._transport.invoke(
-            name, arguments, caller=identity, idempotency_key=idempotency_key
-        )
-        result = self._bound(answer, span)
-        if not result.is_error:
-            await self._ledger.record(idempotency_key, result)
-        return result, _outcome(result)
+            return ToolResult.model_validate(answered.outcome), "replayed"
 
     def _bound(self, result: ToolResult, span: Span) -> ToolResult:
         """AAC-0105, AOAS Q-TOOL-RESULT — a result enters context bounded.
@@ -361,19 +372,19 @@ class MCPToolClient(GatedTools):
         self,
         client: Client,
         *,
-        ledger: IdempotencyLedger,
+        requests: req.Requests,
         max_result_chars: int = 8000,
         exchange: Exchange | None = None,
     ) -> None:
         transport = MCPTransport(client, exchange=exchange)
-        super().__init__(transport, ledger=ledger, max_result_chars=max_result_chars)
+        super().__init__(transport, requests=requests, max_result_chars=max_result_chars)
 
 
 @asynccontextmanager
 async def connect(
     server: Any,
     *,
-    ledger: IdempotencyLedger,
+    requests: req.Requests,
     max_result_chars: int = 8000,
     exchange: Exchange | None = None,
 ) -> AsyncIterator[MCPToolClient]:
@@ -385,7 +396,7 @@ async def connect(
     """
     async with Client(server) as client:
         yield MCPToolClient(
-            client, ledger=ledger, max_result_chars=max_result_chars, exchange=exchange
+            client, requests=requests, max_result_chars=max_result_chars, exchange=exchange
         )
 
 

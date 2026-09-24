@@ -31,8 +31,8 @@ from support_agent.contracts import (
     Usage,
 )
 from support_agent.cost import Meter
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient, UnavailableClient
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import connect
 
 GOLDEN = Path(__file__).parent.parent / "evals" / "golden" / "eligibility.jsonl"
@@ -93,7 +93,7 @@ async def test_the_golden_set(case: dict) -> None:
         "order_id": ORDER,
         **({"address": "12 New Road, Pune"} if case["action"] == "change_address" else {}),
     }
-    async with connect(evalworld.build(world), ledger=InMemoryLedger()) as tools:
+    async with connect(evalworld.build(world), requests=InMemoryRequests()) as tools:
         result = await tools.call(case["action"], given, privileged(), key())
 
     assert not result.is_error, result.text
@@ -149,7 +149,7 @@ async def test_a_refusal_changes_nothing_in_the_world() -> None:
     world = evalworld.World()
     world.seed(ORDER, OrderStatus.SHIPPED)
 
-    async with connect(evalworld.build(world), ledger=InMemoryLedger()) as tools:
+    async with connect(evalworld.build(world), requests=InMemoryRequests()) as tools:
         result = await tools.call("cancel_order", {"order_id": ORDER}, privileged(), key())
 
     assert result.structured["allowed"] is False
@@ -182,7 +182,7 @@ async def test_every_route_returns_a_conforming_result() -> None:
         "agentic": ("something ambiguous", ScriptedClient([ModelResponse(text="ok")]), Completed),
     }
 
-    async with connect(evalworld.build(world), ledger=InMemoryLedger()) as tools:
+    async with connect(evalworld.build(world), requests=InMemoryRequests()) as tools:
         for route, (text, llm, expected) in exchanges.items():
             # A desk is wired: without one the agent refuses the handover
             # rather than claiming it, which is a different route (F-024).
@@ -211,7 +211,7 @@ async def test_the_contract_holds_on_the_failure_route_too() -> None:
     adapter: TypeAdapter[TurnResult] = TypeAdapter(TurnResult)
     world = evalworld.World()
 
-    async with connect(evalworld.build(world), ledger=InMemoryLedger()) as tools:
+    async with connect(evalworld.build(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(llm=UnavailableClient(), tools=tools, store=InMemoryCheckpointStore())
         result, _ = await agent.handle("something ambiguous", identity=privileged())
 

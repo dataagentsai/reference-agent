@@ -34,8 +34,8 @@ from support_agent.contracts import (
     RunId,
     ToolCall,
 )
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -185,7 +185,7 @@ async def test_projected_tools_satisfy_the_agent_s_own_registry_rules() -> None:
     tool without `outputSchema` or a declared side effect is rejected by the
     agent's registry, and a projected one would be too."""
     live = Live.start(load(WORLD))
-    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live), requests=InMemoryRequests()) as tools:
         registry = await tools.list_tools(privileged())
 
     assert tools.rejected == ()
@@ -202,7 +202,7 @@ async def test_the_projected_surface_is_still_scope_gated() -> None:
     ungated, which is a legitimate thing to simulate and never a default here."""
     live = Live.start(load(WORLD))
     plain = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
-    async with connect(project(live, scopes=SCOPES), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live, scopes=SCOPES), requests=InMemoryRequests()) as tools:
         assert (await tools.list_tools(plain)).get("issue_refund") is None
         assert (await tools.list_tools(privileged())).get("issue_refund") is not None
 
@@ -213,7 +213,7 @@ async def test_an_unknown_record_is_not_a_refusal() -> None:
     answers, and collapsing them teaches the model that absence and prohibition
     are the same thing."""
     live = Live.start(load(WORLD))
-    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live), requests=InMemoryRequests()) as tools:
         result = await tools.call("cancel_order", {"id": "NOPE-1"}, privileged(), key())
     assert result.is_error
 
@@ -237,7 +237,7 @@ async def test_an_unknown_record_is_not_a_refusal() -> None:
 async def test_the_projection_agrees_with_the_hand_written_world(case: dict) -> None:
     row = case["row"]
     live = live_with(row["status"], row["days_since_delivery"], row["final_sale"])
-    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live), requests=InMemoryRequests()) as tools:
         arguments = {"id": ORDER, **({"address": NEW_ADDRESS} if case["action"] == ADDRESS else {})}
         projected = await tools.call(case["action"], arguments, privileged(), key())
 
@@ -248,7 +248,7 @@ async def test_the_projection_agrees_with_the_hand_written_world(case: dict) -> 
         days_since_delivery=row["days_since_delivery"],
         final_sale=row["final_sale"],
     )
-    async with connect(handwritten.build(hand), ledger=InMemoryLedger()) as tools:
+    async with connect(handwritten.build(hand), requests=InMemoryRequests()) as tools:
         given = {
             "order_id": ORDER,
             **({"address": NEW_ADDRESS} if case["action"] == ADDRESS else {}),
@@ -316,7 +316,7 @@ async def test_the_gate_cancelling_a_shipped_order_changes_nothing() -> None:
         ]
     )
 
-    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live), requests=InMemoryRequests()) as tools:
         agent = ep.build(llm=llm, tools=tools, store=InMemoryCheckpointStore(), config=config)
         result, _ = await agent.handle(f"please cancel my order {ORDER}", identity=privileged())
 
@@ -359,7 +359,7 @@ async def test_the_same_scenario_on_a_cancellable_order_does_change_the_world() 
             ModelResponse(text="That order has been cancelled."),
         ]
     )
-    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live), requests=InMemoryRequests()) as tools:
         agent = ep.build(llm=llm, tools=tools, store=InMemoryCheckpointStore())
         await agent.handle(f"cancel {ORDER} please", identity=privileged())
 
@@ -423,7 +423,7 @@ async def test_the_second_world_projects_and_enforces_its_own_policy() -> None:
         "return_open": False,
     }
 
-    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live), requests=InMemoryRequests()) as tools:
         result = await tools.call("open_return_request", {"id": ORDER}, privileged(), key())
 
     # Twenty days is inside the clothing world's thirty and outside this one's
@@ -444,7 +444,7 @@ async def test_the_second_world_also_widened_cancellation() -> None:
         "final_sale": False,
     }
 
-    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live), requests=InMemoryRequests()) as tools:
         result = await tools.call("cancel_order", {"id": ORDER}, privileged(), key())
 
     assert result.structured["allowed"] is True
@@ -463,7 +463,7 @@ async def test_a_change_of_address_changes_the_address() -> None:
     live = Live.start(load(WORLD))
     before = live.get("order", PENDING)["address"]
 
-    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live), requests=InMemoryRequests()) as tools:
         result = await tools.call(
             "change_address", {"id": PENDING, "address": NEW_ADDRESS}, privileged(), key()
         )

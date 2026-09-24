@@ -19,8 +19,8 @@ from support_agent.contracts import (
     SideEffectClass,
     ToolCall,
 )
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient, retry_after_of
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import META_REQUIRED_SCOPE, META_SIDE_EFFECT, connect
 
 
@@ -331,7 +331,7 @@ def batch(name: str, *ids: str) -> ModelResponse:
 
 @pytest.mark.discharges("AHC-0097", "AHC-0104")
 async def test_parallel_reads_interleave(server) -> None:
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         await agent_loop.run(
             "check three orders",
             identity=customer(),
@@ -349,7 +349,7 @@ async def test_parallel_reads_interleave(server) -> None:
 async def test_writes_run_one_at_a_time_in_the_order_asked(server) -> None:
     """A write that fails halfway through a parallel batch costs a
     reconciliation in an order that depended on scheduling."""
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         await agent_loop.run(
             "cancel three orders",
             # Ordering is under test, not consent: the customer asked for all three.
@@ -374,7 +374,7 @@ async def test_writes_run_one_at_a_time_in_the_order_asked(server) -> None:
 
 @pytest.mark.discharges("AHC-0104")
 async def test_results_stay_matched_to_their_calls(server) -> None:
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         _, trace = await agent_loop.run(
             "check three",
             identity=customer(),

@@ -25,12 +25,12 @@ from starlette.testclient import TestClient
 
 from support_agent import channel as ch
 from support_agent import entrypoint as ep
+from support_agent import requests as req
 from support_agent import telemetry as tel
-from support_agent import trigger as trg
 from support_agent.contracts import StoredSession
-from support_agent.idempotency import InMemoryLedger
 from support_agent.identity.sessions import Resume
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore, InMemorySessionStore
 from support_agent.tools import connect
 
@@ -96,13 +96,13 @@ async def post(
         await sessions.put(StoredSession(subject=SUBJECT, refresh_token=token, updated_at=0))
     store = InMemoryCheckpointStore()
     world = Live.start(load(WORLD))
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([]),
             tools=tools,
             store=store,
             escalations=durable.RememberedEscalations(),
-            deliveries=trg.InMemoryDeliveryLog(),
+            deliveries=req.InMemoryRequests(),
         )
         channel = ch.Channel(
             agent=agent,

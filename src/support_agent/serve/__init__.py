@@ -57,8 +57,8 @@ from starlette.routing import BaseRoute, Mount, Route
 from support_agent import approvals as ap
 from support_agent import escalation as esc
 from support_agent import identity as ident
+from support_agent import requests as req
 from support_agent import telemetry as tel
-from support_agent import trigger as trg
 from support_agent.contracts import (
     Approvals,
     CheckpointStore,
@@ -255,7 +255,7 @@ async def _run_turn(
             conversation=conversation,
             delivery_id=inbound.delivery_id,
         )
-    except trg.DuplicateDelivery as again:
+    except req.AlreadyAnswered as again:
         # 200, not an error. The caller did the right thing by retrying; we are
         # telling them it already happened. A 4xx here would make every
         # well-behaved queue look like a client fault.
@@ -269,7 +269,7 @@ async def _run_turn(
         return JSONResponse(
             {"status": "already handled", "delivery_id": inbound.delivery_id}, status_code=200
         )
-    except trg.OverlappingRun:
+    except req.StillRunning:
         return JSONResponse({"error": "this message is already being handled"}, status_code=409)
 
     span.set_attribute("agent.result", type(result).__name__)

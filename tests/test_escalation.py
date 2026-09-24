@@ -38,8 +38,8 @@ from support_agent.contracts import (
     TerminationReason,
     TurnResult,
 )
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import Conversation, InMemoryCheckpointStore
 from support_agent.tools import META_SIDE_EFFECT, connect
 
@@ -87,7 +87,7 @@ async def escalating(server, *, llm=None):
     moves — so "nobody came" is the workflow's own timer (T-028)."""
     moment = [int(time.time())]
     async with (
-        connect(server, ledger=InMemoryLedger()) as tools,
+        connect(server, requests=InMemoryRequests()) as tools,
         durable.escalations_for(clock=lambda: moment[0]) as waits,
     ):
         agent = agent_with(tools, escalations=waits.escalations, llm=llm, clock=lambda: moment[0])
@@ -190,7 +190,7 @@ async def test_without_a_store_the_handover_is_refused_not_claimed(server) -> No
     `Escalated` with no ticket: a claimed action with no record, which AAC-0110
     forbids. `Escalated` now requires a ticket, so this cannot be written again.
     """
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         result, conversation = await agent_with(tools).handle(
             "put me through to a human", identity=customer()
         )
@@ -205,7 +205,7 @@ async def test_without_a_store_the_handover_is_refused_not_claimed(server) -> No
 @pytest.mark.discharges("AHC-0070", "esc:asked-for-human")
 async def test_escalation_still_never_reaches_the_model(server) -> None:
     llm = ScriptedClient([])
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = agent_with(tools, escalations=durable.RememberedEscalations(), llm=llm)
         result, _ = await agent.handle("get me a manager", identity=customer())
 
@@ -231,7 +231,7 @@ async def test_the_agent_does_not_answer_over_a_live_handoff(server, name: str, 
     next message was served by the agent as though nothing had happened."""
     store = durable.RememberedEscalations()
     llm = ScriptedClient([])
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = agent_with(tools, escalations=store, llm=llm)
         first, conversation = await agent.handle("put me through to a human", identity=customer())
         second, conversation = await agent.handle(
@@ -299,7 +299,7 @@ async def test_nobody_came_so_the_conversation_is_handed_back(server) -> None:
 @pytest.mark.discharges("AAC-0002", "AHC-0017")
 async def test_the_escalated_result_still_round_trips_the_union(server) -> None:
     adapter: TypeAdapter[TurnResult] = TypeAdapter(TurnResult)
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = agent_with(tools, escalations=durable.RememberedEscalations())
         result, _ = await agent.handle("I need a supervisor", identity=customer())
 
@@ -381,7 +381,7 @@ async def test_the_reply_says_only_what_the_queue_supports(
     forbids one otherwise. Saying nothing when the throughput is unknown is not
     an exception to the rule; it is the rule.
     """
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([]),
             tools=tools,

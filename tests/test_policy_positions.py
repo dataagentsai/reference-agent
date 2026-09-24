@@ -28,8 +28,8 @@ from support_agent.contracts import (
     ToolCall,
     Usage,
 )
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import META_SIDE_EFFECT, connect
 
@@ -100,7 +100,7 @@ async def test_a_rule_at_every_position_is_reached(
     server, position: pol.Position, outcome: str, ran: int, calls: int
 ) -> None:
     llm = wants_a_look()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=llm,
             tools=tools,
@@ -121,7 +121,7 @@ async def test_a_blocked_call_is_answered_so_the_model_can_choose_again(server) 
     """The PRE_TOOL semantics, stated: the action did not happen, the turn did
     not end, and what the model is told says which of those it is."""
     llm = wants_a_look()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=llm,
             tools=tools,
@@ -141,7 +141,7 @@ async def test_a_blocked_result_never_enters_context(server) -> None:
     """The POST_TOOL semantics: the effect happened and this cannot undo it, so
     all it does is refuse to carry what came back."""
     llm = wants_a_look()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=llm,
             tools=tools,

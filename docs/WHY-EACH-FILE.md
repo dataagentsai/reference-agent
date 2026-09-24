@@ -50,11 +50,11 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `contracts/model.py` | AAC-0008, AAC-0009, AHC-0001, AHC-0021, AHC-0022, AHC-0045 |
 | `contracts/protocols.py` | AHC-0022, AHC-0074 |
 | `contracts/results.py` | AAC-0009, AAC-0055, AHC-0010, P-ESCALATE |
+| `contracts/requests.py` | AAC-0076, AHC-0053, AHC-0074 |
 | `contracts/tools.py` | AAC-0051, AAC-0105, AHC-0074, AHC-0107 |
 | `cost/__init__.py` | AAC-0008, AAC-0104 |
 | `entrypoint/__init__.py` | AAC-0076, AHC-0010, AHC-0017, AHC-0107, AHC-0108, P-DIRECT-READS |
 | `entrypoint/handoff.py` | AAC-0110, AHC-0070, AHC-0108, P-ESC-CAP |
-| `idempotency/__init__.py` | AHC-0074 |
 | `identity/__init__.py` | AAC-0057, AAC-0106 |
 | `identity/sessions.py` | AAC-0057, AHC-0099 |
 | `portal/__init__.py` | AAC-0111, AHC-0099 |
@@ -83,9 +83,7 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `watch/canary.py` | AHC-0113, AAC-0116 |
 | `telemetry/names.py` | AAC-0020, AAC-0100, AAC-0103, AAC-0104, AHC-0001, AHC-0107 |
 | `tools/__init__.py` | AAC-0105, Q-TOOL-RESULT |
-| `trigger/__init__.py` | AAC-0076, AHC-0053, AHC-0055 |
-| `trigger/log.py` | AAC-0076, AHC-0053 |
-| `trigger/durable.py` | AAC-0076, AHC-0053, AHC-0102 |
+| `requests/__init__.py` | AAC-0076, AHC-0053, AHC-0055, AHC-0074 |
 
 ---
 
@@ -142,7 +140,7 @@ statement should require the **port**, not a particular realisation of it.
 | `escalation/store.py` | `EscalationStore` |
 | `state/postgres.py` | `CheckpointStore`, `EscalationStore` |
 | `approvals/desk.py` | `Approvals`, `ApprovalRecords` |
-| `idempotency/postgres.py` | `IdempotencyLedger` |
+| `requests/postgres.py` | `Requests` |
 
 **The one thing to notice.** Nothing declares *how many* realisations must exist.
 Three checkpoint stores and one file store are a deployment's choice, and the

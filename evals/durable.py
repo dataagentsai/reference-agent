@@ -23,7 +23,6 @@ from temporalio.testing import WorkflowEnvironment
 from support_agent import approvals as ap
 from support_agent import escalation as esc
 from support_agent import identity as ident
-from support_agent import trigger as trg
 from support_agent.contracts import (
     Approval,
     ApprovalState,
@@ -338,21 +337,6 @@ async def server(
 
 
 @asynccontextmanager
-async def deliveries_for(clock: Clock | None = None) -> AsyncIterator[tuple[Durable, object]]:
-    """A test server holding delivery claims (T-003), and the log to claim with."""
-    async with (
-        server(clock) as running,
-        trg.worker_for(running.env.client, task_queue=running.task_queue),
-    ):
-        yield (
-            running,
-            trg.TemporalDeliveries(
-                running.env.client, task_queue=running.task_queue, durable=False
-            ),
-        )
-
-
-@asynccontextmanager
 async def escalations_for(clock: Clock | None = None) -> AsyncIterator[Durable]:
     """A test server holding escalations, which need no activities to run."""
     async with (
@@ -388,7 +372,6 @@ __all__ = [
     "Remembered",
     "RememberedEscalations",
     "approvals_for",
-    "deliveries_for",
     "escalations_for",
     "as_customer",
     "decide",

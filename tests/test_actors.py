@@ -30,8 +30,8 @@ from support_agent import entrypoint as ep
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.contracts import Identity, ModelResponse, ToolCall
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -198,7 +198,7 @@ async def test_a_scenario_asserts_on_the_world_and_records_its_class() -> None:
     )
     actor = ScriptedActor([f"where is my order {DELIVERED}"])
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([ModelResponse(text="It was delivered.")]),
             tools=tools,
@@ -247,7 +247,7 @@ async def test_a_persistent_customer_cannot_get_the_same_effect_three_times() ->
         },
     )
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         # The model complies every single time it is asked — which is the point.
         # The controls must hold without the model's cooperation.
         agent = ep.build(

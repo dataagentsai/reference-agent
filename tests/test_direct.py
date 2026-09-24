@@ -85,8 +85,8 @@ async def test_a_refund_status_question_is_answered_about_the_refund(
     from support_agent import entrypoint as ep
     from support_agent import identity as ident
     from support_agent.contracts import Completed
-    from support_agent.idempotency import InMemoryLedger
     from support_agent.llm import ScriptedClient
+    from support_agent.requests import InMemoryRequests
     from support_agent.state import InMemoryCheckpointStore
     from support_agent.tools import connect
 
@@ -95,7 +95,7 @@ async def test_a_refund_status_question_is_answered_about_the_refund(
     order["status"] = status
     if status not in ("delivered", "returned", "refunded"):
         order["days_since_delivery"] = 0  # a coherent order, not a fictional one (F-011)
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(llm=ScriptedClient([]), tools=tools, store=InMemoryCheckpointStore())
         result, _ = await agent.handle(
             "what is happening with the refund for AB-10003",

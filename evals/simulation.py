@@ -45,7 +45,7 @@ from support_agent.contracts import (
     ToolClient,
 )
 from support_agent.cost import Meter
-from support_agent.idempotency import InMemoryLedger
+from support_agent.requests import InMemoryRequests
 from support_agent.resilience import ResilientLLM
 from support_agent.state import Conversation, InMemoryCheckpointStore
 from support_agent.tools import connect
@@ -149,7 +149,7 @@ async def subject_for(
 
     def projected(_waits: durable.Durable) -> AbstractAsyncContextManager[ToolClient]:
         world = project(live, scopes=SCOPES, wrap=wrap)  # type: ignore[arg-type]
-        return connect(world, ledger=InMemoryLedger())
+        return connect(world, requests=InMemoryRequests())
 
     # `shop` is which store answers the tools: the projected world by default,
     # or a real one (T-042). It is handed the waits because a real store checks

@@ -40,7 +40,7 @@ from order_system import server as store_server
 from order_system.store import ORDER_FIELDS, Saleor, Store, StoreUnavailable, _expired, as_order
 from support_agent import identity as ident
 from support_agent.contracts import Identity, LLMClient
-from support_agent.idempotency import InMemoryLedger
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import connect
 
 URL = os.environ.get("SALEOR_URL", "http://localhost:8100/graphql/")
@@ -163,7 +163,7 @@ async def shadowed(
             clock=clock,
             approvals=waits.approvals,
         )
-        return connect(server, ledger=InMemoryLedger(), exchange=issuing.LocalExchange())
+        return connect(server, requests=InMemoryRequests(), exchange=issuing.LocalExchange())
 
     async with subject_for(
         projected, llm=llm, clock=clock, shop=shop, who=session, acting_for=signed, **options

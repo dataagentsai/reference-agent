@@ -20,8 +20,8 @@ from support_agent import entrypoint as ep
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.contracts import Identity, Message, ModelResponse, SideEffectClass, ToolCall
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import Conversation, InMemoryCheckpointStore
 from support_agent.tools import META_SIDE_EFFECT, connect
 
@@ -154,7 +154,7 @@ def test_an_already_broken_history_is_refused_rather_than_stored() -> None:
 @pytest.mark.discharges("AHC-0067")
 async def test_a_long_conversation_stops_growing(server) -> None:
     store = InMemoryCheckpointStore()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([ModelResponse(text="y" * 400)] * 40),
             tools=tools,
@@ -180,7 +180,7 @@ async def test_the_caller_holds_what_the_store_holds(server) -> None:
     """The returned conversation is the bounded one. A caller holding a larger
     history than the store does would be looking at state that exists nowhere."""
     store = InMemoryCheckpointStore()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([ModelResponse(text="y" * 300)] * 20),
             tools=tools,
@@ -207,7 +207,7 @@ async def test_bounding_does_not_touch_what_rules_read(server) -> None:
     prose got long would be a very hard defect to find.
     """
     store = InMemoryCheckpointStore()
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([ModelResponse(text="y" * 400)] * 20),
             tools=tools,
@@ -265,7 +265,7 @@ def test_assemble_still_returns_only_the_transcript() -> None:
 
 @pytest.mark.discharges("AHC-0012")
 async def test_the_step_span_carries_how_full_the_call_was(server, exporter) -> None:
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([ModelResponse(text="ok")]),
             tools=tools,
@@ -283,7 +283,7 @@ async def test_the_step_span_carries_how_full_the_call_was(server, exporter) -> 
 async def test_the_turn_span_carries_what_was_actually_stored(server, exporter) -> None:
     """A different question from what the model was sent, and one that was
     nobody's for a long time."""
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([ModelResponse(text="ok")]),
             tools=tools,

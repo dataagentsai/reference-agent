@@ -30,8 +30,8 @@ from support_agent.contracts import (
     ToolCall,
 )
 from support_agent.entrypoint import promise
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ModelResponse, ScriptedClient, Usage
+from support_agent.requests import InMemoryRequests
 from support_agent.state import Conversation, InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -113,7 +113,7 @@ async def test_a_promise_with_a_desk_becomes_a_handoff() -> None:
     reference that proves it."""
     world = Live.start(load(WORLD))
     escalations = durable.RememberedEscalations()
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=says("Let me check that for you."),
             tools=tools,
@@ -137,7 +137,7 @@ async def test_a_promise_with_nobody_to_fetch_is_withdrawn_not_relabelled() -> N
     here, which removed the false promise and the record of the run with it.
     """
     world = Live.start(load(WORLD))
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=says("Let me check that for you."),
             tools=tools,
@@ -157,7 +157,7 @@ async def test_an_ordinary_answer_is_left_exactly_as_it_was() -> None:
     answer = "Your order was delivered on the 3rd of March."
     world = Live.start(load(WORLD))
     escalations = durable.RememberedEscalations()
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=says(answer),
             tools=tools,
@@ -190,7 +190,7 @@ async def test_a_turn_waiting_on_an_approval_is_never_touched() -> None:
         tool_calls=(ToolCall(id="c1", name="request_refund", arguments={"order_id": "AB-10002"}),),
         usage=Usage(input_tokens=5, output_tokens=3),
     )
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([plan]),
             tools=tools,

@@ -21,8 +21,8 @@ from support_agent import policy as pol
 from support_agent import router
 from support_agent.contracts import Escalated, Identity, Refused
 from support_agent.entrypoint import direct
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -61,7 +61,7 @@ async def test_no_route_reaches_the_customer_unscreened(
     monkeypatch: pytest.MonkeyPatch, route: str, text: str, plant, rule: str
 ) -> None:
     wiring = plant(monkeypatch)
-    async with connect(project(Live.start(load(WORLD))), ledger=InMemoryLedger()) as tools:
+    async with connect(project(Live.start(load(WORLD))), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([]), tools=tools, store=InMemoryCheckpointStore(), **wiring
         )
@@ -93,7 +93,7 @@ async def test_a_blocked_reply_is_typed_as_what_it_now_is(
     text = "where is my order AB-10003" if kind == "completed" else "I want to speak to a person"
     wiring = plant(monkeypatch)
 
-    async with connect(project(Live.start(load(WORLD))), ledger=InMemoryLedger()) as tools:
+    async with connect(project(Live.start(load(WORLD))), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([]), tools=tools, store=InMemoryCheckpointStore(), **wiring
         )

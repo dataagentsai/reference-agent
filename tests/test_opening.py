@@ -19,8 +19,8 @@ from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.binding import SCOPES
 from support_agent.contracts import Approval, Escalation, Identity
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -95,7 +95,7 @@ async def open_as(who: str, *, setup=(), approvals=(), escalations=(), down: boo
         return unavailable
 
     server = project(live, scopes=SCOPES, wrap=refuse)
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([]),
             tools=tools,

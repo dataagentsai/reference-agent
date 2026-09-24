@@ -9,6 +9,7 @@ workflows, and their restart is tested in `test_approvals.py`.
 from __future__ import annotations
 
 import os
+import uuid
 
 import pytest
 
@@ -19,7 +20,6 @@ from support_agent.contracts import (
     Identity,
     Message,
     RunId,
-    ToolResult,
 )
 from support_agent.state import Conversation
 
@@ -50,6 +50,12 @@ async def pool():
 
 def customer() -> Identity:
     return Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
+
+
+def named(what: str) -> str:
+    """A name of this test's own. The store is durable, which is the point,
+    so a name shared between tests is answered before the second one runs."""
+    return f"{uuid.uuid4().hex[:8]}:{what}"
 
 
 def key(step: int = 2, iteration: int = 1) -> IdempotencyKey:
@@ -114,73 +120,85 @@ async def test_resuming_an_unknown_run_is_none(pool) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# The ledger. Correctness is the primary key, not the code.
+# The requests store — T-062. Correctness is the statement, not the code.
 # --------------------------------------------------------------------------- #
 
 
 @pytest.mark.discharges("AHC-0102")
-async def test_the_ledger_round_trips(pool) -> None:
-    from support_agent.idempotency.postgres import PostgresLedger
+async def test_a_claim_round_trips(pool) -> None:
+    from support_agent import requests as req
+    from support_agent.requests.postgres import PostgresRequests
 
-    ledger = PostgresLedger(pool)
-    assert await ledger.seen(key()) is None
-    await ledger.record(key(), ToolResult(name="issue_refund", structured={"refund_id": "rf_1"}))
+    store = PostgresRequests(pool)
+    name = named("round-trip")
+    held = await store.claim(name, scope=req.Scope.TOOL)
+    assert held.name == name
+    await store.settle(name, {"refund_id": "rf_1"})
 
-    stored = await ledger.seen(key())
-    assert stored is not None
-    assert stored.structured["refund_id"] == "rf_1"
+    with pytest.raises(req.AlreadyAnswered) as answered:
+        await store.claim(name, scope=req.Scope.TOOL)
+    assert answered.value.outcome == {"refund_id": "rf_1"}
 
 
 @pytest.mark.discharges("AAC-0047")
-async def test_two_writers_racing_leave_one_row(pool) -> None:
-    """`ON CONFLICT DO NOTHING`. An application-level check-then-insert has a
-    window between the check and the insert, and the window is exactly where a
-    double refund lives."""
+async def test_two_callers_racing_for_one_name_leave_one_holder(pool) -> None:
+    """The `WHERE` on the conflict branch is the whole guard. An
+    application-level check-then-claim has a window between the two, and the
+    window is exactly where a double refund lives."""
     import asyncio
 
-    from support_agent.idempotency.postgres import PostgresLedger
+    from support_agent import requests as req
+    from support_agent.requests.postgres import PostgresRequests
 
-    ledger = PostgresLedger(pool)
-    await asyncio.gather(
-        *(
-            ledger.record(key(), ToolResult(name="issue_refund", structured={"attempt": n}))
-            for n in range(5)
-        )
+    store = PostgresRequests(pool)
+    name = named("racing")
+    taken = await asyncio.gather(
+        *(store.claim(name, scope=req.Scope.TOOL) for _ in range(5)),
+        return_exceptions=True,
     )
 
-    async with pool.connection() as conn:
-        row = await (await conn.execute("SELECT count(*) FROM agent_state.idempotency")).fetchone()
-    assert row[0] == 1
+    held = [t for t in taken if not isinstance(t, BaseException)]
+    assert len(held) == 1, "exactly one caller holds it; the rest are refused"
+    assert all(isinstance(t, req.StillRunning) for t in taken if isinstance(t, BaseException))
 
 
 @pytest.mark.discharges("AHC-0074", "AAC-0047", "AHC-0102")
-async def test_the_first_outcome_for_a_key_is_the_outcome(pool) -> None:
-    from support_agent.idempotency.postgres import PostgresLedger
+async def test_the_first_definite_answer_is_the_answer(pool) -> None:
+    from support_agent import requests as req
+    from support_agent.requests.postgres import PostgresRequests
 
-    ledger = PostgresLedger(pool)
-    await ledger.record(key(), ToolResult(name="issue_refund", structured={"which": "first"}))
-    await ledger.record(key(), ToolResult(name="issue_refund", structured={"which": "second"}))
+    store = PostgresRequests(pool)
+    name = named("first-wins")
+    await store.claim(name, scope=req.Scope.TOOL)
+    await store.settle(name, {"which": "first"})
+    await store.settle(name, {"which": "second"})
 
-    stored = await ledger.seen(key())
-    assert stored is not None and stored.structured["which"] == "first"
-
-
-# B2's gate — an approval outlives the process that raised it — moved to
-# `test_approvals.py` with T-028. The approval is a Temporal workflow now, and
-# the restart it survives is the *worker's*, not this database's.
+    with pytest.raises(req.AlreadyAnswered) as answered:
+        await store.claim(name, scope=req.Scope.TOOL)
+    assert answered.value.outcome == {"which": "first"}
 
 
-# --------------------------------------------------------------------------- #
-# Durability is declared, not assumed.
-# --------------------------------------------------------------------------- #
+@pytest.mark.discharges("AHC-0074", "AHC-0102")
+async def test_an_abandoned_name_is_free_again(pool) -> None:
+    """Indefinite: nothing is stored and the name goes back, so a retry reaches
+    the far end under the same name for it to recognise."""
+    from support_agent import requests as req
+    from support_agent.requests.postgres import PostgresRequests
+
+    store = PostgresRequests(pool)
+    name = named("abandoned")
+    await store.claim(name, scope=req.Scope.TOOL)
+    await store.abandon(name)
+
+    assert (await store.claim(name, scope=req.Scope.TOOL)).name == name
 
 
 @pytest.mark.discharges("AHC-0102")
 def test_every_postgres_store_declares_itself_durable() -> None:
-    from support_agent.idempotency.postgres import PostgresLedger
+    from support_agent.requests.postgres import PostgresRequests
     from support_agent.state.postgres import PostgresCheckpointStore, PostgresSessionStore
 
-    for cls in (PostgresCheckpointStore, PostgresLedger, PostgresSessionStore):
+    for cls in (PostgresCheckpointStore, PostgresRequests, PostgresSessionStore):
         assert cls.durable is True
 
 

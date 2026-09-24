@@ -36,8 +36,8 @@ from support_agent import entrypoint as ep
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.contracts import EscalationState, Identity, ModelResponse
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -84,7 +84,7 @@ async def conversation(factory, *, said=None, turns: int = 3, step_s: int = MINU
     actor = ScriptedActor((said or ["I want to speak to a human", "any update?", "hello?"])[:turns])
 
     async with (
-        connect(project(world), ledger=InMemoryLedger()) as tools,
+        connect(project(world), requests=InMemoryRequests()) as tools,
         durable.escalations_for(clock=clock) as waits,
     ):
         desk = factory(waits.escalations, durable.resolving(waits.colleagues), **desk_kw)
@@ -270,7 +270,7 @@ async def test_a_frustrated_customer_is_never_escalated_today() -> None:
     )
 
     async with (
-        connect(project(world), ledger=InMemoryLedger()) as tools,
+        connect(project(world), requests=InMemoryRequests()) as tools,
         durable.escalations_for(clock=clock) as waits,
     ):
         desk = Desk.answers(waits.escalations, durable.resolving(waits.colleagues))
@@ -312,7 +312,7 @@ async def test_the_clock_drives_expiry_rather_than_a_rewritten_row() -> None:
     actor = ScriptedActor(["I want to speak to a human", "any update?", "anyone?"])
 
     async with (
-        connect(project(world), ledger=InMemoryLedger()) as tools,
+        connect(project(world), requests=InMemoryRequests()) as tools,
         durable.escalations_for(clock=ticking) as waits,
     ):
         desk = Desk.never_comes(waits.escalations, durable.resolving(waits.colleagues))

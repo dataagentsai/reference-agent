@@ -23,6 +23,7 @@ from support_agent.contracts.ids import (
     StoredSession,
 )
 from support_agent.contracts.model import ModelRequest, ModelResponse
+from support_agent.contracts.requests import CLAIM_TTL_S, Claim, Scope
 from support_agent.contracts.tools import Approval, ToolRegistry, ToolResult
 
 
@@ -92,25 +93,25 @@ class CheckpointStore(Protocol):
 
 
 @runtime_checkable
-class IdempotencyLedger(Protocol):
-    """The dedupe record at P6 — L10.
+class Requests(Protocol):
+    """The seam. Three calls, and the rule lives in the caller's choice between
+    the last two."""
 
-    Split from `CheckpointStore` deliberately. `state` and `idempotency` are
-    sibling modules that may not import each other, and a single protocol
-    spanning both would have forced one of them to depend on the other's
-    concerns. The architecture contract surfaced the design error; this is the
-    fix, not a workaround.
-    """
-
-    async def seen(self, key: IdempotencyKey) -> ToolResult | None:
-        """The result of a previous execution under this key, if any.
-
-        Present means the effect already happened. Returning the stored result
-        rather than re-executing is the difference between one refund and two.
-        """
+    async def claim(self, name: str, *, scope: Scope, ttl_s: int = CLAIM_TTL_S) -> Claim:
+        """Take the name, or refuse. Raises `AlreadyAnswered` where a definite
+        answer is stored, `StillRunning` where somebody unexpired holds it."""
         ...
 
-    async def record(self, key: IdempotencyKey, result: ToolResult) -> None: ...
+    async def settle(self, name: str, outcome: dict[str, object] | None = None) -> None:
+        """A definite answer. Stored, and the name is released — a later caller
+        under this name is repeating it and gets this back."""
+        ...
+
+    async def abandon(self, name: str) -> None:
+        """No definite answer. Nothing is stored and the name is free again, so
+        a retry may go out **under the same name** for the far end to recognise.
+        Storing a guess here is how one refund becomes two."""
+        ...
 
 
 @runtime_checkable

@@ -27,8 +27,8 @@ from pydantic import BaseModel
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.contracts import Identity, ModelMalformed, ModelUnavailable, SideEffectClass
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import _from_wire
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import META_SIDE_EFFECT, connect
 
 SYSTEM = "You are a support agent."
@@ -56,7 +56,7 @@ def server():
 
 
 def open_tools(server):
-    return connect(server, ledger=InMemoryLedger())
+    return connect(server, requests=InMemoryRequests())
 
 
 @pytest.fixture(autouse=True)

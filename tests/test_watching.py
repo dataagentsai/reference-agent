@@ -25,8 +25,8 @@ from support_agent import entrypoint as ep
 from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent.contracts import ModelResponse, ToolCall
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 from support_agent.watch import Watch, canary, record
@@ -47,7 +47,7 @@ def app_with(replies: list[ModelResponse], *, synthetic: frozenset[str] = frozen
 
     @asynccontextmanager
     async def make_agent():
-        async with connect(project(world), ledger=InMemoryLedger()) as tools:
+        async with connect(project(world), requests=InMemoryRequests()) as tools:
             yield ep.build(
                 llm=ScriptedClient(replies),
                 tools=tools,

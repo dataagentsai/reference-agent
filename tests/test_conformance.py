@@ -15,7 +15,7 @@ from support_agent import router
 from support_agent import telemetry as tel
 from support_agent.conformance import Obligation, Report, Verdict, load, load_elsewhere
 from support_agent.contracts import Identity, SideEffectClass, ToolResult, ToolSpec
-from support_agent.idempotency import InMemoryLedger
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import META_SIDE_EFFECT, connect
 
 
@@ -204,7 +204,7 @@ async def test_a_large_tool_result_is_bounded_before_it_enters_context(server) -
     who = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
     key = IdempotencyKey(run_id=RunId("run_b"), step=0, iteration=0)
 
-    async with connect(server, ledger=InMemoryLedger(), max_result_chars=1000) as tools:
+    async with connect(server, requests=InMemoryRequests(), max_result_chars=1000) as tools:
         result = await tools.call("get_history", {"order_id": "AB-1"}, who, key)
 
     assert result.truncated
@@ -261,7 +261,7 @@ async def test_what_enters_context_is_bounded_whatever_its_shape(
 
     who = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
     key = IdempotencyKey(run_id=RunId("run_b"), step=0, iteration=0)
-    tools = GatedTools(Answers(answered), ledger=InMemoryLedger(), max_result_chars=LIMIT)
+    tools = GatedTools(Answers(answered), requests=InMemoryRequests(), max_result_chars=LIMIT)
 
     result = await tools.call("t", {}, who, key)
     sent = result.for_context()

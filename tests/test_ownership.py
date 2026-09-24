@@ -17,8 +17,8 @@ from agenttwin import Live, load, project
 from support_agent import entrypoint as ep
 from support_agent import identity as ident
 from support_agent.contracts import Failed, IdempotencyKey, Identity, RunId
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -66,7 +66,7 @@ async def test_only_the_owner_reaches_the_order(
     world = Live.start(load(WORLD))
     before = world.snapshot()
     key = IdempotencyKey(run_id=RunId("r"), step=1, iteration=0)
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         result = await tools.call(operation, arguments, caller(customer_id), key)
         # What the owner is told about an order that does not exist at all.
         absent = await tools.call(operation, {**arguments, "id": "AB-00000"}, caller(OWNER), key)
@@ -87,7 +87,7 @@ async def test_a_stranger_asking_after_an_order_learns_nothing() -> None:
     """The deterministic route answers without the model — and so, until the
     order system checked, it answered anyone's question about anyone's order."""
     world = Live.start(load(WORLD))
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(llm=ScriptedClient([]), tools=tools, store=InMemoryCheckpointStore())
         result, _ = await agent.handle("where is my order AB-10003", identity=caller(STRANGER))
 

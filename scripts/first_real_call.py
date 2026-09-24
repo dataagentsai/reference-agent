@@ -32,7 +32,7 @@ from support_agent.cassette import Cassette, Player, Recorder
 from support_agent.config import Settings, resolve
 from support_agent.contracts import Identity, SideEffectClass
 from support_agent.cost import Meter
-from support_agent.idempotency import InMemoryLedger
+from support_agent.requests import InMemoryRequests
 from support_agent.llm import connect_model
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import META_SIDE_EFFECT, connect
@@ -77,7 +77,7 @@ async def main(replay: bool, record: bool = False) -> int:
 
     who: Identity = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
 
-    async with connect(build_server(), ledger=InMemoryLedger()) as tools:
+    async with connect(build_server(), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=llm,  # type: ignore[arg-type]
             tools=tools,

@@ -14,20 +14,18 @@ sees it. One idea, two positions, and the last test in this file pins that.
 from __future__ import annotations
 
 import asyncio
-import time
 from pathlib import Path
 
 import pytest
 from agenttwin import Live, load, omitted, project
-from evals import durable
 
 from support_agent import entrypoint as ep
 from support_agent import identity as ident
+from support_agent import requests as req
 from support_agent import telemetry as tel
-from support_agent import trigger as trg
 from support_agent.contracts import Identity, ModelResponse, ToolCall
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -63,12 +61,12 @@ def cancels(times: int = 4) -> ScriptedClient:
 
 @pytest.mark.discharges("AHC-0053", "AAC-0076")
 async def test_a_settled_delivery_is_refused() -> None:
-    log = trg.InMemoryDeliveryLog()
-    async with trg.once(log, "msg-1"):
+    log = req.InMemoryRequests()
+    async with req.once(log, "msg-1", scope=req.Scope.DELIVERY):
         pass
 
-    with pytest.raises(trg.DuplicateDelivery):
-        async with trg.once(log, "msg-1"):
+    with pytest.raises(req.AlreadyAnswered):
+        async with req.once(log, "msg-1", scope=req.Scope.DELIVERY):
             pass
 
 
@@ -76,10 +74,10 @@ async def test_a_settled_delivery_is_refused() -> None:
 async def test_an_in_flight_delivery_is_refused_differently() -> None:
     """Told apart from a duplicate because the operator response differs: a
     redelivery is routine, two concurrent turns for one conversation is a race."""
-    log = trg.InMemoryDeliveryLog()
-    async with trg.once(log, "msg-1"):
-        with pytest.raises(trg.OverlappingRun):
-            async with trg.once(log, "msg-1"):
+    log = req.InMemoryRequests()
+    async with req.once(log, "msg-1", scope=req.Scope.DELIVERY):
+        with pytest.raises(req.StillRunning):
+            async with req.once(log, "msg-1", scope=req.Scope.DELIVERY):
                 pass
 
 
@@ -87,33 +85,35 @@ async def test_an_in_flight_delivery_is_refused_differently() -> None:
 async def test_a_failed_delivery_still_settles() -> None:
     """A delivery that was tried and failed has still been delivered. Re-running
     it on redelivery would repeat whatever effects it managed before failing."""
-    log = trg.InMemoryDeliveryLog()
+    log = req.InMemoryRequests()
     with pytest.raises(RuntimeError):
-        async with trg.once(log, "msg-1"):
+        async with req.once(log, "msg-1", scope=req.Scope.DELIVERY):
             raise RuntimeError("the run blew up halfway")
 
-    assert await log.state_of("msg-1") is trg.State.SETTLED
-    with pytest.raises(trg.DuplicateDelivery):
-        async with trg.once(log, "msg-1"):
+    with pytest.raises(req.AlreadyAnswered):
+        await log.claim("msg-1", scope=req.Scope.DELIVERY)
+    with pytest.raises(req.AlreadyAnswered):
+        async with req.once(log, "msg-1", scope=req.Scope.DELIVERY):
             pass
 
 
 @pytest.mark.discharges("AHC-0053")
 async def test_different_deliveries_do_not_collide() -> None:
-    log = trg.InMemoryDeliveryLog()
+    log = req.InMemoryRequests()
     for n in range(3):
-        async with trg.once(log, f"msg-{n}"):
+        async with req.once(log, f"msg-{n}", scope=req.Scope.DELIVERY):
             pass
-    assert await log.state_of("msg-2") is trg.State.SETTLED
+    with pytest.raises(req.AlreadyAnswered):
+        await log.claim("msg-2", scope=req.Scope.DELIVERY)
 
 
 @pytest.mark.discharges("AHC-0053")
 async def test_an_unidentified_delivery_runs_unguarded() -> None:
     """`None` means the caller did not identify the delivery. Inventing an id
     here would produce a guard that can never fire and a green report with it."""
-    log = trg.InMemoryDeliveryLog()
+    log = req.InMemoryRequests()
     for _ in range(3):
-        async with trg.once(log, None):
+        async with req.once(log, None, scope=req.Scope.DELIVERY):
             pass
 
 
@@ -121,68 +121,19 @@ async def test_an_unidentified_delivery_runs_unguarded() -> None:
 def test_the_in_memory_log_says_it_is_not_durable() -> None:
     """It answers the obligation for one instance, not for a deployment, and it
     says so rather than letting a reader assume otherwise."""
-    assert trg.InMemoryDeliveryLog.durable is False
+    assert req.InMemoryRequests.durable is False
 
 
 # --------------------------------------------------------------------------- #
-# T-003: the same guard, across processes, with an expiry.
+# T-062: the claim across processes is a row with an expiry, not a workflow.
+#
+# It used to be a Temporal workflow whose timer released an abandoned claim, and
+# the timer was the whole argument for it being one. A row whose expiry is
+# checked *in the statement that takes the claim* needs no timer and no sweeper,
+# so the workflow went. Those semantics — held, answered, reclaimed after the
+# expiry — are `tests/test_requests.py`, at both scopes, and the durable
+# implementation is exercised in `tests/test_postgres.py`.
 # --------------------------------------------------------------------------- #
-
-# (why, what happened to the first claim before the second, how the second ends)
-CLAIMS = [
-    ("nothing yet — the first run still has it", "held", "OverlappingRun"),
-    ("it was handled", "settled", "DuplicateDelivery"),
-    ("the run that claimed it died and the claim expired", "abandoned", None),
-]
-
-
-@pytest.mark.parametrize(("why", "first", "refused"), CLAIMS, ids=[c[0] for c in CLAIMS])
-@pytest.mark.discharges("AAC-0076", "AHC-0053", "AHC-0102")
-async def test_a_durable_claim_is_shared_and_expires(
-    why: str, first: str, refused: str | None
-) -> None:
-    """The claim two processes share, and the expiry that keeps it honest.
-
-    A durable claim that never expired would be worse than none: `settle` runs
-    in a `finally`, which a killed process never reaches, so one crash would
-    silence that message for ever. Here the claim is a workflow with a timer,
-    and a second claim is refused only while the first is alive or finished.
-    """
-    moment = [int(time.time())]
-    async with durable.deliveries_for(clock=lambda: moment[0]) as (waits, log):
-        await log.claim("msg-1")
-        if first == "settled":
-            await log.settle("msg-1")
-        if first == "abandoned":
-            # Nobody settles. Time passes — and the claim's own timer releases it.
-            moment[0] += trg.CLAIM_TTL_S + 300
-            await waits.approvals.time.catch_up()
-
-        if refused is None:
-            again = await log.claim("msg-1")
-            assert again.state is trg.State.IN_FLIGHT, "claimable again, not wedged"
-            return
-        with pytest.raises(getattr(trg, refused)):
-            await log.claim("msg-1")
-
-
-@pytest.mark.discharges("AAC-0076")
-async def test_a_durable_claim_guards_a_turn_the_same_way() -> None:
-    """Through `once`, which is all the entrypoint knows about any of this."""
-    ran = []
-    async with durable.deliveries_for() as (_waits, log):
-        async with trg.once(log, "msg-2"):
-            ran.append("first")
-        with pytest.raises(trg.DuplicateDelivery):
-            async with trg.once(log, "msg-2"):
-                ran.append("second")
-
-    assert ran == ["first"], "a redelivery must not start a second run"
-
-
-@pytest.mark.discharges("AHC-0102")
-def test_the_durable_log_says_it_is_durable() -> None:
-    assert trg.TemporalDeliveries.durable is True
 
 
 # --------------------------------------------------------------------------- #
@@ -203,9 +154,9 @@ async def test_a_redelivered_message_does_not_cancel_twice() -> None:
     the two — R-006 from the outside.
     """
     world = Live.start(load(WORLD))
-    log = trg.InMemoryDeliveryLog()
+    log = req.InMemoryRequests()
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=cancels(),
             tools=tools,
@@ -213,7 +164,7 @@ async def test_a_redelivered_message_does_not_cancel_twice() -> None:
             deliveries=log,
         )
         await _turn(agent, world, f"cancel {PENDING}", "msg-7")
-        with pytest.raises(trg.DuplicateDelivery):
+        with pytest.raises(req.AlreadyAnswered):
             await _turn(agent, world, f"cancel {PENDING}", "msg-7")
 
     assert [e for e in world.effects if e[0] == "cancel_order"] == [("cancel_order", PENDING)]
@@ -233,12 +184,12 @@ async def test_without_a_delivery_id_the_second_run_acts_again() -> None:
     """
     world = Live.start(load(WORLD))
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=cancels(),
             tools=tools,
             store=InMemoryCheckpointStore(),
-            deliveries=trg.InMemoryDeliveryLog(),
+            deliveries=req.InMemoryRequests(),
         )
         await _turn(agent, world, f"cancel {PENDING}", None)
         await _turn(agent, world, f"cancel {PENDING}", None)
@@ -254,9 +205,9 @@ async def test_two_concurrent_deliveries_do_not_both_run() -> None:
     """A queue with at-least-once semantics — which is every queue worth using —
     can deliver the same message to two workers at the same moment."""
     world = Live.start(load(WORLD))
-    log = trg.InMemoryDeliveryLog()
+    log = req.InMemoryRequests()
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=cancels(), tools=tools, store=InMemoryCheckpointStore(), deliveries=log
         )
@@ -266,7 +217,7 @@ async def test_two_concurrent_deliveries_do_not_both_run() -> None:
             return_exceptions=True,
         )
 
-    refused = [o for o in outcomes if isinstance(o, trg.TriggerRefused)]
+    refused = [o for o in outcomes if isinstance(o, req.RequestRefused)]
     assert len(refused) == 1, f"exactly one should be refused, got {outcomes}"
     assert len([e for e in world.effects if e[0] == "cancel_order"]) == 1
 

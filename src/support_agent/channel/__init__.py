@@ -51,8 +51,8 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from support_agent import identity as ident
+from support_agent import requests as req
 from support_agent import telemetry as tel
-from support_agent import trigger as trg
 from support_agent.approvals import notify as ap_notify
 from support_agent.contracts import (
     Approval,
@@ -287,7 +287,7 @@ async def answer(channel: Channel, message: Incoming) -> None:
                 conversation=conversation,
                 delivery_id=f"chatwoot:{message.account}:{message.message}",
             )
-        except (trg.DuplicateDelivery, trg.OverlappingRun):
+        except req.RequestRefused:
             span.set_attribute("agent.channel.outcome", "duplicate")
             return
         span.set_attribute("agent.channel.outcome", type(result).__name__.lower())

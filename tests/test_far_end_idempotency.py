@@ -16,7 +16,7 @@ from mcp.client import Client
 
 from support_agent import identity as ident
 from support_agent.contracts import IdempotencyKey, Identity, RunId
-from support_agent.idempotency import InMemoryLedger
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import MCPTransport, connect
 
 WORLD = Path(__file__).parent.parent / "worlds" / "clothing.yaml"
@@ -77,7 +77,7 @@ async def test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system(
     """
     live = Live.start(load(WORLD))
     who = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES | {ident.SCOPE_REFUNDS_WRITE})
-    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live), requests=InMemoryRequests()) as tools:
         first = await tools.call("issue_refund", {"id": RETURNABLE}, who, key(0))
         second = await tools.call("issue_refund", {"id": RETURNABLE}, who, key(1))
 

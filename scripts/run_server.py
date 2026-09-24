@@ -52,13 +52,12 @@ from support_agent import identity as ident
 from support_agent import portal as ptl
 from support_agent import serve
 from support_agent import telemetry as tel
-from support_agent import trigger as trg
 from support_agent.config import RunConfig, Settings, resolve
 from support_agent.contracts import Approvals, Identity, LLMClient, ModelResponse, ToolClient
-from support_agent.idempotency import InMemoryLedger
 from support_agent.identity import APPROVER_SCOPES, REVIEWER_SCOPES, Exchange, sessions
 from support_agent.identity.sessions import KeycloakLogin, KeycloakRefresh, Resume
 from support_agent.llm import ScriptedClient, connect_model
+from support_agent.requests import InMemoryRequests
 from support_agent.resilience import ResilientLLM
 from support_agent.state import InMemoryCheckpointStore, InMemorySessionStore
 from support_agent.tools import connect
@@ -256,7 +255,7 @@ async def shop_running(
     end rather than a courtesy.
     """
     if not real_store:
-        async with connect(project(Live.start(load(WORLD))), ledger=InMemoryLedger()) as tools:
+        async with connect(project(Live.start(load(WORLD))), requests=InMemoryRequests()) as tools:
             print("  shop           the simulated clothing shop, projected from worlds/")
             yield tools, tools
         return
@@ -283,8 +282,10 @@ async def shop_running(
         approvals_party=_approvals_party(issuer),
     )
     async with (
-        connect(server, ledger=InMemoryLedger(), exchange=_exchange(issuer)) as tools,
-        connect(server, ledger=InMemoryLedger(), exchange=_worker_login(issuer)) as worker_tools,
+        connect(server, requests=InMemoryRequests(), exchange=_exchange(issuer)) as tools,
+        connect(
+            server, requests=InMemoryRequests(), exchange=_worker_login(issuer)
+        ) as worker_tools,
     ):
         print(f"  shop           Saleor at {url}  (seed it with deploy/saleor/seed.py)")
         yield tools, worker_tools
@@ -442,7 +443,7 @@ async def main(real: bool, port: int, store: bool = False) -> None:
             # measured in a deployment — the point is that the number comes from
             # somewhere rather than from the reply text.
             capacity=esc.Capacity(per_hour=12),
-            deliveries=trg.InMemoryDeliveryLog(),
+            deliveries=InMemoryRequests(),
             # The real model is priced, so its cost ceiling is live; the scripted
             # one is free and has nothing to meter.
             config=run_config,

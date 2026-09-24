@@ -34,8 +34,8 @@ from support_agent.contracts import (
     ToolCall,
     Usage,
 )
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import META_SIDE_EFFECT, connect
 
 
@@ -272,7 +272,7 @@ async def test_a_whole_run_replays_from_disk_with_no_network(server, tmp_path) -
     )
     recorder = Recorder(scripted)
 
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         live_result, live_trace = await agent_loop.run(
             "where is AB-1",
             identity=customer(),
@@ -286,7 +286,7 @@ async def test_a_whole_run_replays_from_disk_with_no_network(server, tmp_path) -
     recorder.cassette.save(path)
 
     player = Player(Cassette.load(path))
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         replayed_result, replayed_trace = await agent_loop.run(
             "where is AB-1",
             identity=customer(),

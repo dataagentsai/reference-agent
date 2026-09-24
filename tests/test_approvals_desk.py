@@ -32,7 +32,7 @@ from support_agent import identity as ident
 from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent.contracts import ApprovalState, IdempotencyKey, Identity, RunId
-from support_agent.idempotency import InMemoryLedger
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import connect
 
 ISSUER = issuing.issuer()
@@ -61,7 +61,7 @@ async def desk_open(*, wired: bool = True):
     """The desk, mounted under the application that serves `/chat`."""
     world = Live.start(load(WORLD))
     async with (
-        connect(project(world), ledger=InMemoryLedger()) as tools,
+        connect(project(world), requests=InMemoryRequests()) as tools,
         durable.approvals_for(tools, acting_for=acting_for) as waits,
     ):
         app = serve.build(

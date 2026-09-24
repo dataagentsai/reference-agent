@@ -20,12 +20,12 @@ from jwt.algorithms import RSAAlgorithm
 from starlette.testclient import TestClient
 
 from support_agent import entrypoint as ep
+from support_agent import requests as req
 from support_agent import serve
 from support_agent import telemetry as tel
-from support_agent import trigger as trg
 from support_agent.contracts import ModelResponse
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -56,12 +56,12 @@ def client():
 
     @asynccontextmanager
     async def make_agent():
-        async with connect(project(world), ledger=InMemoryLedger()) as tools:
+        async with connect(project(world), requests=InMemoryRequests()) as tools:
             yield ep.build(
                 llm=ScriptedClient([ModelResponse(text="Thanks — looking now.")] * 60),
                 tools=tools,
                 store=store,
-                deliveries=trg.InMemoryDeliveryLog(),
+                deliveries=req.InMemoryRequests(),
             )
 
     with TestClient(serve.build(make_agent, issuer=ISSUER)) as c:

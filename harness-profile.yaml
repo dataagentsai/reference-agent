@@ -173,7 +173,7 @@ bindings:
   channel:      { approach: open-source, adapter: chatwoot-agent-bot, x_could_be: [platform], x_note: "T-026: signed webhook, HMAC-verified contact, a live stored login resumed per turn; handoff with the facts as a private note" }
   config:       { approach: open-source, adapter: typed-settings, x_could_be: [cloud-native] }
   recorder:     { approach: in-house,    adapter: json-cassettes, x_could_be: [open-source] }
-  trigger:      { approach: in-house,    adapter: delivery-log, x_could_be: [cloud-native] }
+  trigger:      { approach: in-house,    adapter: requests-store, x_could_be: [cloud-native] }
   eval_task:    { approach: in-house,    adapter: scenario-runner, x_could_be: [platform, open-source] }
 
 # ------------------------------------------------------------ accepted gaps

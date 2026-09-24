@@ -21,8 +21,8 @@ from support_agent.contracts import (
     Usage,
 )
 from support_agent.cost import PRICES, Meter, Price, UnknownPrice, cost_of, price_of
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import META_SIDE_EFFECT, connect
 
 MODEL = "openai/gpt-oss-120b"
@@ -171,7 +171,7 @@ def test_cost_per_successful_task(name: str, successes: int, expected: Decimal |
 @pytest.mark.discharges("AAC-0093", "AHC-0030", "AHC-0041")
 async def test_the_ceiling_stops_the_run(server) -> None:
     meter = Meter(MODEL, ceiling_usd="0.60")
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         _, trace = await agent_loop.run(
             "expensive",
             identity=customer(),
@@ -188,7 +188,7 @@ async def test_the_ceiling_stops_the_run(server) -> None:
 @pytest.mark.discharges("AHC-0030")
 async def test_a_run_inside_its_budget_is_untouched(server) -> None:
     meter = Meter(MODEL, ceiling_usd="100.00")
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         _, trace = await agent_loop.run(
             "cheap",
             identity=customer(),
@@ -206,7 +206,7 @@ async def test_a_single_call_may_overshoot_the_ceiling(server) -> None:
     """Stated rather than hidden. The ceiling is checked between calls because
     you cannot un-spend one; `max_output_tokens` is the per-call backstop."""
     meter = Meter(MODEL, ceiling_usd="0.01")
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         _, trace = await agent_loop.run(
             "one expensive call",
             identity=customer(),
@@ -223,7 +223,7 @@ async def test_a_single_call_may_overshoot_the_ceiling(server) -> None:
 async def test_spend_and_tenant_are_on_the_trace(server, exporter) -> None:
     """AAC-0104 — spend attributable to tenant, feature and route."""
     meter = Meter(MODEL, ceiling_usd="100.00")
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         await agent_loop.run(
             "anything",
             identity=customer(),
@@ -273,8 +273,8 @@ async def test_the_cost_ceiling_is_reachable_from_the_entrypoint(
     from support_agent import identity as ident
     from support_agent.config import Settings, resolve
     from support_agent.contracts import Identity, ModelResponse, ToolCall
-    from support_agent.idempotency import InMemoryLedger
     from support_agent.llm import ScriptedClient
+    from support_agent.requests import InMemoryRequests
     from support_agent.state import InMemoryCheckpointStore
     from support_agent.tools import connect
 
@@ -294,7 +294,7 @@ async def test_the_cost_ceiling_is_reachable_from_the_entrypoint(
     config = resolve(
         Settings(provider_api_key="k", resolution="mock", sealed=True, max_cost_usd=ceiling)
     )
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient(script), tools=tools, store=InMemoryCheckpointStore(), config=config
         )

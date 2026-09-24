@@ -43,9 +43,9 @@ from support_agent.contracts import (
     RunId,
     StoredSession,
 )
-from support_agent.idempotency import InMemoryLedger
 from support_agent.identity import sessions
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore, InMemorySessionStore
 from support_agent.tools import connect
 
@@ -151,7 +151,7 @@ def app(issuer: ident.Issuer):
 
     @asynccontextmanager
     async def make_agent():
-        async with connect(project(world), ledger=InMemoryLedger()) as tools:
+        async with connect(project(world), requests=InMemoryRequests()) as tools:
             yield ep.build(
                 llm=ScriptedClient([ModelResponse(text="Looking now.")] * 20),
                 tools=tools,
@@ -241,7 +241,7 @@ async def test_the_far_end_serves_the_realms_customer_and_nobody_else(
     )
     server = project(world, scopes=SCOPES, authorise=check)
     key = IdempotencyKey(run_id=RunId("run_kc"), step=1, iteration=0)
-    async with connect(server, ledger=InMemoryLedger(), exchange=exchange()) as tools:
+    async with connect(server, requests=InMemoryRequests(), exchange=exchange()) as tools:
         result = await tools.call("get_order", {"id": "AB-10003"}, customer(user, issuer), key)
     assert (not result.is_error) is served, result.text
 
@@ -328,7 +328,7 @@ async def test_a_refund_lands_on_the_realms_service_login_only_through_an_approv
         scopes=ident.CUSTOMER_SCOPES | {ident.SCOPE_REFUNDS_WRITE},
         grant=approval.id if named else None,
     )
-    async with connect(server, ledger=InMemoryLedger(), exchange=service_login()) as tools:
+    async with connect(server, requests=InMemoryRequests(), exchange=service_login()) as tools:
         result = await tools.call("issue_refund", {"id": "AB-10003"}, acting, key)
 
     assert (not result.is_error) is lands, result.text

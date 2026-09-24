@@ -22,7 +22,7 @@ from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.binding import SCOPES
 from support_agent.contracts import Approval, IdempotencyKey, Identity, RunId
-from support_agent.idempotency import InMemoryLedger
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import connect
 
 WORLD = Path(__file__).parent.parent / "worlds" / "clothing.yaml"
@@ -67,7 +67,7 @@ async def call(
         approvals_party=approvals_party,
     )
     server = project(world, scopes=SCOPES, authorise=check)
-    async with connect(server, ledger=InMemoryLedger(), exchange=exchange) as tools:
+    async with connect(server, requests=InMemoryRequests(), exchange=exchange) as tools:
         result = await tools.call(operation, arguments, caller, KEY)
     return result, world
 

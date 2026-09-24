@@ -32,14 +32,28 @@ CREATE TABLE IF NOT EXISTS agent_state.checkpoints (
 CREATE INDEX IF NOT EXISTS checkpoints_conversation
     ON agent_state.checkpoints (conversation_id, updated_at DESC);
 
-CREATE TABLE IF NOT EXISTS agent_state.idempotency (
-    key         text PRIMARY KEY,
-    result      jsonb       NOT NULL,
+-- One name, one outcome — T-062. This replaced two stores that answered the
+-- same question with opposite rules: a delivery claim that settled on failure,
+-- and an idempotency ledger that did not record one. `scope` is what used to be
+-- the difference between them, and it is a column rather than a table because
+-- the rule does not change between a message and a tool call.
+CREATE TABLE IF NOT EXISTS agent_state.requests (
+    name        text PRIMARY KEY,
+    scope       text        NOT NULL,
+    state       text        NOT NULL,     -- in_flight | answered
+    outcome     jsonb,                    -- the answer, and only when definite
+    expires_at  timestamptz,              -- while held; NULL once answered
     recorded_at timestamptz NOT NULL DEFAULT now()
 );
--- PRIMARY KEY is the whole mechanism. The ledger is correct because the
--- database refuses a second row for the same key, not because the application
+-- PRIMARY KEY is the whole mechanism. The store is correct because the database
+-- refuses a second row for the same name, not because the application
 -- remembered to check first — two processes racing on a retry both lose.
+--
+-- `expires_at` is why this needs no sweeper. `finally` does not run for a
+-- killed process, so a claim can be left held for ever; it is reclaimed by the
+-- next caller finding it stale, in the same statement that takes it.
+
+DROP TABLE IF EXISTS agent_state.idempotency;
 
 -- Approvals lived here until T-028. They are Temporal workflows now: the wait,
 -- the decision and the record are the workflow's history, and nothing the agent

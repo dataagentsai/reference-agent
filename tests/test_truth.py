@@ -17,8 +17,8 @@ from support_agent import entrypoint as ep
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.contracts import Identity, ModelResponse
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -42,7 +42,7 @@ def who() -> Identity:
 async def ask(world: Live, question: str, reply: str, predicates: dict):
     """One question, one scripted reply, judged by whatever predicates are given."""
     scenario = Scenario(name="a question about an order", max_turns=1, predicates=predicates)
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([ModelResponse(text=reply)]),
             tools=tools,

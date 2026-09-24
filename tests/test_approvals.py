@@ -20,8 +20,8 @@ from support_agent import approvals as ap
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.contracts import IdempotencyKey, Identity, RunId, SideEffectClass
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import META_REQUIRED_SCOPE, META_SIDE_EFFECT, connect
 
 T0 = int(time.time())
@@ -232,7 +232,7 @@ def server():
 @pytest.mark.discharges("AAC-0056", "AHC-0057")
 async def test_a_large_refund_cannot_be_issued_before_it_is_granted(server) -> None:
     """The customer's own surface does not contain the tool at all."""
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         registry = await tools.list_tools(customer())
     assert registry.get("issue_refund") is None
     assert server.state["refunds"] == 0
@@ -271,7 +271,7 @@ async def test_a_decision_is_acted_on_by_the_workflow(
     given and under the key it was requested with (T-028)."""
     moment = [T0]
     async with (
-        connect(server, ledger=InMemoryLedger()) as tools,
+        connect(server, requests=InMemoryRequests()) as tools,
         durable.approvals_for(tools, clock=lambda: moment[0]) as waits,
     ):
         approval = await ask(waits.approvals)
@@ -306,7 +306,7 @@ async def test_an_approval_expires_on_the_workflows_clock(
 ) -> None:
     moment = [T0]
     async with (
-        connect(server, ledger=InMemoryLedger()) as tools,
+        connect(server, requests=InMemoryRequests()) as tools,
         durable.approvals_for(tools, clock=lambda: moment[0]) as waits,
     ):
         approval = await ask(waits.approvals)
@@ -327,12 +327,12 @@ async def test_a_restart_during_an_hour_long_approval_resumes_it(server) -> None
     running when the colleague grants it, and the refund is issued once."""
     moment = [T0]
     async with durable.server(clock=lambda: moment[0]) as waits:
-        async with connect(server, ledger=InMemoryLedger()) as tools, waits.worker(tools):
+        async with connect(server, requests=InMemoryRequests()) as tools, waits.worker(tools):
             approval = await ask(waits.approvals)
         assert server.state["refunds"] == 0
 
         moment[0] = T0 + HOUR
-        async with connect(server, ledger=InMemoryLedger()) as tools, waits.worker(tools):
+        async with connect(server, requests=InMemoryRequests()) as tools, waits.worker(tools):
             done = await waits.desk.decide(approval.id, granted=True, by="ops-7", now=moment[0])
 
     assert done.state is ap.ApprovalState.DONE
@@ -343,7 +343,7 @@ async def test_a_restart_during_an_hour_long_approval_resumes_it(server) -> None
 async def test_the_queue_shows_only_what_waits_for_a_person(server) -> None:
     """P8 — the surface a reviewer sees. A small owed refund never reaches it."""
     async with (
-        connect(server, ledger=InMemoryLedger()) as tools,
+        connect(server, requests=InMemoryRequests()) as tools,
         durable.approvals_for(tools) as waits,
     ):
         first = await ask(waits.approvals, "AB-201")
@@ -357,7 +357,7 @@ async def test_the_queue_shows_only_what_waits_for_a_person(server) -> None:
 @pytest.mark.discharges("AHC-0018")
 async def test_the_decision_is_on_the_trace(server, exporter) -> None:
     async with (
-        connect(server, ledger=InMemoryLedger()) as tools,
+        connect(server, requests=InMemoryRequests()) as tools,
         durable.approvals_for(tools) as waits,
     ):
         approval = await ask(waits.approvals)
@@ -435,7 +435,7 @@ async def test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it(
 
     moment = [T0]
     async with (
-        connect(server, ledger=InMemoryLedger()) as tools,
+        connect(server, requests=InMemoryRequests()) as tools,
         durable.approvals_for(tools, clock=lambda: moment[0]) as waits,
     ):
         agent = refund_agent(
@@ -472,7 +472,7 @@ async def test_an_agent_without_approvals_cannot_refund_at_all(server) -> None:
     from support_agent import entrypoint as ep
     from support_agent.state import InMemoryCheckpointStore
 
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([wants_refund(), _says()]),
             tools=tools,
@@ -552,7 +552,7 @@ async def test_a_refund_is_for_the_orders_total_and_the_gate_reads_it(
     from support_agent.contracts import ModelResponse
 
     async with (
-        connect(server, ledger=InMemoryLedger()) as tools,
+        connect(server, requests=InMemoryRequests()) as tools,
         durable.approvals_for(tools) as waits,
     ):
         approvals = Recording(waits.approvals)

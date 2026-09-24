@@ -27,7 +27,7 @@ from temporalio.client import Client
 from support_agent import approvals as ap
 from support_agent import identity as ident
 from support_agent.contracts import ApprovalState, IdempotencyKey, Identity, RunId, SideEffectClass
-from support_agent.idempotency import InMemoryLedger
+from support_agent.requests import InMemoryRequests
 from support_agent.tools import META_REQUIRED_SCOPE, META_SIDE_EFFECT, connect
 
 ADDRESS = os.environ.get("AGENT_TEMPORAL_ADDRESS", "localhost:7233")
@@ -114,7 +114,7 @@ async def test_an_approval_survives_the_server_it_is_waiting_in() -> None:
     key = IdempotencyKey(run_id=RunId(f"run_live_{int(time.time())}"), step=0, iteration=0)
     connected = await client()
 
-    async with connect(server, ledger=InMemoryLedger()) as tools:
+    async with connect(server, requests=InMemoryRequests()) as tools:
         work = ap.RefundWork(tools, acting_for=acting_for)
         activities = [work.assess, work.carry_out]
         approvals = ap.TemporalApprovals(connected, task_queue=queue)

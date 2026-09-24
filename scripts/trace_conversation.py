@@ -14,12 +14,12 @@ stores gained a row, and whether the world moved.
 
 Printed together, per turn, because the interesting questions are the ones that
 span both. Why does turn 4 add nothing anywhere? Because it stopped at
-`deliveries.claim`. Why does turn 7 write a ledger row without calling the
+`deliveries.claim`. Why does turn 7 write a requests row without calling the
 model? Because the decision was made two turns earlier and only the effect was
 outstanding.
 
 Everything below is the real system: a real MCP server projected from
-`worlds/clothing.yaml`, the real router, loop, ledger, approvals and policy. Only
+`worlds/clothing.yaml`, the real router, loop, requests, approvals and policy. Only
 the model is scripted, so the run is free and identical every time.
 """
 
@@ -47,13 +47,13 @@ from support_agent import policy as pol
 from support_agent import router
 from support_agent import telemetry as tel
 from support_agent import tools as toolmod
-from support_agent import trigger as trg
+from support_agent import requests as req
 from support_agent.approvals import refund as refund_mod
 from support_agent.approvals import workflow as approval_workflow
 from support_agent.contracts import Identity, ModelResponse, ToolCall
 from support_agent.entrypoint import direct
 from support_agent.entrypoint import pending as pending_mod
-from support_agent.idempotency import InMemoryLedger
+from support_agent.requests import InMemoryRequests
 from support_agent.llm import ScriptedClient
 from support_agent.state import InMemoryCheckpointStore
 
@@ -127,8 +127,8 @@ TURNS = [
 async def main() -> None:
     exporter = tel.configure()
     world = Live.start(load(WORLD))
-    store, ledger = InMemoryCheckpointStore(), InMemoryLedger()
-    deliveries = trg.InMemoryDeliveryLog()
+    store, named = InMemoryCheckpointStore(), InMemoryRequests()
+    deliveries = req.InMemoryRequests()
     who = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
 
     llm = ScriptedClient(
@@ -142,7 +142,7 @@ async def main() -> None:
     )
 
     async with (
-        toolmod.connect(project(world), ledger=ledger) as tools,
+        toolmod.connect(project(world), requests=named) as tools,
         # The approval is a Temporal workflow (T-028), here on the test server.
         durable.approvals_for(tools) as waits,
     ):
@@ -152,7 +152,7 @@ async def main() -> None:
         )
 
         watch(agent, "handle", "entrypoint.handle", "the door")
-        watch(trg, "once", "trigger.once", "have we seen this message?")
+        watch(req, "once", "requests.once", "have we seen this name?")
         watch(deliveries, "claim", "deliveries.claim")
         watch(agent, "_turn", "entrypoint._turn", "mint a run id")
         # Watched where each name is looked up at call time — a module that
@@ -165,9 +165,9 @@ async def main() -> None:
         watch(llm, "complete", "llm.complete", "ask the model")
         watch(tools, "list_tools", "tools.list_tools", "filtered by this identity")
         watch(tools, "call", "tools.call", "run one tool")
-        watch(ledger, "seen", "ledger.seen", "have we done this exact action?")
+        watch(named, "claim", "requests.claim", "have we done this exact action?")
         watch(tools._transport, "invoke", "transport.invoke", "over MCP")
-        watch(ledger, "record", "ledger.record", "write the action down")
+        watch(named, "settle", "requests.settle", "write the answer down")
         watch(pol, "enforce", "policy.enforce", "screen the reply before it is sent")
         watch(approvals, "request", "approvals.request", "raise it for a person")
         watch(refund_mod.RefundWork, "carry_out", "approvals.carry_out", "the workflow refunds")
@@ -204,7 +204,7 @@ async def main() -> None:
                 )
                 reply = getattr(result, "reply", "") or getattr(result, "customer_message", "")
                 outcome = type(result).__name__
-            except trg.TriggerRefused as refused:
+            except req.RequestRefused as refused:
                 reply, outcome = "", type(refused).__name__
 
             print("  WHAT RAN")
@@ -213,7 +213,7 @@ async def main() -> None:
             print(f'\n  REPLY  [{outcome}]\n    "{reply}"' if reply else f"\n  [{outcome}]")
 
             ON[0] = False
-            await state(conversation, ledger, approvals, deliveries, world)
+            await state(conversation, named, approvals, deliveries, world)
             ON[0] = True
 
         print(f"\n{'═' * 76}\nCOST OF THE WHOLE CONVERSATION\n{'─' * 76}")
@@ -229,7 +229,7 @@ async def main() -> None:
         )
 
 
-async def state(conversation, ledger, approvals, deliveries, world) -> None:
+async def state(conversation, named, approvals, deliveries, world) -> None:
     print("\n  WHAT CHANGED")
     if conversation is None:
         print("    conversation   (not started)")
@@ -239,10 +239,10 @@ async def state(conversation, ledger, approvals, deliveries, world) -> None:
             f"{len(conversation.messages)} messages  "
             f"pending_approval={conversation.pending_approval_id}"
         )
-    entries = ledger._entries
-    print(f"    ledger         {len(entries)} action(s) recorded")
-    for key, value in entries.items():
-        print(f"                     {key}  ->  {value.name}")
+    print(f"    requests       {len(named)} action(s) answered")
+    for name, row in sorted(named._rows.items()):
+        if row.outcome is not None:
+            print(f"                     {name}  ->  {row.outcome.get('name', '')}")
     # Read, never listed from inside: the approvals are a workflow's, and what
     # this process holds is a handle that can ask and look (T-028).
     raised = [await approvals.get(i) for i in RAISED]
@@ -252,7 +252,7 @@ async def state(conversation, ledger, approvals, deliveries, world) -> None:
             f"                     {a.id}  {a.action} {a.args.get('amount')}  "
             f"{a.state.value}  by={a.decided_by}  key={a.idempotency_key}"
         )
-    print(f"    deliveries     {sorted(deliveries._seen)}")
+    print(f"    deliveries     {sorted(deliveries._rows)}")
     print(f"    world          {world.effects or '(nothing has changed)'}")
 
 

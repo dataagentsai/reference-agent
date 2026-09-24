@@ -20,8 +20,8 @@ from support_agent import telemetry as tel
 from support_agent.binding import SCOPES
 from support_agent.contracts import Identity, Message, ModelResponse, ToolCall, Usage
 from support_agent.entrypoint import consent
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import Conversation, InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -146,7 +146,7 @@ async def test_a_paraphrase_is_confirmed_before_anything_changes() -> None:
             says("AB-10002 is cancelled."),
         ]
     )
-    async with connect(project(live, scopes=SCOPES), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live, scopes=SCOPES), requests=InMemoryRequests()) as tools:
         agent = ep.build(llm=script, tools=tools, store=InMemoryCheckpointStore())
         first, record = await agent.handle("I don't want AB-10002 any more", identity=who)
         assert live.rows["order"]["AB-10002"]["status"] == "pending", "nothing before the yes"

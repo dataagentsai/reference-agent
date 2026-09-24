@@ -17,8 +17,8 @@ from evals import durable
 from support_agent import entrypoint as ep
 from support_agent import identity as ident
 from support_agent.contracts import Identity, ModelResponse, ToolCall, Usage
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.state.facts import Facts
 from support_agent.tools import connect
@@ -122,7 +122,7 @@ async def test_the_record_is_written_from_what_happened_not_what_was_said() -> N
         text="I have cancelled AB-99999 for you.", usage=Usage(input_tokens=5, output_tokens=2)
     )
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([act, claim, claim]),
             tools=tools,
@@ -141,7 +141,7 @@ async def test_the_colleague_is_handed_the_record_not_the_transcript() -> None:
     everything is the moment an assistant becomes worse than no assistant."""
     world = Live.start(load(WORLD))
     escalations = durable.RememberedEscalations()
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([]),
             tools=tools,
@@ -165,7 +165,7 @@ async def test_a_pending_approval_is_in_the_record_before_anybody_reads_it() -> 
         tool_calls=(ToolCall(id="c1", name="request_refund", arguments={"order_id": "AB-10003"}),),
         usage=Usage(input_tokens=5, output_tokens=2),
     )
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([plan]),
             tools=tools,

@@ -30,8 +30,8 @@ from support_agent import serve
 from support_agent import telemetry as tel
 from support_agent.contracts import ModelResponse, ToolCall
 from support_agent.cost import PRICES
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -98,7 +98,7 @@ async def test_a_turn_is_a_findable_priced_trace_in_langfuse(reachable: None) ->
         ]
     )
     live = Live.start(load(WORLD))
-    async with connect(project(live), ledger=InMemoryLedger()) as tools:
+    async with connect(project(live), requests=InMemoryRequests()) as tools:
         agent = ep.build(llm=script, tools=tools, store=InMemoryCheckpointStore())
         app = serve.build(agent, issuer=issuing.issuer())
         async with httpx.AsyncClient(

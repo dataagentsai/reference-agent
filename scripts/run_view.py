@@ -63,7 +63,7 @@ from support_agent import router  # noqa: E402
 from support_agent.binding import SCOPES  # noqa: E402
 from support_agent.config import Settings, resolve  # noqa: E402
 from support_agent.contracts import Identity  # noqa: E402
-from support_agent.idempotency import InMemoryLedger  # noqa: E402
+from support_agent.requests import InMemoryRequests  # noqa: E402
 from support_agent.llm import connect_model  # noqa: E402
 from support_agent.resilience import ResilientLLM  # noqa: E402
 from support_agent.state import InMemoryCheckpointStore  # noqa: E402
@@ -331,7 +331,7 @@ async def capture(name: str, live_model: bool) -> Run:
         return watch(tool, faults(tool, handler))
 
     async with (
-        connect(project(world, scopes=SCOPES, wrap=wrap), ledger=InMemoryLedger()) as tools,
+        connect(project(world, scopes=SCOPES, wrap=wrap), requests=InMemoryRequests()) as tools,
         durable.approvals_for(tools, clock=clock) as waits,
     ):
         approvals = WatchedApprovals(waits.approvals, run)

@@ -30,8 +30,8 @@ from support_agent.contracts import (
     ToolCall,
     Usage,
 )
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient, UnavailableClient
+from support_agent.requests import InMemoryRequests
 from support_agent.state import Conversation, FileCheckpointStore, InMemoryCheckpointStore
 from support_agent.tools import META_SIDE_EFFECT, connect
 
@@ -64,7 +64,7 @@ def server():
 
 
 def open_tools(server):
-    return connect(server, ledger=InMemoryLedger())
+    return connect(server, requests=InMemoryRequests())
 
 
 def says(text: str) -> ModelResponse:

@@ -29,9 +29,9 @@ from support_agent.contracts import (
     ToolSpec,
     Usage,
 )
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
 from support_agent.loop import freshness
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -247,7 +247,7 @@ async def test_a_cancellation_planned_on_an_old_read_reads_again_first() -> None
         text="That order is cancelled.", usage=Usage(input_tokens=5, output_tokens=2)
     )
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient([look, act, done, done]),
             tools=tools,
@@ -297,7 +297,7 @@ async def test_the_row_is_read_again_before_the_action_lands() -> None:
     )
     done = ModelResponse(text="Done.", usage=Usage(input_tokens=5, output_tokens=2))
 
-    async with connect(project(world, wrap=watch), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world, wrap=watch), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=Slow(clock, [look, act, act, done, done]),
             tools=tools,
@@ -354,7 +354,7 @@ async def test_a_row_that_moved_underneath_the_run_stops_the_action() -> None:
                 world.rows["order"][PENDING]["status"] = "shipped"
             return await self.inner.complete(request)
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=Warehouse(),
             tools=tools,

@@ -39,9 +39,9 @@ from support_agent.contracts import (
     ToolCall,
     ToolResult,
 )
-from support_agent.idempotency import InMemoryLedger
 from support_agent.llm import ScriptedClient
 from support_agent.loop import plan
+from support_agent.requests import InMemoryRequests
 from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 
@@ -95,7 +95,7 @@ async def test_no_arbitrary_order_id_can_crash_or_change_the_world(order_id: str
     world = live()
     before = world.snapshot()
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         result = await tools.call("cancel_order", {"id": order_id}, who(), key())
 
     assert isinstance(result, ToolResult)
@@ -139,7 +139,7 @@ async def test_an_execution_channel_fault_is_survivable() -> None:
     timeline = Timeline(ChannelError(tool="cancel_order", channel="execution"))
 
     async with connect(
-        project(world, wrap=perturbed(world, timeline)), ledger=InMemoryLedger()
+        project(world, wrap=perturbed(world, timeline)), requests=InMemoryRequests()
     ) as tools:
         result, _ = await agent_for(
             tools,
@@ -160,7 +160,7 @@ async def test_a_protocol_channel_fault_is_survivable() -> None:
     timeline = Timeline(ChannelError(tool="cancel_order", channel="protocol"))
 
     async with connect(
-        project(world, wrap=perturbed(world, timeline)), ledger=InMemoryLedger()
+        project(world, wrap=perturbed(world, timeline)), requests=InMemoryRequests()
     ) as tools:
         result, _ = await agent_for(
             tools,
@@ -180,7 +180,7 @@ async def test_a_scenario_whose_fault_never_fired_is_reported() -> None:
     timeline = Timeline(ChannelError(tool="never_called", channel="execution"))
 
     async with connect(
-        project(world, wrap=perturbed(world, timeline)), ledger=InMemoryLedger()
+        project(world, wrap=perturbed(world, timeline)), requests=InMemoryRequests()
     ) as tools:
         await tools.call("get_order", {"id": PENDING}, who(), key())
 
@@ -198,7 +198,7 @@ async def test_the_world_re_checks_under_a_stale_read() -> None:
     timeline = Timeline(StaleRead(tool="get_order", key=PENDING, sets={"status": "shipped"}))
 
     async with connect(
-        project(world, wrap=perturbed(world, timeline)), ledger=InMemoryLedger()
+        project(world, wrap=perturbed(world, timeline)), requests=InMemoryRequests()
     ) as tools:
         read = await tools.call("get_order", {"id": PENDING}, who(), key(0))
         write = await tools.call("cancel_order", {"id": PENDING}, who(), key(1))
@@ -213,7 +213,7 @@ async def test_a_slow_call_still_completes() -> None:
     world = live()
     timeline = Timeline(Slow(tool="get_order", seconds=0.02))
     async with connect(
-        project(world, wrap=perturbed(world, timeline)), ledger=InMemoryLedger()
+        project(world, wrap=perturbed(world, timeline)), requests=InMemoryRequests()
     ) as tools:
         result = await tools.call("get_order", {"id": PENDING}, who(), key())
     assert result.structured["status"] == "pending"
@@ -230,7 +230,7 @@ async def test_an_instruction_planted_in_an_order_note_arrives_fenced() -> None:
     """The injection path that survives every input filter, because the hostile
     text never passed through the input."""
     world = live()
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         result = await tools.call("get_order", {"id": HOSTILE}, who(), key())
 
     assert "SYSTEM OVERRIDE" in str(result.structured["note"])
@@ -246,7 +246,7 @@ async def test_a_planted_instruction_cannot_reach_an_unscoped_tool() -> None:
     world = live()
     before = world.snapshot()
 
-    async with connect(project(world, scopes=SCOPES), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world, scopes=SCOPES), requests=InMemoryRequests()) as tools:
         result, _ = await agent_for(
             tools,
             calls("get_order", id=HOSTILE),
@@ -273,7 +273,7 @@ async def test_a_planted_instruction_to_refund_reaches_nobody() -> None:
     world = live()
     before = world.snapshot()
     approvals = durable.Remembered()
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         agent = ep.build(
             llm=ScriptedClient(
                 [
@@ -298,7 +298,7 @@ async def test_a_planted_instruction_cannot_bypass_the_eligibility_rule() -> Non
     """Suppose the model obeys the note completely. The order is `shipped`, so
     the world refuses regardless of what anybody believes."""
     world = live()
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         result = await tools.call(
             "cancel_order", {"id": HOSTILE}, who({ident.SCOPE_REFUNDS_WRITE}), key()
         )
@@ -323,7 +323,7 @@ async def test_a_false_cancellation_claim_does_not_reach_the_customer() -> None:
     world = live()
     before = world.snapshot()
 
-    async with connect(project(world), ledger=InMemoryLedger()) as tools:
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
         result, _ = await agent_for(
             tools,
             calls("cancel_order", id=SHIPPED),
@@ -345,7 +345,7 @@ async def test_a_stale_read_cannot_become_a_false_confirmation() -> None:
     timeline = Timeline(StaleRead(tool="get_order", key=PENDING, sets={"status": "shipped"}))
 
     async with connect(
-        project(world, wrap=perturbed(world, timeline)), ledger=InMemoryLedger()
+        project(world, wrap=perturbed(world, timeline)), requests=InMemoryRequests()
     ) as tools:
         result, _ = await agent_for(
             tools,
