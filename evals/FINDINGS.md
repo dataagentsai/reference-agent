@@ -1954,3 +1954,37 @@ version of the row an approval was raised against, carried through the wait and
 checked when the effect lands. A time window cannot help — the hour is the
 normal case, not the exceptional one. Related to AAC-0113, whose second half is
 about the caller holding what the far end cannot.
+
+## F-055 · A decision records who made it, never what they were allowed to do
+
+**Found** 2026-09-24, testing the four-store design against the invoice
+reconciliation shape — a run that waits days rather than seconds. The shape made
+it visible; the gap is here.
+
+Three controls stand between a person and a refund, and all three run at the
+moment of the decision:
+
+    the HTTP guard        approvals:decide, or the route refuses
+    the workflow rule     not already decided, not expired, not the customer
+    the far end           decided_by is set, and is not the customer
+
+None of them runs again when the effect lands, and none of them records what
+authority the approver held. So `decided_by: "desk-1"` survives the loss of the
+role that made it meaningful. An approver whose `approver` role is revoked — who
+changed teams, or left — has their past decisions carried out with nothing
+noticing, because the record says who decided and the check asks only that
+somebody did.
+
+**Narrow here, wide in the shape that found it.** The support agent's workflow
+carries a refund out on the decision, so the window is seconds. A finance
+approval that waits three days has a window in which the approver can plausibly
+have left the company, and the run is still holding their decision.
+
+It is F-054 one turn further on. That one said an approval must record what it
+was decided *against*; this says it must also record what it was decided
+*with* — the authority, captured at the decision and checked when the effect
+lands, rather than inferred from a role that may since have changed.
+
+**Open.** Routed with T-060: the same shape of fix, a fact captured at decision
+time and verified at execution time, and the same reason a time window cannot
+substitute for it.
