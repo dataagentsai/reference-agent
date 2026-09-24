@@ -1909,3 +1909,48 @@ report finish.
 provider account's own rate limit, so a full 34-scenario run at four attempts
 each does not fit in one sitting on this account. The reported figure names the
 scenarios it covers.
+
+## F-054 · An approval records what was decided, never what it was decided against
+
+**Found** 2026-09-24, testing the four-store design against
+`support-agent-hotel.aoas.yaml` rather than against code. Not reachable in the
+clothing agent, and reachable in the hotel one, which is the whole reason the
+second domain exists.
+
+An amount above the threshold is not carried on the call. It is read from the
+row when the refund is carried out:
+
+```yaml
+issue_refund:
+  amount_from: reservation.total      # never from the conversation
+  authority:
+    agent_when:
+      - {field: total, at_most: 20000}
+    otherwise: human_approval
+```
+
+Reading it from the row is right: it is the control that stops a stated number
+reaching a refund. What it assumes is that the row does not move between the
+decision and the effect. In clothing nothing changes `order.total`, so the
+assumption holds by accident. In hotel one operation's declared effect is *"its
+total becomes the rate the reservation system quotes"*:
+
+    10:00  a refund is asked for. total ₹25,000, over the limit → approval raised
+    10:20  the guest changes the dates. total becomes ₹41,000
+    11:00  a person approves
+    11:00  the refund executes at `amount_from: reservation.total` → ₹41,000
+
+**A person approved ₹25,000 and ₹41,000 left.** Nothing catches it. The far
+end's check compares the call's argument *values* against the approval, and the
+amount is not an argument — it is a field on a row that both sides read
+separately, an hour apart.
+
+The gap is in the vocabulary rather than in any line of code: an approval says
+*what was decided* and has no place to say *what it was decided against*. Every
+other control on that path is correct and none of them is looking at this.
+
+**Open.** Routed to T-060, where it is the case that motivates the fix: the
+version of the row an approval was raised against, carried through the wait and
+checked when the effect lands. A time window cannot help — the hour is the
+normal case, not the exceptional one. Related to AAC-0113, whose second half is
+about the caller holding what the far end cannot.
