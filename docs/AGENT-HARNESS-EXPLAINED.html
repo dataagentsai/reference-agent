@@ -3112,72 +3112,79 @@ orphaned = called - answered          # must be empty, checked on every assemble
     <h2>The data model — three tables, and the two that left</h2>
     <p>This is the whole of what the agent stores. It is short, and the shortness is recent: <strong>two of the five tables were deleted when Temporal took over what they were for.</strong> That deletion is the clearest evidence on this page of what adopting durable execution actually buys.</p>
 
-    <div class="diagram"><svg class="wide" viewBox="0 0 1000 480" role="img" aria-labelledby="pg-t pg-d">
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 530" role="img" aria-labelledby="pg-t pg-d">
 <title id="pg-t">The agent_state schema, and what moved to Temporal</title>
-<desc id="pg-d">Three tables remain in the agent_state schema: checkpoints keyed by run id with a conversation index, idempotency keyed by the idempotency key, and sessions keyed by the login subject. Two tables were dropped: approvals and escalations, both now Temporal workflows. The ecom schema was dropped entirely when the store became Saleor.</desc>
+<desc id="pg-d">Three tables remain in the agent_state schema: checkpoints keyed by run id with a conversation index and a customer index, requests keyed by name with a scope and an expiry, and sessions keyed by the login subject. Two tables were dropped: approvals and escalations, both now Temporal workflows. The ecom schema was dropped entirely when the store became Saleor.</desc>
 <defs><marker id="pg-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
 <text class="n" x="14" y="24">SCHEMA agent_state · THE ORACLE — NEVER SIMULATED</text>
-<rect class="hz" x="14" y="38" width="300" height="164" rx="8"/>
+<rect class="hz" x="14" y="38" width="300" height="204" rx="8"/>
 <text class="t" x="26" y="62">checkpoints</text>
 <text class="d" x="26" y="82" style="font-family:ui-monospace,Menlo,monospace">run_id           text PRIMARY KEY</text>
 <text class="d" x="26" y="100" style="font-family:ui-monospace,Menlo,monospace">conversation_id  text</text>
-<text class="d" x="26" y="118" style="font-family:ui-monospace,Menlo,monospace">state            bytea NOT NULL</text>
-<text class="d" x="26" y="136" style="font-family:ui-monospace,Menlo,monospace">updated_at       timestamptz</text>
-<text class="s" x="26" y="162">INDEX (conversation_id, updated_at DESC)</text>
-<text class="d" x="26" y="182">the sort is in the index, so a lookup does not read</text>
-<text class="d" x="26" y="195">every turn the conversation ever had</text>
+<text class="d" x="26" y="118" style="font-family:ui-monospace,Menlo,monospace">customer_id      text</text>
+<text class="d" x="26" y="136" style="font-family:ui-monospace,Menlo,monospace">state            bytea NOT NULL</text>
+<text class="d" x="26" y="154" style="font-family:ui-monospace,Menlo,monospace">updated_at       timestamptz</text>
+<text class="s" x="26" y="180">INDEX (conversation_id, updated_at DESC)</text>
+<text class="s" x="26" y="198">INDEX (customer_id)</text>
+<text class="d" x="26" y="220">customer_id is new. Everything identifying a person</text>
+<text class="d" x="26" y="234">was inside state, and a bytea cannot be searched.</text>
 
-<rect class="hz" x="342" y="38" width="300" height="164" rx="8"/>
-<text class="t" x="354" y="62">idempotency</text>
-<text class="d" x="354" y="82" style="font-family:ui-monospace,Menlo,monospace">key          text PRIMARY KEY</text>
-<text class="d" x="354" y="100" style="font-family:ui-monospace,Menlo,monospace">result       jsonb NOT NULL</text>
-<text class="d" x="354" y="118" style="font-family:ui-monospace,Menlo,monospace">recorded_at  timestamptz</text>
-<text class="s" x="354" y="146">PRIMARY KEY is the whole mechanism.</text>
-<text class="d" x="354" y="166">The ledger is correct because the database</text>
-<text class="d" x="354" y="182">refuses a second row — not because the code</text>
-<text class="d" x="354" y="195">remembered to check. Two racing retries both lose.</text>
+<rect class="hz" x="342" y="38" width="300" height="204" rx="8"/>
+<text class="t" x="354" y="62">requests</text>
+<text class="d" x="354" y="82" style="font-family:ui-monospace,Menlo,monospace">name         text PRIMARY KEY</text>
+<text class="d" x="354" y="100" style="font-family:ui-monospace,Menlo,monospace">scope        text NOT NULL</text>
+<text class="d" x="354" y="118" style="font-family:ui-monospace,Menlo,monospace">state        text NOT NULL</text>
+<text class="d" x="354" y="136" style="font-family:ui-monospace,Menlo,monospace">outcome      jsonb</text>
+<text class="d" x="354" y="154" style="font-family:ui-monospace,Menlo,monospace">expires_at   timestamptz</text>
+<text class="d" x="354" y="172" style="font-family:ui-monospace,Menlo,monospace">recorded_at  timestamptz</text>
+<text class="s" x="354" y="198">PRIMARY KEY is the whole mechanism.</text>
+<text class="d" x="354" y="220">Two racing retries both attempt the insert and</text>
+<text class="d" x="354" y="234">exactly one changes a row. Nothing checks first.</text>
 
-<rect class="hz" x="670" y="38" width="316" height="164" rx="8"/>
+<rect class="hz" x="670" y="38" width="316" height="204" rx="8"/>
 <text class="t" x="682" y="62">sessions</text>
 <text class="d" x="682" y="82" style="font-family:ui-monospace,Menlo,monospace">subject        text PRIMARY KEY</text>
 <text class="d" x="682" y="100" style="font-family:ui-monospace,Menlo,monospace">refresh_token  bytea NOT NULL</text>
 <text class="d" x="682" y="118" style="font-family:ui-monospace,Menlo,monospace">updated_at     bigint</text>
-<text class="s" x="682" y="146">Keyed by the login's sub, not the customer.</text>
-<text class="d" x="682" y="166">Encrypted at rest with Fernet. This is what lets</text>
-<text class="d" x="682" y="182">a Chatwoot webhook, which carries no credential,</text>
-<text class="d" x="682" y="195">act as a real signed-in customer.</text>
+<text class="s" x="682" y="146">Keyed by the login&#8217;s sub, not the customer.</text>
+<text class="d" x="682" y="170">Encrypted at rest with Fernet. This is what lets</text>
+<text class="d" x="682" y="186">a Chatwoot webhook, which carries no credential,</text>
+<text class="d" x="682" y="202">act as a real signed-in customer.</text>
+<text class="d" x="682" y="226">The only table that could always be emptied of</text>
+<text class="d" x="682" y="240">one person: logout was already a DELETE.</text>
 
-<text class="n" x="14" y="248">DROPPED BY T-028 — NOT DELETED, MOVED</text>
-<rect class="box opt" x="14" y="262" width="300" height="86" rx="8"/>
-<text class="t" x="26" y="286" style="text-decoration:line-through">approvals</text>
-<text class="d" x="26" y="306">A row the agent wrote, a turn that polled it,</text>
-<text class="d" x="26" y="322">and a refund issued on the customer's</text>
-<text class="d" x="26" y="338">next message.</text>
+<text class="n" x="14" y="288">DROPPED BY T-028 — NOT DELETED, MOVED</text>
+<rect class="box opt" x="14" y="302" width="300" height="86" rx="8"/>
+<text class="t" x="26" y="326" style="text-decoration:line-through">approvals</text>
+<text class="d" x="26" y="346">A row the agent wrote, a turn that polled it,</text>
+<text class="d" x="26" y="362">and a refund issued on the customer&#8217;s</text>
+<text class="d" x="26" y="378">next message.</text>
 
-<rect class="box opt" x="342" y="262" width="300" height="86" rx="8"/>
-<text class="t" x="354" y="286" style="text-decoration:line-through">escalations</text>
-<text class="d" x="354" y="306">A row, and a sweeper somebody had to</text>
-<text class="d" x="354" y="322">remember to run — present in the demo</text>
-<text class="d" x="354" y="338">server, absent everywhere else.</text>
+<rect class="box opt" x="342" y="302" width="300" height="86" rx="8"/>
+<text class="t" x="354" y="326" style="text-decoration:line-through">escalations</text>
+<text class="d" x="354" y="346">A row, and a sweeper somebody had to</text>
+<text class="d" x="354" y="362">remember to run — present in the demo</text>
+<text class="d" x="354" y="378">server, absent everywhere else.</text>
 
-<rect class="hz" x="670" y="248" width="316" height="132" rx="8" stroke-width="2.4"/>
-<text class="n" x="682" y="270">NOW: TEMPORAL WORKFLOW HISTORY</text>
-<text class="s" x="682" y="292">The wait, the decision, the timer and the</text>
-<text class="s" x="682" y="312">outcome <tspan style="font-weight:600">are</tspan> the history.</text>
-<text class="d" x="682" y="336">Nothing the agent holds can write them —</text>
-<text class="d" x="682" y="352">which is what "the run cannot grant its own</text>
-<text class="d" x="682" y="366">approval" means in storage terms.</text>
+<rect class="hz" x="670" y="288" width="316" height="132" rx="8" stroke-width="2.4"/>
+<text class="n" x="682" y="310">NOW: TEMPORAL WORKFLOW HISTORY</text>
+<text class="s" x="682" y="332">The wait, the decision, the timer and the</text>
+<text class="s" x="682" y="352">outcome <tspan style="font-weight:600">are</tspan> the history.</text>
+<text class="d" x="682" y="376">Nothing the agent holds can write them —</text>
+<text class="d" x="682" y="392">which is what &#8220;the run cannot grant its own</text>
+<text class="d" x="682" y="406">approval&#8221; means in storage terms.</text>
 
 <g marker-end="url(#pg-go)">
-  <path class="go" d="M164 348 V372 H664"/>
+  <path class="go" d="M164 388 V412 H664"/>
 </g>
-<path class="go" d="M492 348 V372"/>
-<text class="d" x="200" y="388">both of them, into one place that holds a wait</text>
+<path class="go" d="M492 388 V412"/>
+<text class="d" x="200" y="428">both of them, into one place that holds a wait</text>
 
-<rect class="sub" x="14" y="392" width="972" height="72" rx="8"/>
-<text class="n" x="28" y="412">AND THE SCHEMA THAT WENT ENTIRELY</text>
-<text class="s" x="28" y="434">DROP SCHEMA ecom CASCADE — the business world lived here until the store became Saleor, with its own schema, its own database</text>
-<text class="s" x="28" y="454">and its own role. A DDL nobody reads is a claim nobody checks, so it was dropped rather than kept as decoration.</text>
+<rect class="sub" x="14" y="432" width="972" height="86" rx="8"/>
+<text class="n" x="28" y="452">AND THE ONE THAT CAME BACK</text>
+<text class="s" x="28" y="474">requests used to be two tables — an idempotency ledger and a delivery claim that was itself a Temporal workflow. They answered one</text>
+<text class="s" x="28" y="494">question with opposite rules, so T-062 made them one table and one rule, and Temporal lost a workflow: a row whose expiry is checked in</text>
+<text class="s" x="28" y="512">the statement that takes the claim needs no timer, and the timer was the only reason a workflow held it.</text>
 </svg></div>
 
     <div class="note"><p><strong>Why this is one schema and not two databases.</strong> <code>agent_state</code> is the <em>oracle</em> — it is what the tests' assertions read, and the simulator never projects it. An oracle that can be faked is not one. The business world used to live in the same database, in a second schema; now it is Saleor's, behind a role the agent does not have. <strong>The boundary became a grant rather than a comment.</strong></p></div>
@@ -3244,25 +3251,27 @@ orphaned = called - answered          # must be empty, checked on every assemble
 <desc id="id-d">A delivery claim in Temporal stops a redelivered webhook running the whole turn twice. A Postgres ledger keyed by run, step and iteration stops a retried tool call inside one run applying twice. The far end recognising the key is the only layer that can actually tell a lost response from a failure, and the approval carries a stored key so a double grant refunds once.</desc>
 <rect class="hz" x="14" y="38" width="234" height="200" rx="8"/>
 <text class="n" x="26" y="58">LAYER 1 · THE WHOLE TURN</text>
-<text class="t" x="26" y="80">Delivery claim</text>
-<text class="d" x="26" y="100">Temporal · workflow named</text>
-<text class="d" x="26" y="116">after the Idempotency-Key</text>
-<text class="s" x="26" y="146">Catches:</text>
-<text class="d" x="26" y="164">the webhook was re-delivered,</text>
-<text class="d" x="26" y="180">or the customer pressed send</text>
-<text class="d" x="26" y="196">twice on a slow network</text>
-<text class="d" x="26" y="220">→ 200 "already handled"</text>
+<text class="t" x="26" y="80">requests, scope=delivery</text>
+<text class="d" x="26" y="100">Postgres · the name is the</text>
+<text class="d" x="26" y="116">channel&#8217;s own message id</text>
+<text class="s" x="26" y="142">Catches:</text>
+<text class="d" x="26" y="160">the webhook was re-delivered,</text>
+<text class="d" x="26" y="176">or the customer pressed send</text>
+<text class="d" x="26" y="192">twice on a slow network</text>
+<text class="d" x="26" y="214">&#8594; 200, with the first reply if</text>
+<text class="d" x="26" y="230">the row still holds one</text>
 
 <rect class="hz" x="266" y="38" width="234" height="200" rx="8"/>
 <text class="n" x="278" y="58">LAYER 2 · ONE TOOL CALL</text>
-<text class="t" x="278" y="80">The ledger</text>
-<text class="d" x="278" y="100">Postgres · key is</text>
+<text class="t" x="278" y="80">requests, scope=tool</text>
+<text class="d" x="278" y="100">the same table · the name is</text>
 <text class="d" x="278" y="116">run_id : step : iteration</text>
-<text class="s" x="278" y="146">Catches:</text>
-<text class="d" x="278" y="164">the harness retried a call</text>
-<text class="d" x="278" y="180">inside one run</text>
-<text class="d" x="278" y="204">Order matters: check, then</text>
-<text class="d" x="278" y="220">execute, then record.</text>
+<text class="s" x="278" y="142">Catches:</text>
+<text class="d" x="278" y="160">the harness retried a call</text>
+<text class="d" x="278" y="176">inside one run</text>
+<text class="d" x="278" y="198">Order matters: claim, then</text>
+<text class="d" x="278" y="214">execute, then settle — and</text>
+<text class="d" x="278" y="230">only a definite answer settles.</text>
 
 <rect class="hz" x="518" y="38" width="234" height="200" rx="8" stroke-width="2.4"/>
 <text class="n" x="530" y="58">LAYER 3 · THE FAR END</text>
@@ -3287,31 +3296,54 @@ orphaned = called - answered          # must be empty, checked on every assemble
 <text class="d" x="782" y="220">→ one refund</text>
 
 <rect class="sub" x="14" y="264" width="972" height="100" rx="8"/>
-<text class="n" x="28" y="284">THE ONE THAT IS EASY TO GET WRONG</text>
-<text class="s" x="28" y="308">The in-memory ledger is correct within one run and <tspan style="font-weight:600">wrong across a restart</tspan> — and the failure it exists to prevent is precisely the one that</text>
-<text class="s" x="28" y="328">happens when a process dies mid-call. So the class says so out loud: <tspan style="font-family:ui-monospace,Menlo,monospace">durable = False</tspan>. Every substrate declares whether it survives the process,</text>
-<text class="s" x="28" y="348">because "it's in a dictionary" is a legitimate answer only when it is written down as one (AHC-0102).</text>
+<text class="n" x="28" y="284">THE ONE THING THE TWO SCOPES DISAGREE ABOUT</text>
+<text class="s" x="28" y="308">They share a table and a rule, and differ on one judgement: <tspan style="font-weight:600">what reaching the end with nothing to say means.</tspan> For a delivery it means the</text>
+<text class="s" x="28" y="328">turn ran, so it settles even when it blew up halfway — re-running would repeat whatever effects it managed. For a tool call it means the far end</text>
+<text class="s" x="28" y="348">never answered, so the name is abandoned and a retry goes out <tspan style="font-style:italic">under the same name</tspan>, which is the only thing the far end can recognise.</text>
 </svg></div>
 
-<pre><code>async def once(ledger, key, side_effect, action):
-    """Run `action` at most once per key."""
-    if side_effect is SideEffectClass.READ:
-        return await action(), False        # reads bypass the ledger entirely
+<pre><code>@asynccontextmanager
+async def once(requests, name, *, scope, ttl_s=CLAIM_TTL_S):
+    """Hold a name for the length of the body, and settle it with what
+    the body answered."""
+    if requests is None or name is None:
+        yield None                    # the caller did not identify this
+        return                        # request — inventing a name here
+                                      # gives a guard that can never fire
 
-    previous = await ledger.seen(key)
-    if previous is not None:
-        return previous, True               # replayed, not executed
+    claim = await requests.claim(name, scope=scope, ttl_s=ttl_s)
+    try:
+        yield claim
+    finally:
+        if claim.outcome is not None or scope.answered_by_arriving:
+            await requests.settle(name, claim.outcome)
+        else:
+            await requests.abandon(name)</code></pre>
 
-    result = await action()
-    await ledger.record(key, result)        # AFTER, never before —
-    return result, False                    # recording first would suppress
-                                            # a retry after a genuine failure</code></pre>
+    <p>The whole rule is in that last <code>if</code>, and <code>answered_by_arriving</code> is where the two scopes part company — one property on an enum rather than a judgement each caller has to remember:</p>
+<pre><code>class Scope(StrEnum):
+    DELIVERY = "delivery"   # reaching the end IS the answer
+    TOOL     = "tool"       # reaching the end with nothing to say
+                            # is indefinite
 
-    <p>And one line inside <code>record</code> that is the whole semantics of a ledger:</p>
-<pre><code>self._entries.setdefault(key.value, result)
-# setdefault, not assignment. The first recorded outcome for a key IS the
-# outcome. A later attempt under the same key did not happen twice, so it
-# must not be able to rewrite what did.</code></pre>
+    @property
+    def answered_by_arriving(self) -&gt; bool:
+        return self is Scope.DELIVERY</code></pre>
+
+    <p>And the SQL underneath is where the correctness actually lives — not in the Python around it. Each of the three calls is one round trip whose <code>WHERE</code> carries the rule, so two processes racing on a retry cannot both win and neither holds a lock:</p>
+<pre><code>INSERT INTO agent_state.requests (name, scope, state, expires_at)
+VALUES (%s, %s, 'in_flight', now() + make_interval(secs =&gt; %s))
+ON CONFLICT (name) DO UPDATE
+    SET scope = EXCLUDED.scope, state = 'in_flight',
+        outcome = NULL, expires_at = EXCLUDED.expires_at
+  WHERE agent_state.requests.state = 'in_flight'
+    AND agent_state.requests.expires_at &lt; now()
+RETURNING name
+
+-- No sweeper. `finally` does not run for a killed process, so a claim
+-- can be left held for ever — and the expiry is checked HERE, in the
+-- statement that takes the next claim, rather than by a job that goes
+-- looking. That is what removed a Temporal workflow from this concern.</code></pre>
 
     <h3>What is left in Postgres once Temporal is in the picture</h3>
     <div class="table-wrap">
@@ -3319,15 +3351,70 @@ orphaned = called - answered          # must be empty, checked on every assemble
       <thead><tr><th>Kind of state</th><th>Where it lives now</th><th>Why there</th></tr></thead>
       <tbody>
         <tr><td>The conversation so far</td><td><strong>Postgres</strong> · <code>checkpoints</code></td><td>Read on almost every turn by a key a customer holds. A workflow per conversation would be a cluster round trip on a two-second request.</td></tr>
-        <tr><td>Has this tool call already happened?</td><td><strong>Postgres</strong> · <code>idempotency</code></td><td>A primary key is exactly the right primitive, and the check is on the hot path.</td></tr>
+        <tr><td>Has this tool call already happened?</td><td><strong>Postgres</strong> · <code>requests</code></td><td>A primary key is exactly the right primitive, and the check is on the hot path.</td></tr>
         <tr><td>Whose login is this?</td><td><strong>Postgres</strong> · <code>sessions</code></td><td>Encrypted at rest; refreshed, not waited on.</td></tr>
         <tr><td>Is somebody deciding a refund?</td><td><strong>Temporal</strong> · <code>ApprovalWorkflow</code></td><td>It spans an hour, needs a timer nobody polls, and must produce exactly one effect.</td></tr>
         <tr><td>Is a colleague holding this conversation?</td><td><strong>Temporal</strong> · <code>EscalationWorkflow</code></td><td>Same shape, and the lapse timer is the reason.</td></tr>
-        <tr><td>Was this message already handled?</td><td><strong>Temporal</strong> · <code>DeliveryClaim</code></td><td>Because the <em>release</em> needs an expiry, and only a timer can supply one that survives a kill.</td></tr>
+        <tr><td>Was this message already handled?</td><td><strong>Postgres</strong> · <code>requests</code>, again</td><td><strong>This row used to be a Temporal workflow</strong>, and the argument above it — <em>only a timer can supply an expiry that survives a kill</em> — turned out to be false. A column can, if the expiry is checked in the statement that takes the next claim. T-062.</td></tr>
+        <tr><td>What is held about this person?</td><td><strong>Postgres</strong> · every table above</td><td>Erasure is the one question that crosses all of them, which is why it is one function and not a method on a store.</td></tr>
       </tbody>
     </table>
     </div>
-    <p>The dividing line is the same one from <a href="#temporal">section 12</a>, stated in storage terms: <strong>Postgres holds what is read back; Temporal holds what is waited on.</strong></p>
+    <p>The dividing line is the same one from <a href="#temporal">section 12</a>, stated in storage terms: <strong>Postgres holds what is read back; Temporal holds what is waited on.</strong> The delivery claim moved across that line in the right direction — it was never waited on, only looked up.</p>
+
+    <h3 id="pg-erase">Forgetting somebody</h3>
+    <p>The question arrived from outside this agent entirely. A specification for a different one stated it as a sentence about an answer nobody can give: <em>a user will ask you to forget something, and the answer cannot be &#8220;the vector store does not support that&#8221;.</em> That shape made it a product requirement. It was already a gap here, and the shape of the gap is worth more than the fix.</p>
+
+    <p><strong>There was nothing to search by.</strong> Every table above is keyed by something the system minted — a run id, a name, a login subject. What identifies a <em>person</em> lived inside <code>state</code>, a <code>bytea</code>, and no <code>WHERE</code> reaches inside one. So the honest description of the old state is not &#8220;erasure was unimplemented&#8221;; it is that the table held their conversations and <em>could not find them</em>. The fix is a column before it is a statement.</p>
+
+    <div class="diagram"><svg class="wide" viewBox="0 0 1000 330" role="img" aria-labelledby="fg-t fg-d">
+<title id="fg-t">Erasing one person, in the only order that works</title>
+<desc id="fg-d">One call erases conversations first and takes back the run ids those rows held, because the requests table is keyed by run and nothing else can name them. The requests rows are then redacted rather than deleted: the name and the fact of an answer stay so a replay is still refused, and the stored outcome is dropped. The session is read before being deleted so the report can distinguish one removed from none there.</desc>
+<defs><marker id="er-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<text class="n" x="14" y="24">erasure.forget(customer_id=&#8220;C-1042&#8221;, subject=&#8220;login-C-1042&#8221;)</text>
+
+<rect class="hz" x="14" y="40" width="300" height="150" rx="8"/>
+<text class="n" x="26" y="60">STEP 1 &#183; AND IT MUST BE FIRST</text>
+<text class="t" x="26" y="82">checkpoints.forget()</text>
+<text class="d" x="26" y="104" style="font-family:ui-monospace,Menlo,monospace">DELETE &#8230; WHERE customer_id = %s</text>
+<text class="d" x="26" y="122" style="font-family:ui-monospace,Menlo,monospace">RETURNING run_id</text>
+<text class="s" x="26" y="148">One statement, not select-then-delete:</text>
+<text class="d" x="26" y="168">a turn arriving between the two would be</text>
+<text class="d" x="26" y="184">reported erased while its row survived.</text>
+
+<rect class="hz" x="342" y="40" width="300" height="150" rx="8" stroke-width="2.4"/>
+<text class="n" x="354" y="60">STEP 2 &#183; NOT A DELETE</text>
+<text class="t" x="354" y="82">requests.redact(runs)</text>
+<text class="d" x="354" y="104" style="font-family:ui-monospace,Menlo,monospace">UPDATE &#8230; SET outcome = NULL</text>
+<text class="d" x="354" y="122" style="font-family:ui-monospace,Menlo,monospace">WHERE split_part(name,':',1) = ANY(%s)</text>
+<text class="s" x="354" y="148">The name and <tspan style="font-family:ui-monospace,Menlo,monospace">state=&#8217;answered&#8217;</tspan> stay.</text>
+<text class="d" x="354" y="168">The guard was never the stored body —</text>
+<text class="d" x="354" y="184">it is the name being taken.</text>
+
+<rect class="hz" x="670" y="40" width="316" height="150" rx="8"/>
+<text class="n" x="682" y="60">STEP 3 &#183; READ, THEN DELETE</text>
+<text class="t" x="682" y="82">sessions.delete(subject)</text>
+<text class="d" x="682" y="106">delete is idempotent and silent: it cannot</text>
+<text class="d" x="682" y="122">tell &#8220;there was one&#8221; from &#8220;there was not&#8221;.</text>
+<text class="s" x="682" y="148">So it is read first, and the report says</text>
+<text class="d" x="682" y="168">0 where they had already logged out —</text>
+<text class="d" x="682" y="184">rather than always claiming 1.</text>
+
+<g marker-end="url(#er-go)">
+  <line class="go" x1="314" y1="115" x2="338" y2="115"/>
+</g>
+<text class="d" x="318" y="205">the run ids</text>
+
+<rect class="sub" x="14" y="222" width="972" height="96" rx="8"/>
+<text class="n" x="28" y="242">WHY THE ORDER IS THE WHOLE DESIGN, AND WHY REDACT RATHER THAN DELETE</text>
+<text class="s" x="28" y="264">requests is keyed by run, and run ids exist <tspan style="font-style:italic">only</tspan> on the conversation rows. Erase those first without taking the ids back and nothing can ever</text>
+<text class="s" x="28" y="284">name the ledger rows again — the erasure reports success and leaves them. Delete them instead of emptying them and every one of those calls becomes</text>
+<text class="s" x="28" y="304">executable again: a queue drains weeks later and runs a refund a second time, for somebody who asked to be forgotten, with no record that it already ran.</text>
+</svg></div>
+
+    <div class="note"><p><strong>What it does not reach, said out loud.</strong> A delivery-scope row is named by the channel that minted it — <code>chatwoot:&lt;account&gt;:&lt;message&gt;</code> — and carries no customer, so the reply stored against it is not findable from here. Erasing it needs the channel&#8217;s own record of which messages were whose, which is a second system&#8217;s question. The module says so in its docstring rather than leaving a reader to discover it.</p></div>
+
+    <p>Two callers had to learn to cope with an answer that is no longer there. The HTTP handler already did — a redelivery with no stored outcome gets <code>200 {"status": "already handled"}</code> and no body. <code>tools.call</code> did not: it would have raised a validation error on <code>None</code>. It now returns a result saying the call already happened and what it returned is no longer held, which is the only honest thing to say — the effect has landed, so repeating it is wrong, and there is nothing to report.</p>
   </section>
 
   <section class="part" id="temporal">
@@ -3369,7 +3456,7 @@ orphaned = called - answered          # must be empty, checked on every assemble
     <table>
       <thead><tr><th>Word</th><th>What it is</th><th>In this agent</th></tr></thead>
       <tbody>
-        <tr><td><strong>Workflow</strong></td><td>The function that can wait. Its every step is recorded, so it can be replayed onto a fresh process. Must be deterministic — no clocks, no randomness, no network.</td><td><code>ApprovalWorkflow</code>, <code>EscalationWorkflow</code>, <code>DeliveryClaim</code></td></tr>
+        <tr><td><strong>Workflow</strong></td><td>The function that can wait. Its every step is recorded, so it can be replayed onto a fresh process. Must be deterministic — no clocks, no randomness, no network.</td><td><code>ApprovalWorkflow</code>, <code>EscalationWorkflow</code>, <code>ApprovalQueue</code></td></tr>
         <tr><td><strong>Activity</strong></td><td>The part that touches the outside world, and therefore may fail and be retried. Called <em>by</em> the workflow.</td><td><code>approval.assess</code>, <code>approval.remind</code>, <code>approval.carry_out</code></td></tr>
         <tr><td><strong>Signal</strong></td><td>A message into a running workflow. Fire and forget.</td><td><code>opened</code> / <code>closed</code> on the queue; <code>settle</code> on a delivery claim</td></tr>
         <tr><td><strong>Update</strong></td><td>A message in that <em>returns a value</em> — and may be <strong>rejected by a validator before it is recorded</strong>. This is the one that matters most here.</td><td><code>decide(granted, by)</code>, <code>assessed()</code></td></tr>
@@ -3517,6 +3604,55 @@ class ApprovalWorkflow:
       </tbody>
     </table>
     </div>
+
+    <h4 id="ap-stale">The control every one of those lines is silent about</h4>
+    <p>Read that table again and notice what it all concerns: <strong>the decision.</strong> Who made it, whether they were allowed to, whether they made it twice, whether they made it in time. Every one of those is correct. None of them asks whether <em>the thing they decided about</em> is still the same thing.</p>
+    <p>That gap is created by the wait itself, and by nothing else in the system. It was found by running this design against a hotel agent rather than by reading this code — because in the clothing agent an order&#8217;s total never moves, so the assumption holds by accident:</p>
+
+    <div class="diagram"><svg class="mid" viewBox="0 0 1000 300" role="img" aria-labelledby="st-t st-d">
+<title id="st-t">A grant that no longer fits what it was granted about</title>
+<desc id="st-d">At ten o'clock a refund is asked for; the reservation total is twenty-five thousand, over the limit, so an approval is raised. At twenty past, the guest changes the dates and the total becomes forty-one thousand. At eleven a person approves. The amount is read from the row at execution time, so forty-one thousand leaves against a decision made about twenty-five. Every other control on the path is satisfied: the grant is live, the reviewer is right, the window is open and the key is the original one.</desc>
+<text class="n" x="14" y="24">THE SEQUENCE, WITH EVERY OTHER CONTROL SATISFIED</text>
+<rect class="hz" x="14" y="38" width="972" height="112" rx="8"/>
+<text class="s" x="28" y="64" style="font-family:ui-monospace,Menlo,monospace">10:00</text>
+<text class="d" x="96" y="64">a refund is asked for. total &#8377;25,000 &#8212; over the limit, so an approval is raised and a person is asked</text>
+<text class="s" x="28" y="90" style="font-family:ui-monospace,Menlo,monospace">10:20</text>
+<text class="d" x="96" y="90">the guest changes the dates. <tspan style="font-weight:600">total becomes &#8377;41,000.</tspan> Nothing is watching; nothing is wrong yet</text>
+<text class="s" x="28" y="116" style="font-family:ui-monospace,Menlo,monospace">11:00</text>
+<text class="d" x="96" y="116">a person approves &#8212; the thing they were shown, an hour ago</text>
+<text class="s" x="28" y="140" style="font-family:ui-monospace,Menlo,monospace">11:00</text>
+<text class="d" x="96" y="140">the refund executes at <tspan style="font-family:ui-monospace,Menlo,monospace">amount_from: total</tspan> &#8594; <tspan style="font-weight:600">&#8377;41,000 leaves</tspan></text>
+
+<rect class="box opt" x="14" y="166" width="478" height="118" rx="8"/>
+<text class="n" x="28" y="186">WHAT DID NOT CATCH IT, AND WHY NOT</text>
+<text class="d" x="28" y="208">the expiry &#8212; satisfied by a grant one minute old</text>
+<text class="d" x="28" y="226">the validator &#8212; the right person, deciding once</text>
+<text class="d" x="28" y="244">the stored key &#8212; one effect, and it is the wrong one</text>
+<text class="d" x="28" y="262">the far end&#8217;s check &#8212; it compares the call&#8217;s <tspan style="font-style:italic">arguments</tspan>,</text>
+<text class="d" x="28" y="278">and the amount is not an argument</text>
+
+<rect class="hz" x="520" y="166" width="466" height="118" rx="8" stroke-width="2.4"/>
+<text class="n" x="534" y="186">WHAT DOES</text>
+<text class="s" x="534" y="208">decided_against: {status, total}</text>
+<text class="d" x="534" y="230">recorded by the assessment, because the assessment</text>
+<text class="d" x="534" y="246">is what read them &#8212; then re-read before the grant is</text>
+<text class="d" x="534" y="262">spent. Moved &#8594; <tspan style="font-family:ui-monospace,Menlo,monospace">ApprovalState.STALE</tspan>, nothing is</text>
+<text class="d" x="534" y="278">attempted, and the customer is asked to ask again.</text>
+</svg></div>
+
+    <p><strong>Three judgements inside that, each of which could reasonably have gone the other way.</strong></p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Choice</th><th>Why, and what the other answer costs</th></tr></thead>
+      <tbody>
+        <tr><td>Compare <em>which</em> fields?</td><td>Only the ones the assessment judged — here <code>status</code> and <code>total</code>. Comparing the whole row is the complete-sounding answer and expires every grant at midnight when <code>days_since_delivery</code> ticks. A control that fires on changes nobody judged is a control people switch off.</td></tr>
+        <tr><td>A judged field that can no longer be read</td><td>Counts as moved. A check that cannot see the fact it is checking must not conclude the fact is unchanged.</td></tr>
+        <tr><td>The re-read itself fails</td><td>Split on the channel the tool boundary already draws. <strong>Protocol</strong> — the far end is not speaking — raises, and the activity retries; one dropped connection must not destroy a decision a person already made. <strong>Execution</strong> — no such order, not theirs any more — is the far end speaking, and is the strongest possible evidence the facts moved.</td></tr>
+        <tr><td>A stale grant: re-assess, or ask again?</td><td>Ask again. Re-assessing automatically turns one person&#8217;s decision about one situation into standing permission over whatever the situation becomes. Nothing was attempted, so there is no half-finished effect to reconcile — which is why it settles as <code>STALE</code> rather than <code>FAILED</code>: a failure asks an operator to go and find what broke, and here nothing did.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="note"><p><strong>This is the small half of a larger open item.</strong> The general fix is a version on the entity, <code>expected_version</code> required on any irreversible operation, and a typed refusal carrying the current row — which is the <em>far end&#8217;s</em> to offer, and is not true of far ends in general. That one is still open, and waiting for it would have left the money bug open with it. What shipped needs nothing from the far end but a second read.</p></div>
 
     <h3>Example 2 · The escalation, and the lapse</h3>
     <p>Same shape, one size larger. A lost approval loses one action; a <strong>lost escalation loses a customer nobody knows is waiting.</strong></p>
