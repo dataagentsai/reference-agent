@@ -12,6 +12,15 @@
 # the Assurance Map disagree, the map wins: it is generated from tests that ran.
 apiVersion: harness-profile/v1
 
+# The stack this agent runs on, and everything it inherits from there — T-033.
+# Until this line existed the stack file and this file were two copies of one
+# decision, and they had drifted: seven bindings disagreed and `workflow` was
+# missing here entirely. Below, a port appears only where this agent adds a
+# fact the stack cannot know, or leaves the stack on purpose and says why.
+#
+#   node ../ai-harness-catalog/tools/resolve.js harness-profile.yaml
+extends: ../clean-ai-engineering/stacks/open-stack.yaml
+
 subject:
   name: support-agent
   version: "0.1.0"
@@ -150,10 +159,22 @@ thresholds:
 # this port. `in-house` here is a deliberate position — a framework owns L4, L1
 # and L10, which are the layers the catalogs exist to expose.
 bindings:
-  model:        { approach: in-house,    adapter: openai-compatible-client, x_could_be: [framework, gateway], x_provider: groq, x_provider_check: "declared, and checked against the endpoint at startup (T-018)", x_gateway: "litellm-proxy in compose.yaml, reached through provider_base_url with the agent's own key (T-029)" }
+# Every product this agent runs on is named in the stack file, once, and
+# inherited — T-033. What is left here is only what the stack cannot know: a
+# fact about how *this* agent uses a port, or a reason it left the stack.
+#
+# `x_could_be` stays with each port: it says which other approaches could fill
+# the seam, which is what makes the binding a choice rather than an assumption.
+#
+# No `approach` or `adapter` appears below. If one did it would either restate
+# the stack — a line that silently goes stale when the stack moves — or leave
+# it, which the resolver refuses unless the line says why.
+  model:
+    x_could_be: [framework, gateway]
+    x_provider: groq
+    x_provider_check: "declared, and checked against the endpoint at startup (T-018)"
+    x_gateway: "litellm-proxy in compose.yaml, reached through provider_base_url with the agent's own key (T-029)"
   tool_runtime:
-    approach: open-source
-    adapter: mcp-client
     x_could_be: [framework]
     # The authority each operation requires. Which operations are privileged is
     # the AOAS's business; what the privilege is *called* is this binding's, and
@@ -163,18 +184,23 @@ bindings:
       open_return_request: returns:write
       change_address: orders:write
       issue_refund: refunds:write
-  state:        { approach: open-source, adapter: postgres-checkpoints, x_could_be: [framework, cloud-native] }
-  approval:     { approach: in-house,    adapter: postgres-approval-queue, x_could_be: [platform] }
-  telemetry:    { approach: open-source, adapter: otlp-tracing, x_could_be: [platform] }
-  policy:       { approach: in-house,    adapter: positioned-rule-lists, x_could_be: [gateway, open-source] }
-  identity:     { approach: open-source, adapter: keycloak-rs256-jwks, x_could_be: [gateway, cloud-native], x_note: "verify-only since T-002: RS256 against the realm JWKS, aud and jti required, customer_id its own admin-set claim; the order system verifies a token exchanged for it (RFC 8693) and, for a refund, the approval it loads (src/order_system)" }
-  secrets:      { approach: in-house,    adapter: environment-settings, x_could_be: [cloud-native] }
-  cost_ledger:  { approach: in-house,    adapter: per-task-meter, x_could_be: [gateway, platform] }
-  channel:      { approach: open-source, adapter: chatwoot-agent-bot, x_could_be: [platform], x_note: "T-026: signed webhook, HMAC-verified contact, a live stored login resumed per turn; handoff with the facts as a private note" }
-  config:       { approach: open-source, adapter: typed-settings, x_could_be: [cloud-native] }
-  recorder:     { approach: in-house,    adapter: json-cassettes, x_could_be: [open-source] }
-  trigger:      { approach: in-house,    adapter: requests-store, x_could_be: [cloud-native] }
-  eval_task:    { approach: in-house,    adapter: scenario-runner, x_could_be: [platform, open-source] }
+  state:        { x_could_be: [framework, cloud-native] }
+  workflow:     { x_could_be: [platform] }
+  approval:     { x_could_be: [platform] }
+  telemetry:    { x_could_be: [platform] }
+  policy:       { x_could_be: [gateway, open-source] }
+  identity:
+    x_could_be: [gateway, cloud-native]
+    x_note: "verify-only since T-002: RS256 against the realm JWKS, aud and jti required, customer_id its own admin-set claim"
+  secrets:      { x_could_be: [cloud-native] }
+  cost_ledger:  { x_could_be: [gateway, platform] }
+  channel:
+    x_could_be: [platform]
+    x_note: "T-026: signed webhook, HMAC-verified contact, a live stored login resumed per turn; handoff with the facts as a private note"
+  config:       { x_could_be: [cloud-native] }
+  recorder:     { x_could_be: [open-source] }
+  trigger:      { x_could_be: [cloud-native] }
+  eval_task:    { x_could_be: [platform, open-source] }
 
 # ------------------------------------------------------------ accepted gaps
 # Knowingly not met, owned and dated. Not "untested" — see x_untested below,

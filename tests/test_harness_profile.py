@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from evals import profile as prof
 from evals import statements
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,20 @@ needs_catalog = pytest.mark.skipif(not CATALOG.is_dir(), reason="the catalog is 
 
 @pytest.fixture(scope="module")
 def profile() -> dict:
+    """The profile as it actually stands — resolved against the stack it extends.
+
+    T-033. Reading the file raw would report every port the stack binds as
+    unbound, because the file names none of them any more: the whole value of
+    `extends` is that a product appears once, in the stack, and an agent's
+    profile says only what is its own.
+    """
+    return prof.resolve(PROFILE)
+
+
+@pytest.fixture(scope="module")
+def declared() -> dict:
+    """The file itself, unresolved. Only the tests that are *about* inheritance
+    should use this one."""
     return yaml.safe_load(PROFILE.read_text())
 
 
@@ -96,3 +111,93 @@ def test_the_catalog_versions_are_the_ones_on_disk(profile: dict) -> None:
     with a catalog it has not read."""
     ahc = json.loads((CATALOG / "package.json").read_text())["version"]
     assert profile["catalog"]["ahc"] == ahc, "the profile pins an AHC version that is not here"
+
+
+# --------------------------------------------------------------------------- #
+# Inheritance — T-033.
+#
+# `extends` was in the published schema from the first version and nothing
+# implemented it, so this profile restated the whole stack. Restated values
+# drift, and these had: seven bindings disagreed with the stack file they were
+# copied from, and `workflow` was missing here entirely. Nothing could notice,
+# because nothing had ever compared the two.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.discharges("B7")
+def test_the_profile_names_the_stack_it_runs_on(declared: dict) -> None:
+    """Without this line the file is a copy, and a copy is what drifted."""
+    assert declared.get("extends"), "the profile must extend the stack it runs on"
+    assert (PROFILE.parent / declared["extends"]).resolve().is_file()
+
+
+@pytest.mark.discharges("B7")
+def test_no_product_is_named_twice(declared: dict) -> None:
+    """A product appears in the stack file or in an override that says why, and
+    nowhere else.
+
+    An `adapter` restated here is a line that goes stale in silence: the stack
+    moves, this does not follow, and the profile keeps claiming the old one. An
+    `adapter` that *differs* is a system that left its baseline, which is
+    allowed and must carry `x_why`. Either way, a bare adapter here is wrong.
+    """
+    offences = [
+        f"{port}: {field}"
+        for port, spec in declared["bindings"].items()
+        if isinstance(spec, dict)
+        for field in ("approach", "adapter")
+        if field in spec and "x_why" not in spec
+    ]
+    assert offences == [], (
+        "named in the agent's profile without a reason to leave the stack: "
+        f"{offences} — inherit it, or say why not"
+    )
+
+
+@pytest.mark.discharges("B7")
+def test_resolving_actually_supplies_the_stack(profile: dict, declared: dict) -> None:
+    """The mechanism works, stated as the thing a reader would doubt.
+
+    `workflow` is the case that made it worth writing: it was absent here
+    altogether, so the agent's own conformance report could not see a port every
+    approval it raises depends on. It appears below now — but only as the fact
+    that other approaches could fill it. The product is still the stack's.
+    """
+    assert declared["bindings"]["workflow"] == {"x_could_be": ["platform"]}
+    assert profile["bindings"]["workflow"]["adapter"] == "temporal"
+    assert profile["harness"]["loop"]["owner"] == "in-house"
+
+    # And what the agent adds survives the merge, beside what it inherited.
+    tools = profile["bindings"]["tool_runtime"]
+    assert tools["adapter"] == "mcp-client", "inherited from the stack"
+    assert tools["x_scopes"]["issue_refund"] == "refunds:write", "this agent's own"
+
+
+@pytest.mark.tooling
+@needs_catalog
+def test_this_resolver_agrees_with_the_catalogs_own(profile: dict) -> None:
+    """Two implementations of one rule, pinned against each other.
+
+    The normative resolver is the catalog's, because `extends` belongs to the
+    published format. This repository implements it again rather than making a
+    Node tool a runtime dependency of every test run — and two implementations
+    that agree because nobody looked are not the same as two that agree.
+
+    Skipped rather than failed where Node is absent: the pin is worth having and
+    is not worth making the suite unrunnable for.
+    """
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+
+    done = subprocess.run(
+        [node, str(CATALOG / "tools" / "resolve.js"), str(PROFILE)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    assert yaml.safe_load(done.stdout) == profile, "the two resolvers disagree"

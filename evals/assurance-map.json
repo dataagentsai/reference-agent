@@ -1,7 +1,7 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 616,
-  "tagged": 496,
+  "functions": 620,
+  "tagged": 499,
   "tooling": [
     "tests/test_actors.py::test_a_model_driven_actor_says_what_it_is_told_and_stops",
     "tests/test_actors.py::test_a_persona_is_behaviour_and_the_situation_is_the_domains",
@@ -56,6 +56,7 @@
     "tests/test_harness_profile.py::test_every_bound_port_is_a_port_the_catalog_declares",
     "tests/test_harness_profile.py::test_every_capability_named_in_the_profile_exists",
     "tests/test_harness_profile.py::test_the_catalog_versions_are_the_ones_on_disk",
+    "tests/test_harness_profile.py::test_this_resolver_agrees_with_the_catalogs_own",
     "tests/test_invariants.py::test_a_coherent_perturbation_still_applies",
     "tests/test_invariants.py::test_a_perturbation_cannot_leave_the_world_impossible",
     "tests/test_invariants.py::test_a_seeded_row_that_cannot_exist_fails_at_load",
@@ -282,9 +283,7 @@
     "Baseline": {
       "owed": 13,
       "exercised": 8,
-      "failing": [
-        "B7"
-      ],
+      "failing": [],
       "not_exercised": [
         {
           "id": "B1",
@@ -1626,11 +1625,13 @@
     },
     "B7": {
       "passed": [
-        "tests/test_harness_profile.py::test_the_profile_validates_against_the_published_schema"
+        "tests/test_harness_profile.py::test_the_profile_validates_against_the_published_schema",
+        "tests/test_harness_profile.py::test_every_capability_this_shape_owes_is_accounted_for",
+        "tests/test_harness_profile.py::test_the_profile_names_the_stack_it_runs_on",
+        "tests/test_harness_profile.py::test_no_product_is_named_twice",
+        "tests/test_harness_profile.py::test_resolving_actually_supplies_the_stack"
       ],
-      "failed": [
-        "tests/test_harness_profile.py::test_every_capability_this_shape_owes_is_accounted_for"
-      ]
+      "failed": []
     },
     "B8": {
       "passed": [
