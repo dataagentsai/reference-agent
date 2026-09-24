@@ -47,10 +47,16 @@ from support_agent.contracts import (
 class Freshness:
     """When each row this run has read was last read, and whether that will do.
 
-    Keyed by the identifier the tools use, because that is the only thing a call
-    and a result have in common at this layer. The loop sees `get_order` return a
-    row and `cancel_order` take an id; it does not see an entity, and giving it
-    one would mean teaching the loop this domain's shape.
+    Keyed by the row's kind and its identifier — `cache_key` builds it. The kind
+    comes from what the *server* declared about its own tools, never from this
+    module knowing the domain: the loop still sees only that `get_order` returns
+    a row and `cancel_order` takes an id, and still could not say what an order
+    is. What it can now say is that the two are about the same kind of thing.
+
+    It was keyed by the identifier alone until T-061, which held while every
+    operation on the surface was about one entity and stopped holding the moment
+    a second arrived: `order AB-1` and `item AB-1` are different rows and shared
+    one entry.
     """
 
     window_s: int | None = None
@@ -71,6 +77,17 @@ class Freshness:
             self.read_at[key] = now
             if value is not None:
                 self.value[key] = value
+
+    def remember(
+        self, registry: ToolRegistry, call: ToolCall, now: int, value: object = None
+    ) -> None:
+        """What a read told this run about the row it was about.
+
+        Here rather than in the loop, because composing the key means knowing a
+        belief is keyed by kind as well as row, and that is this module's
+        business. The loop asks only "was that a read", which it can answer.
+        """
+        self.saw(cache_key(entity_of(registry, call.name), key_of(call.arguments)), now, value)
 
     def stale(self, key: str, now: int) -> bool:
         """Whether acting on this row would be acting on an old belief.
@@ -155,35 +172,47 @@ async def refresh(
     rest of them against a picture that has just been shown to be wrong is the
     same mistake in smaller pieces.
     """
-    rows = {
-        key_of(call.arguments)
+    # Grouped by entity as well as row, because the reader that can look a row
+    # up again is the one that reads *that kind of row* — and on a surface with
+    # one entity every group is the same group, so this costs nothing (T-061).
+    rows: set[tuple[str, str]] = {
+        (entity_of(registry, call.name), key_of(call.arguments))
         for call, _ in planned
         if _is(registry, call.name, SideEffectClass.IRREVERSIBLE)
-        and fresh.stale(key_of(call.arguments), now)
+        and fresh.stale(cache_key(entity_of(registry, call.name), key_of(call.arguments)), now)
     }
     if not rows:
         return Refreshed()
 
-    reader = registry.first_read()
-    if reader is None:
-        # Nothing to re-read with. Saying so is better than proceeding as though
-        # the belief were fresh, and better than failing the run: the far
-        # system's own preconditions still govern what actually lands.
-        span.set_attribute(tel.FRESHNESS_UNCHECKABLE, True)
-        return Refreshed()
-
     out: list[tuple[ToolCall, ToolResult]] = []
     with tel.span("agent.freshness.refresh", **{tel.FRESHNESS_ROWS: len(rows)}):
-        for row in sorted(rows):
+        for entity, row in sorted(rows):
+            reader = registry.reader_for(entity)
+            if reader is None:
+                # Nothing on this surface reads this kind of row. Saying so is
+                # better than proceeding as though the belief were fresh, better
+                # than failing the run, and — since `reader_for` refuses to guess
+                # — better than re-reading some other entity and believing it.
+                # The far system's own preconditions still govern what lands.
+                span.set_attribute(tel.FRESHNESS_UNCHECKABLE, True)
+                continue
             # `step=-1` says this read belongs to no step the model planned. It
             # is the harness's own, and a key that pretended otherwise would put
             # a call the model never made into the model's own numbering.
             key = IdempotencyKey(run_id=run_id, step=-1, iteration=iteration)
             call = ToolCall(id=f"fresh-{row}", name=reader.name, arguments={"id": row})
-            before = fresh.value.get(row)
+            cached = cache_key(entity, row)
+            before = fresh.value.get(cached)
             result = await tools.call(reader.name, {"id": row}, identity, key)
+            if not result.is_error and not _is_about(result.structured, row):
+                # The reader answered, and answered about something else. Caching
+                # it would make a belief about the wrong row look fresh, which is
+                # the failure this whole module exists to prevent, arrived at from
+                # the other direction.
+                span.set_attribute(tel.FRESHNESS_UNCHECKABLE, True)
+                continue
             if not result.is_error:
-                fresh.saw(row, now, result.structured)
+                fresh.saw(cached, now, result.structured)
                 if result.structured == before:
                     # The belief was old and it was also right. Nothing the run
                     # planned is wrong, so nothing is abandoned and the model is
@@ -233,9 +262,53 @@ def _is(registry: ToolRegistry, tool: str, kind: SideEffectClass) -> bool:
     return spec is not None and spec.side_effect is kind
 
 
+def entity_of(registry: ToolRegistry, tool: str) -> str:
+    """What kind of row this tool is about, or `""` when the server does not say."""
+    spec = registry.get(tool)
+    return spec.entity if spec is not None else ""
+
+
+def cache_key(entity: str, row: str) -> str:
+    """How a row is remembered: by its kind as well as its id.
+
+    An id is unique within an entity and nothing promises it is unique across
+    them, so `order AB-1` and `item AB-1` shared one entry while this was keyed
+    by the id alone (T-061). A surface that declares no entity keys by the id,
+    exactly as it did.
+    """
+    return f"{entity}/{row}" if entity and row else row
+
+
+def _is_about(structured: object, row: str) -> bool:
+    """Whether what came back describes the row that was asked for.
+
+    Checked because `reader_for` can only be as right as the surface's own
+    declarations, and a server that mislabels an entity would otherwise have its
+    answer cached as a fresh belief about a row it never read. A result that
+    names no id is taken at its word: the reader was asked for one row and only
+    the server knows its own shape.
+    """
+    if not isinstance(structured, dict):
+        return True
+    for name in ("id", "order_id"):
+        value = structured.get(name)
+        if isinstance(value, str) and value:
+            return value == row
+    return True
+
+
 def reads(registry: ToolRegistry, tool: str) -> bool:
     """Whether this tool only looks — so its result may set a belief's age."""
     return _is(registry, tool, SideEffectClass.READ)
 
 
-__all__ = ["HELD", "Freshness", "Refreshed", "key_of", "reads", "refresh"]
+__all__ = [
+    "HELD",
+    "Freshness",
+    "Refreshed",
+    "cache_key",
+    "entity_of",
+    "key_of",
+    "reads",
+    "refresh",
+]

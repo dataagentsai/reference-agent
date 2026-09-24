@@ -84,32 +84,73 @@ def test_a_binding_that_declared_no_window_turns_the_mechanism_off() -> None:
     assert fresh.stale(PENDING, 10_000) is False
 
 
-# (name, the tool surface, what `first_read` should choose)
+# (name, the tool surface as (tool, effect, entity), the entity asked for, the choice)
 SURFACES = [
-    ("a read is offered", [("get_order", SideEffectClass.READ)], "get_order"),
+    ("a read is offered", [("get_order", SideEffectClass.READ, "")], "", "get_order"),
     (
         "the first read in the spec's order",
-        [("get_order", SideEffectClass.READ), ("peek", SideEffectClass.READ)],
+        [("get_order", SideEffectClass.READ, ""), ("peek", SideEffectClass.READ, "")],
+        "",
         "get_order",
     ),
     (
         "reads come after writes",
-        [("cancel_order", SideEffectClass.IRREVERSIBLE), ("get_order", SideEffectClass.READ)],
+        [
+            ("cancel_order", SideEffectClass.IRREVERSIBLE, ""),
+            ("get_order", SideEffectClass.READ, ""),
+        ],
+        "",
         "get_order",
     ),
-    ("nothing can read", [("cancel_order", SideEffectClass.IRREVERSIBLE)], None),
+    ("nothing can read", [("cancel_order", SideEffectClass.IRREVERSIBLE, "")], "", None),
+    # T-061. Everything below is a surface with more than one entity on it, which
+    # is where choosing the first read was choosing the wrong one.
+    (
+        "the reader for the entity, not the first on the surface",
+        [
+            ("get_order", SideEffectClass.READ, "order"),
+            ("get_shipment", SideEffectClass.READ, "shipment"),
+        ],
+        "shipment",
+        "get_shipment",
+    ),
+    (
+        "still the spec's order within one entity",
+        [
+            ("get_order", SideEffectClass.READ, "order"),
+            ("peek_order", SideEffectClass.READ, "order"),
+        ],
+        "order",
+        "get_order",
+    ),
+    (
+        "no reader for this entity is an answer, not an absence",
+        [("get_order", SideEffectClass.READ, "order")],
+        "shipment",
+        None,
+    ),
+    (
+        "an undeclared surface still answers, exactly as it did",
+        [("get_order", SideEffectClass.READ, "")],
+        "order",
+        "get_order",
+    ),
 ]
 
 
 @pytest.mark.discharges("AHC-0107")
-@pytest.mark.parametrize(("name", "surface", "chosen"), SURFACES, ids=[c[0] for c in SURFACES])
+@pytest.mark.parametrize(
+    ("name", "surface", "entity", "chosen"), SURFACES, ids=[c[0] for c in SURFACES]
+)
 def test_which_tool_is_used_to_look_again(
-    name: str, surface: list[tuple[str, SideEffectClass]], chosen: str | None
+    name: str, surface: list[tuple[str, SideEffectClass, str]], entity: str, chosen: str | None
 ) -> None:
-    """The specification's order decides, not this module.
+    """The entity decides which reader; the specification's order decides which of those.
 
-    A surface offering two ways to read the same row would make this a choice,
-    and a choice made in the harness would be the harness inventing policy.
+    Two ways to read the same row would make the second question a choice, and a
+    choice made in the harness would be the harness inventing policy. The first
+    question is not a choice at all: a reader that reads another entity is not an
+    answer to this row, and T-061 is what happens when it is treated as one.
     """
     registry = ToolRegistry(
         tools=tuple(
@@ -119,12 +160,41 @@ def test_which_tool_is_used_to_look_again(
                 input_schema={"type": "object"},
                 output_schema={"type": "object"},
                 side_effect=effect,
+                entity=on,
             )
-            for name, effect in surface
+            for name, effect, on in surface
         )
     )
-    found = registry.first_read()
+    found = registry.reader_for(entity)
     assert (found.name if found else None) == chosen
+
+
+# (name, entity, row, the key it is remembered under)
+CACHE_KEYS = [
+    ("kind and row", "order", "AB-1", "order/AB-1"),
+    ("a different kind is a different row", "item", "AB-1", "item/AB-1"),
+    ("an undeclared kind keys by the row, as it did", "", "AB-1", "AB-1"),
+    ("no row is no key", "order", "", ""),
+]
+
+
+@pytest.mark.discharges("AHC-0107")
+@pytest.mark.parametrize(
+    ("name", "entity", "row", "key"), CACHE_KEYS, ids=[c[0] for c in CACHE_KEYS]
+)
+def test_a_belief_is_remembered_per_kind_of_row(name: str, entity: str, row: str, key: str) -> None:
+    """`order AB-1` and `item AB-1` are two rows, and were one cache entry (T-061)."""
+    assert freshness.cache_key(entity, row) == key
+
+
+@pytest.mark.discharges("AHC-0107")
+def test_two_entities_sharing_an_id_do_not_share_a_belief() -> None:
+    """The collision, as a fact rather than as an argument."""
+    fresh = freshness.Freshness(window_s=30)
+    fresh.saw(freshness.cache_key("order", "AB-1"), 0)
+    assert fresh.stale(freshness.cache_key("order", "AB-1"), 40) is True
+    # Never read, so nothing to be stale — rather than inheriting the order's age.
+    assert fresh.stale(freshness.cache_key("item", "AB-1"), 40) is False
 
 
 class Slow:

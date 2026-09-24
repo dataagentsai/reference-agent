@@ -35,6 +35,16 @@ class ToolSpec(BaseModel):
     output_schema: dict[str, object]
     side_effect: SideEffectClass
     required_scope: str | None = None
+    entity: str = ""
+    """Which kind of row this tool is about, as the far end declares it.
+
+    Optional, and empty when a server does not say — which is why every use of
+    it falls back rather than failing. It exists for AHC-0107: re-reading a row
+    before an irreversible action means knowing *which* reader reads that row,
+    and on a surface with one entity the question does not arise. On a surface
+    with `get_order` and `get_shipment` it is the whole question, and an id
+    alone cannot answer it (T-061).
+    """
 
 
 class ToolResult(BaseModel):
@@ -104,17 +114,36 @@ class ToolRegistry(BaseModel):
     def irreversible(self) -> tuple[ToolSpec, ...]:
         return tuple(t for t in self.tools if t.side_effect is SideEffectClass.IRREVERSIBLE)
 
-    def first_read(self) -> ToolSpec | None:
-        """A tool that can look a row up again without changing it (AHC-0107).
+    def reader_for(self, entity: str = "") -> ToolSpec | None:
+        """A tool that can look *this kind of row* up again without changing it.
 
-        The *first* one in the surface's own order, which is the spec's order.
-        A surface offering two ways to read the same row would make this a
-        choice, and a choice made here would be this module inventing policy —
-        so the order is the specification's to decide and this one only follows
-        it. A surface with no read at all answers `None`, and the caller says so
-        rather than pretending a belief is fresh.
+        AHC-0107. The order within a match is the specification's own, because a
+        surface offering two ways to read the same row would make this a choice,
+        and a choice made here would be this module inventing policy.
+
+        **What `entity` buys.** Without it this returned the first read on the
+        surface whatever it read, so a shipment id was re-read with `get_order`
+        the moment a second entity existed (T-061). With it the reader is the
+        one that reads this entity, and when the entity is known and no reader
+        claims it the answer is `None` — *refusing to guess*, because reading
+        the wrong row and calling the belief fresh is worse than saying the
+        belief cannot be checked.
+
+        **Why it still falls back.** A server that declares no entity leaves
+        every spec's `entity` empty, and on such a surface the first read is the
+        only answer available and was always the answer. So an undeclared
+        surface behaves exactly as it did.
         """
-        return next((t for t in self.tools if t.side_effect is SideEffectClass.READ), None)
+        reads = [t for t in self.tools if t.side_effect is SideEffectClass.READ]
+        if entity:
+            matched = [t for t in reads if t.entity == entity]
+            if matched:
+                return matched[0]
+            if any(t.entity for t in reads):
+                # Somebody on this surface says what they read, and none of them
+                # says this. That is an answer, not an absence.
+                return None
+        return reads[0] if reads else None
 
 
 class ToolUnavailable(AgentFailure):

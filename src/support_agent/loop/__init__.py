@@ -346,7 +346,7 @@ class _Run:
             if not result.is_error:
                 self.keys.settled(plan.signature(call.name, call.arguments))
                 if freshness.reads(self.registry, call.name):
-                    self.fresh.saw(freshness.key_of(call.arguments), self.now(), result.structured)
+                    self.fresh.remember(self.registry, call, self.now(), result.structured)
                 else:
                     # Confirmed by the far system, not claimed by the model — AHC-0108's fact half.
                     self.trace.effects.append((call.name, freshness.key_of(call.arguments)))

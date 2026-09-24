@@ -36,6 +36,11 @@ from support_agent.contracts import ApprovalRecords
 from support_agent.identity import Issuer
 
 META_SIDE_EFFECT = "side_effect"
+META_ENTITY = "entity"
+"""Which kind of row a tool is about. Every operation in this AOAS is on
+`order`; declaring it anyway is what lets a caller pick the right reader
+when a second entity arrives (T-061)."""
+ORDER = "order"
 META_REQUIRED_SCOPE = "required_scope"
 """Where a tool says what it costs to repeat and what it requires. Declared
 here rather than imported from the agent's transport, for the reason the
@@ -104,14 +109,14 @@ def _key(meta: dict[str, Any]) -> str | None:
 def _reads(server: MCPServer, store: Store, *, acting: Any, theirs: Any) -> None:
     """The two reads. Both answer for the session's customer and nobody else."""
 
-    @server.tool(meta={META_SIDE_EFFECT: READ}, structured_output=True)
+    @server.tool(meta={META_SIDE_EFFECT: READ, META_ENTITY: ORDER}, structured_output=True)
     async def get_order(id: str, ctx: Context | None = None) -> dict[str, Any]:
         """Look up an order's current status."""
         customer = await acting("get_order", {"id": id}, ctx)
         found = await theirs(id, customer)
         return found if found is not None else {"found": False, "id": id}
 
-    @server.tool(meta={META_SIDE_EFFECT: READ}, structured_output=True)
+    @server.tool(meta={META_SIDE_EFFECT: READ, META_ENTITY: ORDER}, structured_output=True)
     async def list_orders(ctx: Context | None = None) -> dict[str, Any]:
         """List this customer's orders, newest first."""
         customer = await acting("list_orders", {}, ctx)
@@ -126,7 +131,11 @@ def _writes(server: MCPServer, store: Store, *, acts: Any) -> None:
     """The four writes, each behind the same check, ownership test and key."""
 
     @server.tool(
-        meta={META_SIDE_EFFECT: IRREVERSIBLE, META_REQUIRED_SCOPE: SCOPES["cancel_order"]},
+        meta={
+            META_SIDE_EFFECT: IRREVERSIBLE,
+            META_ENTITY: ORDER,
+            META_REQUIRED_SCOPE: SCOPES["cancel_order"],
+        },
         structured_output=True,
     )
     async def cancel_order(id: str, ctx: Context | None = None) -> dict[str, Any]:
@@ -134,7 +143,11 @@ def _writes(server: MCPServer, store: Store, *, acts: Any) -> None:
         return await acts("cancel_order", store.cancel_order)(id, ctx, {})
 
     @server.tool(
-        meta={META_SIDE_EFFECT: REVERSIBLE, META_REQUIRED_SCOPE: SCOPES["open_return_request"]},
+        meta={
+            META_SIDE_EFFECT: REVERSIBLE,
+            META_ENTITY: ORDER,
+            META_REQUIRED_SCOPE: SCOPES["open_return_request"],
+        },
         structured_output=True,
     )
     async def open_return_request(id: str, ctx: Context | None = None) -> dict[str, Any]:
@@ -142,7 +155,11 @@ def _writes(server: MCPServer, store: Store, *, acts: Any) -> None:
         return await acts("open_return_request", store.open_return_request)(id, ctx, {})
 
     @server.tool(
-        meta={META_SIDE_EFFECT: REVERSIBLE, META_REQUIRED_SCOPE: SCOPES["change_address"]},
+        meta={
+            META_SIDE_EFFECT: REVERSIBLE,
+            META_ENTITY: ORDER,
+            META_REQUIRED_SCOPE: SCOPES["change_address"],
+        },
         structured_output=True,
     )
     async def change_address(id: str, address: str, ctx: Context | None = None) -> dict[str, Any]:
@@ -150,7 +167,11 @@ def _writes(server: MCPServer, store: Store, *, acts: Any) -> None:
         return await acts("change_address", store.change_address)(id, ctx, {"address": address})
 
     @server.tool(
-        meta={META_SIDE_EFFECT: IRREVERSIBLE, META_REQUIRED_SCOPE: SCOPES["issue_refund"]},
+        meta={
+            META_SIDE_EFFECT: IRREVERSIBLE,
+            META_ENTITY: ORDER,
+            META_REQUIRED_SCOPE: SCOPES["issue_refund"],
+        },
         structured_output=True,
     )
     async def issue_refund(id: str, ctx: Context | None = None) -> dict[str, Any]:
@@ -220,6 +241,7 @@ __all__ = [
     "APPROVAL_META",
     "IDEMPOTENCY_META",
     "IRREVERSIBLE",
+    "META_ENTITY",
     "META_REQUIRED_SCOPE",
     "META_SIDE_EFFECT",
     "READ",

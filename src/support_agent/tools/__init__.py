@@ -64,6 +64,7 @@ that approval and checks it matches the call, rather than trusting a scope the
 agent added to its own identity (T-002). The same binding as `SESSION_META`."""
 
 META_SIDE_EFFECT = "side_effect"
+META_ENTITY = "entity"
 META_REQUIRED_SCOPE = "required_scope"
 
 TRUNCATION_MARK = " …[truncated from {total} characters]"
@@ -109,6 +110,10 @@ def _spec_from(tool: Any) -> ToolSpec:
         output_schema=dict(tool.output_schema),
         side_effect=side_effect,
         required_scope=meta.get(META_REQUIRED_SCOPE),
+        # Absent is allowed and means "this server does not say". Only the
+        # re-read in `freshness` reads it, and it falls back when nothing
+        # declares one — so a server that has never heard of it is unaffected.
+        entity=str(meta.get(META_ENTITY) or ""),
     )
 
 
