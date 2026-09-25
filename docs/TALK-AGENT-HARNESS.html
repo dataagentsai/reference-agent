@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Harness Talk</title>
+<meta name="description" content="A talk track for Agent Harness Engineering: one question at a time, dig into one, come back. Questions first; diagrams, code and sample messages later.">
+<style>
+:root{--ink:#16181d;--dim:#646b79;--rule:#e2e5ea;--bg:#fbfaf8;--card:#fff;--accent:#2f5d50;--shade:#f3f4f7}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;--bg:#111318;--card:#181b21;--accent:#6fc0a6;--shade:#20242b}}
+:root[data-theme="dark"]{--ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;--bg:#111318;--card:#181b21;--accent:#6fc0a6;--shade:#20242b}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:56px 16px 80px}
+.eyebrow{font:600 11px/1 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 14px}
+h1{font:600 36px/1.1 "Iowan Old Style",Palatino,Georgia,serif;margin:0 0 12px;letter-spacing:-.02em}
+.lede{color:var(--dim);margin:0 0 32px}
+ol.qs{list-style:none;margin:0;padding:0;counter-reset:q}
+ol.qs>li{counter-increment:q;border-top:1px solid var(--rule);padding:14px 0 14px 52px;position:relative}
+ol.qs>li::before{content:"Q" counter(q);position:absolute;left:0;top:15px;
+ font:700 12px/1.6 ui-monospace,monospace;color:var(--accent)}
+ol.qs ol{list-style:none;margin:10px 0 0;padding:0 0 0 16px;border-left:2px solid var(--rule)}
+ol.qs ol li{margin:6px 0;color:var(--ink)}
+ol.qs ol li::before{content:"↳ ";color:var(--dim)}
+.back{display:block;margin:8px 0 0;font:12px ui-monospace,monospace;color:var(--dim)}
+.src{font:600 10px/1 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;
+ color:var(--dim);border:1px solid var(--rule);border-radius:4px;padding:2px 5px;margin-left:6px;white-space:nowrap}
+.empty{color:var(--dim);font-style:italic;border-top:1px solid var(--rule);padding:14px 0}
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Talk track · questions first</p>
+  <h1>Agent Harness Engineering</h1>
+  <p class="lede">One question at a time. Dig into one, then come back. Diagrams, code and sample messages come after the questions are settled.</p>
+
+  <ol class="qs">
+    <li>Isn't an agent just a software system around a model?
+      <ol>
+        <li>What is actually new, and what is ordinary software? <span class="src">from the explainer</span></li>
+      </ol>
+      <span class="back">↩ back to: so an agent is a software system</span>
+    </li>
+    <li>What is Agent Harness Engineering?</li>
+    <li>What is the high-level architecture of Agent Harness Engineering?</li>
+    <li>What are the 16 concerns of Agent Harness Engineering?
+      <ol>
+        <li>For each concern: what is it?</li>
+        <li>Which AHC items cover it?</li>
+        <li>Why is it important to handle?</li>
+        <li>In what order do we build them: make it work, make it trustworthy, make it survive production? <span class="src">from the explainer</span></li>
+      </ol>
+      <span class="back">↩ back to the list of 16, then the next concern</span>
+    </li>
+    <li>What makes an agent production grade?</li>
+    <li>What are the common failure points for agents in production?</li>
+    <li>Which software characteristics does an agent need to meet?</li>
+    <li>Who does the agent have to work for, and what does each of them ask of it? <span class="src">from the explainer</span></li>
+    <li>What are the binding options for implementing an agent harness?
+      <ol>
+        <li>Framework or no framework?</li>
+        <li>Open source or vendor product?</li>
+        <li>Self-run or cloud-managed?</li>
+        <li>Model-agnostic or tied to one model vendor?</li>
+        <li>For each of the 16 concerns, what fills it in Open Stack, LangGraph, Claude Agent SDK and OpenAI Agents SDK?</li>
+      </ol>
+      <span class="back">↩ back to the choices: which one fits this agent, and why</span>
+    </li>
+    <li>Taking the customer support agent as the example: what are its requirements?</li>
+    <li>What are the high-level architecture and design of the customer support agent?</li>
+    <li>What tech stack does the customer support agent use, concern by concern across the 16?</li>
+    <li>Start to end: when a customer types a message, what happens in each layer?
+      <ol>
+        <li>"show me my orders" — the loop, with one tool call: what happens in each layer, in order?</li>
+        <li>"where is order AB-10003" — Direct, no model call: what changes, and where?</li>
+        <li>"give me a discount code" — Refuse, stopped by the router: what changes, and where?</li>
+        <li>"refund ₹12,000 on RT-726453" — Approval, waits for a person: what changes, and where?</li>
+        <li>"get me a human" — Escalate, handed to a colleague: what changes, and where?</li>
+      </ol>
+      <span class="back">↩ back to the layers, with the next message</span>
+    </li>
+    <li>How does the router decide which path a message takes? <span class="src">from the explainer</span></li>
+    <li>How does the agentic loop work, one step at a time? <span class="src">from the explainer</span>
+      <ol>
+        <li>What makes it stop: steps, cost, going in circles? <span class="src">from the explainer</span></li>
+      </ol>
+      <span class="back">↩ back to the loop</span>
+    </li>
+    <li>How does tool calling work, message by message? <span class="src">from the explainer</span>
+      <ol>
+        <li>Which tools exist, and why so few? <span class="src">from the explainer</span></li>
+        <li>How is the tool list built for each customer? <span class="src">from the explainer</span></li>
+        <li>What happens between the model asking and the tool running? <span class="src">from the explainer</span></li>
+        <li>What if the model asks for several tools, gets a long result, or gets an error? <span class="src">from the explainer</span></li>
+        <li>When is a call retried, and when not? <span class="src">from the explainer</span></li>
+      </ol>
+      <span class="back">↩ back to the round trip</span>
+    </li>
+    <li>How does the agent know who the customer is and what they may do? <span class="src">from the explainer</span></li>
+    <li>What stops the agent saying or doing something it shouldn't? <span class="src">from the explainer</span></li>
+    <li>What happens when the model or a tool fails? <span class="src">from the explainer</span></li>
+    <li>How are the agent's state and memory handled?
+      <ol>
+        <li>Where is each piece stored?</li>
+        <li>Which Postgres tables are there, and what is each one for?</li>
+        <li>How does idempotency stop a refund happening twice? <span class="src">from the explainer</span></li>
+        <li>How is a customer forgotten when they ask? <span class="src">from the explainer</span></li>
+        <li>What else is worth knowing about state and memory?</li>
+      </ol>
+      <span class="back">↩ back to state and memory as a whole</span>
+    </li>
+    <li>How do traces, spans and metrics get from the agent to OpenTelemetry, Langfuse and Prometheus?
+      <ol>
+        <li>How do traces and spans reach Langfuse?</li>
+        <li>How do metrics reach Prometheus?</li>
+        <li>What counters are there, and what does each one count?</li>
+        <li>What fields are recorded, and which are standard (OpenTelemetry conventions) and which are our own?</li>
+        <li>How do the rules and alerts fire from there?</li>
+      </ol>
+      <span class="back">↩ back to the whole pipeline</span>
+    </li>
+    <li>What processes run to support the customer support agent?</li>
+    <li>How does context assembly work?
+      <ol>
+        <li>How is context bloat handled?</li>
+      </ol>
+      <span class="back">↩ back to context assembly</span>
+    </li>
+    <li>How is the budget per call set up, and how does it work?</li>
+    <li>What is Temporal?
+      <ol>
+        <li>How does it help?</li>
+        <li>In which flows is it used?</li>
+        <li>How does the refund flow work?</li>
+        <li>How do the escalation and the delivery claim use it? <span class="src">from the explainer</span></li>
+      </ol>
+      <span class="back">↩ back to Temporal as a whole</span>
+    </li>
+    <li>How do we know the agent works: scenarios, AgentTwin and the gates? <span class="src">from the explainer</span></li>
+    <li>How is a turn replayed, and how is a change released safely? <span class="src">from the explainer</span></li>
+    <li>How far does it scale, and where does it break first? <span class="src">from the explainer</span>
+      <ol>
+        <li>What does the arithmetic say? <span class="src">from the explainer</span></li>
+        <li>What lives in memory, and for how long? <span class="src">from the explainer</span></li>
+        <li>What can stall the event loop? <span class="src">from the explainer</span></li>
+        <li>What has to leave the process before it can run wide? <span class="src">from the explainer</span></li>
+      </ol>
+      <span class="back">↩ back to where it breaks, in order</span>
+    </li>
+  </ol>
+</main>
+</body>
+</html>
