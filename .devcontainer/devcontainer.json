@@ -40,6 +40,12 @@
     "7233": { "label": "temporal", "onAutoForward": "silent" }
   },
   "customizations": {
+    // Read access for post-create's clone of AgentTwin into ../agenttwin.
+    "codespaces": {
+      "repositories": {
+        "basantchoudhary/agenttwin": { "permissions": { "contents": "read" } }
+      }
+    },
     "vscode": {
       "extensions": ["ms-python.python", "charliermarsh.ruff"],
       "settings": {
