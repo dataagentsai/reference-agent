@@ -3,9 +3,9 @@
 # nothing is started, because which compose profiles fit is a choice.
 set -euo pipefail
 
-pip install --user --quiet uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
-uv sync --extra dev
+uv sync --extra dev   # fetches Python 3.12 (requires-python) when the image lacks it
 
 # No .env on purpose. A fresh clone runs with none (the local issuer, the
 # scripted model); copying .env.example points the agent at Keycloak, which is
