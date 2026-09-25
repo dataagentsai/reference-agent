@@ -43,6 +43,7 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
     </li>
     <li>What is Agent Harness Engineering?</li>
     <li>What is the high-level architecture of Agent Harness Engineering?</li>
+    <li>Which specifications describe an agent, and how do they fit together: AOAS, AHC, AAC, AgentTwin? <span class="src">suggested</span></li>
     <li>What are the 16 concerns of Agent Harness Engineering?
       <ol>
         <li>For each concern: what is it?</li>
@@ -66,6 +67,13 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
       </ol>
       <span class="back">↩ back to the choices: which one fits this agent, and why</span>
     </li>
+    <li>What stays fixed in every harness, and what does each agent choose for itself? <span class="src">suggested</span>
+      <ol>
+        <li>What comes from the AOAS (the business) and what from the profile (the stack)? <span class="src">suggested</span></li>
+        <li>Which strategies are pluggable: context reduction, matching, and the rest? <span class="src">suggested</span></li>
+      </ol>
+      <span class="back">↩ back to: values are pluggable, safeguards are not</span>
+    </li>
     <li>Taking the customer support agent as the example: what are its requirements?</li>
     <li>What are the high-level architecture and design of the customer support agent?</li>
     <li>What tech stack does the customer support agent use, concern by concern across the 16?</li>
@@ -78,6 +86,12 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
         <li>"get me a human" — Escalate, handed to a colleague: what changes, and where?</li>
       </ol>
       <span class="back">↩ back to the layers, with the next message</span>
+    </li>
+    <li>How is the model called, and how is it swapped for another? <span class="src">suggested</span>
+      <ol>
+        <li>What is in the system prompt, and what is deliberately left out? <span class="src">suggested</span></li>
+      </ol>
+      <span class="back">↩ back to the model call</span>
     </li>
     <li>How does the router decide which path a message takes? <span class="src">from the explainer</span></li>
     <li>How does the agentic loop work, one step at a time? <span class="src">from the explainer</span>
@@ -97,13 +111,27 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
       <span class="back">↩ back to the round trip</span>
     </li>
     <li>How does the agent know who the customer is and what they may do? <span class="src">from the explainer</span></li>
-    <li>What stops the agent saying or doing something it shouldn't? <span class="src">from the explainer</span></li>
-    <li>What happens when the model or a tool fails? <span class="src">from the explainer</span></li>
+    <li>What stops the agent saying or doing something it shouldn't? <span class="src">from the explainer</span>
+      <ol>
+        <li>How does a planted instruction get in, and how is it stopped? <span class="src">suggested</span></li>
+        <li>How does it avoid stating something no tool returned? <span class="src">suggested</span></li>
+        <li>What personal data goes where, and how is it protected? <span class="src">suggested</span></li>
+      </ol>
+      <span class="back">↩ back to the four points where policy runs</span>
+    </li>
+    <li>What happens when the model or a tool fails? <span class="src">from the explainer</span>
+      <ol>
+        <li>What happens when the same message arrives twice, or two arrive at once? <span class="src">suggested</span></li>
+      </ol>
+      <span class="back">↩ back to failure handling</span>
+    </li>
+    <li>How is a conversation handed to a person, and how does it come back? <span class="src">suggested</span></li>
     <li>How are the agent's state and memory handled?
       <ol>
         <li>Where is each piece stored?</li>
         <li>Which Postgres tables are there, and what is each one for?</li>
         <li>How does idempotency stop a refund happening twice? <span class="src">from the explainer</span></li>
+        <li>What happens when a customer closes the browser and comes back later? <span class="src">suggested</span></li>
         <li>How is a customer forgotten when they ask? <span class="src">from the explainer</span></li>
         <li>What else is worth knowing about state and memory?</li>
       </ol>
@@ -116,17 +144,28 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
         <li>What counters are there, and what does each one count?</li>
         <li>What fields are recorded, and which are standard (OpenTelemetry conventions) and which are our own?</li>
         <li>How do the rules and alerts fire from there?</li>
+        <li>How do we learn it has stopped working before a customer does? <span class="src">suggested</span></li>
       </ol>
       <span class="back">↩ back to the whole pipeline</span>
     </li>
-    <li>What processes run to support the customer support agent?</li>
+    <li>What processes run to support the customer support agent?
+      <ol>
+        <li>How much memory and CPU do they need, and where can we run them: laptop, Codespaces, cloud? <span class="src">suggested</span></li>
+      </ol>
+      <span class="back">↩ back to the process list</span>
+    </li>
     <li>How does context assembly work?
       <ol>
         <li>How is context bloat handled?</li>
       </ol>
       <span class="back">↩ back to context assembly</span>
     </li>
-    <li>How is the budget per call set up, and how does it work?</li>
+    <li>How is the budget per call set up, and how does it work?
+      <ol>
+        <li>What does one turn actually cost, and where does the money go? <span class="src">suggested</span></li>
+      </ol>
+      <span class="back">↩ back to the budgets</span>
+    </li>
     <li>What is Temporal?
       <ol>
         <li>How does it help?</li>
@@ -147,6 +186,8 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
       </ol>
       <span class="back">↩ back to where it breaks, in order</span>
     </li>
+    <li>What changes when we build a different agent, and what is reused? <span class="src">suggested</span></li>
+    <li>What is still open, and what comes next? <span class="src">suggested</span></li>
   </ol>
 </main>
 </body>
