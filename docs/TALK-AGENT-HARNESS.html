@@ -11,7 +11,7 @@
  --ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;--bg:#111318;--card:#181b21;--accent:#6fc0a6;--shade:#20242b}}
 :root[data-theme="dark"]{--ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;--bg:#111318;--card:#181b21;--accent:#6fc0a6;--shade:#20242b}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-main{max-width:760px;margin:0 auto;padding:56px 16px 80px}
+main{max-width:960px;margin:0 auto;padding:56px 16px 80px}
 .eyebrow{font:600 11px/1 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 14px}
 h1{font:600 36px/1.1 "Iowan Old Style",Palatino,Georgia,serif;margin:0 0 12px;letter-spacing:-.02em}
 .lede{color:var(--dim);margin:0 0 32px}
@@ -34,9 +34,32 @@ ol.qs>li::before{content:"Q" counter(q);position:absolute;left:0;top:15px;
 ol.qs ol{list-style:none;margin:10px 0 0;padding:0 0 0 16px;border-left:2px solid var(--rule)}
 ol.qs ol li{margin:6px 0;color:var(--ink)}
 ol.qs ol li::before{content:"↳ ";color:var(--dim)}
-.back{display:block;margin:8px 0 0;font:12px ui-monospace,monospace;color:var(--dim)}
+span.back{display:block;margin:8px 0 0;font:12px ui-monospace,monospace;color:var(--dim)}
 .src{font:600 10px/1 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;
  color:var(--dim);border:1px solid var(--rule);border-radius:4px;padding:2px 5px;margin-left:6px;white-space:nowrap}
+.ans{margin:14px 0 6px;padding:2px 0 2px 16px;border-left:3px solid var(--accent)}
+.ans .say{font-size:17px;font-weight:600;margin:4px 0 10px;max-width:none}
+.cap{font-size:14px;color:var(--dim);margin:6px 0 4px;max-width:none}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 4px}
+.pair div{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:10px 12px;font-size:14px}
+.pair b{display:block;font:700 10.5px/1 ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0 0 7px}
+.pair .new{border-color:var(--accent)}.pair .new b{color:var(--accent)}
+@media (max-width:620px){.pair{grid-template-columns:1fr}}
+.diagram{overflow-x:auto;margin:10px 0;border:1px solid var(--rule);border-radius:10px;background:var(--bg)}
+.diagram svg{display:block;width:100%;height:auto}
+.diagram svg.wide{min-width:780px}
+.box{fill:var(--card);stroke:var(--rule);stroke-width:1.2}
+.hz{fill:var(--card);stroke:var(--accent);stroke-width:1.8}
+.sub{fill:var(--shade);stroke:none}
+.subl{fill:var(--shade);stroke:var(--rule);stroke-width:1}
+.t{fill:var(--ink);font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.s{fill:var(--ink);font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.d{fill:var(--dim);font:11.5px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.n{fill:var(--accent);font:700 10.5px ui-monospace,Menlo,monospace;letter-spacing:.08em}
+.go{stroke:var(--ink);stroke-width:1.4;fill:none}
+.back{stroke:var(--accent);stroke-width:1.4;fill:none;stroke-dasharray:4 3}
+.up{stroke:var(--dim);stroke-width:1.2;fill:none;stroke-dasharray:3 3}
+.ah-go{fill:var(--ink)}.ah-back{fill:var(--accent)}
 .empty{color:var(--dim);font-style:italic;border-top:1px solid var(--rule);padding:14px 0}
 </style>
 </head>
@@ -44,7 +67,7 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
 <main>
   <p class="eyebrow">Talk track · questions first</p>
   <h1>Agent Harness Engineering</h1>
-  <p class="lede">Five sessions. One question at a time: dig into one, then come back. Each session opens on the system map. Diagrams, code and sample messages come after the questions are settled.</p>
+  <p class="lede">Five sessions. One question at a time: dig into one, then come back. Each session opens on the system map. Every answer is one line and a picture.</p>
 
   <nav class="sessions">
     <a href="#s1"><b>1</b>What and why</a>
@@ -60,8 +83,188 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
     <p class="sd">The idea, before any code.</p>
     <ol class="qs">
     <li>Isn't an agent just a software system around a model?
+      <div class="ans">
+        <p class="say">Yes. The model is one box. Everything around it is ordinary software.</p>
+        <div class="diagram"><svg class="wide" viewBox="0 0 1000 536" role="img" aria-labelledby="sy-t sy-d">
+<title id="sy-t">The software system around the support agent</title>
+<desc id="sy-d">A customer chats through Chatwoot, whose webhook reaches the support agent; a colleague answers escalations in Chatwoot's inbox and approves refunds at the agent's /ops desk. Keycloak signs people in and issues the tokens the agent verifies. The agent calls the model through the LiteLLM proxy to Groq, and calls the order system's MCP server, which reads and writes the Saleor shop. Below the agent, Postgres holds conversations and the request ledger, Temporal holds approval and escalation waits, and Langfuse, Prometheus and Grafana watch it. Everything runs from one compose file. The agent is the one highlighted box.</desc>
+<defs>
+  <marker id="sy-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker>
+  <marker id="sy-bk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-back" d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+<rect class="hz" x="8" y="9" width="20" height="15" rx="3"/><text class="d" x="36" y="21">the support agent — what you build</text>
+<rect class="box" x="262" y="9" width="20" height="15" rx="3"/><text class="d" x="290" y="21">the rest of the system — mostly products you run</text>
+
+<!-- people -->
+<rect class="box" x="8" y="60" width="110" height="64" rx="8"/>
+<text class="t" x="63" y="88" text-anchor="middle">Customer</text>
+<text class="d" x="63" y="106" text-anchor="middle">in a browser</text>
+<rect class="box" x="8" y="168" width="110" height="76" rx="8"/>
+<text class="t" x="63" y="194" text-anchor="middle">Colleague</text>
+<text class="d" x="63" y="212" text-anchor="middle">takes escalations,</text>
+<text class="d" x="63" y="228" text-anchor="middle">approves refunds</text>
+
+<!-- front door -->
+<rect class="box" x="150" y="46" width="180" height="104" rx="8"/>
+<text class="n" x="162" y="66">CHAT · CHANNEL</text>
+<text class="t" x="162" y="86">Chatwoot</text>
+<text class="s" x="162" y="106">Chat widget for customers</text>
+<text class="s" x="162" y="124">Inbox for colleagues</text>
+<text class="d" x="162" y="142">or the agent's own /chat page</text>
+<rect class="box" x="150" y="262" width="180" height="80" rx="8"/>
+<text class="n" x="162" y="282">LOGIN · DEFAULT</text>
+<text class="t" x="162" y="302">Keycloak</text>
+<text class="s" x="162" y="320">Signs people in</text>
+<text class="d" x="162" y="336">issues the tokens</text>
+
+<!-- the agent -->
+<rect class="hz" x="362" y="46" width="258" height="296" rx="9" stroke-width="2.6"/>
+<text class="n" x="376" y="68">THE SUPPORT AGENT · YOU BUILD</text>
+<text class="t" x="376" y="90">src/support_agent</text>
+<text class="d" x="376" y="108">one Python process · port 8077</text>
+<rect class="sub" x="376" y="120" width="230" height="48" rx="6"/>
+<text class="n" x="388" y="138">PAGES IT SERVES</text>
+<text class="s" x="388" y="158">/chat · /portal · /ops desk</text>
+<text class="s" x="376" y="194">Router — does it need the model?</text>
+<text class="s" x="376" y="214">Loop — model, tools, stop</text>
+<text class="s" x="376" y="234">Context — what the model sees</text>
+<text class="s" x="376" y="254">Policy — rules before and after</text>
+<text class="s" x="376" y="274">Approvals · escalations</text>
+<text class="s" x="376" y="294">Traces, counters, cost</text>
+<text class="d" x="376" y="326">The harness — the rest of this page.</text>
+
+<!-- right: model, tools, shop -->
+<rect class="box" x="652" y="46" width="338" height="88" rx="8"/>
+<text class="n" x="666" y="66">MODEL · DEFAULT</text>
+<text class="t" x="666" y="86">LiteLLM proxy → Groq</text>
+<text class="s" x="666" y="106">gpt-oss-120b · the Groq key lives in the proxy</text>
+<text class="d" x="666" y="124">keys, budgets, rate limits</text>
+<rect class="box" x="652" y="150" width="338" height="60" rx="8"/>
+<text class="n" x="666" y="168">TOOLS · MCP SERVER</text>
+<text class="t" x="666" y="187">Order system</text>
+<text class="d" x="666" y="203">src/order_system · checks the token and approval itself</text>
+<rect class="box" x="652" y="226" width="338" height="116" rx="8"/>
+<text class="n" x="666" y="246">THE SHOP · STORE</text>
+<text class="t" x="666" y="266">Saleor</text>
+<text class="s" x="666" y="286">Orders, customers, payments</text>
+<text class="s" x="666" y="304">GraphQL API · worker · dashboard</text>
+<text class="d" x="666" y="330">the store of record — the truth the agent reads</text>
+
+<!-- bottom: where it runs, state, waits, watching -->
+<rect class="subl" x="8" y="378" width="322" height="82" rx="8"/>
+<text class="n" x="22" y="398">WHERE IT RUNS</text>
+<text class="t" x="22" y="418">compose.yaml</text>
+<text class="s" x="22" y="436">22 services in 6 profiles</text>
+<text class="d" x="22" y="452">start only the profiles that fit the machine</text>
+<rect class="box" x="362" y="378" width="122" height="82" rx="8"/>
+<text class="n" x="374" y="398">STATE</text>
+<text class="t" x="374" y="418">Postgres</text>
+<text class="s" x="374" y="436">conversations,</text>
+<text class="s" x="374" y="452">request ledger</text>
+<rect class="box" x="498" y="378" width="122" height="82" rx="8"/>
+<text class="n" x="510" y="398">WAITS</text>
+<text class="t" x="510" y="418">Temporal</text>
+<text class="s" x="510" y="436">approval and</text>
+<text class="s" x="510" y="452">escalation waits</text>
+<rect class="box" x="652" y="378" width="338" height="82" rx="8"/>
+<text class="n" x="666" y="398">WATCHING · OBS + WATCH</text>
+<text class="t" x="666" y="418">Langfuse · Prometheus · Grafana</text>
+<text class="s" x="666" y="436">traces and cost · counters · alerts</text>
+<text class="d" x="666" y="452">OTel Collector in front · read by whoever is on call</text>
+
+<!-- arrows -->
+<g marker-end="url(#sy-go)">
+  <line class="go" x1="118" y1="92" x2="147" y2="92"/>
+  <path class="go" d="M118,186 H134 V134 H147"/>
+  <line class="go" x1="118" y1="226" x2="359" y2="226"/>
+  <line class="go" x1="330" y1="98" x2="359" y2="98"/>
+  <line class="go" x1="620" y1="84" x2="649" y2="84"/>
+  <line class="go" x1="620" y1="176" x2="649" y2="176"/>
+  <line class="go" x1="821" y1="210" x2="821" y2="223"/>
+  <line class="go" x1="423" y1="342" x2="423" y2="375"/>
+  <line class="go" x1="559" y1="342" x2="559" y2="375"/>
+  <path class="go" d="M620,322 H636 V419 H649"/>
+</g>
+<g marker-end="url(#sy-bk)">
+  <line class="back" x1="649" y1="116" x2="623" y2="116"/>
+  <line class="back" x1="649" y1="198" x2="623" y2="198"/>
+  <line class="back" x1="359" y1="126" x2="333" y2="126"/>
+</g>
+<line class="up" x1="362" y1="302" x2="333" y2="302" marker-end="url(#sy-go)"/>
+<text class="d" x="176" y="220">approves at /ops</text>
+
+<rect class="sub" x="8" y="478" width="982" height="48" rx="8"/>
+<text class="n" x="22" y="498">THE POINT OF THE PICTURE</text>
+<text class="s" x="22" y="517">The agent is one box. Everything around it is ordinary software — and the agent is judged the way that software always has been.</text>
+</svg></div>
+        <p class="cap">The model sits inside the top-right box. The highlighted box is what we build; the rest are products we run.</p>
+      </div>
       <ol>
-        <li>What is actually new, and what is ordinary software? <span class="src">from the explainer</span></li>
+        <li>What is actually new, and what is ordinary software? <span class="src">from the explainer</span>
+          <div class="ans">
+            <p class="say">Two steps in eleven are new. The other nine are code you already know how to test.</p>
+            <div class="diagram"><svg class="wide" viewBox="0 0 1000 310" role="img" aria-labelledby="det-t det-d">
+<title id="det-t">One turn, with the non-deterministic steps marked</title>
+<desc id="det-d">A turn runs left to right through eleven steps: decode the body, verify the token, load the conversation, route, a model call, parse the reply, a policy check before a tool, the tool call, a policy check after it, a second model call, and the reply written with a checkpoint. Only the two model calls are non-deterministic. The other nine are ordinary deterministic code that can be unit tested and replayed; the two are bounded, fenced by policy on both sides, observed and judged.</desc>
+
+<text class="n" x="14" y="24">ONE TURN, LEFT TO RIGHT</text>
+
+<rect class="box" x="14" y="38" width="85" height="64" rx="6"/>
+<text class="d" x="24" y="68">decode</text>
+<text class="d" x="24" y="84">body</text>
+<rect class="box" x="103" y="38" width="85" height="64" rx="6"/>
+<text class="d" x="113" y="68">verify</text>
+<text class="d" x="113" y="84">token</text>
+<rect class="box" x="192" y="38" width="85" height="64" rx="6"/>
+<text class="d" x="202" y="68">load</text>
+<text class="d" x="202" y="84">convo</text>
+<rect class="box" x="281" y="38" width="85" height="64" rx="6"/>
+<text class="d" x="291" y="68">route</text>
+<rect class="hz" x="370" y="38" width="85" height="64" rx="6" stroke-width="2.4"/>
+<text class="t" x="380" y="68">MODEL</text>
+<text class="d" x="380" y="84">call</text>
+<rect class="box" x="459" y="38" width="85" height="64" rx="6"/>
+<text class="d" x="469" y="68">parse</text>
+<text class="d" x="469" y="84">reply</text>
+<rect class="box" x="548" y="38" width="85" height="64" rx="6"/>
+<text class="d" x="558" y="68">policy</text>
+<text class="d" x="558" y="84">pre-tool</text>
+<rect class="box" x="637" y="38" width="85" height="64" rx="6"/>
+<text class="d" x="647" y="68">tool</text>
+<text class="d" x="647" y="84">call</text>
+<rect class="box" x="726" y="38" width="85" height="64" rx="6"/>
+<text class="d" x="736" y="68">policy</text>
+<text class="d" x="736" y="84">post-tool</text>
+<rect class="hz" x="815" y="38" width="85" height="64" rx="6" stroke-width="2.4"/>
+<text class="t" x="825" y="68">MODEL</text>
+<text class="d" x="825" y="84">call</text>
+<rect class="box" x="904" y="38" width="85" height="64" rx="6"/>
+<text class="d" x="914" y="68">reply</text>
+<text class="d" x="914" y="84">+ save</text>
+
+<rect class="subl" x="14" y="122" width="480" height="172" rx="9"/>
+<text class="n" x="30" y="148">NINE OF ELEVEN — DETERMINISTIC</text>
+<text class="s" x="30" y="178">Same input, same output</text>
+<text class="s" x="30" y="202">Unit tested, no model needed</text>
+<text class="s" x="30" y="226">Replayable from a recording</text>
+<text class="s" x="30" y="250">A bug reproduces on demand</text>
+<text class="s" x="30" y="274">Ordinary code review finds problems</text>
+
+<rect class="hz" x="506" y="122" width="480" height="172" rx="9"/>
+<text class="n" x="522" y="148">TWO OF ELEVEN — NOT</text>
+<text class="s" x="522" y="178">Bound it — step and cost budgets</text>
+<text class="s" x="522" y="202">Fence it — policy before and after</text>
+<text class="s" x="522" y="226">Observe it — a span for every call</text>
+<text class="s" x="522" y="250">Judge it — rules over the trace</text>
+<text class="s" x="522" y="274">Never let it act alone on anything final</text>
+</svg></div>
+            <div class="pair">
+              <div><b>Ordinary — adopt it</b>retries · idempotency · login · queues · long waits · tracing</div>
+              <div class="new"><b>New — build only this</b>the prompt as code · fencing untrusted text · judging answers · a pinned model version</div>
+            </div>
+            <p class="cap">Keep the model steps few, fence them, and keep everything else boring.</p>
+          </div>
+        </li>
       </ol>
       <span class="back">↩ back to: so an agent is a software system</span>
     </li>
