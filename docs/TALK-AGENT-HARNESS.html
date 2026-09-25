@@ -15,7 +15,19 @@ main{max-width:760px;margin:0 auto;padding:56px 16px 80px}
 .eyebrow{font:600 11px/1 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 14px}
 h1{font:600 36px/1.1 "Iowan Old Style",Palatino,Georgia,serif;margin:0 0 12px;letter-spacing:-.02em}
 .lede{color:var(--dim);margin:0 0 32px}
-ol.qs{list-style:none;margin:0;padding:0;counter-reset:q}
+main{counter-reset:q}
+ol.qs{list-style:none;margin:0;padding:0}
+.sessions{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin:0 0 8px}
+.sessions a{display:block;background:var(--card);border:1px solid var(--rule);border-radius:8px;
+ padding:10px 12px;color:var(--ink);text-decoration:none;font-size:14px;line-height:1.3}
+.sessions a:hover{border-color:var(--accent)}
+.sessions b{display:block;font:700 11px/1 ui-monospace,monospace;color:var(--accent);margin:0 0 6px}
+section.session{margin:44px 0 0;scroll-margin-top:12px}
+.sn{font:600 11px/1 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0}
+section.session h2{font:600 26px/1.2 "Iowan Old Style",Palatino,Georgia,serif;margin:8px 0 4px}
+.sd{color:var(--dim);margin:0 0 16px}
+.next{margin:16px 0 0;font-size:14px;color:var(--dim)}
+.next a{color:var(--accent);text-decoration:none}
 ol.qs>li{counter-increment:q;border-top:1px solid var(--rule);padding:14px 0 14px 52px;position:relative}
 ol.qs>li::before{content:"Q" counter(q);position:absolute;left:0;top:15px;
  font:700 12px/1.6 ui-monospace,monospace;color:var(--accent)}
@@ -32,9 +44,21 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
 <main>
   <p class="eyebrow">Talk track · questions first</p>
   <h1>Agent Harness Engineering</h1>
-  <p class="lede">One question at a time. Dig into one, then come back. Diagrams, code and sample messages come after the questions are settled.</p>
+  <p class="lede">Five sessions. One question at a time: dig into one, then come back. Each session opens on the system map. Diagrams, code and sample messages come after the questions are settled.</p>
 
-  <ol class="qs">
+  <nav class="sessions">
+    <a href="#s1"><b>1</b>What and why</a>
+    <a href="#s2"><b>2</b>Choosing and designing</a>
+    <a href="#s3"><b>3</b>One message, end to end</a>
+    <a href="#s4"><b>4</b>Trust</a>
+    <a href="#s5"><b>5</b>Production</a>
+  </nav>
+
+  <section class="session" id="s1">
+    <p class="sn">Session 1</p>
+    <h2>What and why</h2>
+    <p class="sd">The idea, before any code.</p>
+    <ol class="qs">
     <li>Isn't an agent just a software system around a model?
       <ol>
         <li>What is actually new, and what is ordinary software? <span class="src">from the explainer</span></li>
@@ -57,6 +81,15 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
     <li>What are the common failure points for agents in production?</li>
     <li>Which software characteristics does an agent need to meet?</li>
     <li>Who does the agent have to work for, and what does each of them ask of it? <span class="src">from the explainer</span></li>
+    </ol>
+    <p class="next">Next: <a href="#s2">Session 2 · Choosing and designing</a></p>
+  </section>
+
+  <section class="session" id="s2">
+    <p class="sn">Session 2</p>
+    <h2>Choosing and designing</h2>
+    <p class="sd">From the options to this agent.</p>
+    <ol class="qs">
     <li>What are the binding options for implementing an agent harness?
       <ol>
         <li>Framework or no framework?</li>
@@ -77,6 +110,21 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
     <li>Taking the customer support agent as the example: what are its requirements?</li>
     <li>What are the high-level architecture and design of the customer support agent?</li>
     <li>What tech stack does the customer support agent use, concern by concern across the 16?</li>
+    <li>What processes run to support the customer support agent?
+      <ol>
+        <li>How much memory and CPU do they need, and where can we run them: laptop, Codespaces, cloud? <span class="src">suggested</span></li>
+      </ol>
+      <span class="back">↩ back to the process list</span>
+    </li>
+    </ol>
+    <p class="next">Next: <a href="#s3">Session 3 · One message, end to end</a></p>
+  </section>
+
+  <section class="session" id="s3">
+    <p class="sn">Session 3</p>
+    <h2>One message, end to end</h2>
+    <p class="sd">Inside a turn.</p>
+    <ol class="qs">
     <li>Start to end: when a customer types a message, what happens in each layer?
       <ol>
         <li>"show me my orders" — the loop, with one tool call: what happens in each layer, in order?</li>
@@ -110,6 +158,27 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
       </ol>
       <span class="back">↩ back to the round trip</span>
     </li>
+    <li>How does context assembly work?
+      <ol>
+        <li>How is context bloat handled?</li>
+      </ol>
+      <span class="back">↩ back to context assembly</span>
+    </li>
+    <li>How is the budget per call set up, and how does it work?
+      <ol>
+        <li>What does one turn actually cost, and where does the money go? <span class="src">suggested</span></li>
+      </ol>
+      <span class="back">↩ back to the budgets</span>
+    </li>
+    </ol>
+    <p class="next">Next: <a href="#s4">Session 4 · Trust</a></p>
+  </section>
+
+  <section class="session" id="s4">
+    <p class="sn">Session 4</p>
+    <h2>Trust</h2>
+    <p class="sd">Where it gets risky, and what holds.</p>
+    <ol class="qs">
     <li>How does the agent know who the customer is and what they may do? <span class="src">from the explainer</span></li>
     <li>What stops the agent saying or doing something it shouldn't? <span class="src">from the explainer</span>
       <ol>
@@ -137,6 +206,24 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
       </ol>
       <span class="back">↩ back to state and memory as a whole</span>
     </li>
+    <li>What is Temporal?
+      <ol>
+        <li>How does it help?</li>
+        <li>In which flows is it used?</li>
+        <li>How does the refund flow work?</li>
+        <li>How do the escalation and the delivery claim use it? <span class="src">from the explainer</span></li>
+      </ol>
+      <span class="back">↩ back to Temporal as a whole</span>
+    </li>
+    </ol>
+    <p class="next">Next: <a href="#s5">Session 5 · Production</a></p>
+  </section>
+
+  <section class="session" id="s5">
+    <p class="sn">Session 5</p>
+    <h2>Production</h2>
+    <p class="sd">Keeping it running, and what comes next.</p>
+    <ol class="qs">
     <li>How do traces, spans and metrics get from the agent to OpenTelemetry, Langfuse and Prometheus?
       <ol>
         <li>How do traces and spans reach Langfuse?</li>
@@ -147,33 +234,6 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
         <li>How do we learn it has stopped working before a customer does? <span class="src">suggested</span></li>
       </ol>
       <span class="back">↩ back to the whole pipeline</span>
-    </li>
-    <li>What processes run to support the customer support agent?
-      <ol>
-        <li>How much memory and CPU do they need, and where can we run them: laptop, Codespaces, cloud? <span class="src">suggested</span></li>
-      </ol>
-      <span class="back">↩ back to the process list</span>
-    </li>
-    <li>How does context assembly work?
-      <ol>
-        <li>How is context bloat handled?</li>
-      </ol>
-      <span class="back">↩ back to context assembly</span>
-    </li>
-    <li>How is the budget per call set up, and how does it work?
-      <ol>
-        <li>What does one turn actually cost, and where does the money go? <span class="src">suggested</span></li>
-      </ol>
-      <span class="back">↩ back to the budgets</span>
-    </li>
-    <li>What is Temporal?
-      <ol>
-        <li>How does it help?</li>
-        <li>In which flows is it used?</li>
-        <li>How does the refund flow work?</li>
-        <li>How do the escalation and the delivery claim use it? <span class="src">from the explainer</span></li>
-      </ol>
-      <span class="back">↩ back to Temporal as a whole</span>
     </li>
     <li>How do we know the agent works: scenarios, AgentTwin and the gates? <span class="src">from the explainer</span></li>
     <li>How is a turn replayed, and how is a change released safely? <span class="src">from the explainer</span></li>
@@ -188,7 +248,8 @@ ol.qs ol li::before{content:"↳ ";color:var(--dim)}
     </li>
     <li>What changes when we build a different agent, and what is reused? <span class="src">suggested</span></li>
     <li>What is still open, and what comes next? <span class="src">suggested</span></li>
-  </ol>
+    </ol>
+  </section>
 </main>
 </body>
 </html>
