@@ -5,7 +5,10 @@ set -euo pipefail
 
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
-uv sync --extra dev   # fetches Python 3.12 (requires-python) when the image lacks it
+# Runtime packages only, on the Python the laptops use (uv would pick the
+# newest). `--extra dev` needs agenttwin from ../agenttwin, a separate private
+# repository a Codespace cannot see; clone it beside this one to run the tests.
+uv sync --python 3.13
 
 # No .env on purpose. A fresh clone runs with none (the local issuer, the
 # scripted model); copying .env.example points the agent at Keycloak, which is
