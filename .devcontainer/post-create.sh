@@ -12,10 +12,14 @@ export PATH="$HOME/.local/bin:$PATH"
 # mirrored under basantchoudhary); a local dev container uses the org's.
 AGENTTWIN_REPO="${AGENTTWIN_REPO:-basantchoudhary/agenttwin}"
 if [ ! -d ../agenttwin ]; then
-  git clone --quiet "https://github.com/${AGENTTWIN_REPO}.git" ../agenttwin || {
-    echo "Could not clone ${AGENTTWIN_REPO} into ../agenttwin; the server and tests need it." >&2
-    exit 1
-  }
+  git clone --quiet "https://github.com/${AGENTTWIN_REPO}.git" ../agenttwin || true
+fi
+if [ ! -d ../agenttwin ]; then
+  # Not fatal, so the container still comes up: the clone fails when the
+  # Codespace was created without authorising the extra permission.
+  echo "Could not clone ${AGENTTWIN_REPO} into ../agenttwin; the server and tests need it." >&2
+  echo "Put a checkout there (e.g. copy it in), then run: bash .devcontainer/post-create.sh" >&2
+  exit 0
 fi
 
 # Frozen: install exactly what the lock says. Python 3.13, the laptops' version
