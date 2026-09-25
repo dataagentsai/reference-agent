@@ -186,7 +186,7 @@ footer a{color:var(--accent)}
       <li><span>11</span><a href="#postgres">The data model</a> <em>— three tables, <a href="#pg-checkpoint">checkpointing</a>, <a href="#pg-idem">idempotency</a></em></li>
       <li><span>12</span><a href="#temporal">Temporal, on its own</a> <em>— waiting for a human, properly</em></li>
       <li><span>13</span><a href="#otel">OpenTelemetry, Langfuse and the rules</a> <em>— 34 spans, 22 rules, 18 alerts</em></li>
-      <li><span>14</span><a href="#pipeline">From the agent to Prometheus and Langfuse</a> <em>— the pipeline: <a href="#pipe-two">two pipes</a> · <a href="#pipe-manifest">the two catalogues</a> · <a href="#pipe-counts">who counts</a> · <a href="#pipe-labels">labels</a> · <a href="#pipe-hops">push and pull</a> · <a href="#pipe-rules">how a rule fires</a></em></li>
+      <li><span>14</span><a href="#pipeline">From the agent to Prometheus and Langfuse</a> <em>— the pipeline: <a href="#pipe-two">two pipes</a> · <a href="#pipe-manifest">the two catalogues</a> · <a href="#pipe-counts">who counts</a> · <a href="#pipe-labels">labels</a> · <a href="#pipe-hops">push and pull</a> · <a href="#pipe-rules">how a rule fires</a> · <a href="#pipe-files">the files</a></em></li>
       <li><span>15</span><a href="#scale">Scale, memory and where it breaks</a> <em>— <a href="#sc-math">the arithmetic</a> · <a href="#sc-memory">memory by lifetime</a> · <a href="#sc-loop">the event loop</a> · <a href="#sc-out">going wide</a></em></li>
       <li><span>16</span><a href="#stack">One message, function by function</a> <em>— two real turns</em></li>
       <li><span>17</span><a href="#next">Where to go next</a> <em>— and a glossary</em></li>
@@ -4654,6 +4654,76 @@ agent_turn_duration_seconds_count{synthetic="false"}                    4576</co
 <text class="d" x="210" y="88">read a window</text>
 </svg></div>
     <p class="caption"><code>agent.online.evaluated</code> is the denominator, and the reason it exists: "three contradictions today" means something different in a million turns than in five, and those need different people woken.</p>
+
+    <h3 id="pipe-files">14.8 · The files, in the order the data moves</h3>
+    <p>Every piece above is set up in one of these files. Read them left to right: the agent makes the data, the collector splits it, and the stores keep it.</p>
+
+    <div class="diagram"><svg class="mid" viewBox="0 0 1000 250" role="img" aria-labelledby="pf-t pf-d">
+<title id="pf-t">Where each hop of the pipeline is configured</title>
+<desc id="pf-d">Five boxes left to right. The agent, configured in run_server.py and the telemetry package, pushes to the OpenTelemetry Collector, configured in deploy/otel-collector/config.yaml. The collector sends traces to Langfuse, configured in compose.yaml and deploy/langfuse/models.py, and exposes metrics that Prometheus scrapes, configured in deploy/prometheus. Prometheus feeds Alertmanager and Grafana, configured in deploy/alertmanager and deploy/grafana.</desc>
+<defs><marker id="pf-go" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah-go" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="box" x="14" y="80" width="200" height="90" rx="8"/>
+<text class="t" x="26" y="106">① the agent</text>
+<text class="d" x="26" y="126">run_server.py · _telemetry()</text>
+<text class="d" x="26" y="144">telemetry/__init__.py</text>
+<text class="d" x="26" y="162">telemetry/meters.py</text>
+<rect class="hz" x="270" y="80" width="210" height="90" rx="8"/>
+<text class="t" x="282" y="106">② otel-collector</text>
+<text class="d" x="282" y="126">deploy/otel-collector/</text>
+<text class="d" x="282" y="144">config.yaml · :4318 in</text>
+<rect class="box" x="540" y="14" width="200" height="80" rx="8"/>
+<text class="t" x="552" y="40">③ Langfuse · traces</text>
+<text class="d" x="552" y="60">compose.yaml langfuse-*</text>
+<text class="d" x="552" y="78">deploy/langfuse/models.py</text>
+<rect class="box" x="540" y="156" width="200" height="80" rx="8"/>
+<text class="t" x="552" y="182">④ Prometheus · metrics</text>
+<text class="d" x="552" y="202">deploy/prometheus/</text>
+<text class="d" x="552" y="220">prometheus.yml · rules/</text>
+<rect class="box" x="790" y="156" width="196" height="80" rx="8"/>
+<text class="t" x="802" y="182">⑤ alerts · dashboards</text>
+<text class="d" x="802" y="202">deploy/alertmanager/</text>
+<text class="d" x="802" y="220">deploy/grafana/</text>
+<g marker-end="url(#pf-go)">
+  <line class="go" x1="214" y1="125" x2="267" y2="125"/>
+  <path class="go" d="M480 110 C510 110 510 54 537 54"/>
+  <path class="go" d="M480 140 C510 140 510 196 537 196"/>
+  <line class="go" x1="740" y1="196" x2="787" y2="196"/>
+</g>
+<text class="d" x="216" y="115">OTLP</text>
+<text class="d" x="440" y="62">push</text>
+<text class="d" x="400" y="200">scraped :8889</text>
+</svg></div>
+    <p class="caption">The agent pushes everything to one place; the collector is where traces and metrics part ways.</p>
+
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Hop</th><th>File</th><th>What to look at</th></tr></thead>
+      <tbody>
+        <tr><td rowspan="7"><strong>① the agent</strong></td><td><a href="../scripts/run_server.py">scripts/run_server.py</a> · <code>_telemetry()</code></td><td><strong>Start here.</strong> Switches it all on at startup: <code>tel.configure(...)</code>, then <code>tel.export_to(...)</code> when an endpoint is set</td></tr>
+        <tr><td><a href="../src/support_agent/config/__init__.py">config/__init__.py</a></td><td>The switches: <code>AGENT_OTLP_ENDPOINT</code> (traces), <code>AGENT_METRICS_ENDPOINT</code> (metrics), <code>AGENT_OTLP_HEADERS</code></td></tr>
+        <tr><td><a href="../src/support_agent/telemetry/__init__.py">telemetry/__init__.py</a></td><td><code>configure()</code> adds the in-memory processor; <code>export_to()</code> adds the <code>BatchSpanProcessor</code>; <code>span()</code> is the <code>with</code> every module uses</td></tr>
+        <tr><td><a href="../src/support_agent/telemetry/meters.py">telemetry/meters.py</a></td><td>The metrics side: a <code>MeterProvider</code> sending every few seconds, and <code>RunNumbers</code>, which turns finished spans into numbers</td></tr>
+        <tr><td><a href="../src/support_agent/telemetry/counters.py">telemetry/counters.py</a> · <a href="../src/support_agent/telemetry/names.py">names.py</a></td><td>The counters (<code>model_calls</code>, <code>tool_calls</code>, …) and every span and attribute name</td></tr>
+        <tr><td><a href="../src/support_agent/telemetry/redaction.py">telemetry/redaction.py</a></td><td>What is blanked out before anything leaves the process</td></tr>
+        <tr><td><a href="../src/support_agent/telemetry/contract.py">telemetry/contract.py</a></td><td>What a complete trace must contain; tests hold every turn to it</td></tr>
+        <tr><td><strong>② collector</strong></td><td><a href="../deploy/otel-collector/config.yaml">deploy/otel-collector/config.yaml</a></td><td><strong>The key file.</strong> Listens on 4318; the <code>traces</code> pipeline goes to Langfuse with a queue and retries, the <code>metrics</code> pipeline to a Prometheus endpoint on 8889</td></tr>
+        <tr><td rowspan="3"><strong>③ Langfuse</strong></td><td><a href="../compose.yaml">compose.yaml</a> · <code>langfuse-web</code></td><td>Langfuse and what it needs behind it: ClickHouse, MinIO, Redis (profile <code>obs</code>)</td></tr>
+        <tr><td><a href="../deploy/langfuse/models.py">deploy/langfuse/models.py</a></td><td>Tells Langfuse the model's price, so a trace shows cost and not only tokens</td></tr>
+        <tr><td><a href="../src/support_agent/watch/langfuse.py">watch/langfuse.py</a></td><td>The other direction: the watch reads turns back and writes verdicts onto them as scores</td></tr>
+        <tr><td rowspan="2"><strong>④ Prometheus</strong></td><td><a href="../deploy/prometheus/prometheus.yml">deploy/prometheus/prometheus.yml</a></td><td>Scrapes the collector every 15 s: <code>:8889</code> for the agent's numbers, <code>:8888</code> for the collector's own</td></tr>
+        <tr><td><a href="../deploy/prometheus/rules/agent.yml">rules/agent.yml</a> · <a href="../deploy/prometheus/rules/agent.test.yml">agent.test.yml</a></td><td>The alert rules, and their tests</td></tr>
+        <tr><td rowspan="2"><strong>⑤ alerts, dashboards</strong></td><td><a href="../deploy/alertmanager/alertmanager.yml">deploy/alertmanager/alertmanager.yml</a></td><td>Where a firing alert is sent</td></tr>
+        <tr><td><a href="../deploy/grafana/">deploy/grafana/</a></td><td>The Prometheus data source and the agent's dashboard, <code>dashboards/agent.json</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <p>To watch it work, start only the two profiles it needs, then point the agent at the collector:</p>
+    <pre><code>docker compose --profile obs --profile watch up -d
+AGENT_OTLP_ENDPOINT=http://localhost:4318/v1/traces \
+AGENT_METRICS_ENDPOINT=http://localhost:4318/v1/metrics \
+uv run python scripts/run_server.py</code></pre>
+    <p class="caption">Three files if you read nothing else: <code>run_server.py:_telemetry</code>, <code>telemetry/__init__.py</code>, <code>deploy/otel-collector/config.yaml</code>.</p>
   </section>
 
   <section class="part" id="scale">
