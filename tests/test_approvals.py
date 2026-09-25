@@ -95,6 +95,34 @@ def test_which_refunds_need_a_human(name: str, order: dict, needs: bool) -> None
     assert (reason is not None) is needs
 
 
+# (status, may a refund be requested at all) — AOAS request_refund.preconditions
+REQUESTABLE_CASES = [
+    ("pending", False),
+    ("confirmed", False),
+    ("picked", False),
+    ("shipped", False),
+    ("out_for_delivery", False),
+    ("delivered", True),
+    ("cancelled", True),
+    ("returned", True),
+    ("refunded", False),
+]
+
+
+@pytest.mark.parametrize(
+    ("status", "requestable"), REQUESTABLE_CASES, ids=[c[0] for c in REQUESTABLE_CASES]
+)
+@pytest.mark.discharges("P-REFUND", "op:request_refund")
+def test_which_orders_a_refund_may_be_requested_for(status: str, requestable: bool) -> None:
+    """Before delivery the answer is a cancellation, not a reviewer's time: a note
+    planted in a shipped order must not be able to put a refund request in a
+    person's queue (generation run 1). A refused request says what to do instead."""
+    reason = ap.not_requestable({"status": status, "total": 500}, ap.Policy())
+    assert (reason is None) is requestable
+    if reason is not None:
+        assert status in reason and "cancel" in reason
+
+
 # --------------------------------------------------------------------------- #
 # What a decision was decided against — F-054.
 #
@@ -199,6 +227,67 @@ async def test_a_blip_on_the_recheck_is_not_news_about_the_order() -> None:
     work = RefundWork(tools=Unreachable(), acting_for=acting_for)  # type: ignore[arg-type]
     with pytest.raises(ToolUnavailable):
         await work._changed(granted(decided_against=WAS), customer())
+
+
+# (the order as the order system holds it, refused before any person sees it)
+ASSESS_CASES = [
+    ({"id": "O-1", "status": "shipped", "total": 500}, True),
+    ({"id": "O-1", "status": "pending", "total": 500}, True),
+    ({"id": "O-1", "status": "delivered", "total": 500}, False),
+    ({"id": "O-1", "status": "returned", "total": 99999}, False),
+]
+
+
+@pytest.mark.parametrize(
+    ("order", "refused"), ASSESS_CASES, ids=[c[0]["status"] for c in ASSESS_CASES]
+)
+@pytest.mark.discharges("op:request_refund", "AAC-0056")
+async def test_an_ineligible_request_is_refused_before_it_reaches_a_person(
+    order: dict, refused: bool
+) -> None:
+    """The assessment reads the order and refuses a request the AOAS does not
+    allow, as a result the model is told — no approval waits, nobody is asked.
+    An eligible one goes on to the automatic limit as before."""
+    from support_agent.approvals.durable import Ask
+    from support_agent.approvals.refund import RefundWork
+    from support_agent.contracts import ToolResult, ToolSpec
+
+    spec = ToolSpec(
+        name="get_order",
+        description="read an order",
+        input_schema={
+            "type": "object",
+            "properties": {"order_id": {"type": "string"}},
+            "required": ["order_id"],
+        },
+        output_schema={"type": "object"},
+        side_effect=SideEffectClass.READ,
+    )
+
+    class OrderSystem:
+        async def list_tools(self, identity: Identity):
+            return {"get_order": spec}
+
+        async def call(self, name: str, arguments: dict, identity: Identity, key: object):
+            return ToolResult(name=name, text="", structured=order)
+
+    async def acting_for(customer_id: str) -> Identity:
+        return customer()
+
+    work = RefundWork(tools=OrderSystem(), acting_for=acting_for)  # type: ignore[arg-type]
+    ask = Ask(
+        id="A-1",
+        action=ap.REFUND_ACTION,
+        args={"order_id": "O-1"},
+        customer_id="C-1042",
+        idempotency_key="run-1:3:0",
+        ttl_s=3600,
+        queue="q",
+    )
+    assessment = await work.assess(ask)
+    assert (assessment.failed is not None) is refused
+    if refused:
+        assert order["status"] in assessment.failed and assessment.reason is None
 
 
 # --------------------------------------------------------------------------- #

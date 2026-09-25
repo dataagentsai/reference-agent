@@ -59,6 +59,14 @@ UNREACHABLE = {
         "has no such row — the honest way to demonstrate it is a perturbation "
         "that pads a read, which the format does not yet have."
     ),
+    "P-ESC-MODEL": (
+        "Conditional on the model being offered `escalate`, and this agent never "
+        "offers it: escalations are raised by the router from the customer's words "
+        "and by the Tier 2 rules from the conversation's facts, so there is no "
+        "model-raised escalation for a scenario to produce. Nothing could offer "
+        "it: the only harness-local tool is `request_refund`, and `escalate` is "
+        "not among the order system's operations in the AOAS."
+    ),
 }
 """Statements a scenario cannot reach, and why — each with where it *is*
 demonstrated instead.

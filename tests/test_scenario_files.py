@@ -408,7 +408,7 @@ def test_scenario_coverage_only_goes_up() -> None:
 def test_every_unreached_statement_says_why_it_cannot_be_reached() -> None:
     """The unreached list must not become a place work goes to be forgotten.
 
-    Four statements are genuinely out of a scenario's reach — they are the
+    Five statements are genuinely out of a scenario's reach. Four are the
     binding's numbers, and a scenario deliberately has no view of the binding,
     which is exactly what makes the same scenarios runnable against a
     regenerated agent on a different stack. Each of those carries a written

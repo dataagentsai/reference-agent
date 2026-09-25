@@ -123,7 +123,12 @@ class Tier2Rule:
         return all(c.holds(facts) for c in self.when)
 
 
-TERMINATED_BADLY = ("step_budget_exhausted", "cost_ceiling_reached", "oscillation_detected")
+TERMINATED_BADLY = (
+    "step_budget_exhausted",
+    "cost_ceiling_reached",
+    "deadline_reached",
+    "oscillation_detected",
+)
 
 DEFAULT_RULES: tuple[Tier2Rule, ...] = (
     Tier2Rule(

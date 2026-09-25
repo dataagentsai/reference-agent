@@ -36,6 +36,14 @@ class Policy:
     AOAS `issue_refund.authority.agent_when`: a person may refund in any state,
     the agent only what is owed."""
 
+    requestable_statuses: frozenset[str] = frozenset({"delivered", "returned", "cancelled"})
+    """The states in which a refund may be *requested* at all — AOAS
+    `request_refund.preconditions`, added after generation run 1. Before it, a
+    note planted in a shipped order could put a refund request in front of a
+    reviewer: nothing moved, but an instruction the customer never gave reached
+    a person's queue. Before delivery the answer is a cancellation; a parcel
+    lost in transit is a handoff (the operation's `on_refusal`)."""
+
 
 JUDGED = ("status", "total")
 """The fields a refund decision depends on — and so the fields that invalidate
@@ -57,6 +65,22 @@ def judged(order: Mapping[str, object]) -> dict[str, str]:
     the drift would show as a control that silently passes.
     """
     return {field: str(order.get(field)) for field in JUDGED}
+
+
+def not_requestable(order: Mapping[str, object], policy: Policy) -> str | None:
+    """Why a refund cannot even be requested for this order, or `None`.
+
+    A refusal, not a question for a person: the request never reaches a
+    reviewer. Checked before `requires_approval`, because an order nobody may
+    request a refund for has no approval to need.
+    """
+    status = order.get("status")
+    if status in policy.requestable_statuses:
+        return None
+    return (
+        f"the order is {status}; a refund can be requested once it is delivered, "
+        "returned or cancelled — before delivery, cancel it instead while that is still possible"
+    )
 
 
 def requires_approval(order: Mapping[str, object], policy: Policy) -> str | None:
@@ -86,4 +110,4 @@ def requires_approval(order: Mapping[str, object], policy: Policy) -> str | None
     return None
 
 
-__all__ = ["JUDGED", "Policy", "REFUND_ACTION", "judged", "requires_approval"]
+__all__ = ["JUDGED", "Policy", "REFUND_ACTION", "judged", "not_requestable", "requires_approval"]

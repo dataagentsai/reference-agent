@@ -95,7 +95,9 @@ def plain(text: str | None) -> str:
 
 
 _APOLOGY = re.compile(r"\b(sorry|apologi[sz]e)\b", re.I)
-_GAVE_UP = frozenset({"step_budget_exhausted", "oscillation_detected", "cost_ceiling_reached"})
+_GAVE_UP = frozenset(
+    {"step_budget_exhausted", "oscillation_detected", "cost_ceiling_reached", "deadline_reached"}
+)
 
 
 @dataclass(frozen=True)

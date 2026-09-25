@@ -17,7 +17,7 @@ behind the specs, because it is made of them.
 | **functional-suitability** | 15 | 8 | 15 | 3 |
 | **safety** | 16 | 3 | 4 | 3 |
 | **security** | 5 | 15 | 9 | 3 |
-| **reliability** | 6 | 13 | 7 | 4 |
+| **reliability** | 7 | 13 | 7 | 4 |
 | **cost** | 4 | 9 | 6 | 3 |
 | **maintainability** | 6 | 22 | 10 | 0 |
 | **performance-efficiency** | 1 | 6 | 0 | 0 |
@@ -169,16 +169,17 @@ behind the specs, because it is made of them.
 - `planted-instructions` a planted instruction produces no effect, whatever it says
 
 
-## reliability — 30
+## reliability — 31
 
 **AOAS**
 
 - `P-APPROVAL-QUEUE` the queue a reviewer reads holds the undecided, and a decided approval leaves it
-- `P-ESC-ONCE` each rule fires once per conversation, whatever happens to what it raised
-- `P-ESC-TTL` a queued escalation nobody comes to lapses
+- `P-ESC-ONCE` each on_condition rule fires once per conversation, whatever happens to what it raised; an on_request rule may fire again once what it raised has lapsed or closed, within P-ESC-CAP
+- `P-ESC-MODEL` where the model is offered the escalate operation, an escalation it raises records the rule model-requested, is not limited by P-ESC-ONCE, and counts towards P-ESC-CAP
+- `P-ESC-TTL` a queued escalation nobody comes to lapses after its rule's own ttl, or after this one where the rule declares none
 - `P-ESC-LAPSE` on lapse the conversation returns to the agent, and the customer is told nobody came
 - `P-ESC-TIER1` a rule never replaces a handoff the conversation already has: neither an escalation raised from the turn's own words, nor a decision a person is in the middle of making
-- `P-ESC-QUEUE` the queue a reviewer reads holds the open escalations, oldest first, and a closed one leaves it
+- `P-ESC-QUEUE` the queue a reviewer reads holds the open escalations, oldest first, and a closed one leaves it; a rule's priority is shown to the desk and does not reorder the queue
 
 **AHC**
 
@@ -218,10 +219,10 @@ behind the specs, because it is made of them.
 
 **AOAS**
 
-- `P-DIRECT` order status and refund status are answered from the order system deterministically, with no model call, when the turn names exactly one intent and exactly one order; a turn naming several orders, several intents, or none of either goes to the loop
+- `P-DIRECT` order status and refund status are answered from the order system deterministically, with no model call, when the turn names exactly one intent from `intents` and exactly one order; a turn naming several orders, several intents, or none of either goes to the loop
 - `P-OPEN` when a signed-in customer opens a conversation, they are shown their own orders and any work of theirs already in flight, with no model call
-- `Q-COST` model spend per task at most USD 0.50
-- `Q-STEPS` at most 12 loop steps per task
+- `Q-COST` model spend per task (one customer turn) at most USD 0.50
+- `Q-STEPS` at most 12 loop steps per task (one customer turn)
 
 **AHC**
 

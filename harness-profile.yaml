@@ -121,6 +121,35 @@ decisions:
       so the agent never decides at the time which kind it is looking at.
       Decided 2026-09-12.
 
+  AHC-0057/grant_carriage:
+    value: approval-on-the-call
+    source: chosen
+    note: >-
+      An elevated call names its approval in `_meta` under `aoas/approval`; the
+      order system loads that approval and refuses unless it matches the
+      operation, the arguments and the customer (T-002). The approvals worker's
+      login has no customer, and for that party alone the approval says whose
+      the call is. No scope is ever added to an identity for a grant. The keys
+      are the stack's (open-stack `tool_runtime.x_meta`).
+  AHC-0074/key_source:
+    value: run-step-iteration
+    source: golden-path
+    note: >-
+      `run:step:iteration`, and a call still owed a reply keeps the key its first
+      attempt was minted with, so a retry reaches the far end under the same
+      name (F-039). An approval stores its key and rebuilds it when the grant is
+      carried out, so a resumed approval cannot refund twice. Not verified: a
+      process that dies mid-turn loses the owed-key map, which lives in memory,
+      and whether the redelivered turn re-derives the same key has no test.
+  AHC-0014/unsettable_parameter:
+    value: not-arising
+    source: chosen
+    note: >-
+      Temperature is set explicitly (0.0) at the choke point and the configured
+      route accepts it, so no parameter is fixed by the model. Revisit with any
+      change of model pin: moving to a model that rejects temperature makes this
+      the live question, and the variance measurement has to be re-run.
+
   AHC-0019/redaction_point:
     value: before-export
     source: chosen

@@ -56,6 +56,7 @@ from support_agent.approvals.policy import (
     REFUND_ACTION,
     Policy,
     judged,
+    not_requestable,
     requires_approval,
 )
 from support_agent.approvals.refund import (
@@ -111,6 +112,7 @@ __all__ = [
     "moved",
     "refusal",
     "refund_tool",
+    "not_requestable",
     "requires_approval",
     "stored_key",
     "worker",

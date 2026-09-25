@@ -17,7 +17,13 @@ from temporalio import activity
 
 from support_agent import telemetry as tel
 from support_agent.approvals.durable import ASSESS, CARRY_OUT, Ask, Assessment, CarriedOut
-from support_agent.approvals.policy import REFUND_ACTION, Policy, judged, requires_approval
+from support_agent.approvals.policy import (
+    REFUND_ACTION,
+    Policy,
+    judged,
+    not_requestable,
+    requires_approval,
+)
 from support_agent.approvals.workflow import ApprovalError, carry_out, moved, stored_key
 from support_agent.contracts import (
     Approval,
@@ -157,6 +163,9 @@ class RefundWork:
             return Assessment(args=ask.args, reason=None, failed=order.text)
         total = order.get("total")
         args = {**ask.args, "amount": None if total is None else str(total)}
+        refused = not_requestable(order, self.policy)
+        if refused is not None:
+            return Assessment(args=args, reason=None, failed=refused)
         reason = requires_approval(order, self.policy)
         # What the decision rests on, recorded at the moment it is read, so the
         # carry-out an hour later can tell whether it still rests on anything.

@@ -72,6 +72,9 @@ class TerminationReason(StrEnum):
     GOAL_REACHED = "goal_reached"
     STEP_BUDGET_EXHAUSTED = "step_budget_exhausted"
     COST_CEILING_REACHED = "cost_ceiling_reached"
+    DEADLINE_REACHED = "deadline_reached"
+    """Wall-clock ran out (AHC-0096). Its own value since generation run 1: it
+    was reported as a step stop, and the two call for different fixes."""
     OSCILLATION_DETECTED = "oscillation_detected"
     AWAITING_APPROVAL = "awaiting_approval"
     AWAITING_HUMAN = "awaiting_human"
