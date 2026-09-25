@@ -6,9 +6,10 @@ set -euo pipefail
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 # Runtime packages only, on the Python the laptops use (uv would pick the
-# newest). `--extra dev` needs agenttwin from ../agenttwin, a separate private
-# repository a Codespace cannot see; clone it beside this one to run the tests.
-uv sync --python 3.13
+# newest). Frozen, because uv otherwise re-resolves every source in the lock,
+# and agenttwin (a dev extra) comes from ../agenttwin, a separate private
+# repository a Codespace cannot see. Clone it beside this one to run the tests.
+uv sync --frozen --python 3.13
 
 # No .env on purpose. A fresh clone runs with none (the local issuer, the
 # scripted model); copying .env.example points the agent at Keycloak, which is
