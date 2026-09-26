@@ -155,8 +155,11 @@ class Agent:
         # delivery must not mint a second run, because a second run gets its own
         # idempotency key space and every control below this line is scoped to
         # one run. Refusing here is the only place it can be refused.
+        # Named under the customer: a redelivery is answered with the first reply,
+        # so a bare key let another customer's key read it (generation run 2).
         if self.deliveries is not None and delivery_id is not None:
-            async with req.once(self.deliveries, delivery_id, scope=req.Scope.DELIVERY) as claim:
+            named = f"{identity.customer_id}:{delivery_id}"
+            async with req.once(self.deliveries, named, scope=req.Scope.DELIVERY) as claim:
                 answer = await self._turn(text, identity, conversation, run_id)
                 # What a redelivery is told. A turn that *raised* settles too,
                 # with nothing to say — `Scope.DELIVERY` decides that, because

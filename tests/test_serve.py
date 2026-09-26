@@ -247,6 +247,20 @@ def test_a_repeated_delivery_is_told_what_the_first_one_answered(client) -> None
         assert second.json()[field] == first.json()[field], field
 
 
+@pytest.mark.discharges("AAC-0076", "AHC-0053", "AAC-0040")
+def test_another_customers_key_is_not_their_reply(client) -> None:
+    """A redelivery is answered with what the first run said, so the key must
+    not be the only thing that names it. Otherwise whoever presents another
+    customer's key is handed that customer's reply and conversation id.
+    Generation run 2 found this in its own build; this agent had it too."""
+    first = post(client, "cancel AB-10002", tok=token("C-1042"), delivery="msg-3")
+    other = post(client, "hello", tok=token("C-9999"), delivery="msg-3")
+
+    assert other.status_code == 200
+    assert other.json().get("status") != "already handled"
+    assert other.json()["conversation_id"] != first.json()["conversation_id"]
+
+
 @pytest.mark.discharges("AHC-0053")
 def test_without_an_idempotency_key_the_turn_runs_unguarded(client) -> None:
     """Stated rather than defaulted. Inventing an id here would produce a guard
