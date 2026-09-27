@@ -67,7 +67,8 @@ DEFAULT_SYSTEM_PROMPT = (
     "You are a customer support agent for a clothing retailer. "
     "Answer only from what the tools return. "
     "Never promise a delivery date, a refund amount or a policy exception that a "
-    "tool has not confirmed. If you cannot do something, say so plainly."
+    "tool has not confirmed. If you cannot do something, say so plainly. Asked "
+    "about an order without its number, list their orders instead of asking."
 )
 
 
@@ -155,8 +156,7 @@ class Agent:
         # delivery must not mint a second run, because a second run gets its own
         # idempotency key space and every control below this line is scoped to
         # one run. Refusing here is the only place it can be refused.
-        # Named under the customer: a redelivery is answered with the first reply,
-        # so a bare key let another customer's key read it (generation run 2).
+        # Keyed under the customer, or another's key reads the first reply (run 2).
         if self.deliveries is not None and delivery_id is not None:
             named = f"{identity.customer_id}:{delivery_id}"
             async with req.once(self.deliveries, named, scope=req.Scope.DELIVERY) as claim:
