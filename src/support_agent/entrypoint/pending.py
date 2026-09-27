@@ -39,6 +39,21 @@ from support_agent.state import Conversation
 REFUND_FAILED = "The refund could not be completed."
 STILL_WAITING = "That is still with a colleague to authorise."
 CARRYING_OUT = "That has been authorised and is being processed now."
+ASKED_AGAIN = (
+    "The order changed while a colleague was reviewing this, so nothing has been refunded "
+    "yet. I have asked again against the order as it is now, and it is waiting for a "
+    "colleague to authorise."
+)
+STALE_UNASKED = (
+    "The order changed while a colleague was reviewing this, so their authorisation no "
+    "longer matches it. Nothing has been refunded — please ask again and I will raise it "
+    "against today's details."
+)
+"""A stale grant recorded before the workflow asked again by itself."""
+STALE_CLOSED = (
+    "The order changed while a colleague was reviewing this, and a refund can no longer "
+    "be requested for it as it is now."
+)
 
 
 class PendingWork(Protocol):
@@ -131,24 +146,38 @@ class ApprovalFlow:
                 )
                 return expired, cleared
             if state is ApprovalState.STALE:
-                # Nothing was attempted, so there is nothing half-done to
-                # explain — only a decision that no longer fits what it was
-                # about. Said as a fact about the order rather than as an
-                # error, because from here it is neither side's mistake.
-                stale = Failed(
-                    customer_message=(
-                        "The order changed while a colleague was reviewing this, so their "
-                        "authorisation no longer matches it. Nothing has been refunded — "
-                        "please ask again and I will raise it against today's details."
-                    ),
-                    detail=f"approval {approval.id} was granted against facts that moved: "
-                    f"{approval.result or ''}",
-                )
-                return stale, cleared
+                fresh = approval.superseded_by
+                return await self._asked_again(fresh, cleared, identity, run_id, tools)
             if state is ApprovalState.FAILED:
                 return Failed(customer_message=REFUND_FAILED, detail=approval.result or ""), cleared
             done = Completed(reply="That has been authorised and the refund is on its way.")
             return done, cleared
+
+    async def _asked_again(
+        self,
+        fresh_id: str | None,
+        cleared: Conversation,
+        identity: Identity,
+        run_id: RunId,
+        tools: ToolClient,
+    ) -> tuple[TurnResult, Conversation] | None:
+        """A grant that went stale, told as its own outcome (P-APPROVAL-STALE).
+
+        Nothing was attempted, so there is nothing half-done to explain and no
+        failure to report — the order moved while a person thought about it,
+        and the workflow has already asked again. The conversation now waits
+        on the fresh approval; one that has itself been settled by the time the
+        customer speaks is reported as whatever it became.
+        """
+        fresh = await self.approvals.get(fresh_id) if fresh_id is not None else None
+        if fresh is None:
+            return Completed(reply=STALE_UNASKED), cleared
+        following = cleared.model_copy(update={"pending_approval_id": fresh.id})
+        if fresh.state in (ApprovalState.ASSESSING, ApprovalState.WAITING):
+            return Completed(reply=ASKED_AGAIN), following
+        if fresh.state is ApprovalState.FAILED:
+            return Completed(reply=STALE_CLOSED), cleared
+        return await self.resume(following, identity, run_id, tools)
 
 
 __all__ = ["ApprovalFlow", "NoApprovals", "PendingWork"]

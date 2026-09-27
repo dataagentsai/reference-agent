@@ -277,6 +277,36 @@ class Approval(BaseModel):
     state: ApprovalState = ApprovalState.WAITING
     result: str | None = None
     """What carrying it out produced, or why it could not be assessed."""
+    supersedes: str | None = None
+    """The stale grant this approval asks again, when it is one (P-APPROVAL-STALE)."""
+    superseded_by: str | None = None
+    """The fresh approval a stale grant was asked again as. Set once, with
+    `STALE`: a grant whose facts moved is not retried — a person decides the
+    order as it now is, and the two records name each other so the desk and
+    the conversation can both follow the request from one to the next."""
+
+    @property
+    def execution(self) -> Execution | None:
+        """What happened when a grant was carried out — the AOAS `execution`.
+
+        Derived from `state` rather than stored beside it, so the two cannot
+        disagree. `None` until a grant has been acted on, and for an approval
+        nobody granted: *refused* here is the far end refusing a grant, not a
+        person saying no, which is `REFUSED` and never reaches execution.
+        """
+        return EXECUTION.get(self.state) if self.granted else None
+
+
+Execution = Literal["done", "refused", "stale", "grant_expired"]
+EXECUTION: dict[ApprovalState, Execution] = {
+    ApprovalState.DONE: "done",
+    ApprovalState.FAILED: "refused",
+    ApprovalState.STALE: "stale",
+    ApprovalState.EXPIRED: "grant_expired",
+}
+"""The AOAS `approval.execution` values, read off the states that already hold
+them. A stale grant is `stale` and never `refused`: nothing was attempted, so
+there is nothing for an operator to find broken (AHC-0057 `stale_grant`)."""
 
 
 @dataclass(frozen=True)

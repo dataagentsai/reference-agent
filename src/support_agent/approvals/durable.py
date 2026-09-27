@@ -12,7 +12,9 @@ Here the wait is Temporal's. The workflow owns every move of the record:
              the agent may do alone, and everything else waits for a person
     wait     a decision update, or the expiry timer, whichever comes first
     act      a granted action is carried out by an activity, under the key it
-             was requested with, the moment it is granted
+             was requested with, the moment it is granted — or, where what it
+             was granted against has moved, settled stale and asked again as a
+             fresh approval that a person decides (P-APPROVAL-STALE)
 
 **What stays ours** is what Temporal cannot know: who may decide (`refusal`,
 run as the update's validator so a refused decision never enters history), what
@@ -85,6 +87,32 @@ class Ask(BaseModel):
     which is what a caller with nowhere to send one should ask for."""
     queue: str
     """The queue workflow a waiting approval is listed on."""
+    supersedes: str | None = None
+    """The stale grant this asks again (P-APPROVAL-STALE). Set by the workflow
+    that went stale, never by the agent: asking again is not a request the
+    agent can make, only one a moved order can cause."""
+    because: str = ""
+    """What moved, in words, so the person deciding again is shown what to
+    look at rather than the same request with no sign it was ever granted."""
+
+
+def asked_again(ask: Ask, moved: str) -> Ask:
+    """The same request, to be decided again against the order as it now is.
+
+    Everything the agent asked for is kept — the action, whose it is, the
+    conversation, and the **key**: nothing was attempted under it, so it is
+    still the one request, and a fresh grant carried out under it is still one
+    effect however many times the order moved. The arguments are the ones the
+    agent asked with, not the ones the stale assessment filled in, so the
+    amount is read again rather than carried across.
+
+    The id counts up from the first (`apr_x`, `apr_x~2`, `apr_x~3`): readable
+    as one request asked several times, and deterministic, as a workflow's ids
+    must be.
+    """
+    root, _, times = ask.id.partition("~")
+    fresh = f"{root}~{int(times or 1) + 1}"
+    return ask.model_copy(update={"id": fresh, "supersedes": ask.id, "because": moved})
 
 
 class Assessment(BaseModel):
@@ -147,6 +175,7 @@ class ApprovalWorkflow:
                 created_at=now,
                 expires_at=now + ask.ttl_s,
                 state=ApprovalState.ASSESSING,
+                supersedes=ask.supersedes,
             )
         )
         assessed = await workflow.execute_activity(
@@ -163,9 +192,12 @@ class ApprovalWorkflow:
             self._set(args=assessed.args, reason="within the automatic limit")
             self._set(decided=True, granted=True, decided_by=assessed.approver)
         else:
-            self._set(args=assessed.args, reason=assessed.reason, state=ApprovalState.WAITING)
+            reason = assessed.reason
+            if ask.supersedes is not None:
+                reason = f"asked again after {ask.supersedes}, because {ask.because}: {reason}"
+            self._set(args=assessed.args, reason=reason, state=ApprovalState.WAITING)
             await self._wait(ask)
-        return await self._act()
+        return await self._act(ask)
 
     async def _wait(self, ask: Ask) -> None:
         queue = workflow.get_external_workflow_handle(ask.queue)
@@ -205,7 +237,7 @@ class ApprovalWorkflow:
                 retry_policy=RETRIES,
             )
 
-    async def _act(self) -> Approval:
+    async def _act(self, ask: Ask) -> Approval:
         current = self._current
         if not current.decided:
             return await self._settle(ApprovalState.EXPIRED)
@@ -219,11 +251,37 @@ class ApprovalWorkflow:
             start_to_close_timeout=TIMEOUT,
             retry_policy=RETRIES,
         )
-        if done.ok:
-            state = ApprovalState.DONE
-        else:
-            state = ApprovalState.STALE if done.stale else ApprovalState.FAILED
+        if done.stale:
+            return await self._ask_again(ask, done.text)
+        state = ApprovalState.DONE if done.ok else ApprovalState.FAILED
         return await self._settle(state, done.text)
+
+    async def _ask_again(self, ask: Ask, moved: str) -> Approval:
+        """Settle a grant whose facts moved, and ask for a decision on what is
+        true now (P-APPROVAL-STALE, AHC-0057 `stale_grant`).
+
+        Asked, not retried: re-assessing into this same record would turn one
+        person's decision about one order into standing permission over
+        whatever the order became. So the fresh request is its own approval,
+        its own workflow and its own reviewer's decision, started before this
+        one settles so that `superseded_by` never names something that does
+        not exist. It is abandoned rather than owned: this record is final the
+        moment it is stale, and the wait that follows can last a day.
+
+        The fresh one is assessed like any other. The order may have moved into
+        something a person must decide, or out of anything that may be refunded
+        at all — the assessment says which, and this does not second-guess it.
+        """
+        fresh = asked_again(ask, moved)
+        await workflow.start_child_workflow(
+            ApprovalWorkflow.run,
+            fresh,
+            id=fresh.id,
+            task_queue=workflow.info().task_queue,
+            parent_close_policy=workflow.ParentClosePolicy.ABANDON,
+        )
+        self._set(superseded_by=fresh.id)
+        return await self._settle(ApprovalState.STALE, moved)
 
     async def _settle(self, state: ApprovalState, result: str | None = None) -> Approval:
         self._set(state=state, result=result)
@@ -317,6 +375,7 @@ __all__ = [
     "ApprovalWorkflow",
     "Ask",
     "Assessment",
+    "asked_again",
     "CarriedOut",
     "Decision",
 ]

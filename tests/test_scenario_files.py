@@ -320,6 +320,7 @@ SCRIPTS = {
     "refused-twice-reaches-a-person": asks_for_a_human,
     "a-lost-parcel-goes-to-a-person": asks_for_a_human,
     "the-reviewer-says-no": asks_for_a_refund,
+    "the-order-moves-while-a-colleague-decides": asks_for_a_refund,
     # A model that answers, so only the declared outage can fail the turns. It was
     # `asks_for_a_human`, an empty script that failed every turn by itself and
     # let the scenario pass for a reason it does not name (T-050).

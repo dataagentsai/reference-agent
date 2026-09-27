@@ -9,6 +9,7 @@ memory (T-028).
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 import pytest
@@ -552,6 +553,145 @@ async def test_the_queue_shows_only_what_waits_for_a_person(server) -> None:
         assert [a.args["order_id"] for a in await waits.approvals.pending()] == ["AB-204"]
 
 
+# --------------------------------------------------------------------------- #
+# P-APPROVAL-STALE. A grant whose order moved is asked again, not retried.
+# --------------------------------------------------------------------------- #
+
+S = ap.ApprovalState
+
+# (why, the approval, the AOAS `execution` it records)
+EXECUTIONS = [
+    ("carried out", granted(state=S.DONE), "done"),
+    ("the far end refused the grant", granted(state=S.FAILED), "refused"),
+    ("the order moved under the grant", granted(state=S.STALE), "stale"),
+    ("granted, and past its window when acted on", granted(state=S.EXPIRED), "grant_expired"),
+    ("granted, and being acted on now", granted(state=S.CARRYING_OUT), None),
+    ("a person said no", record(decided=True, state=S.REFUSED), None),
+    ("nobody decided in time", record(state=S.EXPIRED), None),
+    ("never assessed", record(state=S.FAILED), None),
+]
+
+
+@pytest.mark.parametrize(
+    ("why", "approval", "execution"), EXECUTIONS, ids=[e[0] for e in EXECUTIONS]
+)
+@pytest.mark.discharges("P-APPROVAL-STALE", "P-APPROVAL-TTL", "AHC-0057")
+def test_what_carrying_out_a_grant_records(
+    why: str, approval: ap.Approval, execution: str | None
+) -> None:
+    """The AOAS keeps what a person decided and what became of it apart, and
+    `stale` is its own value — never `refused`, because nothing was attempted
+    and there is nothing for an operator to find broken."""
+    assert approval.execution == execution
+
+
+# (why, the approval asked again, the id it is asked again as)
+AGAIN = [
+    ("the first time a request is asked again", "apr_1", "apr_1~2"),
+    ("and each time after, counted from the same request", "apr_1~2", "apr_1~3"),
+]
+
+
+@pytest.mark.parametrize(("why", "was", "fresh"), AGAIN, ids=[a[0] for a in AGAIN])
+@pytest.mark.discharges("P-APPROVAL-STALE", "AHC-0057", "AHC-0074")
+def test_a_request_asked_again_is_the_same_request_under_a_new_decision(
+    why: str, was: str, fresh: str
+) -> None:
+    """Only the id and the link change. The key stays, so a fresh grant is
+    still one refund however often the order moved; the arguments are the
+    ones the agent asked with, so the amount is read again, not carried."""
+    from support_agent.approvals.durable import Ask, asked_again
+
+    ask = Ask(
+        id=was,
+        action=ap.REFUND_ACTION,
+        args={"order_id": "AB-201"},
+        customer_id="C-1042",
+        conversation_id="conv-1",
+        idempotency_key=key().value,
+        ttl_s=DAY,
+        queue="approvals.approval-queue",
+    )
+    again = asked_again(ask, "total was '12400' and is now '41000'")
+    assert (again.id, again.supersedes) == (fresh, was)
+    assert again.because == "total was '12400' and is now '41000'"
+    same = {"id", "supersedes", "because"}
+    assert again.model_dump(exclude=same) == ask.model_dump(exclude=same)
+
+
+async def settled(approvals, approval_id: str) -> ap.Approval:
+    """The approval once nothing runs on its behalf. The fresh request is
+    assessed by its own workflow, a moment after the stale one answers."""
+    from support_agent.approvals.durable import SETTLED
+
+    for _ in range(200):
+        found = await approvals.get(approval_id)
+        if found is not None and found.state in SETTLED:
+            return found
+        await asyncio.sleep(0.05)
+    raise AssertionError(f"{approval_id} never settled")
+
+
+# (why, what the order does while the colleague thinks, what the fresh request
+#  is once assessed, refunds once a person grants it where one must)
+STALE_GRANTS = [
+    ("the total moved: a person decides the order as it now is",
+     {"total": 41000}, "waiting", 1),
+    ("it moved into the agent's own authority: the fresh assessment grants it",
+     {"total": 2400}, "done", 1),
+    ("refunded by someone else: the fresh request cannot be made at all",
+     {"status": "refunded"}, "failed", 0),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("why", "moves", "fresh_state", "refunds"), STALE_GRANTS, ids=[g[0] for g in STALE_GRANTS]
+)
+@pytest.mark.discharges("P-APPROVAL-STALE", "AHC-0057", "AAC-0078", "P-APPROVAL-QUEUE")
+async def test_a_stale_grant_is_asked_again_against_the_order_as_it_now_is(
+    server, why: str, moves: dict, fresh_state: str, refunds: int
+) -> None:
+    """P-APPROVAL-STALE, on the workflow. The grant is not carried out, records
+    `stale` and names the fresh approval in `superseded_by`; the fresh one
+    names what it supersedes, keeps the key, is assessed against today's order,
+    and — where a person must decide — is the one on the queue, with what moved
+    in its reason so the reviewer knows what to look at.
+
+    Whether a person is asked is the fresh assessment's to say, not this
+    path's: an order that moved under the automatic limit is one the agent may
+    refund alone, and one that can no longer be refunded is refused before it
+    reaches anybody."""
+    moment = [T0]
+    async with (
+        connect(server, requests=InMemoryRequests()) as tools,
+        durable.approvals_for(tools, clock=lambda: moment[0]) as waits,
+    ):
+        first = await ask(waits.approvals)
+        orders = server.state["orders"]
+        orders["AB-201"] = orders["AB-201"].model_copy(update=moves)
+        moment[0] = T0 + HOUR
+        stale = await waits.desk.decide(first.id, granted=True, by="ops-7", now=moment[0])
+
+        assert (stale.state, stale.execution) == (S.STALE, "stale")
+        assert stale.superseded_by == f"{first.id}~2"
+        assert server.state["refunds"] == 0, "a stale grant is never carried out"
+
+        fresh = await settled(waits.approvals, stale.superseded_by)
+        assert fresh.state.value == fresh_state, fresh.result
+        assert fresh.supersedes == first.id
+        assert fresh.idempotency_key == first.idempotency_key
+        queued = [a.id for a in await waits.approvals.pending()]
+        assert queued == ([fresh.id] if fresh_state == "waiting" else [])
+        if fresh_state == "waiting":
+            assert "asked again" in fresh.reason and "is now" in fresh.reason
+            fresh = await waits.desk.decide(fresh.id, granted=True, by="ops-8", now=moment[0])
+        final = await waits.approvals.get(first.id)
+
+    assert final is not None and final.state is S.STALE, "the stale record stays stale"
+    assert server.state["refunds"] == refunds
+    assert fresh.execution == ("done" if refunds else None)
+
+
 @pytest.mark.discharges("AHC-0018")
 async def test_the_decision_is_on_the_trace(server, exporter) -> None:
     async with (
@@ -603,10 +743,10 @@ ACROSS_TURNS = [
      "Completed", "still with a colleague"),
     ("nobody in time: the authorisation lapsed", None, DAY + 300, None, 0,
      "Failed", "no longer valid"),
-    ("the total moved under them: granted, and no money leaves", True, HOUR, {"total": 41000}, 0,
-     "Failed", "changed while a colleague was reviewing"),
-    ("refunded by someone else meanwhile: granted, and not again", True, HOUR,
-     {"status": "refunded"}, 0, "Failed", "changed while a colleague was reviewing"),
+    ("the total moved under them: no money leaves, and it is asked again", True, HOUR,
+     {"total": 41000}, 0, "Completed", "asked again"),
+    ("refunded by someone else meanwhile: not again, and nothing left to ask", True, HOUR,
+     {"status": "refunded"}, 0, "Completed", "can no longer be requested"),
 ]  # fmt: skip
 
 
@@ -624,6 +764,7 @@ ACROSS_TURNS = [
     "op:request_refund",
     "ext:approval_queue",
     "P-APPROVAL-WAIT",
+    "P-APPROVAL-STALE",
 )
 async def test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it(
     server,
@@ -645,7 +786,11 @@ async def test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it(
     live grant, the right reviewer, inside the window, the original key — and
     the order is no longer the order that was judged. A grant is permission to
     do a particular thing to a particular row, so when the row moves the
-    permission is spent on nothing and the customer is asked to ask again.
+    permission is spent on nothing. Neither is told as a failure
+    (P-APPROVAL-STALE): the workflow has already asked again, so the customer
+    hears the request is waiting again — and the conversation waits on the
+    fresh approval — or, where the order can no longer be refunded at all, that
+    too, as a fact about the order.
     """
     from support_agent.contracts import NeedsApproval
 
@@ -681,8 +826,10 @@ async def test_a_large_refund_waits_and_the_next_turn_says_what_became_of_it(
     text = getattr(second, "reply", "") or getattr(second, "customer_message", "")
     assert says in text
     assert server.state["refunds"] == refunds
-    waiting = outcome == "Completed" and grant is None
+    waiting = says in ("still with a colleague", "asked again")
     assert (conversation.pending_approval_id is not None) is waiting
+    if says == "asked again":
+        assert conversation.pending_approval_id == f"{first.approval_id}~2"
 
 
 @pytest.mark.discharges("AHC-0057", "AAC-0056")
