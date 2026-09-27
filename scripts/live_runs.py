@@ -24,19 +24,16 @@ import os
 import pathlib
 import sys
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from agenttwin import (  # noqa: E402
-    Clock,
-    Live,
-    load,
     load_scenario,
     perturbed,
     provider_faults,
-    run_file,
-    timeline_for,
+    run_generated,
 )
 from evals.simulation import subject_for, voice_of
 
@@ -50,45 +47,44 @@ DEST = ROOT / "docs" / "SIMULATION-REPORT.md"
 
 
 async def once(path: pathlib.Path, settings: Settings) -> tuple[list, tuple, float, str]:
-    """One run of one scenario against the real provider."""
+    """One run of one scenario against the real provider — once per generated
+    case, each in a fresh world. `run_file` alone runs a `generate` scenario
+    once with nothing planted, which now fails rather than passing on zero
+    attacks (generation run 2)."""
     scenario = load_scenario(path)
-    live = Live.start(load(path.parent / scenario.world))
     config = resolve(settings)
     meters: list[Meter] = []
-    timeline = timeline_for(scenario)
-    # One clock for the agent, the world and the people offstage, composed as the
-    # suite composes it. Without it a lapse that waits on time never fires live:
-    # `nobody-picks-up-the-escalation` passed offline and failed live (17 Sep)
-    # because this runner gave the desk and the agent no shared clock (F-033's
-    # lesson, relearned by the one runner that had not taken it).
-    clock = Clock(step_s=scenario.step_seconds)
-    # Always wrapped, even with nothing to fire: the wrapper is what counts calls,
-    # and a scenario asserting that the agent *read* before acting needs them.
-    wrap = perturbed(live, timeline, clock)
-
     client, _ = await connect_model(config, api_key=settings.provider_api_key)
-    async with subject_for(
-        live,
-        llm=client,
-        wrap=wrap,
-        provider_faults=provider_faults(scenario),
-        config=config,
-        meters=meters,
-        clock=clock,
-    ) as subject:
-        record, outcomes = await run_file(
-            path,
-            subject=subject,
-            live=live,
-            timeline=timeline,
+
+    @asynccontextmanager
+    async def subject(live, timeline, clock):
+        # One clock for the agent, the world and the people offstage: without
+        # it a lapse that waits on time never fires live (F-033's lesson). The
+        # wrapper is always on, because it is what counts calls.
+        async with subject_for(
+            live,
+            llm=client,
+            wrap=perturbed(live, timeline, clock),
+            provider_faults=provider_faults(scenario),
+            config=config,
+            meters=meters,
             clock=clock,
-            voice=voice_of(client),
-        )
+        ) as built:
+            yield built
+
+    cases = await run_generated(path, subject_for=subject, voice=voice_of(client))
+    outcomes = [
+        o.model_copy(update={"check": f"{name}: {o.check}"}) if name else o
+        for name, _, run in cases
+        for o in run
+    ]
+    records = [record for _, record, _ in cases]
+    driven = any(r.determinism_class == "model_driven" for r in records)
     return (
-        list(outcomes),
-        record.transcript,
+        outcomes,
+        records[-1].transcript,
         float(sum(m.spend for m in meters)),
-        record.determinism_class,
+        "model_driven" if driven else records[-1].determinism_class,
     )
 
 
