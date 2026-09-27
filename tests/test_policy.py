@@ -378,3 +378,29 @@ def test_what_entity_grounding_cannot_catch() -> None:
         "All 3 items were delivered.",  # miscounts
     ):
         assert not pol.enforce(reply(text, DELIVERED)).blocked
+
+
+# (name, the order id as the model spelled it)
+# Generation run 2: the model wrote "AB‑10010" with a non-breaking hyphen, and
+# every rule matching an identifier missed it. Each spelling must be read alike.
+SPELLINGS = [
+    ("ascii hyphen", "AB-99999"),
+    ("non-breaking hyphen", "AB‑99999"),
+    ("en dash", "AB–99999"),
+    ("minus sign", "AB−99999"),
+    ("soft hyphen inside", "AB-999­99"),
+]
+
+
+@pytest.mark.discharges("AHC-0094")
+@pytest.mark.parametrize(("name", "spelled"), SPELLINGS, ids=[s[0] for s in SPELLINGS])
+def test_an_ungrounded_id_is_caught_however_it_is_spelled(name: str, spelled: str) -> None:
+    seen = (ToolResult(name="get_order", structured={"id": "AB-10002", "status": "pending"}),)
+    ctx = pol.Context(
+        position=pol.Position.POST_MODEL,
+        identity=Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES),
+        text=f"Your order {spelled} will be refunded shortly.",
+        tool_results=seen,
+    )
+    verdict = pol.no_ungrounded_entity(ctx)
+    assert verdict.blocked, f"{name}: an order no tool returned passed as grounded"

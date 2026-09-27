@@ -31,6 +31,7 @@ from enum import StrEnum
 
 from support_agent import telemetry as tel
 from support_agent.contracts import Identity, ToolResult
+from support_agent.policy.reading import normalised
 
 
 class Position(StrEnum):
@@ -71,13 +72,12 @@ class Context:
     tool_name: str = ""
     arguments: dict[str, object] = field(default_factory=dict)
     tool_results: tuple[ToolResult, ...] = ()
-    """Everything the tools returned this turn. This is what makes a grounding
-    check possible at all: a claim can be compared against what actually
-    happened rather than against a rubric."""
+    """Everything the tools returned this turn: what a claim is checked against."""
     result: ToolResult | None = None
-    """At `POST_TOOL`, the one result just returned — distinct from the turn's
-    accumulation above, because a rule about *this* result should not have to
-    find it in a list."""
+    """At `POST_TOOL`, the one result just returned, apart from the list above."""
+
+    def __post_init__(self) -> None:  # every rule reads one spelling (AHC-0094)
+        object.__setattr__(self, "text", normalised(self.text))
 
 
 @dataclass(frozen=True)
