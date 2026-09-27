@@ -397,3 +397,22 @@ async def test_the_cap_holds_however_the_escalation_was_raised(server) -> None:
     assert len(raised) == 2, f"the cap is 2 and {len(raised)} references were issued"
     assert all(r.kind == "completed" for r in results[2:]), results[2:]
     assert esc.CAPPED_REPLY in results[-1].reply
+
+
+# (name, the intent each of three turns was classified as, the count it makes)
+# The AOAS (owner decision, 2026-09-26): only a named intent repeated counts, so
+# small talk the router classifies as nothing never fetches a person.
+REPEATS = [
+    ("the same question three times", ["order_status"] * 3, 3),
+    ("three messages nothing classified", [None, None, None], 0),
+    ("a named intent after small talk", [None, None, "order_status"], 1),
+    ("a change of subject resets it", ["order_status", "order_status", "cancel_order"], 1),
+]
+
+
+@pytest.mark.parametrize(("name", "intents", "count"), REPEATS, ids=[r[0] for r in REPEATS])
+@pytest.mark.discharges("fact:repeated_intent", "esc:repeated-intent")
+def test_only_a_named_intent_counts_as_repeated(name: str, intents: list, count: int) -> None:
+    notes = tuple(TurnNote(route="agentic", result="completed", intent=i) for i in intents)
+    conversation = Conversation(conversation_id="cnv_t", customer_id="C-1042", recent=notes)
+    assert t2.facts_of(conversation).repeated_intent == count
