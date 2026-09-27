@@ -34,7 +34,7 @@ subject:
 
 catalog:
   ahc: "0.3.0"
-  aac: "0.13.0"
+  aac: "0.16.0"
 
 # ---------------------------------------------------------------- decisions
 # The eleven decisions the catalog keys on the capabilities this shape owes.
@@ -145,10 +145,12 @@ decisions:
     value: not-arising
     source: chosen
     note: >-
-      Temperature is set explicitly (0.0) at the choke point and the configured
-      route accepts it, so no parameter is fixed by the model. Revisit with any
-      change of model pin: moving to a model that rejects temperature makes this
-      the live question, and the variance measurement has to be re-run.
+      Temperature is set explicitly (0.0) at the choke point and the pinned
+      model (`bindings.model.x_model`, gpt-oss-120b) accepts it, so no
+      parameter is fixed by the model. The answer belongs to the pin, not the
+      harness: generation run 2 pinned a model that rejects temperature and got
+      the opposite answer from the same harness. Revisit with any change of pin,
+      and re-run the variance measurement.
 
   AHC-0019/redaction_point:
     value: before-export
@@ -164,6 +166,95 @@ decisions:
     value: same-path
     source: chosen
     note: The eval path exports through the same tracer, so it redacts by construction rather than by remembering to.
+
+  # Answered 2026-09-27 (T-072): the decisions generation run 2 found the brief
+  # showing open, and the keys the catalog added after it (ahc 0aa5de7).
+  AHC-0025/output_limit:
+    value: outcome
+    source: golden-path
+    note: >-
+      Its own termination, output_length_reached. The turn stops, the clipped
+      text or tool calls are never passed on, and loop-exhausted escalates it.
+  AHC-0053/claim_scope:
+    value: verified-caller
+    source: golden-path
+    note: >-
+      A delivery is claimed as customer:key, so another customer presenting the
+      same key starts their own turn and is never handed the first reply (the
+      leak run 2 found here, fixed in 832c38a). The conversation is not part of
+      the name: a resend after a lost reply carries none.
+  AHC-0053/occasion_source:
+    value: caller-supplied
+    source: golden-path
+    note: >-
+      The Idempotency-Key header on /chat, and the Chatwoot message id on the
+      channel. With neither, the turn runs unguarded; an id is never derived
+      from the text and the time.
+  AHC-0057/approval_source:
+    value: harness-approval-records
+    source: chosen
+    note: >-
+      The order system reads the approval the call names from the approval
+      workflow's records, read-only: the agent can ask and read, never write,
+      and the far end checks operation, arguments, customer, grant and expiry.
+  AHC-0057/approval_staleness:
+    value: status-and-total
+    source: chosen
+    note: >-
+      The facts the assessment judged — the order's status and total — are
+      recorded on the approval and read again before a grant is carried out.
+  AHC-0057/stale_grant:
+    value: ask-again
+    source: golden-path
+    note: >-
+      A grant whose status or total has moved is not carried out; the approval
+      records execution stale and a fresh request is asked against the order as
+      it now is, named in superseded_by (P-APPROVAL-STALE).
+  AHC-0094/output_rule_reading:
+    value: folded-text
+    source: chosen
+    note: >-
+      Every rule reads the text with look-alike dashes, odd spaces and invisible
+      characters folded and NFKC applied, so an id written with a non-breaking
+      hyphen is still an id. Only the rules' copy is folded; the reply is not.
+  AHC-0105/replay_equivalence:
+    value: messages-tools-sampling
+    source: chosen
+    note: >-
+      A replay matches on the messages, the tool names, max_tokens and
+      temperature; tool schemas may differ. No fence nonce or read stamp enters
+      a request, so neither breaks a recording. An approval id does, inside a
+      tool result: a turn that asked a refund replays only against the same
+      approvals.
+  AHC-0107/freshness_scope:
+    value: rows-an-irreversible-action-depends-on
+    source: chosen
+    note: >-
+      Only a row an irreversible action is about to act on is held to the
+      window; reads that only inform a reply are not re-read.
+  AHC-0107/read_stamp:
+    value: when-asked
+    source: golden-path
+    note: >-
+      Stamped before the call is dispatched. Until T-072 it was stamped on
+      arrival, so a slow read looked fresh and the re-read never fired.
+  AHC-0108/facts_source:
+    value: written-as-work-happens
+    source: golden-path
+    note: >-
+      The harness writes what was asked, the rows that reached a tool, what the
+      far end confirmed and what is awaited, when each happens. Nothing is
+      derived from the transcript.
+  AHC-0110/failure_axis:
+    value: what-a-caller-can-do
+    source: golden-path
+    note: Five kinds by the caller's next move — unreachable (wait and retry), refused, malformed, misconfigured, exhausted — and only unreachable is retried.
+  AHC-0115/erasure_key:
+    value: customer-id
+    source: chosen
+    note: >-
+      The domain identifier, not the login: every store the harness writes is
+      keyed or searchable by customer_id, and a login maps to one.
 
 # --------------------------------------------------------------- thresholds
 # Every number the catalog refuses to publish. These are this agent's, and the
@@ -200,6 +291,11 @@ bindings:
 # it, which the resolver refuses unless the line says why.
   model:
     x_could_be: [framework, gateway]
+    x_model:
+      id: openai/gpt-oss-120b
+      provider: groq, through the stack's litellm-proxy
+      price_usd_per_mtok: { input: 0.15, output: 0.75 }
+      priced_from: the agent's own price table, which the cost ceiling is metered against
     x_provider: groq
     x_provider_check: "declared, and checked against the endpoint at startup (T-018)"
     x_gateway: "litellm-proxy in compose.yaml, reached through provider_base_url with the agent's own key (T-029)"
@@ -234,6 +330,11 @@ bindings:
 # ------------------------------------------------------------ accepted gaps
 # Knowingly not met, owned and dated. Not "untested" — see x_untested below,
 # which is a different claim and a weaker one.
+# One agent's facts, not the stack's (generation run 2, NOTES §10): every agent
+# extending the stack inherited them until the stack gave them back.
+x_store:   { approach: open-source, adapter: saleor, x_status: current, x_item: T-017, x_note: "behind the store's own MCP server with the far end's checks; seeded from the world; scenarios run against the projection" }
+x_runs_from: reference-agent/compose.yaml
+
 accepted_gaps:
   - capability: AHC-0109
     reason: >-

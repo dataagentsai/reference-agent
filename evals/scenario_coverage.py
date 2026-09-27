@@ -41,6 +41,13 @@ UNREACHABLE = {
         "Demonstrated in the live runs, where the meter reads real usage and the "
         "report carries cost per scenario."
     ),
+    "Q-RETENTION": (
+        "Thirty days, then deleted. A scenario is one conversation lasting "
+        "minutes of declared time, and a world that skipped a month would be "
+        "testing its own clock. Demonstrated by each store's expiry tests, which "
+        "move an injected clock past the window, and by the retention script a "
+        "deployment's scheduler runs daily."
+    ),
     "Q-MODEL": (
         "Which models are reachable is resolved configuration, checked when the "
         "configuration resolves and not during a conversation. A scenario drives "
