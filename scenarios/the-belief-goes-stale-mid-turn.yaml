@@ -19,10 +19,11 @@
 # being measured against.
 #
 # So: the customer asks about two orders and wants one of them cancelled. The
-# agent reads AB-10002, then reads AB-10001 — and *that* call takes ninety
-# seconds against a thirty-second window. By the time the cancellation is
-# planned, what the run knows about AB-10002 is older than the specification
-# allows, and it must go and look again rather than act on what it remembered.
+# agent reads AB-10002, then reads AB-10001 — and *that* call takes forty-five
+# seconds against a thirty-second window, inside the turn's own sixty. By the
+# time the cancellation is planned, what the run knows about AB-10002 is older
+# than the specification allows, and it must go and look again rather than act
+# on what it remembered.
 #
 # The slow call is the second read rather than the first, and that is not a
 # detail. A perturbation fires before the call it delays, so a slow *first* read
@@ -57,7 +58,7 @@ perturbations:
   - kind: slow
     tool: get_order
     at_call: 2
-    seconds: 90
+    seconds: 45
 
 expect:
   # Three: the two the customer asked about, and one more because the run would

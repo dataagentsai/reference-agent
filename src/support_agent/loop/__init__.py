@@ -31,7 +31,6 @@ whole task.
 from __future__ import annotations
 
 import time
-from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
@@ -44,8 +43,6 @@ from support_agent import telemetry as tel
 from support_agent.config import Budgets
 from support_agent.contracts import (
     ApprovalRequested,
-    Completed,
-    Failed,
     IdempotencyKey,
     Identity,
     LLMClient,
@@ -56,7 +53,6 @@ from support_agent.contracts import (
     ModelResponse,
     ModelUnavailable,
     NeedsApproval,
-    Refused,
     RunId,
     TerminationReason,
     ToolCall,
@@ -64,46 +60,23 @@ from support_agent.contracts import (
     ToolRegistry,
     ToolResult,
     ToolUnavailable,
-    TurnResult,
-    Usage,
     new_run_id,
 )
 from support_agent.cost import Meter
 from support_agent.loop import freshness, plan, spend
 from support_agent.loop.dispatch import dispatch
+from support_agent.loop.ends import (
+    IN_CIRCLES,
+    PASS_ON,
+    TROUBLE,
+    UNREACHABLE,
+    Ended,
+    Trace,
+    completed,
+    failed,
+    stopped,
+)
 from support_agent.loop.screen import Screen
-
-
-@dataclass
-class Trace:
-    """What the loop accumulated. Returned alongside the result so a caller can
-    assert on the trajectory without reading spans."""
-
-    steps: int = 0
-    malformed: int = 0
-    usage: Usage = field(default_factory=Usage)
-    spend_usd: float = 0.0
-    tool_calls: list[tuple[str, str]] = field(default_factory=list)
-    effects: list[tuple[str, str]] = field(default_factory=list)
-    """`(operation, record)` for every write the far system confirmed — AHC-0108.
-
-    Separate from `tool_calls`, which is what was *attempted*: a refused
-    cancellation and a successful one are the same entry there, and the
-    difference is the only part anybody handing this conversation over cares
-    about."""
-    termination: TerminationReason = TerminationReason.GOAL_REACHED
-
-    def signature_counts(self) -> Counter[tuple[str, str]]:
-        return Counter(self.tool_calls)
-
-
-PASS_ON = "I have not been able to resolve this — let me pass you to a colleague."
-IN_CIRCLES = "I am going round in circles on this — let me pass you to a colleague."
-TROUBLE = "I am having trouble answering right now."
-UNREACHABLE = "I cannot reach our order system right now."
-
-Ended = tuple[TurnResult, Trace]
-"""A terminated run: the typed result, and the trajectory that produced it."""
 
 
 async def run(
@@ -139,7 +112,7 @@ async def run(
         try:
             registry = await tools.list_tools(identity)
         except ToolUnavailable as exc:
-            return _failed(run_span, trace, UNREACHABLE, str(exc))
+            return failed(run_span, trace, UNREACHABLE, str(exc))
 
         local = dict(local_tools or {})
         registry = registry.model_copy(
@@ -164,11 +137,12 @@ async def run(
             messages=[*history, ctx.user_message(goal)],
             screen=Screen(identity=identity, rules=policy_rules, span=run_span),
         )
+        this.started = this.now()
         for step in range(budgets.max_steps):
             ended = await this.step(step)
             if ended is not None:
                 return ended
-        return _stopped(run_span, trace, TerminationReason.STEP_BUDGET_EXHAUSTED, PASS_ON)
+        return stopped(run_span, trace, TerminationReason.STEP_BUDGET_EXHAUSTED, PASS_ON)
 
 
 @dataclass
@@ -201,17 +175,23 @@ class _Run:
     messages: list[Message]
     screen: Screen
     seen_results: list[ToolResult] = field(default_factory=list)
+    started: int = 0
     keys: plan.Keys = field(default_factory=plan.Keys)
 
     async def step(self, step: int) -> Ended | None:
         """Ask, account, then answer or act. `None` means take another step."""
         self.trace.steps = step + 1
+        if self.now() - self.started > self.budgets.max_turn_seconds:
+            return self._stop(TerminationReason.DEADLINE_REACHED, PASS_ON)
         with tel.span("agent.step", **{tel.STEP: step, tel.RUN_ID: self.run_id}) as step_span:
             response = await self._ask(step_span)
             if not isinstance(response, ModelResponse):
                 return response
             self._account(response)
 
+            if response.stop_reason == "length":
+                # Clipped, whether it is text or tool calls: neither is sent on.
+                return self._stop(TerminationReason.OUTPUT_LENGTH_REACHED, PASS_ON)
             if not response.wants_tools:
                 return self._answer(response)
             if self.meter is not None and self.meter.exceeded:
@@ -252,7 +232,7 @@ class _Run:
             answered = await self.llm.complete(request)
         except ModelUnavailable as exc:
             tel.counters.model_calls.add(1, {"outcome": "unavailable"})
-            return _failed(self.span, self.trace, TROUBLE, str(exc))
+            return failed(self.span, self.trace, TROUBLE, str(exc))
         except ModelMalformed as exc:
             # AHC-0001's `parse_failure` decision: fail into a declared shape and
             # **count** the failures. Retrying is deliberately not the answer —
@@ -262,7 +242,7 @@ class _Run:
             self.trace.malformed += 1
             self.span.set_attribute(tel.MODEL_MALFORMED, self.trace.malformed)
             tel.counters.model_calls.add(1, {"outcome": "malformed"})
-            return _failed(self.span, self.trace, TROUBLE, exc.reason)
+            return failed(self.span, self.trace, TROUBLE, exc.reason)
         tel.counters.model_calls.add(1, {"outcome": "answered"})
         return answered
 
@@ -283,7 +263,7 @@ class _Run:
         )
         if verdict.blocked:
             return self._stop(TerminationReason.REFUSED, pol.SAFE_REPLY, verdict.rule)
-        return _completed(self.span, self.trace, response.text)
+        return completed(self.span, self.trace, response.text)
 
     def _plan(
         self, calls: tuple[ToolCall, ...], step: int
@@ -322,6 +302,9 @@ class _Run:
         # ones beside it are unaffected.
         refused = self.screen.permitted(planned, tuple(self.seen_results))
         allowed = [pair for pair in planned if pair[0].id not in refused]
+        # A read is true of some moment between asking and answering; asking is
+        # the only bound a freshness window can be measured from (AHC-0107).
+        asked = self.now()
         try:
             results = await dispatch(
                 self.tools, allowed, self.identity, self.local_tools, self.registry, self.fan_out
@@ -346,7 +329,7 @@ class _Run:
             if not result.is_error:
                 self.keys.settled(plan.signature(call.name, call.arguments))
                 if freshness.reads(self.registry, call.name):
-                    self.fresh.remember(self.registry, call, self.now(), result.structured)
+                    self.fresh.remember(self.registry, call, asked, result.structured)
                 else:
                     # Confirmed by the far system, not claimed by the model — AHC-0108's fact half.
                     self.trace.effects.append((call.name, freshness.key_of(call.arguments)))
@@ -372,7 +355,7 @@ class _Run:
         return bool(held.messages)
 
     def _stop(self, reason: TerminationReason, message: str, rule_id: str = "") -> Ended:
-        return _stopped(self.span, self.trace, reason, message, rule_id)
+        return stopped(self.span, self.trace, reason, message, rule_id)
 
 
 def _latest_user_text(messages: list[Message]) -> str:
@@ -381,36 +364,6 @@ def _latest_user_text(messages: list[Message]) -> str:
         if message.role == "user":
             return message.content
     return ""
-
-
-def _completed(span: Span, trace: Trace, text: str) -> Ended:
-    trace.termination = TerminationReason.GOAL_REACHED
-    span.set_attribute(tel.TERMINATION, trace.termination.value)
-    return Completed(reply=text), trace
-
-
-def _stopped(
-    span: Span, trace: Trace, reason: TerminationReason, message: str, rule_id: str = ""
-) -> Ended:
-    """A stop, typed by what stopped it.
-
-    A guardrail block is a **refusal** and says so (F-028, F-026's sibling: that
-    fix reached the entrypoint's reply screen and not the loop's own stop, so a
-    rule firing inside the loop still surfaced as a success). The other stops —
-    a budget spent, a ceiling reached, a loop going in circles — are
-    degradations: the turn did what it could and hands on.
-    """
-    trace.termination = reason
-    span.set_attribute(tel.TERMINATION, reason.value)
-    if reason is TerminationReason.REFUSED:
-        return Refused(reply=message, reason=reason.value, rule_id=rule_id), trace
-    return Completed(reply=message, termination=reason), trace
-
-
-def _failed(span: Span, trace: Trace, customer_message: str, detail: str) -> Ended:
-    trace.termination = TerminationReason.UNRECOVERABLE_ERROR
-    span.set_attribute(tel.TERMINATION, trace.termination.value)
-    return Failed(customer_message=customer_message, detail=detail), trace
 
 
 __all__ = ["Trace", "run"]

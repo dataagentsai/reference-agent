@@ -349,8 +349,8 @@ async def test_a_row_that_moved_underneath_the_run_stops_the_action() -> None:
 
         async def complete(self, request):
             self.calls += 1
-            clock.at += 40
             if self.calls == 2:  # after the read, before the cancellation is planned
+                clock.at += 40  # past the freshness window, inside the turn's own
                 world.rows["order"][PENDING]["status"] = "shipped"
             return await self.inner.complete(request)
 
@@ -367,3 +367,58 @@ async def test_a_row_that_moved_underneath_the_run_stops_the_action() -> None:
     assert world.effects == [], f"a cancellation ran on a row that had moved: {world.effects}"
     assert world.rows["order"][PENDING]["status"] == "shipped"
     assert "cannot cancel" in result.reply, result
+
+
+# (name, seconds the first read takes to answer, whether the row is read again)
+# The window is 30 seconds and the model answers instantly, so the only time
+# that passes is the read's own. Stamped on arrival, a slow read looked fresh.
+SLOW_READS = [
+    ("a quick read", 1, False),
+    ("a read slower than the window", 40, True),
+]
+
+
+@pytest.mark.discharges("AHC-0107")
+@pytest.mark.parametrize(("name", "takes", "reread"), SLOW_READS, ids=[c[0] for c in SLOW_READS])
+async def test_a_read_is_stamped_when_it_was_asked(name: str, takes: int, reread: bool) -> None:
+    """The answer is true of some moment between asking and answering; asking
+    is the only bound a window can be measured from. Generation run 2 found the
+    other stamp let a slow read pass as fresh, so the re-read never fired."""
+    seen: list[str] = []
+    world = Live.start(load(WORLD))
+    clock = MovingClock()
+
+    def slow(tool: str, handler):
+        async def wrapped(**arguments):
+            seen.append(tool)
+            if tool == "get_order" and seen.count("get_order") == 1:
+                clock.at += takes
+            return await handler(**arguments)
+
+        wrapped.__name__ = handler.__name__
+        wrapped.__doc__ = handler.__doc__
+        wrapped.__signature__ = handler.__signature__  # type: ignore[attr-defined]
+        wrapped.__annotations__ = handler.__annotations__
+        return wrapped
+
+    look = ModelResponse(
+        tool_calls=(ToolCall(id="r1", name="get_order", arguments={"id": PENDING}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    act = ModelResponse(
+        tool_calls=(ToolCall(id="c1", name="cancel_order", arguments={"id": PENDING}),),
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    done = ModelResponse(text="Done.", usage=Usage(input_tokens=5, output_tokens=2))
+
+    async with connect(project(world, wrap=slow), requests=InMemoryRequests()) as tools:
+        agent = ep.build(
+            llm=ScriptedClient([look, act, act, done, done]),
+            tools=tools,
+            store=InMemoryCheckpointStore(),
+            clock=clock,
+            fresh_for_s=FRESH_FOR_S,
+        )
+        await agent.handle(f"please cancel {PENDING}", identity=caller())
+
+    assert (seen.count("get_order") >= 2) is reread, seen

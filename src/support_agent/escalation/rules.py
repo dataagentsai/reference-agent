@@ -127,6 +127,7 @@ TERMINATED_BADLY = (
     "step_budget_exhausted",
     "cost_ceiling_reached",
     "deadline_reached",
+    "output_length_reached",
     "oscillation_detected",
 )
 

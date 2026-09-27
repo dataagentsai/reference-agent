@@ -1,0 +1,98 @@
+"""How a run ends: the trajectory it leaves, and the typed result it returns.
+
+Split from the loop so the loop is only the steps. Every stop goes through one
+of three functions here, which is what keeps `termination` on the trace and on
+the span in agreement.
+"""
+
+from __future__ import annotations
+
+from collections import Counter
+from dataclasses import dataclass, field
+
+from opentelemetry.trace import Span
+
+from support_agent import telemetry as tel
+from support_agent.contracts import (
+    Completed,
+    Failed,
+    Refused,
+    TerminationReason,
+    TurnResult,
+    Usage,
+)
+
+
+@dataclass
+class Trace:
+    """What the loop accumulated. Returned alongside the result so a caller can
+    assert on the trajectory without reading spans."""
+
+    steps: int = 0
+    malformed: int = 0
+    usage: Usage = field(default_factory=Usage)
+    spend_usd: float = 0.0
+    tool_calls: list[tuple[str, str]] = field(default_factory=list)
+    effects: list[tuple[str, str]] = field(default_factory=list)
+    """`(operation, record)` for every write the far system confirmed — AHC-0108.
+
+    Separate from `tool_calls`, which is what was *attempted*: a refused
+    cancellation and a successful one are the same entry there, and the
+    difference is the only part anybody handing this conversation over cares
+    about."""
+    termination: TerminationReason = TerminationReason.GOAL_REACHED
+
+    def signature_counts(self) -> Counter[tuple[str, str]]:
+        return Counter(self.tool_calls)
+
+
+PASS_ON = "I have not been able to resolve this — let me pass you to a colleague."
+IN_CIRCLES = "I am going round in circles on this — let me pass you to a colleague."
+TROUBLE = "I am having trouble answering right now."
+UNREACHABLE = "I cannot reach our order system right now."
+
+Ended = tuple[TurnResult, Trace]
+"""A terminated run: the typed result, and the trajectory that produced it."""
+
+
+def completed(span: Span, trace: Trace, text: str) -> Ended:
+    trace.termination = TerminationReason.GOAL_REACHED
+    span.set_attribute(tel.TERMINATION, trace.termination.value)
+    return Completed(reply=text), trace
+
+
+def stopped(
+    span: Span, trace: Trace, reason: TerminationReason, message: str, rule_id: str = ""
+) -> Ended:
+    """A stop, typed by what stopped it.
+
+    A guardrail block is a **refusal** and says so (F-028, F-026's sibling: that
+    fix reached the entrypoint's reply screen and not the loop's own stop, so a
+    rule firing inside the loop still surfaced as a success). The other stops —
+    a budget spent, a ceiling reached, a loop going in circles — are
+    degradations: the turn did what it could and hands on.
+    """
+    trace.termination = reason
+    span.set_attribute(tel.TERMINATION, reason.value)
+    if reason is TerminationReason.REFUSED:
+        return Refused(reply=message, reason=reason.value, rule_id=rule_id), trace
+    return Completed(reply=message, termination=reason), trace
+
+
+def failed(span: Span, trace: Trace, customer_message: str, detail: str) -> Ended:
+    trace.termination = TerminationReason.UNRECOVERABLE_ERROR
+    span.set_attribute(tel.TERMINATION, trace.termination.value)
+    return Failed(customer_message=customer_message, detail=detail), trace
+
+
+__all__ = [
+    "IN_CIRCLES",
+    "PASS_ON",
+    "TROUBLE",
+    "UNREACHABLE",
+    "Ended",
+    "Trace",
+    "completed",
+    "failed",
+    "stopped",
+]

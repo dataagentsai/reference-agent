@@ -63,6 +63,8 @@ class Budgets(BaseModel):
     max_output_tokens: int = 4096
     max_tool_result_chars: int = 8000
     """Tool results are bounded before they enter context — AAC-0105."""
+    max_turn_seconds: int = 60
+    """Wall clock for one turn (AHC-0096), checked before each step."""
 
 
 class Settings(BaseSettings):
@@ -101,7 +103,7 @@ class Settings(BaseSettings):
     """The one line AgentTwin swaps. Real tool server, or a projection of a
     declared world — the agent is byte-identical either way."""
 
-    prompt_version: str = "v1"
+    prompt_version: str = "v2"
     router_rules_version: str = "v2"
     """Routing changes are gated like model changes — AAC-0101."""
 

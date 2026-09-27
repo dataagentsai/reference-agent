@@ -75,6 +75,10 @@ class TerminationReason(StrEnum):
     DEADLINE_REACHED = "deadline_reached"
     """Wall-clock ran out (AHC-0096). Its own value since generation run 1: it
     was reported as a step stop, and the two call for different fixes."""
+    OUTPUT_LENGTH_REACHED = "output_length_reached"
+    """The model stopped because its output budget ran out (AHC-0025), so what
+    it wrote is incomplete. Its own value since generation run 2: sending a
+    clipped answer as if it were whole is the failure it names."""
     OSCILLATION_DETECTED = "oscillation_detected"
     AWAITING_APPROVAL = "awaiting_approval"
     AWAITING_HUMAN = "awaiting_human"
