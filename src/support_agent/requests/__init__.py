@@ -64,6 +64,8 @@ class _Row:
     state: _Held
     outcome: dict[str, object] | None = None
     expires_at: float = 0.0
+    recorded_at: int = 0
+    """Epoch seconds, from `InMemoryRequests.clock` — what retention reads."""
 
 
 @dataclass
@@ -80,6 +82,9 @@ class InMemoryRequests:
     now: Callable[[], float] = time.monotonic
     """The clock, injected like every other one here: a module that read the
     wall clock itself would be untestable about the one thing it is about."""
+    clock: Callable[[], int] = field(default=lambda: int(time.time()))
+    """Epoch seconds, for when a name was recorded (Q-RETENTION). Separate from
+    `now`, which is monotonic and measures a claim's lease, not a date."""
     _rows: dict[str, _Row] = field(default_factory=dict)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
@@ -90,7 +95,9 @@ class InMemoryRequests:
                 raise AlreadyAnswered(f"{name!r} was already answered", outcome=row.outcome)
             if row is not None and row.expires_at > self.now():
                 raise StillRunning(f"{name!r} is already being handled")
-            self._rows[name] = _Row(_Held.IN_FLIGHT, expires_at=self.now() + ttl_s)
+            self._rows[name] = _Row(
+                _Held.IN_FLIGHT, expires_at=self.now() + ttl_s, recorded_at=self.clock()
+            )
             return Claim(name=name, scope=scope)
 
     async def settle(self, name: str, outcome: dict[str, object] | None = None) -> None:
@@ -104,7 +111,7 @@ class InMemoryRequests:
                 # answer for a name is the answer: a later attempt under that
                 # name did not happen twice, so it must not rewrite what did.
                 return
-            self._rows[name] = _Row(_Held.ANSWERED, outcome=outcome)
+            self._rows[name] = _Row(_Held.ANSWERED, outcome=outcome, recorded_at=row.recorded_at)
 
     async def abandon(self, name: str) -> None:
         async with self._lock:
@@ -121,8 +128,25 @@ class InMemoryRequests:
             names = [n for n in self._rows if n.split(":")[0] in wanted]
             for name in names:
                 row = self._rows[name]
-                self._rows[name] = _Row(row.state, outcome=None, expires_at=row.expires_at)
+                self._rows[name] = _Row(
+                    row.state, outcome=None, expires_at=row.expires_at, recorded_at=row.recorded_at
+                )
             return len(names)
+
+    async def expire(self, before: int) -> int:
+        """Names recorded before `before`, answered or lapsed — Q-RETENTION.
+        Deleted rather than redacted: see `Requests.expire` for why age makes
+        the difference that erasure does not."""
+        async with self._lock:
+            aged = [
+                n
+                for n, r in self._rows.items()
+                if r.recorded_at < before
+                and (r.state is _Held.ANSWERED or r.expires_at <= self.now())
+            ]
+            for name in aged:
+                del self._rows[name]
+            return len(aged)
 
     def __len__(self) -> int:
         return sum(1 for r in self._rows.values() if r.state is _Held.ANSWERED)

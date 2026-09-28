@@ -113,6 +113,16 @@ class CheckpointStore(Protocol):
         """
         ...
 
+    async def expire(self, before: int) -> int:
+        """Remove every turn last written before `before` (epoch seconds), and
+        say how many runs went — Q-RETENTION, AAC-0095.
+
+        Erasure's time-based sibling: `forget` asks *whose*, this asks *how
+        old*. The moment is the caller's, never the store's own reading of the
+        wall, so a retention run is as testable as any other expiry here.
+        """
+        ...
+
 
 @runtime_checkable
 class Requests(Protocol):
@@ -151,6 +161,20 @@ class Requests(Protocol):
         that is not there.
 
         Returns how many rows were changed.
+        """
+        ...
+
+    async def expire(self, before: int) -> int:
+        """Delete names recorded before `before` (epoch seconds) that are
+        answered or whose claim has lapsed — Q-RETENTION, AAC-0095.
+
+        **Deleted, not tombstoned**, unlike `redact`, and the difference is
+        time. A redacted row may be replayed tomorrow; a name more than a
+        retention window old is not re-presented by anything: a delivery name
+        is the channel's, which redelivers for minutes, and a tool name carries
+        a run id whose checkpoint expires in the same pass, so nothing can
+        resume the run that would repeat it. `erasure.retention` refuses a
+        window short enough to break that. A live claim is never removed.
         """
         ...
 
@@ -205,6 +229,11 @@ class SessionStore(Protocol):
     async def get(self, subject: str) -> StoredSession | None: ...
 
     async def delete(self, subject: str) -> None: ...
+
+    async def expire(self, before: int) -> int:
+        """Delete logins last refreshed before `before` (epoch seconds) and say
+        how many went — Q-RETENTION. A customer idle that long logs in again."""
+        ...
 
 
 @runtime_checkable

@@ -86,6 +86,8 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `tools/mcp.py` | AHC-0034, T-002, F-017 |
 | `requests/__init__.py` | AAC-0076, AHC-0053, AHC-0055, AHC-0074 |
 | `erasure/__init__.py` | AAC-0117, AHC-0115 |
+| `erasure/retention.py` | Q-RETENTION, AAC-0095, T-072 |
+| `state/file.py` | AHC-0044, Q-RETENTION |
 
 ---
 

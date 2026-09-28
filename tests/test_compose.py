@@ -77,6 +77,7 @@ SUPPORTING = {
     "otel-collector": "prometheus",
     "alertmanager": "prometheus",
     "grafana": "prometheus",
+    "temporal-retention": "temporal",
 }
 
 # Adopted, and not yet in compose. Each row leaves when its item adds the service.

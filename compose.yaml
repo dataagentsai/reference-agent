@@ -145,6 +145,12 @@ services:
     # Traces (the agent already exports OTLP when AGENT_OTLP_ENDPOINT is set).
     # The project and its keys are created on first start, so the endpoint and
     # header in .env.example work without opening the UI.
+    #
+    # Q-RETENTION is NOT met here. Langfuse's data retention (and its
+    # LANGFUSE_INIT_PROJECT_RETENTION) is an Enterprise Edition feature when
+    # self-hosted, and this is the OSS image — setting it would do nothing and
+    # read as done. Traces are kept until something deletes them; the gap is
+    # recorded against T-072 rather than faked.
     profiles: [obs]
     image: docker.langfuse.com/langfuse/langfuse:4.36.1
     restart: unless-stopped
@@ -264,6 +270,19 @@ services:
     ports:
       - 127.0.0.1:7233:7233
       - 127.0.0.1:8233:8233
+
+  temporal-retention:
+    # Q-RETENTION: a closed approval or escalation keeps its history 30 days,
+    # then Temporal deletes it. The dev server registers `default` with 24 hours
+    # and has no flag to change it, so this sets it through the CLI and exits;
+    # `on-failure` retries until the server answers. Re-run by every `up`, which
+    # is when a fresh volume would have registered the namespace again.
+    profiles: [durable]
+    image: temporalio/temporal:1.9.1
+    depends_on:
+      temporal: { condition: service_started }
+    restart: on-failure
+    command: ["operator", "namespace", "update", "--namespace", "default", "--retention", "30d", "--address", "temporal:7233"]
 
   # ------------------------------------------------------------ store: Saleor
 
@@ -455,6 +474,7 @@ services:
     restart: unless-stopped
     command:
       - --config.file=/etc/prometheus/prometheus.yml
+      # Q-RETENTION: the numbers are kept 30 days, then Prometheus drops them.
       - --storage.tsdb.retention.time=30d
       - --web.enable-lifecycle
     volumes:

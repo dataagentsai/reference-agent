@@ -174,6 +174,10 @@ class Settings(BaseSettings):
     synthetic_customers: str = "C-7001"
     """Comma-separated customer ids that are the canary (AHC-0113). Their turns
     are marked and excluded from every rate."""
+    retention_days: int = 30
+    """How long every record the harness writes is kept (Q-RETENTION): read by
+    `scripts/retention.py`, the profile's `thresholds.retention_days`, and held
+    equal to `erasure.retention.RETENTION_DAYS` by a test."""
 
 
 class RunConfig(BaseModel):

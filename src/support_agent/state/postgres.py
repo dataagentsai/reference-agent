@@ -89,6 +89,21 @@ class PostgresCheckpointStore:
             ).fetchall()
         return tuple(RunId(row[0]) for row in rows)
 
+    async def expire(self, before: int) -> int:
+        """Rows last written before `before` — Q-RETENTION, AAC-0095.
+
+        Per run, by `updated_at`: an active conversation keeps its recent turns
+        and loses the old ones, and `latest` still reads the newest that remain.
+        `before` is epoch seconds from the caller rather than `now()` here, so
+        the window is decided in one place and the database only compares.
+        """
+        async with self._pool.connection() as conn:
+            done = await conn.execute(
+                "DELETE FROM agent_state.checkpoints WHERE updated_at < to_timestamp(%s)",
+                (before,),
+            )
+        return done.rowcount
+
     async def latest(self, conversation_id: ConversationId) -> bytes | None:
         """The newest turn of this conversation.
 
@@ -175,3 +190,12 @@ class PostgresSessionStore:
     async def delete(self, subject: str) -> None:
         async with self._pool.connection() as conn:
             await conn.execute("DELETE FROM agent_state.sessions WHERE subject = %s", (subject,))
+
+    async def expire(self, before: int) -> int:
+        """Logins last refreshed before `before` — Q-RETENTION. `updated_at` is
+        already epoch seconds here, written by `Resume` from its own clock."""
+        async with self._pool.connection() as conn:
+            done = await conn.execute(
+                "DELETE FROM agent_state.sessions WHERE updated_at < %s", (before,)
+            )
+        return done.rowcount

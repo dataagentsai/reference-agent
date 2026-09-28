@@ -309,3 +309,142 @@ def test_every_postgres_store_declares_itself_durable() -> None:
 # workflows now: what survives a restart is tested against a real server in
 # `test_temporal_live.py`, the queue and the outcome through the desk in
 # `test_reviewer.py`, and the lapse — a sweeper here — is the workflow's timer.
+
+
+# --------------------------------------------------------------------------- #
+# Retention — Q-RETENTION, T-072. The in-memory rows are in `test_retention.py`.
+# --------------------------------------------------------------------------- #
+
+DAY = 24 * 3600
+TODAY = 1_790_000_000
+"""A fixed 'today' in 2026, so the ages below are dates Postgres can store."""
+CUTOFF = TODAY - 30 * DAY
+
+# (why, days since written, survives)
+RETAINED = [
+    ("a month and a day old goes", 31, False),
+    ("exactly thirty days old is kept", 30, True),
+    ("yesterday is kept", 1, True),
+]
+
+
+async def _age(pool, table: str, column: str, key: str, value: str, days: float) -> None:
+    """Backdate one row. The store stamps with `now()`; a test needs a past."""
+    async with pool.connection() as conn:
+        await conn.execute(
+            f"UPDATE agent_state.{table} SET {column} = to_timestamp(%s) WHERE {key} = %s",
+            (TODAY - days * DAY, value),
+        )
+
+
+@pytest.mark.discharges("Q-RETENTION", "AAC-0095")
+@pytest.mark.parametrize(("why", "age", "survives"), RETAINED, ids=[r[0] for r in RETAINED])
+async def test_postgres_keeps_a_turn_for_the_window_and_no_longer(
+    pool, why: str, age: int, survives: bool
+) -> None:
+    from support_agent.state.postgres import PostgresCheckpointStore
+
+    store = PostgresCheckpointStore(pool)
+    run = RunId(f"run_{named('ret').replace(':', '_')}")
+    await store.checkpoint(run, b"{}", conversation_id=ConversationId(f"cnv_{run}"))
+    await _age(pool, "checkpoints", "updated_at", "run_id", run, age)
+
+    assert await store.expire(CUTOFF) == (0 if survives else 1), why
+    assert (await store.resume(run) is not None) is survives, why
+
+
+@pytest.mark.discharges("Q-RETENTION")
+async def test_postgres_resumes_a_long_conversation_from_its_newest_kept_turn(pool) -> None:
+    from support_agent.state.postgres import PostgresCheckpointStore
+
+    store = PostgresCheckpointStore(pool)
+    conversation = ConversationId("cnv_long")
+    for run, state, age in (("run_old", b'{"n": 1}', 45), ("run_new", b'{"n": 2}', 2)):
+        await store.checkpoint(RunId(run), state, conversation_id=conversation)
+        await _age(pool, "checkpoints", "updated_at", "run_id", run, age)
+
+    assert await store.expire(CUTOFF) == 1
+    assert await store.latest(conversation) == b'{"n": 2}'
+
+
+# (why, days since recorded, settle it, lease seconds, survives)
+LEDGER_ROWS = [
+    ("an answered name past the window goes", 31, True, 600, False),
+    ("an answered name inside it stays", 29, True, 600, True),
+    ("a lapsed claim past the window goes", 31, False, 0, False),
+    ("a claim still held stays, however old", 31, False, 600, True),
+]
+
+
+@pytest.mark.discharges("Q-RETENTION", "AAC-0095", "AHC-0074")
+@pytest.mark.parametrize(
+    ("why", "age", "settle", "lease", "survives"), LEDGER_ROWS, ids=[r[0] for r in LEDGER_ROWS]
+)
+async def test_postgres_ledger_deletes_what_nothing_can_repeat(
+    pool, why: str, age: int, settle: bool, lease: int, survives: bool
+) -> None:
+    """Deleted rather than redacted — see `Requests.expire` — and never a live
+    claim, whatever its age."""
+    from support_agent import requests as req
+    from support_agent.requests.postgres import PostgresRequests
+
+    store = PostgresRequests(pool)
+    name = named("ret")
+    await store.claim(name, scope=req.Scope.TOOL, ttl_s=lease)
+    if settle:
+        await store.settle(name, {"text": "refunded"})
+    await _age(pool, "requests", "recorded_at", "name", name, age)
+
+    assert await store.expire(CUTOFF) == (0 if survives else 1), why
+
+
+@pytest.mark.discharges("Q-RETENTION", "AAC-0095")
+@pytest.mark.parametrize(("why", "age", "survives"), RETAINED, ids=[r[0] for r in RETAINED])
+async def test_postgres_drops_a_login_not_refreshed_within_the_window(
+    pool, why: str, age: int, survives: bool
+) -> None:
+    from cryptography.fernet import Fernet
+
+    from support_agent.contracts import StoredSession
+    from support_agent.state.postgres import PostgresSessionStore
+
+    sessions = PostgresSessionStore(pool, key=Fernet.generate_key())
+    subject = named("login")
+    await sessions.put(
+        StoredSession(subject=subject, refresh_token="t", updated_at=TODAY - age * DAY)
+    )
+
+    await sessions.expire(CUTOFF)
+
+    assert (await sessions.get(subject) is not None) is survives, why
+    await sessions.delete(subject)
+
+
+@pytest.mark.discharges("Q-RETENTION")
+async def test_the_daily_script_expires_every_store_and_says_how_many(pool) -> None:
+    """What a deployment's scheduler runs. Its counts are the log line an
+    operator reads, so they are checked, not just the exit code."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from support_agent.state.postgres import PostgresCheckpointStore
+
+    store = PostgresCheckpointStore(pool)
+    await store.checkpoint(RunId("run_script"), b"{}", conversation_id=ConversationId("c"))
+    await _age(pool, "checkpoints", "updated_at", "run_id", "run_script", 40)
+
+    root = Path(__file__).resolve().parents[1]
+    done = subprocess.run(
+        [sys.executable, "scripts/retention.py", "--dsn", DSN, "--now", str(TODAY)],
+        cwd=root,
+        env={**os.environ, "PYTHONPATH": str(root / "src")},
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert "checkpoints  1" in done.stdout, done.stdout
+    assert await store.resume(RunId("run_script")) is None

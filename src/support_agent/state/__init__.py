@@ -18,14 +18,13 @@ mid-approval is the case, and it is not hypothetical.
 from __future__ import annotations
 
 import asyncio
-import json
-import tempfile
-from pathlib import Path
+import time
 
 from pydantic import BaseModel, ConfigDict
 
 from support_agent.contracts import (
     Agentic,
+    Clock,
     ConversationId,
     Direct,
     Escalated,
@@ -37,6 +36,7 @@ from support_agent.contracts import (
     TurnResult,
 )
 from support_agent.state.facts import Facts
+from support_agent.state.file import FileCheckpointStore
 
 RECENT_TURNS = 12
 """How many turn outcomes are kept.
@@ -207,10 +207,15 @@ class InMemoryCheckpointStore:
 
     durable = False
 
-    def __init__(self) -> None:
+    def __init__(self, *, clock: Clock | None = None) -> None:
         self._runs: dict[str, bytes] = {}
         self._conversations: dict[str, bytes] = {}
         self._whose: dict[str, tuple[str, ConversationId]] = {}
+        self._written: dict[str, int] = {}
+        """When each run and each conversation was last written — Q-RETENTION.
+        Keyed like the two indexes, which cannot collide: ids are minted with
+        different prefixes."""
+        self._clock: Clock = clock or _wall
         self._lock = asyncio.Lock()
 
     async def checkpoint(
@@ -232,6 +237,20 @@ class InMemoryCheckpointStore:
             # only other place it appears, and erasure would have to decode
             # every turn ever stored to find one person's.
             self._whose[run_id] = (customer_id, conversation_id)
+            written = self._clock()
+            self._written[run_id] = self._written[conversation_id] = written
+
+    async def expire(self, before: int) -> int:
+        """Runs and conversations last written before `before` — Q-RETENTION."""
+        async with self._lock:
+            aged = {k for k, at in self._written.items() if at < before}
+            runs = [r for r in self._runs if r in aged]
+            for key in aged:
+                self._runs.pop(key, None)
+                self._conversations.pop(key, None)
+                self._whose.pop(key, None)
+                del self._written[key]
+            return len(runs)
 
     async def forget(self, customer_id: str) -> tuple[RunId, ...]:
         """Their runs and conversations go; what is returned is the runs.
@@ -248,6 +267,8 @@ class InMemoryCheckpointStore:
                 _, conversation_id = self._whose.pop(run)
                 self._runs.pop(run, None)
                 self._conversations.pop(conversation_id, None)
+                self._written.pop(run, None)
+                self._written.pop(conversation_id, None)
             return tuple(RunId(r) for r in runs)
 
     async def resume(self, run_id: RunId) -> bytes | None:
@@ -276,112 +297,16 @@ class InMemorySessionStore:
     async def delete(self, subject: str) -> None:
         self._sessions.pop(subject, None)
 
+    async def expire(self, before: int) -> int:
+        aged = [k for k, s in self._sessions.items() if s.updated_at < before]
+        for subject in aged:
+            del self._sessions[subject]
+        return len(aged)
 
-class FileCheckpointStore:
-    """Durable without infrastructure. Survives a restart; does not survive
-    concurrent writers on different machines.
 
-    Writes are atomic — a temporary file in the same directory, then `replace`,
-    which is atomic on POSIX. A checkpoint half-written during a crash is worse
-    than no checkpoint at all, because it resumes into a state that never
-    existed.
-
-    Postgres replaces this when there is more than one process, not before.
-    """
-
-    durable = True
-
-    def __init__(self, directory: Path | str) -> None:
-        self._dir = Path(directory)
-        self._dir.mkdir(parents=True, exist_ok=True)
-        self._lock = asyncio.Lock()
-
-    def _path(self, run_id: RunId) -> Path:
-        return self._dir / f"{run_id}.json"
-
-    def _conversation_path(self, conversation_id: ConversationId) -> Path:
-        return self._dir / f"conversation-{conversation_id}.json"
-
-    async def checkpoint(
-        self,
-        run_id: RunId,
-        state: bytes,
-        *,
-        conversation_id: ConversationId,
-        customer_id: str = "",
-    ) -> None:
-        async with self._lock:
-            self._write(self._path(run_id), state)
-            if customer_id:
-                # A third file, holding only which run and which conversation
-                # belong to whom — F-056. A directory cannot be queried, so
-                # erasure either reads and decodes every file or something
-                # writes down the one fact it needs. This is that fact, and it
-                # is small enough that reading all of them is cheap.
-                self._write(
-                    self._dir / f"whose-{run_id}.json",
-                    json.dumps(
-                        {
-                            "customer_id": customer_id,
-                            "run_id": run_id,
-                            "conversation_id": conversation_id,
-                        }
-                    ).encode(),
-                )
-            # Written second and separately rather than symlinked or indexed:
-            # both are atomic replaces, so a crash between them leaves the run
-            # record correct and the conversation pointer one turn stale, which
-            # is recoverable. An index that could point at a half-written file
-            # would not be.
-            self._write(self._conversation_path(conversation_id), state)
-
-    def _write(self, target: Path, state: bytes) -> None:
-        with tempfile.NamedTemporaryFile(dir=self._dir, delete=False, suffix=".tmp") as handle:
-            handle.write(state)
-            temporary = Path(handle.name)
-        temporary.replace(target)
-
-    async def resume(self, run_id: RunId) -> bytes | None:
-        return await self._read(self._path(run_id))
-
-    async def latest(self, conversation_id: ConversationId) -> bytes | None:
-        return await self._read(self._conversation_path(conversation_id))
-
-    async def forget(self, customer_id: str) -> tuple[RunId, ...]:
-        """Every file this customer's turns produced, removed — F-056.
-
-        The index files go last. Each one is what makes its own run findable,
-        so removing it before the state it points at would strand that state
-        where nothing could ever ask for it again — which looks like erasure
-        and is the opposite.
-        """
-        if not customer_id:
-            return ()
-        async with self._lock:
-            runs: list[RunId] = []
-            for index in sorted(self._dir.glob("whose-*.json")):
-                try:
-                    whose = json.loads(index.read_bytes())
-                except (OSError, ValueError):  # pragma: no cover - a torn write
-                    continue
-                if whose.get("customer_id") != customer_id:
-                    continue
-                self._path(RunId(whose["run_id"])).unlink(missing_ok=True)
-                self._conversation_path(whose["conversation_id"]).unlink(missing_ok=True)
-                index.unlink(missing_ok=True)
-                runs.append(RunId(whose["run_id"]))
-            return tuple(runs)
-
-    async def _read(self, target: Path) -> bytes | None:
-        async with self._lock:
-            if not target.exists():
-                return None
-            raw = target.read_bytes()
-        try:
-            json.loads(raw)
-        except ValueError:
-            return None
-        return raw
+def _wall() -> int:
+    """The default clock, and the only place this module reads the wall."""
+    return int(time.time())
 
 
 __all__ = [

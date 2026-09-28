@@ -9,7 +9,8 @@ a product requirement. It was already a gap here — three durable stores and on
 **Not retention.** A schedule that drops rows after ninety days answers a
 storage bill. It does not answer a person asking today about a conversation
 from last week, and the two want different mechanisms. This is the one that is
-a `DELETE`.
+a `DELETE`; the time-based one is `erasure.retention` (Q-RETENTION), which
+keeps this module's shape and differs on the ledger, for reasons it states.
 
 **One function, not a method on a store**, because the question is about a
 person and no single store knows the whole of what is held about them. The

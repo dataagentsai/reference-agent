@@ -52,7 +52,8 @@ class PostgresRequests:
                         SET scope = EXCLUDED.scope,
                             state = 'in_flight',
                             outcome = NULL,
-                            expires_at = EXCLUDED.expires_at
+                            expires_at = EXCLUDED.expires_at,
+                            recorded_at = now()
                       WHERE agent_state.requests.state = 'in_flight'
                         AND agent_state.requests.expires_at < now()
                     RETURNING name
@@ -132,6 +133,26 @@ class PostgresRequests:
                    AND outcome IS NOT NULL
                 """,
                 (list(runs),),
+            )
+        return done.rowcount
+
+    async def expire(self, before: int) -> int:
+        """Names recorded before `before`, answered or lapsed — Q-RETENTION.
+
+        A `DELETE`, where `redact` is an `UPDATE`, and `Requests.expire` says
+        why age changes the answer. The `expires_at` branch keeps a live claim
+        whatever its age: a lease somebody still holds is not a record yet.
+        `recorded_at` is reset when a lapsed claim is taken again, so an old
+        name reused is dated from its reuse.
+        """
+        async with self._pool.connection() as conn:
+            done = await conn.execute(
+                """
+                DELETE FROM agent_state.requests
+                 WHERE recorded_at < to_timestamp(%s)
+                   AND (state = 'answered' OR expires_at < now())
+                """,
+                (before,),
             )
         return done.rowcount
 
