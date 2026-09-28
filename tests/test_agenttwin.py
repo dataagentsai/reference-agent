@@ -1,7 +1,7 @@
 """AgentTwin, Tier 0.
 
 Two tests carry the phase. `test_the_projection_agrees_with_the_hand_written_world`
-runs the same 34 golden cases against a server generated from YAML and against
+runs every golden case against a server generated from YAML and against
 one written by hand — if a declared world cannot reproduce a hand-built one, the
 single-world premise is wrong. And `test_the_gate` is D's stated gate: cancel an
 order that has already shipped, and prove **from the world diff** that nothing

@@ -116,6 +116,10 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
             gap=_gap_of(item),
         )
     )
+    if result.skipped:
+        # A test that did not run is not evidence either way: the obligation stays
+        # "not exercised" rather than turning into a failure nobody can find.
+        return
     scored = item.get_closest_marker("scored") is not None
     for obligation_id in ids:
         if statements.family(obligation_id) == "AAC":

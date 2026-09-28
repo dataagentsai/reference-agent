@@ -69,11 +69,11 @@ brew install postgresql@16 && brew services start postgresql@16
 createdb support_agent && psql -d support_agent -f sql/001_schemas.sql
 ```
 
-Two schemas. `agent_state` is agent-owned — conversation, checkpoints,
-approvals, the idempotency ledger — and AgentTwin never projects it, because it
-is the oracle. `ecom` is the business world a simulation replaces, and its DDL
-is the ontology: `orders.customer_id REFERENCES customers(id)` states the join
-once, machine-readably, rather than repeating it in a world file.
+One schema. `agent_state` is agent-owned — conversation, checkpoints,
+approvals, the idempotency ledger — and AgentTwin never projects it. The store
+itself is not here: in production it is Saleor, which owns its own database, and
+under simulation it is the world AgentTwin projects from YAML. The old `ecom`
+schema is dropped by `sql/001_schemas.sql`, because nothing read it.
 
 Modules in `(parentheses)` in that contract are declared but not yet built — the
 parentheses come off as each one lands, so the contract doubles as the build
@@ -85,21 +85,28 @@ database. A new module inherits every ban without anyone remembering to add it.
 
 ## AgentTwin
 
-`agenttwin/` twins the agent's **world**, not the agent. The agent under test is
-real; its environment is the twin. The import contract forbids `support_agent`
-from importing it — a system that can see its own simulator is a system whose
-results mean nothing.
+AgentTwin twins the agent's **world**, not the agent. The agent under test is
+real; its environment is the twin. It is a separate repository,
+[`agenttwin`](https://github.com/dataagentsai/agenttwin), checked out beside
+this one at `../agenttwin` and installed as an editable dev dependency. The
+import contract forbids `support_agent` from importing it — a system that can
+see its own simulator is a system whose results mean nothing.
 
-A world is declared in YAML — entities, the ontology, the rows at t₀, and the
-**eligibility policy as data**. The projection generates an MCP server from it
-with no per-tool code, so a second world is a second file.
+The entities, the ontology and the **eligibility policy as data** live once, in
+the agent's spec (the AOAS, in `clean-ai-engineering/drafts/examples/`). A world
+file such as [`worlds/clothing.yaml`](worlds/clothing.yaml) cites that spec and
+adds only the rows at t₀ and what the twin is faithful about; the loader rejects
+a world that tries to declare entities or actions itself. The projection
+generates an MCP server from spec plus world with no per-tool code, so a second
+world is a second file.
 
 ```bash
 uv run pytest tests/test_agenttwin.py
 ```
 
-The proof that the premise holds: the same 34 golden cases pass against the
-projected server and against a hand-written one.
+The proof that the premise holds: every golden case in
+[`evals/golden/eligibility.jsonl`](evals/golden/eligibility.jsonl) passes against
+the projected server and against a hand-written one.
 
 ## Findings
 
@@ -115,15 +122,19 @@ Every test run ends with a report against the **AI Assurance Catalog**, archetyp
 A6 (tool-using agent):
 
 ```
-  exercised     38/43
-  passed        38
+  exercised     50/56
+  passed        50
   failed        0
-  NOT exercised 5
+  NOT exercised 6
 ```
 
-The unexercised five are named in [`evals/NOT_EXERCISED.md`](evals/NOT_EXERCISED.md)
+That is a full run with the live services up (2026-09-29). A test that skips
+because its service is down records nothing, so the obligation reads as not
+exercised in that run, never as failed.
+
+The unexercised six are named in [`evals/NOT_EXERCISED.md`](evals/NOT_EXERCISED.md)
 with why and what would change it. There is deliberately no "not applicable"
-verdict — it would be the right label for three of them, and it would also be the
+verdict — it would be the right label for some of them, and it would also be the
 label every inconvenient obligation eventually acquired.
 
 `evals/a6_obligations.json` carries identifiers and metadata only. The normative
