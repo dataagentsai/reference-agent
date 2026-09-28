@@ -124,6 +124,11 @@ async def page(request: Request) -> Response:
     who = {
         "identifier": subject,
         "identifier_hash": portal.widget.identity_hash(subject),
+        # Display only: Chatwoot's SDK refuses `setUser` without a name, email
+        # or avatar, and a refused call left every widget visitor anonymous
+        # (found in the first Codespace, 2026-09-29). The identity is the
+        # identifier and its HMAC above; the name proves nothing.
+        "name": str(session.get("customer") or subject),
         "base_url": portal.widget.base_url,
         "website_token": portal.widget.website_token,
     }
@@ -173,7 +178,7 @@ async def callback(request: Request) -> Response:
     portal.cookie(
         response,
         SESSION_COOKIE,
-        portal.sign({"sub": principal.subject}, SESSION_TTL_S),
+        portal.sign({"sub": principal.subject, "customer": principal.customer_id}, SESSION_TTL_S),
         SESSION_TTL_S,
     )
     response.delete_cookie(FLOW_COOKIE, path=portal.base_path or "/")

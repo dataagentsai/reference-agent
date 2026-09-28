@@ -99,6 +99,10 @@ def test_a_customer_login_is_kept_and_the_page_carries_no_token(rig: Rig) -> Non
     expected = hmac.new(HMAC_TOKEN.encode(), b"login-C-1042", hashlib.sha256).hexdigest()
     assert '"identifier": "login-C-1042"' in page
     assert f'"identifier_hash": "{expected}"' in page
+    # Chatwoot's SDK throws on `setUser` without a name, email or avatar, and the
+    # visitor stays anonymous: every widget message was answered "please sign in".
+    assert '"name": "C-1042"' in page
+    assert "name: who.name" in page
     for secret in (stored.refresh_token, HMAC_TOKEN, "eyJ"):
         assert secret not in page, "no credential reaches the page"
 

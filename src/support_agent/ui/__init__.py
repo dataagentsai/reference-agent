@@ -201,7 +201,12 @@ PORTAL_PAGE = """<!doctype html>
   const who = __WHO__;
   window.chatwootSettings = { hideMessageBubble: false, position: "right" };
   window.addEventListener("chatwoot:ready", () => {
-    window.$chatwoot.setUser(who.identifier, { identifier_hash: who.identifier_hash });
+    // `name` because the SDK throws without one of name, email or avatar_url,
+    // and a throw here left the visitor anonymous with nothing on screen.
+    window.$chatwoot.setUser(who.identifier, {
+      identifier_hash: who.identifier_hash,
+      name: who.name,
+    });
   });
   (function (d, t) {
     const base = who.base_url;
