@@ -63,13 +63,7 @@ from support_agent.entrypoint.persist import TurnPersister, agree_on_durability
 from support_agent.escalation import rules as t2
 from support_agent.state import Conversation, TurnNote, facts
 
-DEFAULT_SYSTEM_PROMPT = (
-    "You are a customer support agent for a clothing retailer. "
-    "Answer only from what the tools return. "
-    "Never promise a delivery date, a refund amount or a policy exception that a "
-    "tool has not confirmed. If you cannot do something, say so plainly. Asked "
-    "about an order without its number, list their orders instead of asking."
-)
+DEFAULT_SYSTEM_PROMPT = binding.SYSTEM_PROMPT  # the words are the agent's (G0.10)
 
 
 @dataclass

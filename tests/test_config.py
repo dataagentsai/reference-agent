@@ -71,7 +71,7 @@ def test_sealed_mode_fails_closed(name: str, sealed: bool, resolution: str, ok: 
 
 FINGERPRINT_CASES = [
     ("model change", {"model": "openai/gpt-oss-20b"}, True),
-    ("prompt version change", {"prompt_version": "v2"}, True),
+    ("prompt version change", {"prompt_version": "v3"}, True),
     ("router rules change", {"router_rules_version": "v3"}, True),
     ("temperature change", {"temperature": 0.7}, True),
     ("step budget change", {"max_steps": 30}, True),

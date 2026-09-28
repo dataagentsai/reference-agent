@@ -62,9 +62,11 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `llm/__init__.py` | AAC-0009, AHC-0001, AHC-0022, AHC-0024 |
 | `loop/__init__.py` | AAC-0009, AAC-0054, AAC-0055, AHC-0001, AHC-0107, AHC-0108 |
 | `loop/dispatch.py` | AAC-0051, AAC-0052, AHC-0104 |
+| `loop/ends.py` | AAC-0055, AHC-0025, AHC-0096 |
 | `loop/freshness.py` | AAC-0113, AHC-0103, AHC-0107 |
 | `loop/screen.py` | AAC-0051 |
 | `loop/spend.py` | AHC-0101 |
+| `policy/reading.py` | AHC-0094 |
 | `resilience/__init__.py` | AAC-0009, AHC-0005, AHC-0021, AHC-0024, AHC-0058 |
 | `state/__init__.py` | AHC-0108, P-ESC-CAP, P-ESC-ONCE |
 | `state/facts.py` | AHC-0108 |
@@ -125,7 +127,6 @@ traceability gap one level up, and is worth raising against the format.
 | `escalation/durable.py` | 178 | The same three statements' *timing*. A lapse used to need somebody to remember to sweep; it is the workflow's own timer now, so the rule holds wherever the record lives (T-028). |
 | `escalation/desk.py` | 224 | P-ESC-OWNS read as a boundary: the agent raises and reads, a colleague closes, and no type gives one the other's power. |
 | `escalation/__init__.py` | 78 | The AOAS `policies.escalation` block in full — `on_request`, `on_condition`, and the nine statements. |
-| `entrypoint/pending.py` | 119 | The other half of `issue_refund.authority`: what a turn does with a decision made since the last one. |
 | `escalation/capacity.py` | 32 | **P-ESC-TOLD** — *"a wait only when one is measured from queue depth and observed throughput"*. This file is that clause, and the clause is the reason it exists at all. |
 | `telemetry/redaction.py` | 26 | AOAS `personal_data_in_conversation`, plus the payload-capture rule in `telemetry/__init__.py`. Nothing that leaves the process carries what a customer typed. |
 | `flow/__init__.py` | 88 | **AHC-0020** — the fan-out limiter. Found by this document's own coverage test, not by reading, and it is the sharpest case in the table: the file exists, the capability it satisfies is one of the seven in `harness-profile.yaml`'s `x_untested`, and nothing in the file names it. Believed met, untested, and uncited — three ways of not being checked, stacked. |
@@ -181,10 +182,10 @@ Smaller than expected, and the surprise of the exercise.
 |---|---:|---|
 | `contracts/__init__.py` | 124 | *"Imports nothing from this package… Everything else may depend on it; it may depend on nothing. That is the whole of its job."* A re-export barrel that exists so the layering can be enforced. |
 
-`entrypoint/pending.py` is counted above under *required but uncited* and belongs
-here too: a statement puts it there, and the Null Object pair — `NoApprovals` /
-`ApprovalFlow` — is why it has the shape it has. Existence and boundary are
-different questions and this file is the clearest place they come apart.
+The pending-approvals module (entrypoint/pending.py) used to be counted under *required but uncited*. Since
+P-APPROVAL-STALE (T-072) it carries this shop's refund replies, so it is
+parameterised mechanism now and has left this document: the Null Object pair —
+`NoApprovals` / `ApprovalFlow` — is still why it has the shape it has.
 
 **The finding is what is missing here.** T-010 was raised on the belief that a
 large part of this package exists for structural reasons. It does not — **one

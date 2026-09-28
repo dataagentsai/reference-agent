@@ -15,9 +15,9 @@ behind the specs, because it is made of them.
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
 | **functional-suitability** | 15 | 8 | 15 | 3 |
-| **safety** | 16 | 3 | 4 | 3 |
-| **security** | 5 | 15 | 9 | 3 |
-| **reliability** | 7 | 13 | 7 | 4 |
+| **safety** | 17 | 3 | 4 | 4 |
+| **security** | 6 | 15 | 9 | 3 |
+| **reliability** | 7 | 14 | 7 | 4 |
 | **cost** | 4 | 9 | 6 | 3 |
 | **maintainability** | 6 | 22 | 10 | 0 |
 | **performance-efficiency** | 1 | 6 | 0 | 0 |
@@ -29,9 +29,9 @@ behind the specs, because it is made of them.
 
 **AOAS**
 
-- `P-CANCEL` cancellation while pending or confirmed; once picked, refuse and offer return-on-delivery
-- `P-RETURN` within 30 days of delivery; final-sale items never
-- `P-ADDRESS` while pending only
+- `P-CANCEL` an order may be cancelled while pending or confirmed; once picked, cancellation is refused and a return on delivery is offered
+- `P-RETURN` a return may be opened within 30 days of delivery; final-sale items are never returned
+- `P-ADDRESS` the delivery address may be changed only while the order is pending
 - `P-REFUND-STATUS` refund status is answered from the order's status, deterministically, and never promises a date or an amount
 - `P-APPROVAL-WAIT` while a decision is pending the conversation continues, and the customer is told a request exists and nothing more
 - `P-ESC-TOLD` the customer is told a reference number, and a wait only when one is measured from queue depth and observed throughput
@@ -81,13 +81,14 @@ behind the specs, because it is made of them.
 - `it-will-not-state-a-figure-no-tool-returned` a refund figure no tool returned never reaches the customer
 
 
-## safety — 26
+## safety — 28
 
 **AOAS**
 
-- `P-REFUND` to the original payment method; a refund above ₹10,000 needs a person
+- `P-REFUND` a refund goes to the original payment method, and one above ₹10,000 needs a person
 - `P-DIRECT-READS` the deterministic path never performs a write — it is selected by patterns over the customer's words, and an effect must not be one rewording away
-- `P-APPROVAL-TTL` a grant older than its validity fails closed rather than executing
+- `P-APPROVAL-TTL` a grant older than its validity fails closed rather than executing, and records execution grant_expired
+- `P-APPROVAL-STALE` a granted refund whose order no longer has the status or total it was granted on is not carried out: the approval records execution stale, a fresh pending approval is asked against the order as it now is and named in superseded_by, and the customer is told the request is waiting again — its own outcome, never reported as a failure
 - `P-APPROVAL-FINAL` a decision is final: a decided approval cannot be decided again
 - `R-DISCOUNT` refuses negotiating price, or offering any discount, voucher or coupon not in a published promotion
 - `R-ACCOUNT` refuses account deletion, and changes to a payment method
@@ -118,11 +119,12 @@ behind the specs, because it is made of them.
 **scenario**
 
 - `a-refund-above-the-limit-needs-a-person` a refund above the limit is not the agent's to make
+- `the-order-moves-while-a-colleague-decides` the order moves while a colleague decides, and it is asked again
 - `the-reviewer-approves-it-twice` the reviewer approves it twice and one refund happens
 - `the-reviewer-comes-too-late` the reviewer answers after the grant has expired
 
 
-## security — 32
+## security — 33
 
 **AOAS**
 
@@ -131,6 +133,7 @@ behind the specs, because it is made of them.
 - `P-ESC-OWNS` while a person owns the conversation the agent does not answer it, and only the desk that holds it may close it
 - `R-OTHER-CUSTOMER` refuses anything about an order the signed-in customer did not place
 - `Q-MODEL` only a model from the approved list is called
+- `Q-RETENTION` transcripts, traces and every record the harness writes are kept 30 days, then deleted
 
 **AHC**
 
@@ -169,7 +172,7 @@ behind the specs, because it is made of them.
 - `planted-instructions` a planted instruction produces no effect, whatever it says
 
 
-## reliability — 31
+## reliability — 32
 
 **AOAS**
 
@@ -190,6 +193,7 @@ behind the specs, because it is made of them.
 - `AHC-0025` Partial results are typed, never silently truncated *(faultlessness)*
 - `AHC-0043` A tool failure is a loop state, not an exception *(fault tolerance)*
 - `AHC-0044` The trajectory is checkpointed, not held only in memory *(recoverability)*
+- `AHC-0053` A trigger produces exactly one run *(faultlessness)*
 - `AHC-0073` Step results are persisted so the graph can resume *(recoverability)*
 - `AHC-0074` Every step declares whether repeating it is safe *(faultlessness)*
 - `AHC-0102` Persisted state is written whole, and every substrate declares whether it survives the process *(recoverability)*
@@ -259,9 +263,9 @@ behind the specs, because it is made of them.
 - `P-ESC-OUTCOME` closing records an outcome from a declared set, once, and the rule that raised it stays with the record
 - `fact:turn_count` turns taken in this conversation
 - `fact:termination` why the loop stopped on the latest turn, or absent if it never ran
-- `fact:consecutive_failed` turns ending in failure, counting back from the latest until one did not
+- `fact:consecutive_failed` turns ending in failure, counting back from the latest until one did not; a turn ends in failure when its loop stopped on unrecoverable_error, or when an operation it called did not answer (unavailable, or slow past the turn's deadline) and the turn ended without that answer
 - `fact:refusals` turns in this conversation the agent refused
-- `fact:repeated_intent` turns carrying the latest turn's intent, counting back from it until the intent changes
+- `fact:repeated_intent` turns carrying the latest turn's intent, counting back from it until the intent changes; zero when the latest turn's intent is `other`
 
 **AHC**
 

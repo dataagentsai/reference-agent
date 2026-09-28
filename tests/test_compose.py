@@ -22,6 +22,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE = ROOT / "compose.yaml"
 STACK = ROOT.parent / "clean-ai-engineering" / "stacks" / "open-stack.yaml"
+PROFILE = ROOT / "harness-profile.yaml"
 
 needs_stack = pytest.mark.skipif(
     not STACK.is_file(), reason="the stack profile is a sibling checkout"
@@ -91,10 +92,18 @@ def services() -> dict[str, dict]:
 
 @pytest.fixture(scope="module")
 def stack() -> dict:
+    # The stack's bindings, plus this agent's own adoptions: `x_store` is one
+    # agent's fact, so it lives in the profile, not the stack (generation run 2).
     doc = yaml.safe_load(STACK.read_text())
+    own = yaml.safe_load(PROFILE.read_text())
     return {
         **doc["bindings"],
-        **{k: v for k, v in doc.items() if k.startswith("x_") and isinstance(v, dict)},
+        **{
+            k: v
+            for d in (doc, own)
+            for k, v in d.items()
+            if k.startswith("x_") and isinstance(v, dict)
+        },
     }
 
 
@@ -167,5 +176,5 @@ def test_the_postgres_init_script_is_executable(services: dict) -> None:
 
 @pytest.mark.tooling
 @needs_stack
-def test_the_stack_says_where_it_runs_from() -> None:
-    assert yaml.safe_load(STACK.read_text())["x_runs_from"] == "reference-agent/compose.yaml"
+def test_the_profile_says_where_it_runs_from() -> None:
+    assert yaml.safe_load(PROFILE.read_text())["x_runs_from"] == "reference-agent/compose.yaml"

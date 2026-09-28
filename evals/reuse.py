@@ -40,7 +40,6 @@ MECHANISM = {
     "cost/__init__.py",
     "entrypoint/__init__.py",
     "entrypoint/handoff.py",
-    "entrypoint/pending.py",
     "entrypoint/persist.py",
     "entrypoint/ending.py",
     "escalation/__init__.py",
@@ -62,6 +61,8 @@ MECHANISM = {
     "loop/plan.py",
     "loop/spend.py",
     "loop/screen.py",
+    "loop/ends.py",
+    "policy/reading.py",  # folds look-alike characters; no domain in it
     "resilience/__init__.py",
     "reviewer/__init__.py",
     "reviewer/guard.py",
@@ -97,6 +98,7 @@ one is this shop's. `approvals/durable.py` is the same division inside Temporal:
 the workflow waits for any action, and `approvals/refund.py` says which."""
 
 PARAMETERISED = {
+    "entrypoint/pending.py",  # universal approval flow; the refund replies are this shop's
     "approvals/__init__.py",  # re-exports the universal workflow *and* this shop's refund tool
     "binding.py",  # the shape is universal; the scope names are this deployment's
     "approvals/policy.py",  # the threshold, the TTL, the states a refund is owed in

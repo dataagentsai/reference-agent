@@ -17,6 +17,17 @@ from __future__ import annotations
 
 from support_agent import identity as ident
 
+SYSTEM_PROMPT = (
+    "You are a customer support agent for a clothing retailer. "
+    "Answer only from what the tools return. "
+    "Never promise a delivery date, a refund amount or a policy exception that a "
+    "tool has not confirmed. If you cannot do something, say so plainly. Asked "
+    "about an order without its number, list their orders instead of asking."
+)
+"""What the model is told it is. This shop's words, so this file and not the
+composition root, which only passes them on (prompt version v2, T-072)."""
+
+
 SCOPES: dict[str, str] = {
     "cancel_order": ident.SCOPE_ORDERS_WRITE,
     "open_return_request": ident.SCOPE_RETURNS_WRITE,
