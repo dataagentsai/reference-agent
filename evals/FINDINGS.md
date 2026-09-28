@@ -2270,3 +2270,47 @@ every generated attack scenario the obeying script, and only one of the two
 files was given it when the scripts moved. Unscripted, the model never
 answered, so twenty attacks were never attempted and the scenario passed on
 nothing — the failure F-060 describes, caught the day it was introduced.
+
+---
+
+## F-061 · Consent is read from keywords, and misses most ways a customer asks
+
+**Found** 2026-09-29, by trying nine phrasings against `entrypoint.consent.consented`
+while explaining the permission list.
+
+**Severity** Medium. The misses fail safe; one false grant weakens the injection
+defence the list exists for.
+
+### What happens
+
+`consented` pairs the router's intent regexes with the order ids in the
+customer's own messages. Two of nine realistic phrasings were read correctly:
+
+| Customer says | Granted | |
+|---|---|---|
+| I want to return AB-10003 | `open_return_request:AB-10003` | right |
+| please take back the jacket from AB-10003, it's too small | nothing | missed |
+| how do I send AB-10003 back? | nothing | missed — **the AOAS lists "How do I send it back?" as a return example** |
+| AB-10003 doesn't fit, can I get it exchanged or sent back | nothing | missed |
+| cancel AB-10002 | `cancel_order:AB-10002` | right |
+| I do NOT want to cancel AB-10002 | `cancel_order:AB-10002` | **granted on a negation** |
+| I no longer need AB-10002 | nothing | missed |
+| stop order AB-10002 please | nothing | missed |
+| AB-10003 wapas karna hai | nothing | missed |
+
+### Why the two errors differ
+
+A miss blocks the action and records it as awaiting confirmation, so "yes"
+recovers it: one extra turn. The negation grant does not act on its own — the
+model still has to call `cancel_order` — but the list is the net for the case
+where the model has been talked into it by planted text, and there the net has
+a hole.
+
+### Direction, not yet decided
+
+The principle holds: what may be done is decided by code, from the customer's
+words and never from tool output. The recogniser is the weak part. For
+irreversible actions, an explicit confirmation turn removes every row above;
+a matcher tested against the AOAS's own `examples` (T-068) would have caught
+the send-it-back drift. The same brittleness blocked a legitimate return as
+style advice on "it does not fit" (router R-STYLE, seen live the same day).
