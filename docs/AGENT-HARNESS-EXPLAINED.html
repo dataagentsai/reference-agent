@@ -190,7 +190,8 @@ footer a{color:var(--accent)}
       <li><span>15</span><a href="#scale">Scale, memory and where it breaks</a> <em>— <a href="#sc-math">the arithmetic</a> · <a href="#sc-memory">memory by lifetime</a> · <a href="#sc-loop">the event loop</a> · <a href="#sc-out">going wide</a></em></li>
       <li><span>16</span><a href="#stack">One message, function by function</a> <em>— two real turns</em></li>
       <li><span>17</span><a href="#camel">Prompt injection, by design</a> <em>— <a href="#camel-today">the permission list</a> · <a href="#camel-1">CaMeL in five steps</a> · <a href="#camel-here">mapped onto this agent</a></em></li>
-      <li><span>18</span><a href="#next">Where to go next</a> <em>— and a glossary</em></li>
+      <li><span>18</span><a href="#swap">One message, and what could be swapped</a> <em>— 46 steps, each marked injected or not, generic or the shop's</em></li>
+      <li><span>19</span><a href="#next">Where to go next</a> <em>— and a glossary</em></li>
     </ol>
   </nav>
 
@@ -5306,8 +5307,179 @@ uv run python scripts/run_server.py</code></pre>
     <p>Sources: Debenedetti et al., <a href="https://arxiv.org/abs/2503.18813">Defeating Prompt Injections by Design</a> (2025); Simon Willison, <a href="https://simonwillison.net/2023/Apr/25/dual-llm-pattern/">The Dual LLM pattern</a> (2023).</p>
   </section>
 
-  <section class="part" id="next">
+  <section class="part" id="swap">
     <p class="n">Section 18</p>
+    <h2>One message, start to end — and what could be swapped</h2>
+    <p>Section 16 follows two turns function by function. This one asks a different question of the same path: at every step, <strong>could another implementation be plugged in without editing the code</strong> (inversion of control), and <strong>would a hotel agent keep it</strong>? Forty-six steps, from the Chatwoot webhook to the reply, plus the refund. Traced from the code on 29 September 2026; the plain <code>/chat</code> page enters at step 5.</p>
+
+    <div class="kid">
+      <b>Explain like I'm five</b>
+      <p>A well-built kitchen has sockets, not hard-wired appliances: you can unplug the kettle and plug in a different one. <strong>Inversion of control</strong> is sockets in code — the agent is handed its database, its model, its tools and its rules when it is built, instead of reaching out and grabbing a particular one.</p>
+      <p>The question for a second agent is simple: how much of this kitchen is sockets, and how much is the clothing shop's appliances screwed to the wall?</p>
+    </div>
+
+    <h3>How to read the tables</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Mark</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><strong>IoC ✔</strong></td><td>injected: passed to <code>entrypoint.build</code> (or the channel) as an object behind a Protocol, a rule list or a value</td></tr>
+        <tr><td><strong>IoC ◐</strong></td><td>injectable in principle, but the default is baked in and <code>build</code> does not pass it through</td></tr>
+        <tr><td><strong>IoC ✘</strong></td><td>called directly; replacing it means editing the code</td></tr>
+        <tr><td><strong>Agnostic</strong></td><td>no shop knowledge; a hotel agent keeps it unchanged</td></tr>
+        <tr><td><strong>Param</strong></td><td>generic code with this shop's values inside it; a hotel agent keeps the code and must change the values</td></tr>
+        <tr><td><strong>Shop</strong></td><td>exists because this is a clothing shop; a hotel agent writes its own</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>A · The message arrives</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>What happens</th><th>Where</th><th>IoC</th><th>Domain</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Chatwoot posts the message to the agent's webhook. The agent checks the <strong>signature</strong> (an HMAC under a shared secret) and refuses anything unsigned or older than five minutes.</td><td><code>channel.Channel.signed</code> · <code>channel/__init__.py</code></td><td class="yes">✔ <code>Channel</code> is built and mounted by the server</td><td>Agnostic</td></tr>
+        <tr><td>2</td><td>It keeps only an <strong>incoming, public message in a conversation the bot still holds</strong>; everything else (its own replies, staff messages, a conversation a person has taken) is acknowledged and ignored. It answers Chatwoot at once (202) and does the work in the background, because a model turn can outlast Chatwoot's timeout.</td><td><code>channel.webhook</code>, <code>channel.incoming</code></td><td class="no">✘</td><td>Agnostic (Chatwoot-specific, not shop-specific)</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>B · Who is this, and is it their conversation?</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>What happens</th><th>Where</th><th>IoC</th><th>Domain</th></tr></thead>
+      <tbody>
+        <tr><td>3</td><td><strong>Who is it?</strong> The contact must be HMAC-verified by the portal, and their portal login must still be live. Otherwise the reply is "please sign in".</td><td><code>channel._customer</code> → <code>Sessions.identity_for</code></td><td class="yes">✔ <code>Sessions</code> Protocol</td><td>Agnostic</td></tr>
+        <tr><td>4</td><td><strong>Load the conversation</strong> by Chatwoot's ids, and refuse it if it belongs to a different customer.</td><td><code>channel._conversation</code> → <code>CheckpointStore.latest</code></td><td class="yes">✔ <code>CheckpointStore</code> Protocol (memory · file · Postgres)</td><td>Agnostic</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>C · The turn begins</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>What happens</th><th>Where</th><th>IoC</th><th>Domain</th></tr></thead>
+      <tbody>
+        <tr><td>5</td><td><strong>Duplicate guard.</strong> If Chatwoot delivers the same message twice, the second is answered from the first instead of running again.</td><td><code>Agent.handle</code> → <code>requests.once</code></td><td class="yes">✔ <code>Requests</code> Protocol</td><td>Agnostic</td></tr>
+        <tr><td>6</td><td>Open the turn's trace span and stamp it: run id, customer, whether this is the synthetic canary customer.</td><td><code>Agent._turn</code>, <code>ending.opened</code>, <code>telemetry.span</code></td><td class="no">✘ telemetry is process-global</td><td>Agnostic</td></tr>
+        <tr><td>7</td><td><strong>Is a person holding this conversation?</strong> If an escalation is open, the bot stays silent and says so.</td><td><code>Agent._gates</code> → <code>HandoffDesk.hold</code></td><td class="yes">✔ built from the injected <code>Escalations</code>; <code>NoDesk</code> null object when none</td><td>Agnostic</td></tr>
+        <tr><td>8</td><td><strong>Is an approval pending?</strong> If so, resume it: say it is still waiting, or report what was decided.</td><td><code>Agent._gates</code> → <code>ApprovalFlow.resume</code></td><td class="yes">✔ built from injected <code>Approvals</code>; <code>NoApprovals</code> null object</td><td>Param (the refund replies)</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>D · What does the customer want?</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>What happens</th><th>Where</th><th>IoC</th><th>Domain</th></tr></thead>
+      <tbody>
+        <tr><td>9</td><td><strong>The router</strong> decides one of four routes from the words alone, with no model: <strong>refuse</strong>, <strong>hand to a person</strong>, <strong>answer directly</strong>, or <strong>send to the AI loop</strong>.</td><td><code>router.route(text, rules=…)</code></td><td class="yes">✔ the <code>Rules</code> object is injected — but its defaults are this shop's regexes, written in the router module</td><td><strong>Param</strong></td></tr>
+        <tr><td>10</td><td>Record the customer's own words as a fact, before anything runs, so even a failed turn leaves a record of what was asked.</td><td><code>Facts.asking</code></td><td class="no">✘</td><td>Agnostic</td></tr>
+        <tr><td>11</td><td><strong>Build the permission list</strong>: which action on which order the customer's words ask for (see F-061 for how this goes wrong).</td><td><code>consent.granting</code></td><td class="no"><strong>✘ called directly</strong></td><td><strong>Shop</strong> — names <code>cancel_order</code>, <code>open_return_request</code>, <code>change_address</code> in code</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>E · The four routes</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Route</th><th>What happens</th><th>Where</th><th>IoC</th><th>Domain</th></tr></thead>
+      <tbody>
+        <tr><td>12</td><td>Refuse</td><td>A fixed refusal ("I can't offer discounts…"). No model, no tools.</td><td><code>router.refusal_text</code></td><td class="yes">✔ via <code>Rules</code></td><td>Param</td></tr>
+        <tr><td>13</td><td>Hand to a person</td><td>Start an escalation, tell the customer their reference and wait.</td><td><code>HandoffDesk.raise_requested</code> → <code>Escalations</code> (Temporal)</td><td class="yes">✔</td><td>Agnostic engine · Shop wording (<code>escalation/wording.py</code>)</td></tr>
+        <tr><td>14</td><td>Answer directly</td><td>Order status, refund status, "list my orders": one shop lookup, a template reply.</td><td><code>direct.answer</code> → <code>HANDLERS</code> registry</td><td class="some"><strong>◐</strong> <code>answer</code> takes <code>handlers=</code>, but <code>Agent</code> never passes it — the registry is fixed</td><td><strong>Shop</strong></td></tr>
+        <tr><td>15</td><td>AI loop</td><td>Everything else — steps F and G.</td><td><code>loop.run</code></td><td class="no">✘ the loop is called directly (it is the harness's own; LangGraph would replace it here)</td><td>Agnostic</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>F · The AI loop (repeats until it answers or hits a limit)</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>What happens</th><th>Where</th><th>IoC</th><th>Domain</th></tr></thead>
+      <tbody>
+        <tr><td>16</td><td><strong>Open the tool surface</strong>: ask the shop's MCP server which tools this customer may use, and add the agent's own local tools (the refund request).</td><td><code>ToolClient.list_tools</code> · <code>ApprovalFlow.offer</code> → <code>refund_tool</code></td><td class="yes">✔ <code>ToolClient</code> Protocol · local tools offered by the injected approvals</td><td>Agnostic surface · <strong>Shop</strong> refund tool</td></tr>
+        <tr><td>17</td><td><strong>Check the limits</strong> before each step: step count, turn deadline, cost ceiling.</td><td><code>_Run.step</code> with <code>Budgets</code></td><td class="yes">✔ budgets from injected config</td><td>Agnostic</td></tr>
+        <tr><td>18</td><td><strong>Assemble the context</strong>: instructions, history, fenced untrusted text; trim the middle of a long conversation to fit.</td><td><code>context.assembled</code></td><td class="no"><strong>✘ called directly</strong> — the strategy is not pluggable yet</td><td>Agnostic</td></tr>
+        <tr><td>19</td><td><strong>Before-model guardrail</strong> (a hook): the last point where refusing costs nothing.</td><td><code>Screen.at(PRE_MODEL)</code></td><td class="yes">✔ <code>policy_rules</code> per position, injected</td><td>Agnostic (no rules there by default)</td></tr>
+        <tr><td>20</td><td><strong>Call the model</strong> with the context and the tool list. Retries, backoff and the circuit breaker wrap the provider client, exactly as production wraps it.</td><td><code>LLMClient.complete</code> = <code>ResilientLLM(GroqClient)</code> → LiteLLM → Groq</td><td class="yes">✔ <code>LLMClient</code> Protocol (Groq · scripted · the provider twin)</td><td>Agnostic</td></tr>
+        <tr><td>21</td><td><strong>Count tokens and money</strong>; stop if the cost ceiling is passed.</td><td><code>spend.account</code> with <code>Meter</code></td><td class="yes">✔ <code>metering</code> factory injected</td><td>Agnostic (the price table is config)</td></tr>
+        <tr><td>22</td><td><strong>If the model answered in words:</strong> the after-model guardrail checks the reply (e.g. it may not claim an effect no tool confirmed). Done → go to H.</td><td><code>_Run._answer</code> → <code>Screen.at(POST_MODEL)</code></td><td class="yes">✔ hook injected — defaults are <code>OUTPUT_RULES</code></td><td><strong>Param</strong> — the claim sentences are this shop's</td></tr>
+        <tr><td>23</td><td><strong>If the model asked for tools:</strong> give each call an idempotency key, and stop if the model is going round in circles.</td><td><code>_Run._plan</code>, <code>plan.Keys</code>, <code>plan.circling</code></td><td class="no">✘</td><td>Agnostic</td></tr>
+        <tr><td>24</td><td><strong>Freshness</strong>: an irreversible action on an order last read more than 30 s ago is not run; the order is re-read and the model plans again.</td><td><code>freshness.refresh</code></td><td class="yes">✔ the window is injected (<code>fresh_for_s</code>)</td><td>Agnostic mechanism · value per agent</td></tr>
+        <tr><td>25</td><td><strong>Before-tool guardrail</strong> (a hook): the permission list — was this action on this order asked for?</td><td><code>Screen.permitted</code> → <code>policy.customer_asked</code></td><td class="yes">✔ hook injected</td><td><strong>Shop</strong> — reads step 11's list</td></tr>
+        <tr><td>26</td><td><strong>Run the allowed calls</strong>, several at once up to a limit.</td><td><code>dispatch</code> → <code>ToolClient.call</code> or a <code>LocalTool</code></td><td class="yes">✔</td><td>Agnostic</td></tr>
+        <tr><td>27</td><td><strong>If the refund tool asks for a person</strong>, the loop stops and returns "waiting for approval" (see <em>The refund</em> below).</td><td><code>ApprovalRequested</code> → <code>NeedsApproval</code></td><td class="yes">✔</td><td>Agnostic signal · Shop tool</td></tr>
+        <tr><td>28</td><td><strong>After-tool guardrail</strong> (a hook) on each result; results go back into the context, and the loop takes another step (→ 17).</td><td><code>Screen.admitted(POST_TOOL)</code></td><td class="yes">✔ hook injected</td><td>Agnostic</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>G · At the shop (inside step 26)</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>What happens</th><th>Where</th><th>IoC</th><th>Domain</th></tr></thead>
+      <tbody>
+        <tr><td>29</td><td>The call crosses MCP to the <strong>order system's own server</strong>, carrying the customer's token and the idempotency key.</td><td><code>tools.mcp.MCPToolClient</code></td><td class="yes">✔ it is the <code>ToolClient</code></td><td>Agnostic</td></tr>
+        <tr><td>30</td><td>The order system <strong>checks everything again itself</strong>: the token, that the order is the caller's, the operation's preconditions (e.g. delivered, within 30 days), the key. The agent's checks are not trusted.</td><td><code>order_system/server.py</code></td><td class="yes">✔ chosen at startup: projected world or real store</td><td>Agnostic (rules come from the AOAS)</td></tr>
+        <tr><td>31</td><td>It reads or writes the order in <strong>Saleor</strong> (or in the simulated world).</td><td><code>order_system/store.py</code> <code>Saleor</code> · AgentTwin projection</td><td class="yes">✔ <code>Store</code></td><td>Agnostic (the Saleor binding is store-product-specific, not shop logic)</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>H · After the work</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>What happens</th><th>Where</th><th>IoC</th><th>Domain</th></tr></thead>
+      <tbody>
+        <tr><td>32</td><td><strong>Does this conversation now need a person?</strong> Tier-2 rules look at how the turn <em>went</em>: refused twice, the loop gave up, the same question a third time.</td><td><code>HandoffDesk.raise_on_condition</code> with the <code>tier_2</code> rule set</td><td class="yes">✔ <code>tier_2</code> injected</td><td><strong>Param</strong> — the conditions</td></tr>
+        <tr><td>33</td><td>Update the facts (what landed, what is awaited), and carry any refused action forward as "awaiting confirmation".</td><td><code>facts.after</code>, <code>consent.pending</code></td><td class="no">✘</td><td>Agnostic · <strong>Shop</strong> (consent)</td></tr>
+        <tr><td>34</td><td><strong>Promise gate</strong>: a reply that promises follow-up ("let me check") with nothing behind it is turned into a real handoff or corrected.</td><td><code>promise.honest</code></td><td class="no"><strong>✘ called directly</strong></td><td><strong>Param</strong> — the promise phrases are English and this shop's voice</td></tr>
+        <tr><td>35</td><td><strong>Final reply guardrail</strong>, on every route — so a template edit anywhere is screened too.</td><td><code>_screened</code> with <code>policy_rules</code></td><td class="yes">✔ hooks injected</td><td>Param (claim patterns)</td></tr>
+        <tr><td>36</td><td>Close the turn span with the outcome, route and duration.</td><td><code>ending.closed</code></td><td class="no">✘</td><td>Agnostic</td></tr>
+        <tr><td>37</td><td><strong>Save the conversation</strong> (trimmed to its size bound).</td><td><code>TurnPersister</code> → <code>CheckpointStore.put</code></td><td class="yes">✔</td><td>Agnostic</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>I · The reply goes out, and the watchers read it later</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>What happens</th><th>Where</th><th>IoC</th><th>Domain</th></tr></thead>
+      <tbody>
+        <tr><td>38</td><td>Post the reply in Chatwoot. If the turn escalated, also post a <strong>private note</strong> briefing the colleague and hand the conversation to a person. If it is waiting for approval, post a note pointing at the desk.</td><td><code>ChatwootApi.reply / note / hand_off</code></td><td class="yes">✔ <code>ChatwootApi</code> Protocol</td><td>Agnostic</td></tr>
+        <tr><td>39</td><td>The spans leave the process through OpenTelemetry → the collector → <strong>Langfuse</strong> (traces) and <strong>Prometheus</strong> (metrics).</td><td><code>telemetry.configure</code></td><td class="no">✘ set once per process</td><td>Agnostic</td></tr>
+        <tr><td>40</td><td>Every minute, <strong>the watcher</strong> reads finished turns back from Langfuse, runs 22 rules and writes scores back. Every ten minutes, <strong>the canary</strong> runs four checks as a synthetic customer.</td><td><code>watch.rules</code>, <code>watch.canary</code></td><td class="yes">✔ rules are data</td><td><strong>Param</strong> (rules' vocabulary) · <strong>Shop</strong> (canary cases)</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>The refund, as its own path (from step 27)</h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>What happens</th><th>Where</th><th>IoC</th><th>Domain</th></tr></thead>
+      <tbody>
+        <tr><td>R1</td><td>The model asks for <code>request_refund(order_id)</code>. It <strong>cannot</strong> issue a refund: that tool is not offered to it.</td><td><code>approvals/refund.py</code> <code>refund_tool</code></td><td class="yes">✔ offered by injected approvals</td><td><strong>Shop</strong></td></tr>
+        <tr><td>R2</td><td>The tool asks the approval service for a decision.</td><td><code>TemporalApprovals.request</code> · <code>approvals/desk.py</code></td><td class="yes">✔ <code>Approvals</code> Protocol (memory · Temporal)</td><td>Agnostic</td></tr>
+        <tr><td>R3</td><td>A <strong>workflow</strong> starts in Temporal, pinned to the approval noticeboard.</td><td><code>ApprovalWorkflow</code> · <code>approvals/durable.py</code></td><td class="yes">✔</td><td>Agnostic</td></tr>
+        <tr><td>R4</td><td><strong>Assess</strong>: read the order and decide who must approve — the automatic rule (returned and ≤ ₹10,000) or a person. Record what the decision was based on.</td><td><code>RefundWork.assess</code> + <code>approvals.Policy</code></td><td class="yes">✔ <code>Policy</code> is a versioned rule set</td><td><strong>Shop</strong> (assess) · <strong>Param</strong> (the limit)</td></tr>
+        <tr><td>R5</td><td>Wait for the decision, with a reminder and a 24-hour expiry.</td><td><code>ApprovalWorkflow</code> timers</td><td class="yes">✔</td><td>Agnostic</td></tr>
+        <tr><td>R6</td><td><strong>Carry out</strong>: re-read the order, stop if it changed, then refund under the approval worker's own login.</td><td><code>RefundWork.carry_out</code></td><td class="yes">✔</td><td><strong>Shop</strong></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>Scorecard</h3>
+    <p>Counted from the tables above (46 steps). Some steps are mixed — a generic engine with the shop's wording beside it — so the domain rows overlap.</p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Steps</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Injected (IoC ✔)</strong></td><td>34</td></tr>
+        <tr><td>Injectable but not wired through (◐)</td><td>1 — the direct-answer registry (14)</td></tr>
+        <tr><td><strong>Called directly (✘)</strong></td><td>11 — of which <strong>3 matter for a second domain</strong>: the permission list (11), context assembly (18), the promise gate (34). The rest are the harness's own plumbing (parsing, spans, keys, facts) and are fine as they are</td></tr>
+        <tr><td><strong>Fully agnostic</strong></td><td>28</td></tr>
+        <tr><td>Contain this shop's <strong>values</strong> inside generic code (Param)</td><td>9</td></tr>
+        <tr><td>Contain <strong>shop-specific code</strong> (Shop)</td><td>11</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p><strong>What this says.</strong> The <em>structure</em> is inverted properly: stores, model, tools, approvals, escalations, the channel and the clock are all Protocols with several implementations, and the guardrails are hooks at four positions — the same idea as Claude Code's PreToolUse / PostToolUse. What is <em>not</em> inverted is the <strong>domain's words and rules</strong>: they sit inside shared modules as defaults (router patterns, claim patterns, promise phrases, tier-2 conditions) or are called directly (the permission list, the direct-answer registry).</p>
+    <p><strong>For a hotel agent, the changes are therefore concentrated</strong>, and in this order:</p>
+    <ol><li>Generate the router patterns, permission map and claim patterns from the AOAS instead of writing them in Python, behind a pluggable matcher (regex today, a classifier later). Fixes F-061's root cause.</li><li>Make the three direct calls injectable: the permission list, the promise gate, and the direct-answer registry (pass <code>handlers</code> through <code>build</code>).</li><li>Make context assembly a pluggable strategy.</li><li>Move the shop's code — the refund tool, the direct handlers, the wording, the pages — into a <strong>domain pack</strong> the harness never imports, and let the hotel agent be the test of that split.</li></ol>
+  </section>
+
+  <section class="part" id="next">
+    <p class="n">Section 19</p>
     <h2>Where to go next</h2>
 
     <h3>If you read one more thing</h3>
