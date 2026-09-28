@@ -313,7 +313,19 @@ services:
       EMAIL_URL: dummy://
       ENABLE_SSL: "False"
       PLAYGROUND_ENABLED: "True"
-    command: ["python", "manage.py", "migrate", "--noinput"]
+    # Migrate, then the staff login the seed and the shadow tests sign in with
+    # (SALEOR_ADMIN_EMAIL / _PASSWORD there). Nothing created it before
+    # 2026-09-29: a laptop had one made by hand once, and the first Codespace's
+    # seed failed on "enter valid credentials". `|| true` because it already
+    # exists on every run after the first.
+    command:
+      - sh
+      - -c
+      - >-
+        python manage.py migrate --noinput &&
+        (DJANGO_SUPERUSER_EMAIL=$${SALEOR_ADMIN_EMAIL:-admin@example.com}
+        DJANGO_SUPERUSER_PASSWORD=$${SALEOR_ADMIN_PASSWORD:-local-dev-only}
+        python manage.py createsuperuser --noinput || true)
 
   saleor:
     # The real store (T-017). Its rules are somebody else's, which is the whole
