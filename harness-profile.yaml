@@ -271,6 +271,7 @@ thresholds:
   escalation_queued_ttl_minutes: 30
   escalations_per_conversation: 2
   refund_without_a_person_inr: 10000
+  retention_days: 30                  # Q-RETENTION (owner, 2026-09-26); scripts/retention.py, run daily
 
 # ----------------------------------------------------------------- bindings
 # The whole of the stack choice. `x_could_be` is not part of the format: it is
