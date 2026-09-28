@@ -368,9 +368,18 @@ async def waits_running(
     else:
         from temporalio.testing import WorkflowEnvironment
 
+        # `AGENT_TEMPORAL_UI_PORT` shows this ephemeral server's own UI, so the
+        # approval and escalation workflows can be watched while the demo runs
+        # all in memory — the durable server's UI sees none of them.
+        ui_port = os.environ.get("AGENT_TEMPORAL_UI_PORT")
         env = await WorkflowEnvironment.start_local(
-            data_converter=_CONVERTER, runtime=ap.metrics_runtime(metrics)
+            data_converter=_CONVERTER,
+            runtime=ap.metrics_runtime(metrics),
+            ui=bool(ui_port),
+            ui_port=int(ui_port) if ui_port else None,
         )
+        if ui_port:
+            print(f"  temporal ui    http://localhost:{ui_port}")
         client, durable, shutdown = env.client, False, env.shutdown
     print(f"  waits          Temporal at {client.service_client.config.target_host}", end="")
     print(" (durable)" if durable else " (in this process, lost on exit)")
