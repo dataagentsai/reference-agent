@@ -61,3 +61,12 @@ expect:
   - {reply: never_says, text: "can't be processed"}
   - {reply: never_says, text: "can’t be processed"}
   - {truthful: order, id: AB-10003}
+
+# The model's side, when the run is scripted. Asks for the return, is told
+# nothing, and tries again. The retry is the realistic behaviour; what is
+# tested is whether it is allowed to land.
+model:
+  - calls: [{open_return_request: {id: "AB-10003"}}]
+  - calls: [{open_return_request: {id: "AB-10003"}}]
+  - says: "Your return for AB-10003 is open."
+    times: 3

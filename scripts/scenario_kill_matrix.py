@@ -123,7 +123,7 @@ async def _run_one(path: pathlib.Path) -> bool:
     from agenttwin.scenario_file import load_scenario
     from agenttwin.suite import provider_faults, run_file, timeline_for
     from evals.simulation import subject_for
-    from tests.test_scenario_files import model_for
+    from evals.scripted import model_for
 
     scenario = load_scenario(path)
     live = Live.start(load(path.parent / scenario.world))

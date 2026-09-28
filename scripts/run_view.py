@@ -428,7 +428,7 @@ async def _model(name: str, scenario, live_model: bool):
         config = resolve(settings)
         client, _ = await connect_model(config, api_key=settings.provider_api_key)
         return client, config
-    from tests.test_scenario_files import model_for  # the suite's own scripts
+    from evals.scripted import model_for  # each scenario file declares its script
 
     return model_for(name), None
 

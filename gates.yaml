@@ -1,0 +1,42 @@
+# How the gates reach this implementation (clean-ai-engineering/tools/gates.py).
+#
+# Everything here is about *this* build: where its binding is, how its suite
+# runs, which checks it holds itself to, and which module is which layer. What
+# it is measured against is not here — that is the yardstick, in
+# clean-ai-engineering/gates/support-agent-clothing.yaml.
+apiVersion: gates/v0
+agent: support-agent-clothing
+aoas: ../clean-ai-engineering/drafts/examples/support-agent.aoas.yaml
+profile: harness-profile.yaml
+
+# `agenttwin.Binding`: `(live, *, wrap, clock, model) -> Subject`.
+binding: evals.gate_binding:open_subject
+
+tests:
+  # `{junit}` is where the gates want the report. Each test carries its
+  # `discharges` ids as JUnit properties (tests/conftest.py).
+  command: uv run python -m pytest -q -p no:cacheprovider --junitxml={junit}
+
+structure:
+  checks:
+    types: uv run mypy
+    imports: uv run lint-imports
+    complexity: uv run ruff check src tests evals
+  # One module per harness layer (AHC taxonomy/layers.yaml).
+  layers:
+    L1: src/support_agent/context
+    L2: src/support_agent/llm
+    L3: src/support_agent/tools
+    L4: src/support_agent/loop
+    L5: src/support_agent/state
+    L6: src/support_agent/contracts
+    L7: src/support_agent/policy
+    L8: src/support_agent/flow
+    L9: src/support_agent/cassette
+    L10: src/support_agent/resilience
+    L11: src/support_agent/telemetry
+    L12: src/support_agent/entrypoint
+    L13: src/support_agent/cost
+    L14: src/support_agent/approvals
+    L15: src/support_agent/config
+    L16: src/support_agent/identity

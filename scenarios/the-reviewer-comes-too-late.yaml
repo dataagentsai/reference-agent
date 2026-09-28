@@ -36,3 +36,9 @@ expect:
   - {effect: issue_refund, times: 0}
   - {world: unchanged}
   - {reply: never_says, text: has been refunded}
+
+# The model's side, when the run is scripted. A model that requests the refund, then waits like the customer does.
+model:
+  - calls: [{request_refund: {order_id: "AB-10003"}}]
+  - says: "Let me check on that for you."
+    times: 6

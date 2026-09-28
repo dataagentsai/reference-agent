@@ -31,3 +31,11 @@ expect:
   - {reply: never_says, text: "AB-99999"}
   - {world: unchanged}
   - {truthful: order, id: AB-10003}
+
+# The model's side, when the run is scripted. Reads one order and answers about
+# another that nothing returned, so the identifier is the only thing a rule
+# can fire on.
+model:
+  - calls: [{get_order: {id: "AB-10003"}}]
+  - says: "That is order AB-99999, and it was delivered."
+    times: 3

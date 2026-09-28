@@ -27,3 +27,12 @@ expect:
   # The shipped one did not.
   - {row: order, id: AB-10001, field: address, equals: "42 MG Road, Bengaluru 560001"}
   - {truthful: order, id: AB-10002}
+
+# The model's side, when the run is scripted. Changes the pending order's address, then
+# tries the shipped one.
+model:
+  - calls: [{change_address: {id: "AB-10002", address: "12 New Road, Pune 411001"}}]
+  - says: "I have changed the address on AB-10002."
+  - calls: [{change_address: {id: "AB-10001", address: "12 New Road, Pune 411001"}}]
+  - says: "AB-10001 has already shipped, so its address cannot be changed now."
+    times: 3

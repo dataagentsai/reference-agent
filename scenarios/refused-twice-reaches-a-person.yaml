@@ -30,3 +30,12 @@ expect:
   - {handed_off: 1}
   - {world: unchanged}
   - {reply: never_says, text: discount}
+
+# The model's side, when the run is scripted. The two refusals never reach the
+# model, and the handoff is a rule. The third turn does: by then the colleague
+# has handled the escalation and given the conversation back, so the model
+# answers it. Until 2026-09-28 this script was empty and that turn was answered
+# by a model outage, which passed every check — found by the runner's overrun
+# count, which the in-process suite does not report.
+model:
+  - says: "I can help with an order's status, a cancellation, a return or a refund request."

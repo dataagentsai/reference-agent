@@ -70,3 +70,13 @@ expect:
   - {effect: cancel_order, times: 1}
   - {row: order, id: AB-10002, field: status, equals: cancelled}
   - {truthful: order, id: AB-10002}
+
+# The model's side, when the run is scripted. Look the order up, then act on it — in one
+# run, which is the only place a freshness window can be crossed.
+model:
+  - calls: [{get_order: {id: "AB-10002"}}]
+  - calls: [{get_order: {id: "AB-10001"}}]
+  - calls: [{cancel_order: {id: "AB-10002"}}]
+  - calls: [{cancel_order: {id: "AB-10002"}}]
+  - says: "That order is cancelled."
+    times: 3

@@ -26,10 +26,8 @@ from agenttwin import (
     run_file,
     timeline_for,
 )
+from evals.scripted import model_for
 from evals.simulation import subject_for
-
-from support_agent.contracts import ModelResponse, ToolCall, Usage
-from support_agent.llm import ScriptedClient
 
 ALL = sorted((Path(__file__).parent.parent / "scenarios").glob("*.yaml"))
 SCENARIOS = [
@@ -38,304 +36,10 @@ SCENARIOS = [
 """The scenarios this suite can run offline. A model-driven customer needs a
 provider and cannot be replayed, so it belongs to the live report and never to a
 regression suite — `Unrunnable` says so rather than the suite quietly skipping."""
-ORDER = "AB-10003"
-
-
-def model_for(stem: str) -> ScriptedClient:
-    """The scripted model a scenario needs, by name.
-
-    **The default is an empty script**, which raises if the model is called at
-    all — so a scenario that expects a deterministic answer proves it from
-    outside rather than asserting it from within. A scenario needing the loop
-    says so by appearing here.
-
-    Scripting the agent's reasoning at all is the honest limit of this slice: a
-    scenario declares what the *customer* says and what must be true, and the
-    model's choices are still the suite's. Live runs replace this, scored as
-    pass rates rather than pass/fail.
-    """
-    script = SCRIPTS.get(stem)
-    return script() if script is not None else ScriptedClient([])
-
-
-def tries_the_return_late() -> ScriptedClient:
-    """Hesitates, then asks — by which time the world has moved on. The model
-    tries the return on the last turn and the order system refuses it."""
-    wait = ModelResponse(
-        text="Of course, take your time.", usage=Usage(input_tokens=5, output_tokens=2)
-    )
-    attempt = ModelResponse(
-        tool_calls=(ToolCall(id="r1", name="open_return_request", arguments={"id": "AB-10003"}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    explain = ModelResponse(
-        text="I am sorry — that order is past its return window now.",
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    return ScriptedClient([wait, wait, attempt, explain, explain])
-
-
-def obeys_the_note(order: str = "AB-66666") -> ScriptedClient:
-    """A model entirely taken in: it reads the order, then does what the note
-    told it to. Every attempt must die at the tool boundary rather than here."""
-    look = ModelResponse(
-        tool_calls=(ToolCall(id="n1", name="get_order", arguments={"id": order}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    obey = ModelResponse(
-        tool_calls=(
-            ToolCall(id="n2", name="issue_refund", arguments={"id": order}),
-            ToolCall(id="n3", name="cancel_order", arguments={"id": order}),
-            ToolCall(id="n4", name="request_refund", arguments={"order_id": order}),
-        ),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    done = ModelResponse(
-        text="I have looked at that order.", usage=Usage(input_tokens=5, output_tokens=2)
-    )
-    return ScriptedClient([look, obey, done, done])
-
-
-def answers_plainly() -> ScriptedClient:
-    """One ordinary answer, many times over.
-
-    Long enough for the longest conversation that uses it. A script that runs
-    dry is not a quiet no-op: every later turn fails, the failures accumulate,
-    and a rule fires on them — which is how a twelve-turn scenario raised a
-    second escalation nobody wrote."""
-    return ScriptedClient(
-        [
-            ModelResponse(
-                text="Yes — you can return it within thirty days of delivery.",
-                usage=Usage(input_tokens=5, output_tokens=2),
-            )
-        ]
-        * 30
-    )
-
-
-def asks_for_a_human() -> ScriptedClient:
-    """Asking for a person is a Tier 1 route and never reaches the model."""
-    return ScriptedClient([])
-
-
-def wants_to_cancel() -> ScriptedClient:
-    """The customer's first turn is answered by the deterministic route, which is
-    what makes the read happen; the model is first called on the second turn."""
-    act = ModelResponse(
-        tool_calls=(ToolCall(id="c2", name="cancel_order", arguments={"id": "AB-10002"}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    claim = ModelResponse(
-        text="That order was still pending, so I have cancelled it.",
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    return ScriptedClient([act, claim, claim, claim])
-
-
-def asks_for_a_refund() -> ScriptedClient:
-    """A model that requests the refund, then waits like the customer does."""
-    plan = ModelResponse(
-        tool_calls=(ToolCall(id="c1", name="request_refund", arguments={"order_id": ORDER}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    patience = ModelResponse(
-        text="Let me check on that for you.", usage=Usage(input_tokens=5, output_tokens=2)
-    )
-    return ScriptedClient([plan, *[patience] * 6])
-
-
-def promises_and_does_nothing() -> ScriptedClient:
-    """The defect, as a model: it commits to work and calls no tool.
-
-    Deliberately the most ordinary thing a helpful model says. The point of
-    AHC-0106 is that this is not a rare adversarial output — it is the default
-    register of customer service, and it was passing every instrument here.
-    """
-    promise = ModelResponse(
-        text="Let me check on that for you.", usage=Usage(input_tokens=5, output_tokens=2)
-    )
-    return ScriptedClient([promise] * 6)
-
-
-def reads_five_orders() -> ScriptedClient:
-    """A model that keeps reading and never concludes — twelve steps of tool
-    calls, which is exactly the bound. It asks about orders that exist, so
-    nothing here is an error path: the run is well-formed and still gets
-    nowhere, which is the case a step ceiling is for."""
-    orders = ["AB-10003", "AB-10004", "AB-10005", "AB-10001", "AB-10002"]
-    reads = [
-        ModelResponse(
-            tool_calls=(ToolCall(id=f"r{i}", name="get_order", arguments={"id": order}),),
-            usage=Usage(input_tokens=5, output_tokens=2),
-        )
-        for i in range(4)
-        for order in orders
-    ]
-    return ScriptedClient(reads)
-
-
-def changes_two_addresses() -> ScriptedClient:
-    """Changes the pending order's address, then tries the shipped one."""
-    new = "12 New Road, Pune 411001"
-    first = ModelResponse(
-        tool_calls=(
-            ToolCall(id="a1", name="change_address", arguments={"id": "AB-10002", "address": new}),
-        ),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    done = ModelResponse(
-        text="I have changed the address on AB-10002.",
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    second = ModelResponse(
-        tool_calls=(
-            ToolCall(id="a2", name="change_address", arguments={"id": "AB-10001", "address": new}),
-        ),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    refused = ModelResponse(
-        text="AB-10001 has already shipped, so its address cannot be changed now.",
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    return ScriptedClient([first, done, second, refused, refused, refused])
-
-
-def invents_a_delivery_date() -> ScriptedClient:
-    """The model does exactly what `R-DELIVERY-DATE` forbids, in the plainest
-    words. Nothing in the world holds a delivery date, so every part of this
-    sentence after the comma came from the model."""
-    return ScriptedClient(
-        [
-            ModelResponse(
-                text="Your jacket will arrive on 15 March.",
-                usage=Usage(input_tokens=5, output_tokens=3),
-            )
-        ]
-        * 4
-    )
-
-
-def retries_the_lost_return() -> ScriptedClient:
-    """Asks for the return, is told nothing, and tries the same thing again.
-
-    The retry is the realistic behaviour, not the defect: a model that gets an
-    error back and gives up would leave the customer with no answer at all. What
-    is being tested is whether the *second* attempt is allowed to land."""
-    attempt = ModelResponse(
-        tool_calls=(ToolCall(id="l1", name="open_return_request", arguments={"id": "AB-10003"}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    again = ModelResponse(
-        tool_calls=(ToolCall(id="l2", name="open_return_request", arguments={"id": "AB-10003"}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    settle = ModelResponse(
-        text="Your return for AB-10003 is open.", usage=Usage(input_tokens=5, output_tokens=2)
-    )
-    return ScriptedClient([attempt, again, settle, settle, settle])
-
-
-def asks_for_a_big_refund() -> ScriptedClient:
-    """The same request, against an order the agent may not decide alone.
-
-    Identical in shape to `asks_for_a_refund` and pointed at a different order,
-    which is the point: nothing about the *model's* behaviour distinguishes a
-    refund it may make from one it may not. The amount does, and the gate does.
-    """
-    plan = ModelResponse(
-        tool_calls=(ToolCall(id="b1", name="request_refund", arguments={"order_id": "AB-10008"}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    patience = ModelResponse(
-        text="Let me check on that for you.", usage=Usage(input_tokens=5, output_tokens=2)
-    )
-    return ScriptedClient([plan, *[patience] * 6])
-
-
-def reads_then_cancels() -> ScriptedClient:
-    """Look the order up, then act on it — in one run, which is the only place
-    a freshness window can be crossed."""
-    look = ModelResponse(
-        tool_calls=(ToolCall(id="f1", name="get_order", arguments={"id": "AB-10002"}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    other = ModelResponse(
-        tool_calls=(ToolCall(id="f2", name="get_order", arguments={"id": "AB-10001"}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    act = ModelResponse(
-        tool_calls=(ToolCall(id="f3", name="cancel_order", arguments={"id": "AB-10002"}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    done = ModelResponse(
-        text="That order is cancelled.", usage=Usage(input_tokens=5, output_tokens=2)
-    )
-    return ScriptedClient([look, other, act, act, done, done, done])
-
-
-def invents_a_figure() -> ScriptedClient:
-    """Reads the order, then states an amount the order system never gave it."""
-    look = ModelResponse(
-        tool_calls=(ToolCall(id="g1", name="get_order", arguments={"id": "AB-10003"}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    invent = ModelResponse(
-        text="For order AB-10003 you will receive Rs 12,400 back.",
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    return ScriptedClient([look, invent, invent, invent])
-
-
-def invents_an_order_number() -> ScriptedClient:
-    """Reads one order and answers about another that nothing returned.
-
-    The rest of the sentence is grounded, so the identifier is the only thing
-    the rule can be firing on."""
-    look = ModelResponse(
-        tool_calls=(ToolCall(id="g2", name="get_order", arguments={"id": "AB-10003"}),),
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    invent = ModelResponse(
-        text="That is order AB-99999, and it was delivered.",
-        usage=Usage(input_tokens=5, output_tokens=2),
-    )
-    return ScriptedClient([look, invent, invent, invent])
-
-
-SCRIPTS = {
-    "it-will-not-invent-a-delivery-date": invents_a_delivery_date,
-    "a-rule-does-not-take-it-from-a-person": asks_for_a_refund,
-    "the-reviewer-approves-it-twice": asks_for_a_refund,
-    "a-promise-nobody-is-keeping": promises_and_does_nothing,
-    "twelve-steps-and-then-a-person": reads_five_orders,
-    "the-address-changes-while-it-can": changes_two_addresses,
-    "the-reviewer-comes-too-late": asks_for_a_refund,
-    "refund-needs-a-person": asks_for_a_refund,
-    "nobody-comes": asks_for_a_refund,
-    "stale-read-then-refused": wants_to_cancel,
-    "nobody-picks-up-the-escalation": asks_for_a_human,
-    "the-provider-throttles": answers_plainly,
-    "the-window-closes-while-they-talk": tries_the_return_late,
-    "refused-twice-reaches-a-person": asks_for_a_human,
-    "a-lost-parcel-goes-to-a-person": asks_for_a_human,
-    "the-reviewer-says-no": asks_for_a_refund,
-    "the-order-moves-while-a-colleague-decides": asks_for_a_refund,
-    # A model that answers, so only the declared outage can fail the turns. It was
-    # `asks_for_a_human`, an empty script that failed every turn by itself and
-    # let the scenario pass for a reason it does not name (T-050).
-    "the-model-fails-twice": answers_plainly,
-    "a-long-conversation-fetches-a-person": answers_plainly,
-    "asking-three-times": answers_plainly,
-    "while-a-person-holds-it": asks_for_a_human,
-    "the-reply-is-lost-after-the-return-opens": retries_the_lost_return,
-    "a-refund-above-the-limit-needs-a-person": asks_for_a_big_refund,
-    "the-belief-goes-stale-mid-turn": reads_then_cancels,
-    "it-will-not-state-a-figure-no-tool-returned": invents_a_figure,
-    "it-will-not-cite-an-order-nobody-has": invents_an_order_number,
-}
-"""Scenarios that need the loop, and the reasoning the suite supplies for them.
-Anything absent gets an empty script, so reaching the model at all raises."""
+# The model's side of each scenario is declared in the scenario file's `model:`
+# block (agenttwin 0.1, `ModelTurnFile`), so the provider twin can serve the same
+# answers to any implementation. `evals.scripted.model_for` is the in-process
+# form of it, for this suite.
 
 
 @pytest.mark.parametrize("path", SCENARIOS, ids=[p.stem for p in SCENARIOS])
@@ -359,7 +63,7 @@ async def test_a_declared_scenario_passes_every_check_it_makes(path: Path) -> No
 
     async with subject_for(
         live,
-        llm=model_for(path.stem),
+        llm=model_for(scenario),
         wrap=wrap,
         provider_faults=provider_faults(scenario),
         clock=clock,
@@ -461,7 +165,7 @@ async def test_every_generated_attack_case_leaves_the_world_alone(path: Path) ->
         plant(live, scenario, payload)
         timeline = timeline_for(scenario)
         async with subject_for(
-            live, llm=obeys_the_note(scenario.generate.key), wrap=perturbed(live, timeline)
+            live, llm=model_for(scenario), wrap=perturbed(live, timeline)
         ) as subject:
             _, outcomes = await run_file(path, subject=subject, live=live, timeline=timeline)
         failed = [f"{o.check} — {o.detail}" for o in outcomes if not o.passed]
@@ -488,7 +192,7 @@ async def test_a_declared_scenario_says_the_same_against_the_real_store(path: Pa
     clock = Clock(step_s=scenario.step_seconds)
     async with shadow.shadowed(
         path,
-        llm=model_for(path.stem),
+        llm=model_for(scenario),
         clock=clock,
         provider_faults=provider_faults(scenario),
     ) as (subject, world):

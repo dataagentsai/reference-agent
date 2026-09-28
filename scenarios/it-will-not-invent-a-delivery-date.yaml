@@ -31,3 +31,9 @@ expect:
   # The date the model offered, and the sentence it offered it in.
   - {reply: never_says, text: "will arrive"}
   - {reply: never_says, text: "15 March"}
+
+# The model's side, when the run is scripted. The model does exactly what R-DELIVERY-DATE
+# forbids, in the plainest words. Nothing in the world holds a delivery date.
+model:
+  - says: "Your jacket will arrive on 15 March."
+    times: 4

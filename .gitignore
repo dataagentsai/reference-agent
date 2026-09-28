@@ -13,3 +13,6 @@ __pycache__/
 # iterating on one part without paying for the rest.
 docs/.preview/
 .DS_Store
+
+# Reports the gates and the agenttwin runner write. Regenerated, never source.
+reports/

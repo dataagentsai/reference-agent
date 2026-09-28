@@ -36,3 +36,9 @@ desk:
 expect:
   - {handed_off: 1}
   - {world: unchanged}
+
+# The model's side, when the run is scripted. A model that answers, so only the declared
+# outage can fail the turns (T-050).
+model:
+  - says: "Yes — you can return it within thirty days of delivery."
+    times: 30

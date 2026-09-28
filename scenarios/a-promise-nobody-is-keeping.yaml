@@ -52,3 +52,9 @@ expect:
   # have said with nothing behind them.
   - {reply: never_says, text: has been refunded}
   - {reply: never_says, text: Let me check}
+
+# The model's side, when the run is scripted. The defect, as a model: it commits to work and
+# calls no tool — the default register of customer service (AHC-0106).
+model:
+  - says: "Let me check on that for you."
+    times: 6

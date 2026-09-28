@@ -58,3 +58,11 @@ expect:
   # The customer is not told it has happened before it has.
   - {reply: never_says, text: has been refunded}
   - {truthful: order, id: AB-10008}
+
+# The model's side, when the run is scripted. The same request as a small
+# refund, against an order the agent may not decide alone. Nothing in the
+# model's behaviour distinguishes them; the amount does.
+model:
+  - calls: [{request_refund: {order_id: "AB-10008"}}]
+  - says: "Let me check on that for you."
+    times: 6

@@ -27,3 +27,10 @@ desk:
 expect:
   - {handed_off: 1}
   - {world: unchanged}
+
+# The model's side, when the run is scripted. One ordinary answer, many times over. Long enough for the longest
+# conversation that uses it: a script that runs dry fails every later turn, and
+# a rule fires on the failures.
+model:
+  - says: "Yes — you can return it within thirty days of delivery."
+    times: 30

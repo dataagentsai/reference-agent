@@ -39,3 +39,28 @@ expect:
   # Reads only: a loop going nowhere must not leave anything behind.
   - {world: unchanged}
   - {truthful: order, id: AB-10003}
+
+# The model's side, when the run is scripted. A model that keeps reading and never
+# concludes — twenty reads of orders that exist, so nothing is an error path
+# and the step ceiling is what stops it.
+model:
+  - calls: [{get_order: {id: "AB-10003"}}]
+  - calls: [{get_order: {id: "AB-10004"}}]
+  - calls: [{get_order: {id: "AB-10005"}}]
+  - calls: [{get_order: {id: "AB-10001"}}]
+  - calls: [{get_order: {id: "AB-10002"}}]
+  - calls: [{get_order: {id: "AB-10003"}}]
+  - calls: [{get_order: {id: "AB-10004"}}]
+  - calls: [{get_order: {id: "AB-10005"}}]
+  - calls: [{get_order: {id: "AB-10001"}}]
+  - calls: [{get_order: {id: "AB-10002"}}]
+  - calls: [{get_order: {id: "AB-10003"}}]
+  - calls: [{get_order: {id: "AB-10004"}}]
+  - calls: [{get_order: {id: "AB-10005"}}]
+  - calls: [{get_order: {id: "AB-10001"}}]
+  - calls: [{get_order: {id: "AB-10002"}}]
+  - calls: [{get_order: {id: "AB-10003"}}]
+  - calls: [{get_order: {id: "AB-10004"}}]
+  - calls: [{get_order: {id: "AB-10005"}}]
+  - calls: [{get_order: {id: "AB-10001"}}]
+  - calls: [{get_order: {id: "AB-10002"}}]

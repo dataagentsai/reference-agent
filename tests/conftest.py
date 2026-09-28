@@ -65,7 +65,20 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Fail before running anything if a test claims a statement that does not exist."""
+    """Fail before running anything if a test claims a statement that does not exist.
+
+    Also puts each test's claims on its JUnit record, as properties — the
+    convention the gates read (`clean-ai-engineering/tools/gates`), so the
+    features gate can judge any implementation's suite without importing it:
+    `discharges` (comma-separated ids), and `tooling` or `unwired` when set.
+    """
+    for item in items:
+        marker = item.get_closest_marker("discharges")
+        if marker is not None:
+            item.user_properties.append(("discharges", ",".join(marker.args)))
+        for flag in ("tooling", "unwired"):
+            if item.get_closest_marker(flag) is not None:
+                item.user_properties.append((flag, "true"))
     if _vocab is None:
         return
     bad = {}

@@ -43,3 +43,11 @@ expect:
   - {effect: cancel_order, times: 0}
   - {row: order, id: AB-10002, field: status, equals: shipped}
   - {truthful: order, id: AB-10002}
+
+# The model's side, when the run is scripted. The first turn is answered by the deterministic
+# route, which is what makes the read happen; the model is first called on the
+# second turn, and claims what it expected rather than what it was told.
+model:
+  - calls: [{cancel_order: {id: "AB-10002"}}]
+  - says: "That order was still pending, so I have cancelled it."
+    times: 3

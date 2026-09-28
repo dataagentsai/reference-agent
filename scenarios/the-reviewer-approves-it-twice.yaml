@@ -38,3 +38,9 @@ expect:
   # And the one thing that actually matters: the money moved once.
   - {effect: issue_refund, times: 1}
   - {row: order, id: AB-10003, field: status, equals: refunded}
+
+# The model's side, when the run is scripted. A model that requests the refund, then waits like the customer does.
+model:
+  - calls: [{request_refund: {order_id: "AB-10003"}}]
+  - says: "Let me check on that for you."
+    times: 6

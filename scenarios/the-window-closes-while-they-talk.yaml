@@ -34,3 +34,12 @@ expect:
   - {row: order, id: AB-10003, field: days_since_delivery, equals: 44}
   - {effect: open_return_request, times: 0}
   - {truthful: order, id: AB-10003}
+
+# The model's side, when the run is scripted. Hesitates, then asks — by which time the
+# world has moved on. The return is tried on the last turn and refused.
+model:
+  - says: "Of course, take your time."
+    times: 2
+  - calls: [{open_return_request: {id: "AB-10003"}}]
+  - says: "I am sorry — that order is past its return window now."
+    times: 2
