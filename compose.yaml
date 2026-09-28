@@ -442,6 +442,11 @@ services:
     environment: *chatwoot-env
     entrypoint: docker/entrypoints/rails.sh
     command: ["bundle", "exec", "rails", "s", "-p", "3000", "-b", "0.0.0.0"]
+    # The agent bot's webhook is host.docker.internal (chatwoot-setup). Docker
+    # Desktop provides that name; Linux Docker — a Codespace — does not, and
+    # every message failed with "Could not resolve hostname" until it was
+    # mapped. The agent must then listen beyond loopback: run_server --host 0.0.0.0.
+    extra_hosts: &agent-host ["host.docker.internal:host-gateway"]
     ports:
       - 127.0.0.1:3100:3000
     volumes:
@@ -454,6 +459,8 @@ services:
     depends_on: *chatwoot-depends-on
     environment: *chatwoot-env
     command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
+    # Sidekiq is what actually sends the webhook; see `chatwoot`.
+    extra_hosts: *agent-host
     volumes:
       - chatwoot_storage:/app/storage
 

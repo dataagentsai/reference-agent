@@ -401,7 +401,7 @@ async def _acting_for(customer_id: str) -> Identity:
     return Identity(customer_id=customer_id, scopes=ident.CUSTOMER_SCOPES)
 
 
-async def main(real: bool, port: int, store: bool = False) -> None:
+async def main(real: bool, port: int, store: bool = False, host: str = "127.0.0.1") -> None:
     settings = Settings() if real else None
     _telemetry(settings)
     issuer = _issuer()
@@ -471,7 +471,7 @@ async def main(real: bool, port: int, store: bool = False) -> None:
 
         _announce(port, settings, local=issuer.url == local_issuer.URL, store=store)
 
-        config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
+        config = uvicorn.Config(app, host=host, port=port, log_level="warning")
         await uvicorn.Server(config).serve()
 
 
@@ -480,11 +480,18 @@ if __name__ == "__main__":
     parser.add_argument("--real", action="store_true", help="use a real model provider")
     parser.add_argument("--port", type=int, default=8077)
     parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="address to listen on. 0.0.0.0 where Chatwoot's containers must reach the "
+        "agent over Docker's bridge — a Codespace or any Linux Docker; Docker Desktop "
+        "routes host.docker.internal to the host's loopback, so a laptop needs neither",
+    )
+    parser.add_argument(
         "--store",
         action="store_true",
         help="talk to the composed Saleor instead of the simulated shop (T-017)",
     )
     args = parser.parse_args()
     with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(main(args.real, args.port, args.store))
+        asyncio.run(main(args.real, args.port, args.store, args.host))
     sys.exit(0)
