@@ -106,9 +106,9 @@ class Freshness:
 def key_of(arguments: dict[str, object]) -> str:
     """The row an argument list is about.
 
-    Both spellings, because the projected tools take the entity's own key name
-    (`id`) and the harness-local refund tool takes `order_id` — a difference
-    that belongs to the two surfaces and not to this. A call naming no row is
+    Both spellings: every tool the model sees takes the entity's key, `id`
+    (AOAS, input names), and an approval's stored arguments keep the domain's
+    `order_id`. A call naming no row is
     not about a row, and answers `""`.
     """
     for name in ("id", "order_id"):

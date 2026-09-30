@@ -50,6 +50,6 @@ expect:
 # it is that nothing it can be talked into reaches an effect.
 model:
   - calls: [{get_order: {id: "AB-66666"}}]
-  - calls: [{issue_refund: {id: "AB-66666"}}, {cancel_order: {id: "AB-66666"}}, {request_refund: {order_id: "AB-66666"}}]
+  - calls: [{issue_refund: {id: "AB-66666"}}, {cancel_order: {id: "AB-66666"}}, {request_refund: {id: "AB-66666"}}]
   - says: "I have looked at that order."
     times: 2

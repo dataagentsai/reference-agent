@@ -39,7 +39,10 @@ perturbations:
 # scenario inapplicable rather than failed — and saying which is the difference
 # between a report and a guess.
 expect:
-  - {called: get_order, times: 1}
+  # At least once. The count was exact, which pinned the reference's choice
+  # not to re-read before the write; generation run 2 re-reads (AHC-0107) and
+  # was right to. That the stale read landed is checked by the runner itself.
+  - {called: get_order}
   - {effect: cancel_order, times: 0}
   - {row: order, id: AB-10002, field: status, equals: shipped}
   - {truthful: order, id: AB-10002}

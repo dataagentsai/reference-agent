@@ -63,6 +63,6 @@ expect:
 # refund, against an order the agent may not decide alone. Nothing in the
 # model's behaviour distinguishes them; the amount does.
 model:
-  - calls: [{request_refund: {order_id: "AB-10008"}}]
+  - calls: [{request_refund: {id: "AB-10008"}}]
   - says: "Let me check on that for you."
     times: 6

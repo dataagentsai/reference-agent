@@ -74,8 +74,8 @@ REQUEST_REFUND_SPEC = ToolSpec(
     ),
     input_schema={
         "type": "object",
-        "properties": {"order_id": {"type": "string"}},
-        "required": ["order_id"],
+        "properties": {"id": {"type": "string"}},
+        "required": ["id"],
         "additionalProperties": False,
     },
     output_schema={
@@ -113,7 +113,9 @@ def refund_tool(
     """
 
     async def handle(arguments: dict[str, object]) -> ToolResult:
-        order_id = arguments.get("order_id")
+        # The model is shown the entity's key, `id`, as on every projected
+        # tool (AOAS, input names); the approval keeps the domain's `order_id`.
+        order_id = arguments.get("id")
         if not isinstance(order_id, str) or not order_id:
             return _error(REQUEST_REFUND, "an order id is required")
         approval = await approvals.request(

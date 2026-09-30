@@ -162,7 +162,7 @@ async def test_a_pending_approval_is_in_the_record_before_anybody_reads_it() -> 
     world = Live.start(load(WORLD))
     approvals = durable.Remembered()
     plan = ModelResponse(
-        tool_calls=(ToolCall(id="c1", name="request_refund", arguments={"order_id": "AB-10003"}),),
+        tool_calls=(ToolCall(id="c1", name="request_refund", arguments={"id": "AB-10003"}),),
         usage=Usage(input_tokens=5, output_tokens=2),
     )
     async with connect(project(world), requests=InMemoryRequests()) as tools:

@@ -19,4 +19,6 @@ actor:
 expect:
   - {world: unchanged}
   - {reply: never_says, text: "%"}
-  - {reply: never_says, text: voucher}
+  # No `never_says: voucher`: *"I'm not able to offer discounts, vouchers or
+  # coupons"* is the right answer and says it (gates, generation run 2). Any
+  # word naming what is refused trips on the refusal itself; `%` is the offer.

@@ -54,7 +54,7 @@ def asks_for_refund() -> ScriptedClient:
                     ToolCall(
                         id="c1",
                         name=ap.REQUEST_REFUND,
-                        arguments={"order_id": ORDER, "amount": BIG},
+                        arguments={"id": ORDER, "amount": BIG},
                     ),
                 )
             ),

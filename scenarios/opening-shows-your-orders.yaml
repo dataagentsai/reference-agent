@@ -23,4 +23,7 @@ expect:
   - {world: unchanged}
   - {reply: says, text: AB-10003}
   - {reply: says, text: delivered}
-  - {reply: says, text: Which one can I help with}
+  # Their orders, not one of them: a second, in another state. The question
+  # the reference closes with ("Which one can I help with") is its wording,
+  # not P-OPEN's.
+  - {reply: says, text: AB-10002}

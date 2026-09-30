@@ -31,5 +31,8 @@ expect:
   # not be able to read.
   - {handed_off: 2}
   - {world: unchanged}
-  # Past the cap, what the customer hears is that somebody already has it.
-  - {reply: says, text: already with a colleague}
+  # Past the cap P-ESC-CAP asks for something true instead of another
+  # reference: `handed_off: 2` is the no-new-reference half, and the gates ask
+  # of every reply whether it is true of the records it names. The phrase this
+  # checked, "already with a colleague", was the reference's own wording, and
+  # generation run 2 said the same thing in other words.

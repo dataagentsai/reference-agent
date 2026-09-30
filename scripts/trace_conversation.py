@@ -137,7 +137,7 @@ async def main() -> None:
             ModelResponse(text="I have opened a return for AB-10003."),
             calls("cancel_order", id="AB-10002"),
             ModelResponse(text="That order has been cancelled."),
-            calls("request_refund", order_id="AB-10003"),
+            calls("request_refund", id="AB-10003"),
         ]
     )
 

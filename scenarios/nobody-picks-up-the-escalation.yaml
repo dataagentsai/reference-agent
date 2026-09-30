@@ -36,4 +36,6 @@ expect:
   # for ever on "that is still with a colleague" — verified by disabling the
   # lapse, at which point this file still passed and three unit tests did not.
   # P-ESC-TOLD is a claim about what the customer *reads*, so it has to be read.
-  - {reply: says, text: Nobody has picked up}
+  # Any of the ways to say it: the reference says "Nobody has picked up",
+  # generation run 2 "Nobody from the support desk picked up".
+  - {reply: says, text: [nobody, no one, no-one]}

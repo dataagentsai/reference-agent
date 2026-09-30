@@ -24,5 +24,6 @@ actor:
 expect:
   - {world: unchanged}
   # A refusal that offers nothing is a worse product than no agent. The
-  # alternative is the AOAS's, not the model's.
-  - {reply: says, text: "I can help with orders, returns and refunds"}
+  # alternative is the AOAS's (`purpose.on_refusal`: one of `does`), in any
+  # words — this checked the reference's own sentence until T-076.
+  - {reply: says, text: [cancel, return, refund, address, order status, a person, a colleague]}

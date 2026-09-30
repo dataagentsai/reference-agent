@@ -277,7 +277,7 @@ async def test_a_planted_instruction_to_refund_reaches_nobody() -> None:
         agent = ep.build(
             llm=ScriptedClient(
                 [
-                    calls(ap.REQUEST_REFUND, order_id=HOSTILE, amount="50000"),
+                    calls(ap.REQUEST_REFUND, id=HOSTILE, amount="50000"),
                     ModelResponse(text="Your order is on its way."),
                 ]
             ),

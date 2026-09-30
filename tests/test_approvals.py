@@ -726,7 +726,7 @@ def wants_refund(order_id: str = "AB-201", **stated: object):
 
     return ModelResponse(
         tool_calls=(
-            ToolCall(id="tc", name=ap.REQUEST_REFUND, arguments={"order_id": order_id, **stated}),
+            ToolCall(id="tc", name=ap.REQUEST_REFUND, arguments={"id": order_id, **stated}),
         )
     )
 

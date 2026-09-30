@@ -187,7 +187,7 @@ async def test_a_turn_waiting_on_an_approval_is_never_touched() -> None:
     world = Live.start(load(WORLD))
     approvals = durable.Remembered()
     plan = ModelResponse(
-        tool_calls=(ToolCall(id="c1", name="request_refund", arguments={"order_id": "AB-10002"}),),
+        tool_calls=(ToolCall(id="c1", name="request_refund", arguments={"id": "AB-10002"}),),
         usage=Usage(input_tokens=5, output_tokens=3),
     )
     async with connect(project(world), requests=InMemoryRequests()) as tools:
