@@ -440,8 +440,9 @@ async def main(real: bool, port: int, store: bool = False, host: str = "127.0.0.
             # merely starts again. `build` now refuses the mixture outright.
             #
             # A whole durable row is now assemblable — Postgres for the
-            # conversation and the ledger, Temporal for both waits and for the
-            # delivery claim (T-003's last half) — and this demo does not
+            # conversation, the ledger and the delivery claim
+            # (requests/postgres.py; T-062 moved the claim off Temporal),
+            # Temporal for both waits — and this demo does not
             # assemble it: it runs with no database on purpose. Everything here
             # is in memory together, which the check below is what enforces.
             store=InMemoryCheckpointStore(),

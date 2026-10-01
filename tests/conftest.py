@@ -131,7 +131,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
 def _spans_conform_to_the_contract():
     """Every test's spans are checked against the span contract.
 
-    Enforced suite-wide rather than per-test, because AHC-0011's "complete trace"
+    Enforced suite-wide rather than per-test, because AAC-0011's "complete trace"
     is only meaningful if completeness is checked everywhere it is emitted. A
     contract asserted in the three tests that thought to look is not a contract.
     """

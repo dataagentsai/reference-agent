@@ -56,7 +56,7 @@ from support_agent.telemetry.names import (
 # --------------------------------------------------------------------------- #
 # The span contract.
 #
-# AHC-0011 says every call emits a **complete** trace. Complete against what?
+# AAC-0011 says every call emits a **complete** trace. Complete against what?
 # Nothing answered that, so "complete" meant whatever each test happened to
 # assert. This is the answer: a declaration of which spans exist and what each
 # must carry, and a validator that checks it.

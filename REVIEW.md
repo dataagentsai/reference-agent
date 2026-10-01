@@ -86,8 +86,9 @@ production deployment's because of it.
 - **AgentTwin does not consume the trace at all.** Its oracle is the world diff.
 - **There is no attribute specification.** `telemetry.py` holds constants;
   nothing declares which spans *must* carry which attributes and nothing
-  validates it. AHC-0011 says "every call emits a complete trace" — complete
-  against what? Nothing answers that.
+  validates it. AAC-0011 says "every call emits a complete trace" — complete
+  against what? Nothing answers that. *(Recorded as AHC-0011, an old number;
+  AHC-0011 is now "untrusted content is fenced". Corrected 2026-10-01.)*
 
 The last is the one worth building: a span contract plus a validator would make
 M5 systematic instead of per-test.
