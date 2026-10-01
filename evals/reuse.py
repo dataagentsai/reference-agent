@@ -90,7 +90,6 @@ MECHANISM = {
     "watch/record.py",
     "watch/outcomes.py",
     "watch/langfuse.py",
-    "watch/canary.py",
 }
 """Kept whole by a second agent. The escalation and approval *workflows* are here
 and their *policies* are not: how an approval expires is universal, what needs
@@ -110,6 +109,8 @@ PARAMETERISED = {
     "telemetry/contract.py",  # the span contract: mechanism, with this agent's span names in it
     "watch/rules.py",  # the engine is universal; statuses, claims, write tools are this shop's
     "watch/checks.py",  # the checks are universal; the vocabulary they read is this shop's
+    "watch/canary.py",  # the probe is universal; its cases ask this shop's questions (F-062)
+    "contracts/reading.py",  # the fold is universal; the order-id shape is this store's
 }
 """Code a second agent keeps and values it replaces. **The layer to watch:**
 these read as shared and are not, so the values carry a version and the code
