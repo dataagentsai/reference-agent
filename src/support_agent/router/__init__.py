@@ -25,8 +25,7 @@ from typing import assert_never
 
 from support_agent import telemetry as tel
 from support_agent.contracts import Agentic, Direct, Escalate, Intent, Refuse, Route
-
-ORDER_ID = re.compile(r"\b([A-Z]{1,3}-\d{3,8})\b")
+from support_agent.contracts.reading import ORDER_ID, order_ids
 
 
 @dataclass(frozen=True)
@@ -257,7 +256,11 @@ def _decide(text: str, rules: Rules) -> Route:
     # order AB-10003 and what about AB-10004 and AB-10005" was answered about
     # AB-10003 with nothing said about the other two (F-037). Several orders is
     # the same ambiguity as several intents and takes the same path.
-    found = {match.group(1) for match in ORDER_ID.finditer(text)}
+    #
+    # Found however it is written — lower case, or with the look-alike hyphen
+    # the agent itself writes (F-048) — and handed on in the store's spelling.
+    # Exact-match only, "ab-10003" went to the model (F-063).
+    found = order_ids(text)
     if len(found) != 1:
         return Agentic(goal=text.strip(), candidate_intents=matched)
 

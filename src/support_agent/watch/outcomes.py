@@ -23,7 +23,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal
 
-from support_agent.router import ORDER_ID
+from support_agent.contracts.reading import order_ids
 from support_agent.watch.record import Feedback, Turn
 
 OUTCOME_VERSION = "3"
@@ -133,7 +133,7 @@ def _earlier_in_session(turn: Turn, known: list[Turn]) -> bool:
 
 
 def _orders(turn: Turn) -> set[str]:
-    return set(ORDER_ID.findall(turn.input or ""))
+    return order_ids(turn.input or "")
 
 
 def _synthetic(outcome: Outcome, turns: Iterable[Turn]) -> bool:

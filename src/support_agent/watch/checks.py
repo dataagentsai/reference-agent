@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from support_agent.router import ORDER_ID
+from support_agent.contracts.reading import ORDER_ID, order_ids
 from support_agent.watch.record import Turn
 
 # --------------------------------------------------------------------------- #
@@ -142,7 +142,7 @@ def _truth(turn: Turn) -> dict[str, str]:
 
 
 def _ids_in(value: Any) -> set[str]:
-    return set(ORDER_ID.findall(value if isinstance(value, str) else json.dumps(value)))
+    return order_ids(value if isinstance(value, str) else json.dumps(value))
 
 
 def _given(turn: Turn, before: int | None = None) -> set[str]:
@@ -168,7 +168,7 @@ def contradicts_tool(turn: Turn, _: Thresholds) -> str | None:
     that also names the true status is not a contradiction."""
     truth = _truth(turn)
     for sentence in re.split(r"(?<=[.!?])\s+", plain(turn.reply)):
-        for order in ORDER_ID.findall(sentence):
+        for order in sorted(order_ids(sentence)):
             actual = truth.get(order)
             said = {
                 _SPELLINGS.get(word.lower(), word.lower())
@@ -255,7 +255,7 @@ def unbacked_promise(turn: Turn, _: Thresholds) -> str | None:
 
 def refused_an_order_question(turn: Turn, _: Thresholds) -> str | None:
     """AACP-0046, one turn at a time: a candidate over-refusal. Some are right."""
-    if turn.result == "refused" and ORDER_ID.search(plain(turn.input)):
+    if turn.result == "refused" and order_ids(plain(turn.input)):
         return f"refused under {turn.rule_id or 'no rule'} a message naming an order"
     return None
 
@@ -304,7 +304,7 @@ def internal_text(turn: Turn, _: Thresholds) -> str | None:
 
 def asks_for_what_it_was_given(turn: Turn, _: Thresholds) -> str | None:
     """AACP-0032. The message named an order and the reply asks which."""
-    if ORDER_ID.search(plain(turn.input)) and _ASKS_FOR_ID.search(plain(turn.reply)):
+    if order_ids(plain(turn.input)) and _ASKS_FOR_ID.search(plain(turn.reply)):
         return "asked for an order the customer had already named"
     return None
 

@@ -165,3 +165,38 @@ async def test_an_order_the_system_did_not_find_is_not_described(
     assert isinstance(result, Completed), result
     assert result.reply == "I could not find order AB-10003 on your account.", result.reply
 
+
+# (how the customer wrote the order id) — F-063: only the store's own spelling
+# was recognised, so each of these skipped the direct route and paid for a model
+# call, and the consent list granted nothing on them.
+SPELLINGS = [
+    ("the store's spelling", "where is my order AB-10003"),
+    ("lower case", "where is my order ab-10003"),
+    ("non-breaking hyphen, as the agent writes it (F-048)", "where is my order AB‑10003"),
+    ("en dash", "where is my order AB–10003"),
+    ("full-width", "where is my order ＡＢ－１０００３"),
+    ("a soft hyphen hidden inside", "where is my order AB-­10003"),
+]
+
+
+@pytest.mark.discharges("P-DIRECT", "AHC-0089")
+@pytest.mark.parametrize(("name", "said"), SPELLINGS, ids=[c[0] for c in SPELLINGS])
+def test_an_order_id_is_recognised_however_it_is_written(name: str, said: str) -> None:
+    decision = router.route(said)
+    assert isinstance(decision, Direct), decision
+    assert decision.args == {"order_id": "AB-10003"}
+
+
+# (what was written, whether it is an order id) — the fold must not invent ids.
+NOT_ORDERS = [
+    ("an amount in mixed case", "I paid Rs-500 for it"),
+    ("a too-short number", "where is AB-12"),
+]
+
+
+@pytest.mark.discharges("AHC-0089")
+@pytest.mark.parametrize(("name", "said"), NOT_ORDERS, ids=[c[0] for c in NOT_ORDERS])
+def test_the_fold_reads_no_order_id_where_there_is_none(name: str, said: str) -> None:
+    from support_agent.contracts.reading import order_ids
+
+    assert order_ids(said) == set()

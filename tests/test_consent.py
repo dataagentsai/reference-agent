@@ -51,6 +51,23 @@ ROWS = [
         {"open_return_request:AB-10002"},
     ),
     (
+        # F-063: an id in lower case, or with a look-alike hyphen, granted nothing.
+        "names the order in lower case",
+        (),
+        "please cancel ab-10002",
+        (),
+        {"cancel_order:AB-10002"},
+        {"cancel_order:ab-10002"},
+    ),
+    (
+        "names the order with a non-breaking hyphen",
+        (),
+        "please cancel AB‑10002",
+        (),
+        {"cancel_order:AB-10002"},
+        set(),
+    ),
+    (
         "only asks about the order",
         (),
         "what is happening with AB-10002",

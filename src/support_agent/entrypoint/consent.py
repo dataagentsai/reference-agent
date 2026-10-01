@@ -24,6 +24,7 @@ from collections.abc import Iterable
 
 from support_agent import router
 from support_agent.contracts import Identity, Intent
+from support_agent.contracts.reading import order_ids
 from support_agent.state import Conversation
 from support_agent.state.facts import Facts
 
@@ -53,11 +54,11 @@ def consented(conversation: Conversation, text: str, rules: router.Rules) -> fro
     said = [m.content for m in conversation.messages if m.role == "user"]
     if not said or said[-1] != text:
         said.append(text)
-    everywhere = {o for s in said for o in router.ORDER_ID.findall(s)}
+    everywhere = {o for s in said for o in order_ids(s)}
     granted: set[str] = set()
     for message in said:
         intents = {intent for intent, pattern in rules.intents if pattern.search(message)}
-        orders = set(router.ORDER_ID.findall(message)) or everywhere
+        orders = order_ids(message) or everywhere
         wanted = [tool for tool, intent in BY_INTENT.items() if intent in intents]
         if REFUND_ASKED.search(message) and Intent.REFUND_STATUS not in intents:
             wanted.append("request_refund")
