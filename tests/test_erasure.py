@@ -238,3 +238,28 @@ async def test_a_login_already_logged_out_is_reported_as_none() -> None:
     )
     assert erased.sessions == 0
     assert erased.runs == 2
+
+
+@pytest.mark.discharges("AHC-0115", "AAC-0117")
+async def test_a_saved_reply_is_reached_by_the_customer_it_was_saved_under() -> None:
+    """F-072. A redelivered message is answered from the reply saved under its
+    delivery name, and the erasure said that name "carries no customer". Since
+    832c38a it is `customer:key`, so the customer's saved replies were findable
+    and were still kept after they asked to be forgotten. Another customer's
+    saved reply is untouched."""
+    deliveries = req.InMemoryRequests()
+    for who in (THEIRS, SOMEBODY_ELSE):
+        async with req.once(deliveries, f"{who}:chatwoot:1:7", scope=req.Scope.DELIVERY) as c:
+            c.outcome = {"reply": f"your order for {who} is at 4 Elm Road"}
+
+    erased = await erasure.forget(
+        customer_id=THEIRS, checkpoints=InMemoryCheckpointStore(), deliveries=deliveries
+    )
+
+    assert erased.replies == 1
+    with pytest.raises(req.AlreadyAnswered) as theirs:
+        await deliveries.claim(f"{THEIRS}:chatwoot:1:7", scope=req.Scope.DELIVERY)
+    assert theirs.value.outcome is None, "their saved reply survived the erasure"
+    with pytest.raises(req.AlreadyAnswered) as other:
+        await deliveries.claim(f"{SOMEBODY_ELSE}:chatwoot:1:7", scope=req.Scope.DELIVERY)
+    assert other.value.outcome is not None

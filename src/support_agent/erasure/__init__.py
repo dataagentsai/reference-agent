@@ -49,10 +49,13 @@ class Erased:
     see `Requests.redact`, which is where that argument lives."""
     sessions: int
     """Logins removed. At most one, and zero where they had already logged out."""
+    replies: int = 0
+    """Saved replies dropped from the delivery store: what a redelivered message
+    would have been answered with. Named `customer:key`, so found by customer."""
 
     @property
     def anything(self) -> bool:
-        return bool(self.runs or self.answers or self.sessions)
+        return bool(self.runs or self.answers or self.sessions or self.replies)
 
 
 async def forget(
@@ -62,6 +65,7 @@ async def forget(
     requests: Requests | None = None,
     sessions: SessionStore | None = None,
     subject: str = "",
+    deliveries: Requests | None = None,
 ) -> Erased:
     """Remove what is held about one person, and say what went.
 
@@ -76,15 +80,15 @@ async def forget(
     holds only one of them passes only that one, and what cannot be found is
     reported as zero rather than guessed at.
 
-    **What this does not reach**, said plainly rather than left to be
-    discovered: a delivery-scope ledger row is named by the channel that
-    minted it — `chatwoot:<account>:<message>` — and carries no customer, so
-    the reply stored against it is not findable from here. Erasing it needs the
-    channel's own record of which messages were whose, which is a second
-    system's question. Nothing in this module pretends otherwise.
+    **Saved replies.** A delivery is named `customer:key` (832c38a), so the
+    reply saved for a redelivered message is found by the customer and dropped
+    the way a ledger answer is: the name stays, so the message is still not
+    answered twice. Until that name carried the customer this module said it
+    could not reach them, and once it did nothing asked (F-072).
     """
     runs = await checkpoints.forget(customer_id)
     answers = await requests.redact(runs) if requests is not None and runs else 0
+    replies = await deliveries.redact((customer_id,)) if deliveries is not None else 0
 
     # Read before deleting, because `delete` is idempotent and silent — it
     # cannot tell "there was one" from "there was not", and a report that
@@ -94,7 +98,7 @@ async def forget(
         await sessions.delete(subject)
         removed_session = 1
 
-    return Erased(runs=len(runs), answers=answers, sessions=removed_session)
+    return Erased(runs=len(runs), answers=answers, sessions=removed_session, replies=replies)
 
 
 __all__ = ["Erased", "forget"]
