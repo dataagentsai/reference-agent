@@ -206,11 +206,26 @@ ROWS = [
         turn(tools=(replace(LISTED, truncated=True),), reply="AB-10002 is still pending, yes."),
         "W-20",
     ),
+    (
+        "served by a model other than the one asked for",
+        turn(models=(("llama-3.3-70b-versatile", "llama-3.1-8b-instant"),)),
+        "W-21",
+    ),
+    (
+        "a gateway's provider prefix is one model, not two",
+        turn(models=(("groq/llama-3.3-70b-versatile", "llama-3.3-70b-versatile"),)),
+        None,
+    ),
+    (
+        "a failed call names no served model",
+        turn(models=(("llama-3.3-70b-versatile", ""),)),
+        None,
+    ),
 ]
 
 
 @pytest.mark.parametrize(("why", "given", "fires"), ROWS, ids=[r[0] for r in ROWS])
-@pytest.mark.discharges("AAC-0014", "AAC-0110", "AHC-0114")
+@pytest.mark.discharges("AAC-0014", "AAC-0110", "AHC-0114", "AAC-0012", "AAC-0094")
 def test_each_rule_fires_on_its_case_and_nothing_else_does(
     why: str, given: Turn, fires: str | None
 ) -> None:
@@ -222,7 +237,7 @@ def test_each_rule_fires_on_its_case_and_nothing_else_does(
 # (why, the turn, how many rules may run on it)
 WORDS = [
     ("captured: every rule runs", turn(), len(RULES)),
-    ("not captured: only the rules that need no words", turn(captured=False, reply=None), 9),
+    ("not captured: only the rules that need no words", turn(captured=False, reply=None), 10),
 ]
 
 
@@ -360,6 +375,23 @@ CONVERSATIONS = [
         "C-02",
     ),
     (
+        "the late turns read five times the first's tokens",
+        [
+            turn(trace_id="t1", started=1.0, input="Where is AB-10002?", input_tokens=400),
+            turn(trace_id="t2", started=2.0, input="And AB-10001?", input_tokens=900),
+            turn(trace_id="t3", started=3.0, input="Can I change its address?", input_tokens=2000),
+        ],
+        "C-03",
+    ),
+    (
+        "history grows, within bounds",
+        [
+            turn(trace_id="t1", started=1.0, input="Where is AB-10002?", input_tokens=400),
+            turn(trace_id="t2", started=2.0, input="And AB-10001?", input_tokens=1600),
+        ],
+        None,
+    ),
+    (
         "a conversation that moves on",
         [
             turn(trace_id="t1", started=1.0, input="Where is AB-10002?"),
@@ -373,7 +405,7 @@ CONVERSATIONS = [
 @pytest.mark.parametrize(
     ("why", "turns", "fires"), CONVERSATIONS, ids=[r[0] for r in CONVERSATIONS]
 )
-@pytest.mark.discharges("AAC-0014", "AAC-0037")
+@pytest.mark.discharges("AAC-0014", "AAC-0037", "AAC-0042", "AAC-0103")
 def test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn(
     why: str, turns: list[Turn], fires: str | None
 ) -> None:

@@ -1,7 +1,9 @@
 """The window-level rules parse, and page on the series they are for (T-055).
 
 `promtool` is Prometheus's own checker, run from the image compose runs, so the
-rules are checked by the thing that will evaluate them. Skipped with no Docker.
+rules are checked by the thing that will evaluate them. A `promtool` installed
+on the machine is used first — the rules are checked without starting Docker,
+by a newer release of the same checker. Skipped with neither.
 """
 
 from __future__ import annotations
@@ -19,6 +21,12 @@ IMAGE = "prom/prometheus:v3.5.0"
 
 
 def promtool(*args: str) -> subprocess.CompletedProcess[str]:
+    native = shutil.which("promtool")
+    if native is not None:
+        local = [a.replace("/r/", f"{RULES}/") for a in args]
+        return subprocess.run(
+            [native, *local], capture_output=True, text=True, check=False, timeout=300, cwd=RULES
+        )
     if shutil.which("docker") is None:
         pytest.skip("no docker")
     probe = subprocess.run(["docker", "info"], capture_output=True, text=True, check=False)
@@ -40,11 +48,14 @@ CHECKS = [
         "each rule pages on its own series and not on the canary's",
         ("test", "rules", "/r/agent.test.yml"),
     ),
+    ("the week-long trends and tickets", ("test", "rules", "/r/agent.week.test.yml")),
 ]
 
 
 @pytest.mark.parametrize(("why", "command"), CHECKS, ids=[c[0] for c in CHECKS])
-@pytest.mark.discharges("AAC-0114", "AAC-0116")
+@pytest.mark.discharges(
+    "AAC-0114", "AAC-0116", "AAC-0013", "AAC-0020", "AAC-0051", "AAC-0052", "AAC-0103", "AAC-0105"
+)
 def test_the_alert_rules(why: str, command: tuple[str, ...]) -> None:
     ran = promtool(*command)
     assert ran.returncode == 0, ran.stdout + ran.stderr

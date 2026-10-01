@@ -2709,7 +2709,7 @@ because `set_payload` read only the turn's flag. Separate requests on the server
 run in separate tasks, so it did not cross between customers there; it did in
 any caller that runs several pieces of work in one task.
 
-**Fixed.** `telemetry.capturing_turn(run_id)` holds the decision for exactly the
+**Fixed.** `telemetry.turn_scope(run_id)` holds the decision for exactly the
 turn and restores it on the way out, however the turn ends; deciding
 (`capture_decision`) no longer switches anything on; and `set_payload` keeps
 words only when capture is on *and* the turn was chosen.

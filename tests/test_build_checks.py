@@ -222,7 +222,9 @@ def test_every_counter_declared_is_incremented_somewhere() -> None:
 
     root = Path(__file__).resolve().parents[1] / "src" / "support_agent"
     source = "\n".join(p.read_text() for p in root.rglob("*.py") if p.name != "counters.py")
-    names = [n for n in declared.__all__ if n.islower() and n not in {"record_turn", "bind"}]
+    # Functions — `record_turn`, `bind`, the configuration label's two — are
+    # not instruments.
+    names = [n for n in declared.__all__ if n.islower() and not callable(getattr(declared, n))]
 
     # `record_turn` writes to three of them from inside the module itself, which
     # the source search above cannot see because it excludes that file.

@@ -71,6 +71,12 @@ class Turn:
     malformed: int
     unbacked_promise: bool
     tools: tuple[ToolUse, ...]
+    input_tokens: int = 0
+    """Input tokens across the turn's model calls (AACP-0003): what this turn
+    paid to resend the conversation so far."""
+    models: tuple[tuple[str, str], ...] = ()
+    """Each model call's (requested, served) model names, as the provider wrote
+    them (AACP-0054). `checks.model_name` is the one form they are compared in."""
 
 
 @dataclass(frozen=True)
@@ -152,6 +158,7 @@ def _turn(group: list[Node]) -> Turn | None:
     run = next((n.attributes for n in group if n.name == "agent.run"), {})
     route = next((n.attributes for n in group if n.name == "agent.route"), {})
     tools = sorted((n for n in group if n.name == "agent.tool"), key=lambda n: n.start)
+    chats = [n.attributes for n in sorted(group, key=lambda n: n.start) if n.name == "gen_ai.chat"]
     captured = _flag(a.get(tel.CAPTURED))
     return Turn(
         trace_id=turn.trace_id,
@@ -170,10 +177,15 @@ def _turn(group: list[Node]) -> Turn | None:
         route=str(route.get(tel.ROUTE_KIND, "")),
         termination=str(run.get(tel.TERMINATION, "")),
         cost_usd=float(run.get(tel.COST_USD, 0) or 0),
-        model_calls=sum(1 for n in group if n.name == "gen_ai.chat"),
+        model_calls=len(chats),
         malformed=int(run.get(tel.MODEL_MALFORMED, 0) or 0),
         unbacked_promise=any(n.name == "agent.promise.unbacked" for n in group),
         tools=tuple(_tool(n, captured) for n in tools),
+        input_tokens=sum(int(c.get(tel.GEN_AI_INPUT_TOKENS, 0) or 0) for c in chats),
+        models=tuple(
+            (str(c.get(tel.GEN_AI_REQUEST_MODEL, "")), str(c.get(tel.GEN_AI_RESPONSE_MODEL, "")))
+            for c in chats
+        ),
     )
 
 

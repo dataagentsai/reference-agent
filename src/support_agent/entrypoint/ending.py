@@ -33,7 +33,7 @@ def opened(
     downstream can rely on.
 
     Whether the turn's words are kept was decided once, for the whole turn, by
-    `telemetry.capturing_turn` around it; this records the decision.
+    `telemetry.turn_scope` around it; this records the decision.
     """
     attributes: dict[str, str | bool] = {
         tel.RUN_ID: run_id,
@@ -46,6 +46,11 @@ def opened(
         attributes[tel.CONFIG_FINGERPRINT] = config.fingerprint
         attributes[tel.RESOLUTION] = config.resolution
     return attributes
+
+
+def fingerprint(config: RunConfig | None) -> str | None:
+    """The configuration a turn's numbers are labelled with (AACP-0002, AACP-0055)."""
+    return config.fingerprint if config is not None else None
 
 
 def closed(

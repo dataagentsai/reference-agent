@@ -8,6 +8,7 @@ shape Langfuse returns them, so what passes here is what runs against it.
 
 from __future__ import annotations
 
+import contextlib
 import time
 from collections.abc import Iterable, Mapping
 from contextlib import asynccontextmanager
@@ -460,3 +461,102 @@ def test_each_canary_case_knows_a_wrong_answer(
 ) -> None:
     case = next(c for c in canary.CASES if c.name == name)
     assert (case.expect(status, body) is None) is passes
+
+
+# --------------------------------------------------------------------------- #
+# The tool surface, as numbers (T-058: AACP-0004, 0023, 0024, 0026).
+# --------------------------------------------------------------------------- #
+
+# (why, tool, arguments, result bound, the metric, its labels, how many)
+SURFACE = [
+    ("a tool not on the surface", "refund_everything", {}, 8000,
+     "agent.tool.calls", {"tool": "unoffered", "outcome": "unknown"}, 1),
+    ("arguments that fail the schema", "get_order", {"order": "AB-10002"}, 8000,
+     "agent.tool.invalid_arguments", {"tool": "get_order"}, 1),
+    ("a result cut to fit", "list_orders", {}, 40,
+     "agent.tool.truncated", {"tool": "list_orders"}, 1),
+    ("a result that fits is not cut", "get_order", {"id": "AB-10002"}, 8000,
+     "agent.tool.truncated", {"tool": "get_order"}, 0),
+    ("every tool listed is counted as offered", "get_order", {"id": "AB-10002"}, 8000,
+     "agent.tools.offered", {"tool": "change_address"}, 1),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("why", "name", "arguments", "bound", "metric", "labels", "count"),
+    SURFACE,
+    ids=[r[0] for r in SURFACE],
+)
+@pytest.mark.discharges("AHC-0111", "AAC-0051", "AAC-0052", "AAC-0103", "AAC-0105")
+async def test_the_tool_surface_counts_what_the_model_is_shown_and_gets_wrong(
+    why: str,
+    name: str,
+    arguments: dict[str, Any],
+    bound: int,
+    metric: str,
+    labels: dict[str, str],
+    count: int,
+) -> None:
+    from support_agent import identity as ident
+    from support_agent.contracts import IdempotencyKey, Identity, RunId
+
+    tel.configure()
+    who = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
+    key = IdempotencyKey(run_id=RunId("run_surface"), step=0, iteration=0)
+    async with connect(
+        project(Live.start(load(WORLD))), requests=InMemoryRequests(), max_result_chars=bound
+    ) as tools:
+        # An unoffered tool and a bad schema both raise; the count is the point.
+        with contextlib.suppress(Exception):
+            await tools.call(name, arguments, who, key)
+    assert total(metric, **labels) == count
+
+
+# (why, the configuration's fingerprint, the label the turn's numbers carry)
+CONFIGS = [
+    ("a configured agent", "f1e2d3c4b5a69788", "f1e2d3c4b5a69788"),
+    ("no configuration", None, "none"),
+]
+
+
+@pytest.mark.parametrize(("why", "fingerprint", "label"), CONFIGS, ids=[r[0] for r in CONFIGS])
+@pytest.mark.discharges("AHC-0111", "AAC-0013", "AAC-0101", "AAC-0103")
+def test_a_turns_numbers_say_which_configuration_produced_them(
+    why: str, fingerprint: str | None, label: str
+) -> None:
+    """T-058, AACP-0002 and AACP-0055: a release that moved the rates or grew
+    the prompt is found by comparing configurations, so each number says which
+    configuration it was counted under — and stops saying it when the turn ends."""
+    from support_agent.contracts import Completed, Direct, Intent
+    from support_agent.telemetry import counters
+
+    tel.configure()
+    with tel.turn_scope("run_cfg", fingerprint):
+        counters.record_turn(
+            Completed(reply="ok"), Direct(intent=Intent.ORDER_STATUS, handler="get_order")
+        )
+        counters.token_usage.record(
+            10, {"gen_ai.token.type": "input", "config": counters.configuration()}
+        )
+    assert total("agent.turns", config=label) == 1
+    assert total("gen_ai.client.token.usage", config=label) == 1
+    assert counters.configuration() == counters.UNCONFIGURED
+
+
+@pytest.mark.discharges("AHC-0114", "AAC-0042", "AAC-0012")
+def test_the_record_carries_a_turns_tokens_and_its_models() -> None:
+    """T-058, AACP-0003 and AACP-0054: what a turn paid to resend its history,
+    and which model each call asked for and got — read from the record, never
+    re-derived by the rule."""
+    exporter = tel.configure()
+    with tel.span("agent.turn", **{tel.RUN_ID: "run_m", tel.SESSION_ID: "cnv_m"}):
+        for asked, got, read in (("groq/a", "a", 300), ("groq/a", "b", 500)):
+            with tel.span(
+                "gen_ai.chat",
+                **{tel.GEN_AI_PROVIDER: "groq", tel.GEN_AI_REQUEST_MODEL: asked},
+            ) as call:
+                call.set_attribute(tel.GEN_AI_RESPONSE_MODEL, got)
+                tel.set_usage(call, input_tokens=read, output_tokens=1)
+    (turn,) = record.turns(record.from_spans(exporter.get_finished_spans()))
+    assert (turn.input_tokens, turn.models) == (800, (("groq/a", "a"), ("groq/a", "b")))
+    exporter.clear()

@@ -3,7 +3,8 @@
 # Each rule implements one pattern's `signal` from AAC's patterns/ catalog and
 # carries its id as the `pattern` label, the way watch/rules.py carries it for
 # the turn-level rules. tests/test_watch_catalog.py holds the three together;
-# tests/test_alert_rules.py runs rules/agent.test.yml through promtool.
+# tests/test_alert_rules.py runs rules/agent.test.yml and agent.week.test.yml
+# through promtool.
 #
 # Severity is what happens next: `page` a person now, `ticket` this week. A
 # pattern whose signal is only a trend is a recording rule for the dashboard,
@@ -146,6 +147,41 @@ groups:
             reachable — rather than answering allowed: false. The far end's check
             is the only thing that held.
 
+      - alert: EscalationRuleNotNeeded
+        # The desk's verdict, by the rule that raised it: escalation/durable.py
+        # labels each close with its outcome and rule.
+        expr: |
+          sum by (rule) (increase(agent_escalations_closed_total{outcome="agent_could_have"}[1w]))
+            / sum by (rule) (increase(agent_escalations_closed_total{state="resolved"}[1w])) > 0.30
+          and sum by (rule) (increase(agent_escalations_closed_total{state="resolved"}[1w])) >= 10
+        labels: { severity: ticket, pattern: AACP-0044 }
+        annotations:
+          summary: "The desk said the agent could have handled {{ $value | humanizePercentage }} of rule {{ $labels.rule }}'s hand-offs"
+          description: >-
+            One rule's escalations are mostly ones a person closed as unneeded.
+            The rule is written too broad, and its cost falls on the desk.
+
+      - alert: RatesMovedAfterRelease
+        # A configuration fingerprint is new when no turn ran under it the day
+        # before; within that day its share of turns ending badly is compared
+        # with the day before's across every configuration.
+        expr: |
+          (sum by (config) (rate(agent_turns_total{synthetic="false",result=~"escalated|refused|failed"}[1h]))
+            / sum by (config) (rate(agent_turns_total{synthetic="false"}[1h])))
+          > 2 * scalar(sum(rate(agent_turns_total{synthetic="false",result=~"escalated|refused|failed"}[1d] offset 1d))
+                        / sum(rate(agent_turns_total{synthetic="false"}[1d] offset 1d)))
+          and (sum by (config) (rate(agent_turns_total{synthetic="false",result=~"escalated|refused|failed"}[1h]))
+                / sum by (config) (rate(agent_turns_total{synthetic="false"}[1h]))) > 0.15
+          and sum by (config) (increase(agent_turns_total{synthetic="false"}[1h])) >= 20
+          unless on (config) sum by (config) (increase(agent_turns_total{synthetic="false"}[1d] offset 1d)) > 0
+        labels: { severity: page, pattern: AACP-0055 }
+        annotations:
+          summary: "Configuration {{ $labels.config }}: {{ $value | humanizePercentage }} of turns ended escalated, refused or failed"
+          description: >-
+            A configuration that is less than a day old moved the rates to twice
+            yesterday's. The release is the first suspect. Spend is not yet
+            split by configuration, so only the turn rates are compared here.
+
       - alert: WaitsLapsing
         expr: |
           (sum(increase(agent_approvals_settled_total{outcome="expired"}[6h])) or vector(0))
@@ -153,6 +189,30 @@ groups:
         labels: { severity: ticket, pattern: AACP-0045 }
         annotations:
           summary: "{{ $value }} approvals or escalations expired with nobody in 6 hours"
+
+  # ------------------------------------------------------- the tool surface
+  - name: agent-tool-surface
+    rules:
+      - alert: UnofferedToolsRequested
+        expr: |
+          sum(rate(agent_tool_calls_total{tool="unoffered"}[1h]))
+            / sum(rate(agent_tool_calls_total[1h])) > 0.01
+          and sum(increase(agent_tool_calls_total[1h])) >= 50
+        labels: { severity: ticket, pattern: AACP-0023 }
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of tool calls asked for a tool that is not offered"
+          description: >-
+            The model is asking for tools by names it has seen elsewhere, most
+            often after a model or prompt change.
+
+      - alert: ToolArgumentsFailingSchema
+        expr: |
+          sum by (tool) (rate(agent_tool_invalid_arguments_total[1h]))
+            / sum by (tool) (rate(agent_tool_calls_total[1h])) > 0.05
+          and sum by (tool) (increase(agent_tool_calls_total[1h])) >= 20
+        labels: { severity: ticket, pattern: AACP-0024 }
+        annotations:
+          summary: "{{ $labels.tool }}: {{ $value | humanizePercentage }} of calls failed the tool's own schema"
 
   # ------------------------------------------------------- the telemetry itself
   - name: agent-telemetry
@@ -225,3 +285,21 @@ groups:
           sum(increase(agent_outcomes_total{kind="feedback_down"}[1d]))
             / clamp_min(sum(increase(agent_outcomes_total{kind=~"feedback_.*"}[1d])), 1)
         labels: { pattern: AACP-0041 }
+      - record: agent:input_tokens_median_vs_last_week:1d
+        expr: |
+          histogram_quantile(0.5,
+            sum by (config, le) (rate(gen_ai_client_token_usage_bucket{gen_ai_token_type="input"}[1d])))
+          / scalar(histogram_quantile(0.5,
+            sum by (le) (rate(gen_ai_client_token_usage_bucket{gen_ai_token_type="input"}[1d] offset 1w))))
+        labels: { pattern: AACP-0002 }
+      - record: agent:tool_truncated_share:1d
+        expr: |
+          sum by (tool) (increase(agent_tool_truncated_total[1d]))
+            / clamp_min(sum by (tool) (increase(agent_tool_calls_total[1d])), 1)
+        labels: { pattern: AACP-0004 }
+      - record: agent:tool_offered_unused:7d
+        expr: |
+          (sum by (tool) (increase(agent_tools_offered_total[7d])) > 0)
+            unless on (tool) (sum by (tool) (increase(agent_tool_calls_total{outcome="ok"}[7d])) > 0)
+          and on () (sum(increase(agent_turns_total{synthetic="false"}[7d])) >= 500)
+        labels: { pattern: AACP-0026 }

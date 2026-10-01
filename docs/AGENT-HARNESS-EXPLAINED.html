@@ -3040,7 +3040,7 @@ return result.model_copy(update={"text": bounded, "truncated": True})</code></pr
     </div>
     <p>W-20 fires only when the turn <code>completed</code> — answering <em>over</em> a truncated result, which is the actual risk.</p>
 
-    <div class="note"><p><strong>And a recorded gap.</strong> AACP-0004 sits in the catalogue's <code>NOT_YET</code> list with its reason: <em>"truncation is on the tool span, and no metric counts it by tool"</em>. True — <code>agent.tool.calls</code> carries <code>tool</code> and <code>outcome</code>, but no <code>truncated</code>, so the share cannot be computed. Recorded honestly rather than quietly broken.</p>
+    <div class="note"><p><strong>A gap that was recorded, then closed.</strong> AACP-0004 sat in the catalogue's <code>NOT_YET</code> list with its reason: <em>"truncation is on the tool span, and no metric counts it by tool"</em>. Since T-058 a cut result also counts <code>agent.tool.truncated</code> by tool, and Prometheus records the share per tool for the dashboard (<code>agent:tool_truncated_share:1d</code>). Recorded honestly while it was missing, and removed from the list the day it was not.</p>
     <p>Its mechanism is the real cost of naive paging: <em>"A full result set is pasted into context and then <strong>resent on every subsequent iteration</strong>. The cost is incurred once and paid repeatedly, so it appears negligible in any single-call view and dominates in aggregate."</em></p></div>
 
     <h4>The one place many rows are read safely</h4>

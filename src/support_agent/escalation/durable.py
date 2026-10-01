@@ -64,6 +64,22 @@ def _now() -> int:
     return int(workflow.now().timestamp())
 
 
+def closed_labels(escalation: Escalation) -> dict[str, str]:
+    """How an escalation closed, as the labels on `agent.escalations.closed`.
+
+    `outcome` and `rule` since AACP-0044: a desk that keeps closing one rule's
+    hand-offs as *the agent could have* is a rule written too broad, and the
+    cost of it falls on people who are not the ones tuning it. Both bounded —
+    the declared outcomes, and the versioned rule set.
+    """
+    outcome = escalation.outcome.value if escalation.outcome is not None else "none"
+    return {
+        "state": escalation.state.value,
+        "outcome": outcome,
+        "rule": escalation.rule_id or "unattributed",
+    }
+
+
 @workflow.defn
 class EscalationWorkflow:
     def __init__(self) -> None:
@@ -98,7 +114,7 @@ class EscalationWorkflow:
         # Replay-safe, and the only place a lapse is seen (T-055).
         workflow.metric_meter().create_counter(
             "agent.escalations.closed", "Escalations closed, by how."
-        ).add(1, {"state": self._current.state.value})
+        ).add(1, closed_labels(self._current))
         await queue.signal(EscalationQueue.closed, [raised.id, raised.conversation_id])
         await workflow.wait_condition(workflow.all_handlers_finished)
         return self._current
@@ -185,4 +201,4 @@ class EscalationQueue:
         return held[-1] if held else None
 
 
-__all__ = ["EscalationQueue", "EscalationWorkflow", "Raise", "Resolution"]
+__all__ = ["EscalationQueue", "EscalationWorkflow", "Raise", "Resolution", "closed_labels"]

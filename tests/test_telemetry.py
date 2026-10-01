@@ -73,7 +73,7 @@ def test_payload_capture_is_off_by_default(exporter) -> None:
 @pytest.mark.discharges("AAC-0095", "AAC-0006", "AHC-0019")
 def test_payload_capture_redacts_when_enabled() -> None:
     ex = tel.configure(capture_payloads=True)
-    with tel.capturing_turn("run_redacts"), tel.span("gen_ai.chat") as s:
+    with tel.turn_scope("run_redacts"), tel.span("gen_ai.chat") as s:
         tel.set_payload(s, "prompt", "my card is 4111111111111111")
     attrs = tel.attributes_of(ex.get_finished_spans()[0])
     assert "4111111111111111" not in attrs["prompt"]
@@ -82,13 +82,13 @@ def test_payload_capture_redacts_when_enabled() -> None:
 
 
 def _in_turn(switch_off) -> None:
-    with tel.capturing_turn("run_in"), tel.span("capture.probe") as s:
+    with tel.turn_scope("run_in"), tel.span("capture.probe") as s:
         switch_off()
         tel.set_payload(s, "prompt", "my card is 4111111111111111")
 
 
 def _after_turn(switch_off) -> None:
-    with tel.capturing_turn("run_before"):
+    with tel.turn_scope("run_before"):
         pass
     switch_off()
     with tel.span("capture.probe") as s:

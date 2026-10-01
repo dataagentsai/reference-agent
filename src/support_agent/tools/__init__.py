@@ -57,6 +57,10 @@ from support_agent.tools.mcp import (
 )
 
 TRUNCATION_MARK = " …[truncated from {total} characters]"
+
+UNOFFERED = "unoffered"
+"""The `tool` label on a call for a tool the surface does not offer (AACP-0023):
+one value, because the requested name is whatever the model wrote."""
 """Said to the model, so a cut result reads as cut rather than as complete."""
 
 
@@ -111,6 +115,8 @@ class GatedTools:
             )
             self.rejected = rejected
             span.set_attribute("agent.tools.count", len(visible))
+            for offered in visible:  # AACP-0026: a tool on the surface nobody calls
+                tel.counters.tools_offered.add(1, {"tool": offered.name})
             span.set_attribute("agent.tools.rejected", len(rejected))
             return ToolRegistry(tools=visible)
 
@@ -124,6 +130,9 @@ class GatedTools:
         registry = await self.list_tools(identity)
         spec = registry.get(name)
         if spec is None:
+            # AACP-0023. Counted before it raises, because no tool span opens
+            # for it; under one label, because the name is the model's words.
+            tel.counters.tool_calls.add(1, {"tool": UNOFFERED, "outcome": "unknown"})
             raise UnknownTool(name, tuple(t.name for t in registry.tools))
 
         with tel.span(
@@ -162,7 +171,14 @@ class GatedTools:
         spec: ToolSpec,
         span: Span,
     ) -> tuple[ToolResult, str]:
-        jsonschema.validate(arguments, spec.input_schema)
+        try:
+            jsonschema.validate(arguments, spec.input_schema)
+        except jsonschema.ValidationError:
+            # Still an error on the span and in `agent.tool.calls`; apart here
+            # too, because a schema the model cannot meet is its own fault
+            # (AACP-0024), not the store's.
+            tel.counters.tool_invalid.add(1, {"tool": name})
+            raise
 
         if spec.side_effect is SideEffectClass.READ:
             result = await self._transport.invoke(name, arguments, caller=identity)
@@ -219,6 +235,7 @@ class GatedTools:
         if len(rendered) <= limit:
             return result
         span.set_attribute("agent.tool.truncated", True)
+        tel.counters.tool_truncated.add(1, {"tool": result.name})  # AACP-0004
         mark = TRUNCATION_MARK.format(total=len(rendered))
         bounded = rendered[: max(0, limit - len(mark))] + mark
         return result.model_copy(update={"text": bounded[:limit], "truncated": True})

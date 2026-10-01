@@ -383,7 +383,7 @@ def counted() -> list[dict]:
 
     out = []
     for name in counters.__all__:
-        if not name.islower() or name == "record_turn":
+        if not name.islower() or callable(getattr(counters, name)):
             continue
         instrument = getattr(counters, name)
         out.append(

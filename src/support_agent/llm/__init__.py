@@ -214,7 +214,12 @@ class GroqClient:
                 ("input", response.usage.input_tokens),
                 ("output", response.usage.output_tokens),
             ):
-                tel.counters.token_usage.record(count, standard | {"gen_ai.token.type": kind})
+                # `config`: the turn's configuration, so input tokens per call
+                # compare between releases (AACP-0002).
+                tel.counters.token_usage.record(
+                    count,
+                    standard | {"gen_ai.token.type": kind, "config": tel.counters.configuration()},
+                )
             span.set_attribute(tel.GEN_AI_RESPONSE_MODEL, response.model)
             tel.set_usage(
                 span,

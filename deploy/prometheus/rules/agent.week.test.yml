@@ -1,0 +1,116 @@
+# promtool unit tests for the rules in agent.yml whose windows are days and
+# weeks. Apart from agent.test.yml only for speed: promtool evaluates every rule
+# at every evaluation_interval up to a case's eval_time, so a week evaluated
+# each minute took two minutes. None of these rules has a `for:`, so evaluating
+# them hourly changes no answer. Run by tests/test_alert_rules.py.
+rule_files: [agent.yml]
+evaluation_interval: 1h
+
+tests:
+  # --- AACP-0044: half of one rule's hand-offs were not needed: ticket, naming the rule
+  - interval: 1h
+    input_series:
+      - series: 'agent_escalations_closed_total{state="resolved",outcome="agent_could_have",rule="turns-exceeded"}'
+        values: '0+1x200'
+      - series: 'agent_escalations_closed_total{state="resolved",outcome="resolved",rule="turns-exceeded"}'
+        values: '0+1x200'
+      - series: 'agent_escalations_closed_total{state="resolved",outcome="resolved",rule="second-refusal"}'
+        values: '0+2x200'
+    alert_rule_test:
+      - eval_time: 8d
+        alertname: EscalationRuleNotNeeded
+        exp_alerts:
+          - exp_labels: { severity: ticket, pattern: AACP-0044, rule: turns-exceeded }
+            exp_annotations:
+              summary: "The desk said the agent could have handled 50% of rule turns-exceeded's hand-offs"
+              description: "One rule's escalations are mostly ones a person closed as unneeded. The rule is written too broad, and its cost falls on the desk."
+
+  # --- AACP-0055: a configuration a few hours old fails half its turns: page, naming it
+  - interval: 10m
+    input_series:
+      - series: 'agent_turns_total{synthetic="false",result="completed",route="agentic",config="aaa"}'
+        values: '0+10x288 _x12'
+      - series: 'agent_turns_total{synthetic="false",result="failed",route="agentic",config="aaa"}'
+        values: '0+1x288 _x12'
+      - series: 'agent_turns_total{synthetic="false",result="completed",route="agentic",config="bbb"}'
+        values: '_x288 0+5x12'
+      - series: 'agent_turns_total{synthetic="false",result="failed",route="agentic",config="bbb"}'
+        values: '_x288 0+5x12'
+    alert_rule_test:
+      - eval_time: 50h
+        alertname: RatesMovedAfterRelease
+        exp_alerts:
+          - exp_labels: { severity: page, pattern: AACP-0055, config: bbb }
+            exp_annotations:
+              summary: "Configuration bbb: 50% of turns ended escalated, refused or failed"
+              description: "A configuration that is less than a day old moved the rates to twice yesterday's. The release is the first suspect. Spend is not yet split by configuration, so only the turn rates are compared here."
+
+  # --- the same jump under a configuration that ran yesterday is not a release's
+  - interval: 10m
+    input_series:
+      - series: 'agent_turns_total{synthetic="false",result="completed",route="agentic",config="aaa"}'
+        values: '0+10x300'
+      - series: 'agent_turns_total{synthetic="false",result="failed",route="agentic",config="aaa"}'
+        values: '0+1x288 289+10x12'
+    alert_rule_test:
+      - eval_time: 50h
+        alertname: RatesMovedAfterRelease
+        exp_alerts: []
+
+  # --- AACP-0004, 0026, 0002: the trends recorded for the dashboard
+  - interval: 1m
+    input_series:
+      - series: 'agent_tool_truncated_total{tool="list_orders"}'
+        values: '0+1x1500'
+      - series: 'agent_tool_calls_total{tool="list_orders",outcome="ok"}'
+        values: '0+4x1500'
+    promql_expr_test:
+      - expr: agent:tool_truncated_share:1d
+        eval_time: 25h
+        exp_samples:
+          - labels: 'agent:tool_truncated_share:1d{tool="list_orders",pattern="AACP-0004"}'
+            value: 0.25
+
+  - interval: 1h
+    input_series:
+      - series: 'agent_tools_offered_total{tool="get_order"}'
+        values: '0+10x200'
+      - series: 'agent_tools_offered_total{tool="change_address"}'
+        values: '0+10x200'
+      - series: 'agent_tool_calls_total{tool="get_order",outcome="ok"}'
+        values: '0+5x200'
+      - series: 'agent_turns_total{synthetic="false",result="completed",route="agentic"}'
+        values: '0+10x200'
+    promql_expr_test:
+      - expr: count by (tool, pattern) (agent:tool_offered_unused:7d)
+        eval_time: 8d
+        exp_samples:
+          - labels: '{tool="change_address",pattern="AACP-0026"}'
+            value: 1
+
+  - interval: 1h
+    input_series:
+      - series: 'gen_ai_client_token_usage_bucket{gen_ai_token_type="input",config="old",le="64"}'
+        values: '0x200'
+      - series: 'gen_ai_client_token_usage_bucket{gen_ai_token_type="input",config="old",le="256"}'
+        values: '0+10x200'
+      - series: 'gen_ai_client_token_usage_bucket{gen_ai_token_type="input",config="old",le="1024"}'
+        values: '0+10x200'
+      - series: 'gen_ai_client_token_usage_bucket{gen_ai_token_type="input",config="old",le="+Inf"}'
+        values: '0+10x200'
+      - series: 'gen_ai_client_token_usage_bucket{gen_ai_token_type="input",config="new",le="64"}'
+        values: '_x176 0x24'
+      - series: 'gen_ai_client_token_usage_bucket{gen_ai_token_type="input",config="new",le="256"}'
+        values: '_x176 0x24'
+      - series: 'gen_ai_client_token_usage_bucket{gen_ai_token_type="input",config="new",le="1024"}'
+        values: '_x176 0+10x24'
+      - series: 'gen_ai_client_token_usage_bucket{gen_ai_token_type="input",config="new",le="+Inf"}'
+        values: '_x176 0+10x24'
+    promql_expr_test:
+      - expr: agent:input_tokens_median_vs_last_week:1d
+        eval_time: 200h
+        exp_samples:
+          - labels: 'agent:input_tokens_median_vs_last_week:1d{config="old",pattern="AACP-0002"}'
+            value: 1
+          - labels: 'agent:input_tokens_median_vs_last_week:1d{config="new",pattern="AACP-0002"}'
+            value: 4

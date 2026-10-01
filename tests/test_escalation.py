@@ -420,3 +420,42 @@ def test_the_estimate_comes_from_depth_and_throughput(
 # workflow's timer now, so there is no cadence for a caller to get wrong and
 # nothing to run twice against a queue it has already swept; what the customer
 # is told when nobody comes is tested above, through the agent.
+
+
+# (why, the escalation as it closed, the labels on agent.escalations.closed)
+CLOSED = [
+    ("the desk says the agent could have", {"state": "resolved", "outcome": "agent_could_have",
+     "rule_id": "turns-exceeded"}, {"state": "resolved", "outcome": "agent_could_have",
+     "rule": "turns-exceeded"}),
+    ("nobody came", {"state": "expired", "outcome": None, "rule_id": "asked-for-human"},
+     {"state": "expired", "outcome": "none", "rule": "asked-for-human"}),
+    ("raised with no rule", {"state": "resolved", "outcome": "resolved", "rule_id": ""},
+     {"state": "resolved", "outcome": "resolved", "rule": "unattributed"}),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(("why", "closed", "labels"), CLOSED, ids=[c[0] for c in CLOSED])
+@pytest.mark.discharges("P-ESC-OUTCOME", "AAC-0020", "AAC-0043")
+def test_a_closed_escalation_is_counted_by_its_outcome_and_its_rule(
+    why: str, closed: dict, labels: dict
+) -> None:
+    """T-058, AACP-0044: which rule's hand-offs the desk keeps calling unneeded."""
+    from support_agent.contracts import Escalation, EscalationOutcome, EscalationState
+    from support_agent.escalation.durable import closed_labels
+
+    escalation = Escalation(
+        id="E-1",
+        conversation_id="cnv_1",
+        run_id="run_1",
+        customer_id="C-1042",
+        tier=2,
+        context="",
+        rule_id=closed["rule_id"],
+        rules_version="t2-v1",
+        reason="r",
+        state=EscalationState(closed["state"]),
+        created_at=0,
+        expires_at=1,
+        outcome=EscalationOutcome(closed["outcome"]) if closed["outcome"] else None,
+    )
+    assert closed_labels(escalation) == labels

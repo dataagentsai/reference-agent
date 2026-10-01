@@ -29,6 +29,7 @@ numbers this agent is *judged* on, each of which somebody would notice moving:
 | findings | what the online rules found in sampled turns (`watch`) |
 | outcomes | what happened after a turn: the customer came back, gave feedback |
 | canary | whether the synthetic customer's cases passed through the deployed edge |
+| tools offered, truncated, invalid | what the model is shown, and where tool use goes wrong |
 
 ## Standard names where the standard has them
 
@@ -71,6 +72,10 @@ tunes the rule set.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+
 from opentelemetry import metrics
 from opentelemetry.metrics import Counter, Histogram, Meter
 
@@ -101,6 +106,32 @@ findings: Counter
 scored: Counter
 outcomes: Counter
 canary: Counter
+tools_offered: Counter
+tool_truncated: Counter
+tool_invalid: Counter
+
+UNCONFIGURED = "none"
+_CONFIG: ContextVar[str] = ContextVar("config", default=UNCONFIGURED)
+"""The configuration fingerprint a turn runs under, as the `config` label on its
+numbers (AACP-0002, AACP-0055). Bounded like `rule`: it changes only when a
+release does, so it costs a series per release and makes *did this release move
+the rates* a query rather than an argument. Set for exactly one turn by
+`configured`, never left behind (F-084's lesson)."""
+
+
+@contextmanager
+def configured(fingerprint: str | None) -> Iterator[None]:
+    """Label this turn's numbers with the configuration it runs under, and stop
+    when the turn does."""
+    token = _CONFIG.set(fingerprint or UNCONFIGURED)
+    try:
+        yield
+    finally:
+        _CONFIG.reset(token)
+
+
+def configuration() -> str:
+    return _CONFIG.get()
 
 
 def bind(meter: Meter) -> None:
@@ -179,6 +210,25 @@ def bind(meter: Meter) -> None:
         "agent.canary.cases",
         description="The synthetic customer's cases through the deployed edge (AHC-0113).",
     )
+    _bind_tool_surface(meter)
+
+
+def _bind_tool_surface(meter: Meter) -> None:
+    """What the model is shown and where its tool use goes wrong — AACP-0026,
+    0004, 0024. Apart from `bind` only to keep each function short."""
+    global tools_offered, tool_truncated, tool_invalid
+    tools_offered = meter.create_counter(
+        "agent.tools.offered",
+        description="Each tool on the surface, once per listing (AACP-0026).",
+    )
+    tool_truncated = meter.create_counter(
+        "agent.tool.truncated",
+        description="Tool results cut to fit the context, by tool (AACP-0004).",
+    )
+    tool_invalid = meter.create_counter(
+        "agent.tool.invalid_arguments",
+        description="Tool calls whose arguments failed the tool's schema, by tool (AACP-0024).",
+    )
 
 
 bind(metrics.get_meter(METER_NAME))
@@ -198,7 +248,12 @@ def record_turn(
     this denominator, so a turn counted differently from a refusal makes the
     refusal rate a ratio of two different things.
     """
-    labels = {"result": result.kind, "route": decision.kind, "synthetic": _flag(synthetic)}
+    labels = {
+        "result": result.kind,
+        "route": decision.kind,
+        "synthetic": _flag(synthetic),
+        "config": configuration(),
+    }
     turns.add(1, labels)
     turn_duration.record(duration_s, labels)
     match result:
@@ -221,9 +276,12 @@ def record_turn(
 
 __all__ = [
     "METER_NAME",
+    "UNCONFIGURED",
     "approvals",
     "bind",
     "canary",
+    "configuration",
+    "configured",
     "escalations",
     "findings",
     "model_calls",
@@ -238,6 +296,9 @@ __all__ = [
     "token_usage",
     "tool_calls",
     "tool_duration",
+    "tool_invalid",
+    "tool_truncated",
+    "tools_offered",
     "turn_duration",
     "turns",
 ]

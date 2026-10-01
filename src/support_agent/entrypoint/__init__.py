@@ -179,7 +179,7 @@ class Agent:
         synthetic = identity.customer_id in self.synthetic_customers
         opened = (run_id, conversation, identity, self.config, synthetic)
         with (
-            tel.capturing_turn(run_id),
+            tel.turn_scope(run_id, ending.fingerprint(self.config)),
             tel.span("agent.turn", **ending.opened(*opened)) as turn_span,
         ):
             tel.set_payload(turn_span, tel.INPUT, text)

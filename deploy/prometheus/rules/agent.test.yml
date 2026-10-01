@@ -128,3 +128,47 @@ tests:
             exp_annotations:
               summary: "12 spans could not be delivered to the trace store in 15 minutes"
               description: "Those turns are missing from the trace store, so the online rules never saw them and every rate computed there is short."
+
+  # --- AACP-0023: a twentieth of tool calls ask for a tool nobody offers: ticket
+  - interval: 1m
+    input_series:
+      - series: 'agent_tool_calls_total{tool="get_order",outcome="ok"}'
+        values: '0+19x70'
+      - series: 'agent_tool_calls_total{tool="unoffered",outcome="unknown"}'
+        values: '0+1x70'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: UnofferedToolsRequested
+        exp_alerts:
+          - exp_labels: { severity: ticket, pattern: AACP-0023 }
+            exp_annotations:
+              summary: "5% of tool calls asked for a tool that is not offered"
+              description: "The model is asking for tools by names it has seen elsewhere, most often after a model or prompt change."
+
+  # --- every tool on the surface: nothing to say
+  - interval: 1m
+    input_series:
+      - series: 'agent_tool_calls_total{tool="get_order",outcome="ok"}'
+        values: '0+20x70'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: UnofferedToolsRequested
+        exp_alerts: []
+
+  # --- AACP-0024: a tenth of one tool's calls fail its schema: ticket, naming it
+  - interval: 1m
+    input_series:
+      - series: 'agent_tool_calls_total{tool="cancel_order",outcome="ok"}'
+        values: '0+9x70'
+      - series: 'agent_tool_calls_total{tool="cancel_order",outcome="error"}'
+        values: '0+1x70'
+      - series: 'agent_tool_invalid_arguments_total{tool="cancel_order"}'
+        values: '0+1x70'
+      - series: 'agent_tool_calls_total{tool="get_order",outcome="ok"}'
+        values: '0+10x70'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: ToolArgumentsFailingSchema
+        exp_alerts:
+          - exp_labels: { severity: ticket, pattern: AACP-0024, tool: cancel_order }
+            exp_annotations: { summary: "cancel_order: 10% of calls failed the tool's own schema" }

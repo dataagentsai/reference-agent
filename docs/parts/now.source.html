@@ -665,7 +665,7 @@
   <tr><td>Is the model returning junk, or the provider failing?</td><td><code>ModelOutputUnreadable</code>, <code>ProviderDegraded</code></td><td><span class="pill done">alerts</span></td></tr>
   <tr><td>Are approvals expiring with nobody deciding?</td><td><code>WaitsLapsing</code>, counted inside the workflow itself</td><td><span class="pill done">alerts</span></td></tr>
   <tr><td>Is spend this hour on track against budget?</td><td><code>SpendPerRunDoubled</code>, p50 and p95 per run on the dashboard</td><td><span class="pill done">alerts</span></td></tr>
-  <tr><td>Did the last release change its behaviour?</td><td>the fingerprint is on the span and not yet a metric label</td><td><span class="pill part">by hand — T-058</span></td></tr>
+  <tr><td>Did the last release change its behaviour?</td><td>turns and tokens carry the configuration fingerprint as <code>config</code>; a new one that moves the rates pages (<code>RatesMovedAfterRelease</code>)</td><td><span class="pill part">turn rates, not yet spend</span></td></tr>
   <tr><td>Are answers getting worse?</td><td>20 turn rules and 2 conversation rules, as scores and as rates</td><td><span class="pill done">alerts</span></td></tr>
 </table></div>
 
@@ -785,7 +785,7 @@
 <p class="caption">Tested the way Prometheus tests rules: <code>deploy/prometheus/rules/agent.test.yml</code> feeds each alert the series that should fire it and the series that must not — including the canary's own failures, which must move no business rate.</p>
 
 <h4>Ten patterns with a signal and no detector</h4>
-<p class="measure">Stated rather than quietly missing, in <code>watch/rules.py</code>'s <code>NOT_YET</code>, each with what is in the way: the rates carry no release fingerprint (AACP-0002, 0055); truncations, unoffered tools and schema failures are not counted apart (0004, 0023, 0024); tools offered is not a metric (0026); nothing is kept per conversation (0043); a person's verdict on an escalation is on a span (0044); tokens per turn are not in the record (0003); request and response model names need one form (0054). That is T-058, and a test fails if a pattern is both detected and owed.</p>
+<p class="measure">Stated rather than quietly missing, in <code>watch/rules.py</code>'s <code>NOT_YET</code>, each with what is in the way. One is left: turns to resolution (AACP-0043), because nothing marks a conversation resolved — the watch infers when an answer did not hold, never that one did. The other nine of T-058 are detected: the configuration fingerprint on the rates and tokens (0002, 0055), truncations, unoffered tools and schema failures counted apart (0004, 0023, 0024), tools offered as a metric (0026), the desk's verdict by rule (0044), tokens per turn in the record (0003) and one form for model names (0054). A test fails if a pattern is both detected and owed.</p>
 
 <h3>Found by running it</h3>
 <div class="scroll"><table>

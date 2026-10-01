@@ -200,6 +200,15 @@ RULES: tuple[Rule, ...] = (
         False,
         c.answered_on_a_truncated_result,
     ),
+    Rule(
+        "W-21",
+        "1",
+        "AACP-0054",
+        "Served by a model other than the one asked for",
+        "ticket",
+        False,
+        c.served_another_model,
+    ),
 )
 
 CONVERSATION_RULES: tuple[ConversationRule, ...] = (
@@ -209,20 +218,19 @@ CONVERSATION_RULES: tuple[ConversationRule, ...] = (
     ConversationRule(
         "C-02", "1", "AACP-0035", "Apologies without progress", "ticket", c.apology_without_progress
     ),
+    ConversationRule(
+        "C-03", "1", "AACP-0003", "Late turns cost far more than the first", "trend", c.tail_cost
+    ),
 )
 
 
 NOT_YET: dict[str, str] = {
-    "AACP-0002": "token metrics carry no configuration fingerprint label to compare releases by",
-    "AACP-0003": "the record has no tokens per turn, so a conversation's tail is not visible",
-    "AACP-0004": "truncation is on the tool span, and no metric counts it by tool",
-    "AACP-0023": "an unoffered tool raises before any tool span opens, so nothing counts it",
-    "AACP-0024": "a schema failure is counted as a tool error, not apart from one",
-    "AACP-0026": "the tools offered on each turn are a span attribute, not a metric",
-    "AACP-0043": "no metric is kept per conversation, so turns to resolution is not computable",
-    "AACP-0044": "a person's verdict on an escalation is on its span, not a metric by rule",
-    "AACP-0054": "request and response model names differ by provider prefix; one form first",
-    "AACP-0055": "the rates carry no configuration fingerprint to compare releases by",
+    "AACP-0043": (
+        "nothing marks a conversation resolved: the watch infers that an answer did not"
+        " hold (returned, asked_for_person) but never that one did, so turns per"
+        " resolved conversation has no denominator; and a per-session label would be"
+        " unbounded. Needs the AOAS to say what resolved means"
+    ),
 }
 """Patterns with a signal that nothing here detects yet, and why — so a gap is
 a stated gap rather than a rule nobody wrote."""

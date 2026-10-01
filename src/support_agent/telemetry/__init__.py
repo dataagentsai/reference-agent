@@ -186,19 +186,22 @@ def capture_decision(run_id: str) -> bool:
 
 
 @contextmanager
-def capturing_turn(run_id: str) -> Iterator[bool]:
-    """Keep this turn's words, or not, for exactly as long as the turn (F-084).
+def turn_scope(run_id: str, config: str | None = None) -> Iterator[bool]:
+    """What telemetry holds for exactly one turn, and gives back when it ends.
 
-    The decision used to be set on the context and never taken back, so it
+    Two things: whether the turn's words are kept (F-084), and the configuration
+    fingerprint its numbers are labelled with (`counters.configured`). The
+    capture decision used to be set on the context and never taken back, so it
     outlived its turn: whatever ran next in the same task — an opening, the
     next caller's work, a test — kept or dropped words by a decision made for
-    something else, and switching capture off did not withdraw it. Now it is
+    something else, and switching capture off did not withdraw it. Both are now
     restored on the way out, whatever way the turn leaves.
     """
     keep = capture_decision(run_id)
     token = _CAPTURING.set(keep)
     try:
-        yield keep
+        with counters.configured(config):
+            yield keep
     finally:
         _CAPTURING.reset(token)
 
@@ -278,7 +281,7 @@ def set_payload(current: Span, key: str, text: str, *, limit: int = 4000) -> Non
 
     Off by default. Payload capture is the single largest privacy surface in an
     agent, and a default that leaks is a default that ships. When on, it is on
-    for a declared sample of turns (`capturing_turn`), not for all traffic.
+    for a declared sample of turns (`turn_scope`), not for all traffic.
 
     Until T-057 this was defined and called from nowhere, so switching
     capture on captured nothing (found writing AHC-0114).
@@ -348,7 +351,7 @@ __all__ = [
     "redact",
     "set_current_attribute",
     "capture_decision",
-    "capturing_turn",
+    "turn_scope",
     "capturing",
     "exporting_metrics",
     "flush_metrics",

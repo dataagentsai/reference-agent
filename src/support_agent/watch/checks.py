@@ -113,6 +113,9 @@ class Thresholds:
     short_reply_chars: int = 15
     tool_errors: int = 2
     apologies: int = 3
+    tail_ratio: float = 4.0
+    """AACP-0003: a late turn reading more than this many times the first
+    turn's input tokens is the conversation's tail paying for its history."""
 
 
 # --------------------------------------------------------------------------- #
@@ -332,6 +335,25 @@ def answered_on_a_truncated_result(turn: Turn, _: Thresholds) -> str | None:
 # --------------------------------------------------------------------------- #
 
 
+def model_name(name: str) -> str:
+    """One form for a model's name, so a request and a response compare (AACP-0054).
+
+    A gateway is asked for `groq/llama-3.3-70b-versatile` and the provider
+    answers `llama-3.3-70b-versatile`: the same model, two spellings. The form
+    is the part after the last `/`, lower-cased. A dated snapshot behind an
+    alias (`gpt-4o` answered as `gpt-4o-2024-08-06`) still differs, which is
+    the point — an alias that moved is what the pattern is for.
+    """
+    return name.rsplit("/", 1)[-1].strip().lower()
+
+
+def served_another_model(turn: Turn, _: Thresholds) -> str | None:
+    for requested, served in turn.models:
+        if requested and served and model_name(requested) != model_name(served):
+            return f"asked for {requested}, served by {served}"
+    return None
+
+
 def repeats_themselves(turns: Sequence[Turn], _: Thresholds) -> str | None:
     """AACP-0040."""
     seen: set[str] = set()
@@ -355,3 +377,12 @@ def apology_without_progress(turns: Sequence[Turn], t: Thresholds) -> str | None
 
 
 __all__ = ["CLAIMS", "STATUSES", "SURFACE", "Thresholds", "plain"]
+
+
+def tail_cost(turns: Sequence[Turn], t: Thresholds) -> str | None:
+    """AACP-0003: the conversation's latest turn against its first, in input tokens."""
+    first = next((x.input_tokens for x in turns if x.input_tokens), 0)
+    last = turns[-1].input_tokens if turns else 0
+    if first and last > t.tail_ratio * first:
+        return f"the latest turn read {last} input tokens, {last / first:.1f}x the first's {first}"
+    return None
