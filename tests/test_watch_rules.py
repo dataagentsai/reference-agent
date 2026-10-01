@@ -382,3 +382,21 @@ def test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn(
     assert [f.rule for f in ours] == ([fires] if fires else [])
     if fires:
         assert ours[0].trace_id == turns[-1].trace_id
+
+
+# (why, how the rule set differs from the one in force) — F-069: RULES_VERSION
+# was a hand-kept "1" said to move with any rule's version, and W-06 was at 2.
+CHANGES = [
+    ("a rule's version moves", lambda rules: (replace(rules[0], version="99"), *rules[1:])),
+    ("a rule is added", lambda rules: (*rules, replace(rules[0], id="W-99"))),
+    ("a rule is retired", lambda rules: rules[1:]),
+]
+
+
+@pytest.mark.discharges("AHC-0028")
+@pytest.mark.parametrize(("why", "change"), CHANGES, ids=[c[0] for c in CHANGES])
+def test_the_rule_set_version_moves_with_any_rule(why: str, change) -> None:
+    from support_agent import watch
+
+    assert watch.rules_version(RULES) == watch.RULES_VERSION, "the version in force is derived"
+    assert watch.rules_version(change(RULES)) != watch.RULES_VERSION

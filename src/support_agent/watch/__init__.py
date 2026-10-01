@@ -21,6 +21,7 @@ mean (`rules`), and what counts as an outcome for it (`outcomes`).
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -32,8 +33,20 @@ from support_agent.watch.outcomes import Outcome
 from support_agent.watch.record import Turn
 from support_agent.watch.rules import RULES, Finding, Rule, Thresholds, evaluate
 
-RULES_VERSION = "1"
-"""Bumped when any rule's version is, so a score's version names the rule set."""
+
+def rules_version(rules: Iterable[Rule]) -> str:
+    """The rule set's version, derived from every rule's id and version.
+
+    It was a hand-kept "1", said to be bumped whenever any rule's was, and W-06
+    went to 2 without it (F-069): a score's version then named a rule set that
+    no longer existed. Derived, it cannot be forgotten.
+    """
+    named = ",".join(sorted(f"{r.id}@{r.version}" for r in rules))
+    return hashlib.sha256(named.encode()).hexdigest()[:12]
+
+
+RULES_VERSION = rules_version(RULES)
+"""Names the rule set a score was made by (AHC-0028)."""
 
 
 class Source(Protocol):
@@ -113,4 +126,4 @@ class Watch:
             tel.counters.outcomes.add(1, {"kind": outcome.kind, "source": outcome.source})
 
 
-__all__ = ["RULES_VERSION", "Report", "Sink", "Source", "Watch"]
+__all__ = ["RULES_VERSION", "Report", "Sink", "Source", "Watch", "rules_version"]
