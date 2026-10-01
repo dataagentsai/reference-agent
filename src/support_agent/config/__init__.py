@@ -77,6 +77,14 @@ class Budgets(BaseModel):
     """Tool results are bounded before they enter context — AAC-0105."""
     max_turn_seconds: int = 60
     """Wall clock for one turn (AHC-0096), checked before each step."""
+    max_tool_calls_per_step: int = 8
+    """How many tool calls one step may plan (AHC-0097). A step budget counts
+    steps, so without this one step asking for fifty look-ups — or fifty
+    writes — spends one of the twelve and does fifty things."""
+    max_tool_calls_per_turn: int = 24
+    """How many tool calls one turn may plan across all its steps (AHC-0097).
+    Reaching either bound stops the turn before the step's calls run, as
+    `tool_call_budget_exhausted` — never a silent cut to the first N (AHC-0059)."""
 
 
 class Settings(BaseSettings):
@@ -128,6 +136,8 @@ class Settings(BaseSettings):
     temperature: float = 0.0
     max_steps: int = 12
     max_cost_usd: float = 0.50
+    max_tool_calls_per_step: int = 8
+    max_tool_calls_per_turn: int = 24
 
     issuer_url: str = ""
     """Whose sessions are accepted (T-002): the realm's URL, whose discovery
@@ -272,6 +282,8 @@ def resolve(settings: Settings) -> RunConfig:
         budgets=Budgets(
             max_steps=settings.max_steps,
             max_cost_usd=settings.max_cost_usd,
+            max_tool_calls_per_step=settings.max_tool_calls_per_step,
+            max_tool_calls_per_turn=settings.max_tool_calls_per_turn,
         ),
     )
 

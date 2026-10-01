@@ -45,6 +45,7 @@ from support_agent.telemetry.names import (
     TENANT,
     TERMINATION,
     TOOL_ARGUMENTS,
+    TOOL_CALL_BOUND,
     TOOL_OUTCOME,
     TOOL_RESULT,
     TRACER_NAME,
@@ -110,7 +111,14 @@ CONTRACT: dict[str, SpanSpec] = {
     "agent.run": SpanSpec(
         required=frozenset({RUN_ID, TENANT}),
         optional=frozenset(
-            {TERMINATION, COST_USD, COST_CALL_USD, MODEL_MALFORMED, "agent.policy.blocked_by"}
+            {
+                TERMINATION,
+                COST_USD,
+                COST_CALL_USD,
+                MODEL_MALFORMED,
+                TOOL_CALL_BOUND,
+                "agent.policy.blocked_by",
+            }
         ),
     ),
     "http.chat": SpanSpec(

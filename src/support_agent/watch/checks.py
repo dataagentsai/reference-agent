@@ -102,6 +102,7 @@ _GAVE_UP = frozenset(
         "cost_ceiling_reached",
         "deadline_reached",
         "output_length_reached",
+        "tool_call_budget_exhausted",
     }
 )
 

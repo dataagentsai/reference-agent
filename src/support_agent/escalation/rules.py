@@ -138,6 +138,7 @@ TERMINATED_BADLY = (
     "deadline_reached",
     "output_length_reached",
     "oscillation_detected",
+    "tool_call_budget_exhausted",
 )
 
 DEFAULT_RULES: tuple[Tier2Rule, ...] = (

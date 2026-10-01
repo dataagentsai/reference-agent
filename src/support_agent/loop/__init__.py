@@ -26,12 +26,23 @@ filling it.
 single call may overshoot, bounded by `max_output_tokens`. Attribution happens
 at P3 where the call is made; the ceiling is here because only P4 can see the
 whole task.
+
+**Tool fan-out.** One step may plan at most `max_tool_calls_per_step` calls and
+one turn `max_tool_calls_per_turn` (AHC-0097). A plan past either bound stops
+the turn before any of the step's calls runs: the step budget counts steps, so
+without this a step asking for fifty look-ups spends one and does fifty things.
+
+**The caller left.** Where the door can tell that whoever asked has gone — the
+HTTP connection closed — the loop is handed `gone` and asks it where it checks
+the deadline, and again before a step's tool calls run (AHC-0096). A departed
+caller ends the turn as surely as the clock, so no further model or tool call
+starts for a reply nobody will read.
 """
 
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 
 from opentelemetry.trace import Span
@@ -66,6 +77,7 @@ from support_agent.cost import Meter
 from support_agent.loop import freshness, plan, spend
 from support_agent.loop.dispatch import dispatch
 from support_agent.loop.ends import (
+    CALLER_LEFT,
     IN_CIRCLES,
     PASS_ON,
     TROUBLE,
@@ -77,6 +89,10 @@ from support_agent.loop.ends import (
     stopped,
 )
 from support_agent.loop.screen import Screen
+
+Gone = Callable[[], Awaitable[bool]]
+"""Whether the caller has left. Supplied by a door that can tell (`/chat`'s
+`request.is_disconnected`); a door that cannot passes nothing (AHC-0096)."""
 
 
 async def run(
@@ -96,6 +112,7 @@ async def run(
     fan_out: int = flw.DEFAULT_FAN_OUT,
     now: Callable[[], int] | None = None,
     fresh_for_s: int | None = None,
+    gone: Gone | None = None,
 ) -> Ended:
     """One task, step by step, until one of the terminations above.
 
@@ -136,6 +153,7 @@ async def run(
             fan_out=fan_out,
             messages=[*history, ctx.user_message(goal)],
             screen=Screen(identity=identity, rules=policy_rules, span=run_span),
+            gone=gone,
         )
         this.started = this.now()
         for step in range(budgets.max_steps):
@@ -177,12 +195,14 @@ class _Run:
     seen_results: list[ToolResult] = field(default_factory=list)
     started: int = 0
     keys: plan.Keys = field(default_factory=plan.Keys)
+    gone: Gone | None = None
 
     async def step(self, step: int) -> Ended | None:
         """Ask, account, then answer or act. `None` means take another step."""
         self.trace.steps = step + 1
-        if self.now() - self.started > self.budgets.max_turn_seconds:
-            return self._stop(TerminationReason.DEADLINE_REACHED, PASS_ON)
+        out = await self._out_of_time()
+        if out is not None:
+            return out
         with tel.span("agent.step", **{tel.STEP: step, tel.RUN_ID: self.run_id}) as step_span:
             response = await self._ask(step_span)
             if not isinstance(response, ModelResponse):
@@ -206,6 +226,17 @@ class _Run:
             if not isinstance(planned, list):
                 return planned
             return await self._act(planned)
+
+    async def _out_of_time(self) -> Ended | None:
+        """The deadline, and the caller leaving, which ends a turn as surely (AHC-0096)."""
+        if self.now() - self.started > self.budgets.max_turn_seconds:
+            return self._stop(TerminationReason.DEADLINE_REACHED, PASS_ON)
+        if await self._caller_gone():
+            return self._stop(TerminationReason.CALLER_GONE, CALLER_LEFT)
+        return None
+
+    async def _caller_gone(self) -> bool:
+        return self.gone is not None and await self.gone()
 
     async def _ask(self, step_span: Span) -> ModelResponse | Ended:
         """One model call, over the assembled context; its failures become typed ends."""
@@ -280,7 +311,15 @@ class _Run:
     ) -> list[tuple[ToolCall, IdempotencyKey]] | Ended:
         """Mint keys and check for oscillation in the order the model emitted the
         calls, before anything runs. Scheduling must not change which call gets
-        which key."""
+        which key.
+
+        The fan-out bounds come first (AHC-0097): a plan past either one is
+        refused whole, before a key is minted or a call counted, because
+        running its first N would be a partial result nobody marked."""
+        bound = self._over_fan_out(len(calls))
+        if bound is not None:
+            self.span.set_attribute(tel.TOOL_CALL_BOUND, bound)
+            return self._stop(TerminationReason.TOOL_CALL_BUDGET_EXHAUSTED, PASS_ON)
         planned: list[tuple[ToolCall, IdempotencyKey]] = []
         for call in calls:
             made = plan.signature(call.name, call.arguments)
@@ -292,6 +331,14 @@ class _Run:
             planned.append((call, key))
         return planned
 
+    def _over_fan_out(self, asked: int) -> str | None:
+        """Which bound this step's plan would pass, if any."""
+        if asked > self.budgets.max_tool_calls_per_step:
+            return "per_step"
+        if len(self.trace.tool_calls) + asked > self.budgets.max_tool_calls_per_turn:
+            return "per_turn"
+        return None
+
     async def _act(self, planned: list[tuple[ToolCall, IdempotencyKey]]) -> Ended | None:
         """Run the calls and feed their results back — or stop for a person.
 
@@ -299,6 +346,10 @@ class _Run:
         result. The loop does not know which action it was; the signal carries
         what the customer is told.
         """
+        # The model call may have taken most of the turn; the tools have not
+        # started, and need not start for nobody (AHC-0096).
+        if await self._caller_gone():
+            return self._stop(TerminationReason.CALLER_GONE, CALLER_LEFT)
         # AHC-0107, before the screen and before anything is dispatched: an
         # irreversible action planned against a row this run last read outside
         # its freshness window does not run. The row is read again instead, and
@@ -378,4 +429,4 @@ def _latest_user_text(messages: list[Message]) -> str:
     return ""
 
 
-__all__ = ["Trace", "run"]
+__all__ = ["Gone", "Trace", "run"]

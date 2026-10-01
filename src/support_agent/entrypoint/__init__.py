@@ -49,6 +49,7 @@ from support_agent.contracts import (
     Refused,
     Route,
     RunId,
+    TerminationReason,
     ToolClient,
     TurnResult,
     new_conversation_id,
@@ -61,6 +62,7 @@ from support_agent.entrypoint.opening import opening
 from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
 from support_agent.entrypoint.persist import TurnPersister, agree_on_durability
 from support_agent.escalation import rules as t2
+from support_agent.loop.ends import CALLER_LEFT
 from support_agent.state import Conversation, TurnNote, facts
 
 DEFAULT_SYSTEM_PROMPT = binding.SYSTEM_PROMPT  # the words are the agent's (G0.10)
@@ -139,12 +141,17 @@ class Agent:
         conversation: Conversation | None = None,
         run_id: RunId | None = None,
         delivery_id: str | None = None,
+        gone: agent_loop.Gone | None = None,
     ) -> tuple[TurnResult, Conversation]:
         """One turn in, one typed result out.
 
         The conversation is returned rather than mutated, so a caller — a test,
         or a resumed approval — always holds the state that produced the result
         it is looking at.
+
+        `gone` is the door's way of saying the caller has left (AHC-0096): asked
+        before the route's work starts and, on the agentic route, wherever the
+        loop checks its deadline. A door that cannot tell passes nothing.
         """
         # AAC-0076. The guard is outermost, before a run id exists: a duplicate
         # delivery must not mint a second run, because a second run gets its own
@@ -154,14 +161,14 @@ class Agent:
         if self.deliveries is not None and delivery_id is not None:
             named = f"{identity.customer_id}:{delivery_id}"
             async with req.once(self.deliveries, named, scope=req.Scope.DELIVERY) as claim:
-                answer = await self._turn(text, identity, conversation, run_id)
+                answer = await self._turn(text, identity, conversation, run_id, gone)
                 # What a redelivery is told. A turn that *raised* settles too,
                 # with nothing to say — `Scope.DELIVERY` decides that, because
                 # arriving at the end at all means the turn ran.
                 if claim is not None:
                     claim.outcome = ending.as_answer(*answer)
                 return answer
-        return await self._turn(text, identity, conversation, run_id)
+        return await self._turn(text, identity, conversation, run_id, gone)
 
     async def _turn(
         self,
@@ -169,6 +176,7 @@ class Agent:
         identity: Identity,
         conversation: Conversation | None,
         run_id: RunId | None,
+        gone: agent_loop.Gone | None = None,
     ) -> tuple[TurnResult, Conversation]:
         """The turn, as a sequence: gates, route, dispatch, Tier 2, record, persist."""
         run_id = run_id or new_run_id()
@@ -196,7 +204,9 @@ class Agent:
                 update={"facts": conversation.facts.asking(text)}
             ).with_messages(ctx.user_message(text))
             identity = consent.granting(identity, conversation, text, self.rules)
-            result, landed, tried = await self._dispatch(decision, conversation, identity, run_id)
+            result, landed, tried = await self._dispatch(
+                decision, conversation, identity, run_id, gone
+            )
             conversation = conversation.with_turn(TurnNote.of(decision, result))
 
             # Tier 2, after the work: every rule asks how the turn *went*, and
@@ -244,7 +254,12 @@ class Agent:
         return None, conversation
 
     async def _dispatch(
-        self, decision: Route, conversation: Conversation, identity: Identity, run_id: RunId
+        self,
+        decision: Route,
+        conversation: Conversation,
+        identity: Identity,
+        run_id: RunId,
+        gone: agent_loop.Gone | None = None,
     ) -> tuple[TurnResult, tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]:
         """Four routes, and only one of them reaches the model.
 
@@ -252,7 +267,13 @@ class Agent:
         because only this function ever sees them and the record they go into
         (AHC-0108) is the caller's. Three of the four routes confirm nothing:
         two never act, and the deterministic one never writes (`P-DIRECT-READS`).
+
+        The two routes that call anything are not started for a caller who has
+        gone (AHC-0096); the two free ones answer anyway, for the record.
         """
+        if isinstance(decision, Direct | Agentic) and gone is not None and await gone():
+            left = Completed(reply=CALLER_LEFT, termination=TerminationReason.CALLER_GONE)
+            return left, (), ()
         match decision:
             case Refuse():
                 return (
@@ -286,6 +307,7 @@ class Agent:
                     meter=self.metering() if self.metering is not None else None,
                     now=self._now,
                     fresh_for_s=self.fresh_for_s,
+                    gone=gone,
                 )
                 return result, tuple(trace.effects), tuple(trace.tool_calls)
             case _:

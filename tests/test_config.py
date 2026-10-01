@@ -75,6 +75,9 @@ FINGERPRINT_CASES = [
     ("router rules change", {"router_rules_version": "v3"}, True),
     ("temperature change", {"temperature": 0.7}, True),
     ("step budget change", {"max_steps": 30}, True),
+    # AHC-0097: the fan-out bounds are configuration, and change what runs.
+    ("tool calls per step change", {"max_tool_calls_per_step": 2}, True),
+    ("tool calls per turn change", {"max_tool_calls_per_turn": 50}, True),
     ("resolution change", {"resolution": "mock"}, True),
     ("api key rotation", {"provider_api_key": "rotated"}, False),
     ("tool endpoint swap", {"mcp_base_url": "http://localhost:9999/mcp"}, False),

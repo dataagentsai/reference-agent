@@ -151,6 +151,11 @@ proceeded on an old value and left nothing to say so."""
 
 TERMINATION = "agent.termination.reason"
 
+TOOL_CALL_BOUND = "agent.tool_calls.bound"
+"""`per_step` or `per_turn`: which of AHC-0097's two bounds stopped the turn,
+set only when one did. The termination says a bound was reached; this says
+which, because the two are raised for different reasons."""
+
 
 RESOLUTION = "agent.resolution"
 """mock | replay | real | shadow. A verdict is not interpretable without it."""

@@ -79,6 +79,15 @@ class TerminationReason(StrEnum):
     """The model stopped because its output budget ran out (AHC-0025), so what
     it wrote is incomplete. Its own value since generation run 2: sending a
     clipped answer as if it were whole is the failure it names."""
+    TOOL_CALL_BUDGET_EXHAUSTED = "tool_call_budget_exhausted"
+    """A step planned more tool calls than one step may, or the turn's calls
+    would pass what one turn may (AHC-0097). The step's calls do not run: a
+    plan cut to its first N would be a partial result nobody marked (AHC-0025)."""
+    CALLER_GONE = "caller_gone"
+    """The caller left — the connection closed — before the turn finished
+    (AHC-0096). Checked where the deadline is, so no further model or tool call
+    starts for a reply nobody will read. Not a give-up: nobody is waiting, so
+    nobody is paged."""
     OSCILLATION_DETECTED = "oscillation_detected"
     AWAITING_APPROVAL = "awaiting_approval"
     AWAITING_HUMAN = "awaiting_human"

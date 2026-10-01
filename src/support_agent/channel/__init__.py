@@ -285,6 +285,9 @@ async def answer(channel: Channel, message: Incoming) -> None:
         if conversation is None:
             span.set_attribute("agent.channel.outcome", "not-yours")
             return
+        # No `gone` (AHC-0096): Chatwoot already has its 202, and the reply is
+        # posted into a conversation that keeps it. A customer who closes the
+        # widget reads it when they come back, so there is no caller to lose.
         try:
             result, after = await channel.agent.handle(
                 message.text,

@@ -50,6 +50,8 @@ PASS_ON = "I have not been able to resolve this — let me pass you to a colleag
 IN_CIRCLES = "I am going round in circles on this — let me pass you to a colleague."
 TROUBLE = "I am having trouble answering right now."
 UNREACHABLE = "I cannot reach our order system right now."
+CALLER_LEFT = "This conversation was closed before I finished — ask again and I will pick it up."
+"""Recorded on the conversation for whoever reopens it; nobody was there to read it."""
 
 Ended = tuple[TurnResult, Trace]
 """A terminated run: the typed result, and the trajectory that produced it."""
@@ -95,6 +97,7 @@ def failed(span: Span, trace: Trace, customer_message: str, detail: str) -> Ende
 
 
 __all__ = [
+    "CALLER_LEFT",
     "IN_CIRCLES",
     "PASS_ON",
     "TROUBLE",

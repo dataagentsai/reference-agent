@@ -271,6 +271,8 @@ thresholds:
   max_history_characters: 32000
   max_concurrent_reads: 4             # reads overlap, up to this many; writes run one at a time
   max_turn_seconds: 60                # AHC-0096; checked before each step, not during a call
+  max_tool_calls_per_step: 8          # AHC-0097; a plan past it is refused whole
+  max_tool_calls_per_turn: 24         # AHC-0097; across all of a turn's steps
   oscillation_repeat_threshold: 3
   approval_validity_hours: 24
   escalation_queued_ttl_minutes: 30
@@ -442,9 +444,10 @@ accepted_gaps:
 # Owed only where a condition holds, and it does not hold here (AHC f21d662,
 # `applies_when`). Not a gap: nothing is owed, so no owner and no review date —
 # which is why the catalog's linter allows this block only for a capability
-# that states its condition. Until 2026-10-01 the first three were accepted
-# gaps with review dates, which read as a debt being carried, and AHC-0097
-# was a shortfall measured against tool calls when it is about model calls.
+# that states its condition. Until 2026-10-01 these three were accepted gaps
+# with review dates, which read as a debt being carried. AHC-0097 sat here for
+# a day, read as model calls only; AHC 8703070 widened it to a step's tool
+# calls, and it is a shortfall again, below.
 not_applicable:
   - capability: AHC-0015
     reason: >-
@@ -454,10 +457,9 @@ not_applicable:
     revisit_when: the reply is streamed to the caller
     x_note: >-
       The cancellation clause cancels the stream, so it goes with the condition.
-      The concern behind it does not: a turn keeps running, and paying, after
-      the customer closes the tab, because nothing checks the caller is still
-      there. No capability owns that for a system that does not stream; handed
-      back to the catalog (REVIEW R-020).
+      The concern behind it was handed back to the catalog (REVIEW R-020) and
+      answered there: AHC-0096 now treats a caller that has gone as
+      cancellation, and /chat implements it (see x_shortfalls, AHC-0096).
   - capability: AHC-0092
     reason: >-
       No data-residency obligation binds this agent: the AOAS declares residency
@@ -471,17 +473,6 @@ not_applicable:
       summarises, so no new text is produced for a provenance label to be lost
       across. The decision AHC-0109/summary_provenance records why.
     revisit_when: a summariser is added to context reduction
-  - capability: AHC-0097
-    reason: >-
-      One request never issues model calls in parallel: the loop makes one model
-      call per step, in sequence. What fans out is the tool calls a step asks
-      for, which is AHC-0104's, and their concurrency is bounded at four.
-    revisit_when: a request issues several model calls at once — per document, candidate or branch
-    x_note: >-
-      Filed here as a shortfall until 2026-10-01: the number of tool calls one
-      step may plan is unbounded (a step asking for fifty look-ups counts as one
-      of the twelve). That is still true and is not 0097's; handed back to the
-      catalog (REVIEW R-020).
 
 # `x_` is the format's extension point. These are not accepted gaps: each is
 # believed met and **no test names it**, which the Assurance Map reports and this
@@ -608,8 +599,30 @@ x_shortfalls:
   - capability: AHC-0096
     reason: >-
       Partly met since 56021f2: a turn past its clock ends as deadline_reached.
-      The deadline is not passed into the model call or the tool call, so the
-      worst case is the clock plus one full step, retries included.
+      Since 2026-10-01 a caller that has gone ends it too, as caller_gone: /chat
+      hands the turn Starlette's request.is_disconnected, and the loop asks it
+      where it checks the clock and again before a step's tools run, so no
+      further model or tool call starts. The Chatwoot webhook passes nothing on
+      purpose: its turn runs after Chatwoot has its 202 and the reply is posted
+      into a conversation that keeps it, so there is no caller to lose. What
+      does not hold: neither the deadline nor the departure is passed into the
+      model call or the tool call, so a call in flight finishes — the worst
+      case is the clock plus one full step, retries included — and handle()
+      called directly, as the simulator and the approval resume do, has no
+      caller to watch.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0097
+    reason: >-
+      Met for tool calls since 2026-10-01: one step may plan at most
+      max_tool_calls_per_step (8) and one turn max_tool_calls_per_turn (24),
+      configuration in the fingerprint, checked before any of the step's calls
+      runs; a plan past either is refused whole and the turn ends as
+      tool_call_budget_exhausted, naming the bound on the run span. The
+      model-call half does not arise (one model call per step, in sequence).
+      What does not hold: the per-turn bound is a count of its own rather than
+      drawn from the turn's cost budget (AHC-0007), because a tool call is not
+      priced; and harness re-reads under AHC-0107 are not counted against it.
     owner: reference-agent
     review: "2026-12-01"
   - capability: AHC-0042

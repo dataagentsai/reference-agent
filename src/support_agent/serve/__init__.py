@@ -43,7 +43,7 @@ this is; everything else is the agent's.
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -223,7 +223,12 @@ async def chat(request: Request) -> Response:
             # Refused as *not found* rather than *forbidden*: confirming the id
             # exists tells an attacker their guess was right.
             return JSONResponse({"error": "no such conversation"}, status_code=404)
-        return await _run_turn(state.agent, inbound, conversation, span)
+        # A browser that closes the tab closes the connection. The turn asks
+        # between steps whether that has happened, through the same path as
+        # its deadline, and starts no further call for nobody (AHC-0096).
+        return await _run_turn(
+            state.agent, inbound, conversation, span, gone=request.is_disconnected
+        )
 
 
 async def _conversation_for(store: CheckpointStore, inbound: Inbound) -> Conversation | None:
@@ -245,7 +250,12 @@ async def _conversation_for(store: CheckpointStore, inbound: Inbound) -> Convers
 
 
 async def _run_turn(
-    agent: Agent, inbound: Inbound, conversation: Conversation | None, span: Span
+    agent: Agent,
+    inbound: Inbound,
+    conversation: Conversation | None,
+    span: Span,
+    *,
+    gone: Callable[[], Awaitable[bool]] | None = None,
 ) -> Response:
     """One turn, and the status code that says what it amounted to."""
     try:
@@ -254,6 +264,7 @@ async def _run_turn(
             identity=inbound.identity,
             conversation=conversation,
             delivery_id=inbound.delivery_id,
+            gone=gone,
         )
     except req.AlreadyAnswered as again:
         # 200, not an error. The caller did the right thing by retrying; we are

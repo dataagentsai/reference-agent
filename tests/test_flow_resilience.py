@@ -13,10 +13,13 @@ from support_agent import identity as ident
 from support_agent import loop as agent_loop
 from support_agent import resilience as res
 from support_agent import telemetry as tel
+from support_agent.config import Budgets
 from support_agent.contracts import (
+    Completed,
     Identity,
     ModelResponse,
     SideEffectClass,
+    TerminationReason,
     ToolCall,
 )
 from support_agent.llm import ScriptedClient, retry_after_of
@@ -52,7 +55,7 @@ async def test_results_come_back_in_the_order_they_were_asked_for() -> None:
     assert out == [0, 1, 2, 3, 4]
 
 
-@pytest.mark.discharges("AHC-0020")
+@pytest.mark.discharges("AHC-0097", "AHC-0020")
 async def test_concurrency_is_actually_bounded() -> None:
     """AHC-0020 — the limit is the harness's and exists whether or not the
     runtime would have imposed one. `peak` is the assertion that it was
@@ -66,12 +69,12 @@ async def test_concurrency_is_actually_bounded() -> None:
     assert limiter.peak <= 2
 
 
-@pytest.mark.discharges("AHC-0104")
+@pytest.mark.discharges("AHC-0097", "AHC-0104")
 async def test_an_empty_batch_is_not_an_error() -> None:
     assert await flw.gather_bounded([]) == []
 
 
-@pytest.mark.discharges("AHC-0104")
+@pytest.mark.discharges("AHC-0097", "AHC-0104")
 def test_a_zero_limit_is_refused() -> None:
     with pytest.raises(ValueError, match="at least 1"):
         flw.Limiter(limit=0)
@@ -329,7 +332,50 @@ def batch(name: str, *ids: str) -> ModelResponse:
     )
 
 
-@pytest.mark.discharges("AHC-0104")
+# (name, per step, per turn, what the model plans step by step, look-ups run,
+#  how the turn ends, which bound stopped it)
+FAN_OUT_BOUNDS = [
+    ("within both bounds", 3, 6, [("A-1", "A-2", "A-3")], 3, TerminationReason.GOAL_REACHED, None),
+    ("one step asks for too many", 2, 6, [("A-1", "A-2", "A-3")], 0,
+     TerminationReason.TOOL_CALL_BUDGET_EXHAUSTED, "per_step"),
+    ("exactly the step's bound", 3, 6, [("A-1", "A-2", "A-3")], 3,
+     TerminationReason.GOAL_REACHED, None),
+    ("the turn runs out across steps", 3, 4, [("A-1", "A-2", "A-3"), ("B-1", "B-2")], 3,
+     TerminationReason.TOOL_CALL_BUDGET_EXHAUSTED, "per_turn"),
+]  # fmt: skip
+
+
+@pytest.mark.discharges("AHC-0097", "AHC-0059", "AHC-0025")
+@pytest.mark.parametrize(
+    ("name", "per_step", "per_turn", "plans", "lookups", "ends", "bound"),
+    FAN_OUT_BOUNDS,
+    ids=[c[0] for c in FAN_OUT_BOUNDS],
+)
+async def test_a_steps_tool_fan_out_is_bounded_and_says_so(
+    server, exporter, name, per_step, per_turn, plans, lookups, ends, bound
+) -> None:
+    """AHC-0097, widened to tool calls (AHC 8703070). A plan past a bound is
+    refused whole before any of it runs — never cut to its first N, which would
+    be a partial result nobody marked — and the turn says which bound it was."""
+    script = [batch("get_order", *ids) for ids in plans] + [ModelResponse(text="done")]
+    async with connect(server, requests=InMemoryRequests()) as tools:
+        result, trace = await agent_loop.run(
+            "check my orders",
+            identity=customer(),
+            llm=ScriptedClient(script),
+            tools=tools,
+            system_prompt="s",
+            budgets=Budgets(max_tool_calls_per_step=per_step, max_tool_calls_per_turn=per_turn),
+        )
+    started = [o for event, o in server.state["order"] if event == "start"]
+    assert (trace.termination, len(started)) == (ends, lookups)
+    assert isinstance(result, Completed)
+    assert (result.reply == "done") is (ends is TerminationReason.GOAL_REACHED)
+    run = next(s for s in exporter.get_finished_spans() if s.name == "agent.run")
+    assert run.attributes.get(tel.TOOL_CALL_BOUND) == bound
+
+
+@pytest.mark.discharges("AHC-0097", "AHC-0104")
 async def test_parallel_reads_interleave(server) -> None:
     async with connect(server, requests=InMemoryRequests()) as tools:
         await agent_loop.run(
