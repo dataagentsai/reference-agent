@@ -32,7 +32,7 @@ from support_agent import loop as agent_loop
 from support_agent import policy as pol
 from support_agent import requests as req
 from support_agent import telemetry as tel
-from support_agent.config import Budgets, RunConfig
+from support_agent.config import Budgets, RulesMismatch, RunConfig
 from support_agent.contracts import (
     Agentic,
     Approvals,
@@ -381,6 +381,11 @@ def build(
     agree_on_durability(
         conversation=store, approvals=approvals, escalations=escalations, deliveries=deliveries
     )
+    loaded = (rules or router.Rules()).version
+    if config is not None and loaded != config.router_rules_version:
+        raise RulesMismatch(
+            f"configured router rules {config.router_rules_version!r}, loaded {loaded!r}"
+        )
     if metering is None and config is not None:
         metering = partial(Meter, config.model, ceiling_usd=config.budgets.max_cost_usd)
     if metering is not None:

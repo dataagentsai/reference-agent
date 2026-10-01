@@ -46,6 +46,18 @@ class ProviderMismatch(AgentFailure):
     fault = Fault.MISCONFIGURED
 
 
+class RulesMismatch(AgentFailure):
+    """The routing label in the fingerprint is not the rules the agent loaded.
+
+    The label is hashed into the fingerprint and the rules are what route, and
+    they were written in two places with nothing holding one to the other
+    (F-070, AHC-0100): a rule change without the label kept the old
+    fingerprint on a new router. Checked where the agent is built.
+    """
+
+    fault = Fault.MISCONFIGURED
+
+
 class Budgets(BaseModel):
     """Ceilings that can actually stop a call.
 
@@ -268,6 +280,7 @@ __all__ = [
     "Budgets",
     "ProviderMismatch",
     "ResolutionMode",
+    "RulesMismatch",
     "RunConfig",
     "Settings",
     "UnapprovedModel",

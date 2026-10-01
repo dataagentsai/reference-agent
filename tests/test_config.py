@@ -144,3 +144,43 @@ def test_a_gateway_routing_elsewhere_fails_at_startup() -> None:
     config = resolve(settings(provider="groq", provider_base_url="http://localhost:4000/v1"))
     with pytest.raises(ProviderMismatch, match="'together'"):
         config.check_served_by("together")
+
+
+# (why, the routing label the configuration declares, the rules the agent loads,
+# whether it starts) — F-070: the label is in the fingerprint and the rules are
+# what run, and nothing held one to the other.
+ROUTING = [
+    ("label and rules agree", "v2", None, True),
+    ("the label moved and the rules did not", "v3", None, False),
+    ("the rules moved and the label did not", "v2", "v3", False),
+]
+
+
+@pytest.mark.parametrize(("why", "label", "loaded", "starts"), ROUTING, ids=[r[0] for r in ROUTING])
+@pytest.mark.discharges("AHC-0100", "AHC-0032")
+def test_the_routing_label_names_the_rules_that_run(
+    why: str, label: str, loaded: str | None, starts: bool
+) -> None:
+    from support_agent import entrypoint as ep
+    from support_agent import router
+    from support_agent.config import RulesMismatch
+    from support_agent.llm import ScriptedClient
+    from support_agent.state import InMemoryCheckpointStore
+
+    config = resolve(Settings(router_rules_version=label))
+    rules = router.Rules(version=loaded) if loaded else None
+
+    def build() -> object:
+        return ep.build(
+            llm=ScriptedClient([]),
+            tools=None,  # type: ignore[arg-type]
+            store=InMemoryCheckpointStore(),
+            config=config,
+            rules=rules,
+        )
+
+    if starts:
+        build()
+    else:
+        with pytest.raises(RulesMismatch):
+            build()
