@@ -60,7 +60,9 @@ class Fault(StrEnum):
     customer."""
 
     EXHAUSTED = "exhausted"
-    """A declared bound was reached: steps, spend, a cassette with nothing left.
+    """A declared bound was reached: steps, spend, a provider's budget. (Not a
+    cassette with nothing left, which this once listed: a recording that does
+    not answer its request is `CassetteMiss`, misconfigured.)
     Not an error in the system so much as the system doing what it was told, and
     a caller that retries it without raising the bound will exhaust it again."""
 

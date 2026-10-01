@@ -184,3 +184,30 @@ def test_the_routing_label_names_the_rules_that_run(
     else:
         with pytest.raises(RulesMismatch):
             build()
+
+
+@pytest.mark.discharges("AHC-0009", "AHC-0004")
+def test_the_gateways_model_lists_are_the_approved_list() -> None:
+    """The approved list is data in Settings and is restated by hand twice for
+    the gateway: its routes and the allowlist on every key it issues. Nothing
+    checked the copies, so a model added to one would be refused by another —
+    or, worse, routed by a gateway the agent's own list never approved."""
+    import ast
+    from pathlib import Path
+
+    import yaml
+
+    deploy = Path(__file__).parent.parent / "deploy" / "litellm"
+    routed = {
+        m["model_name"] for m in yaml.safe_load((deploy / "config.yaml").read_text())["model_list"]
+    }
+    tree = ast.parse((deploy / "keys.py").read_text())
+    (keyed,) = [
+        ast.literal_eval(node.value)
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "MODELS" for t in node.targets)
+    ]
+    approved = set(Settings().approved_models)
+    assert routed == approved, f"gateway routes {sorted(routed ^ approved)} differently"
+    assert set(keyed) == approved, f"gateway keys allow {sorted(set(keyed) ^ approved)} differently"
