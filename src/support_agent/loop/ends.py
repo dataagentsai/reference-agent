@@ -62,7 +62,12 @@ def completed(span: Span, trace: Trace, text: str) -> Ended:
 
 
 def stopped(
-    span: Span, trace: Trace, reason: TerminationReason, message: str, rule_id: str = ""
+    span: Span,
+    trace: Trace,
+    reason: TerminationReason,
+    message: str,
+    rule_id: str = "",
+    why: str = "",
 ) -> Ended:
     """A stop, typed by what stopped it.
 
@@ -71,11 +76,15 @@ def stopped(
     rule firing inside the loop still surfaced as a success). The other stops —
     a budget spent, a ceiling reached, a loop going in circles — are
     degradations: the turn did what it could and hands on.
+
+    `why` is the rule's own explanation. Without it a refusal inside the loop
+    said only "refused", where the same rule on the reply said why (F-066,
+    AHC-0018: the decision is recorded with its reason).
     """
     trace.termination = reason
     span.set_attribute(tel.TERMINATION, reason.value)
     if reason is TerminationReason.REFUSED:
-        return Refused(reply=message, reason=reason.value, rule_id=rule_id), trace
+        return Refused(reply=message, reason=why or reason.value, rule_id=rule_id), trace
     return Completed(reply=message, termination=reason), trace
 
 

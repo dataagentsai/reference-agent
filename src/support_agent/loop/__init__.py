@@ -221,7 +221,9 @@ class _Run:
             pol.Position.PRE_MODEL, tuple(self.seen_results), text=_latest_user_text(self.messages)
         )
         if verdict.blocked:
-            return self._stop(TerminationReason.REFUSED, pol.SAFE_REPLY, verdict.rule)
+            return self._stop(
+                TerminationReason.REFUSED, pol.SAFE_REPLY, verdict.rule, verdict.reason
+            )
 
         request = ModelRequest(
             messages=built.messages,
@@ -262,7 +264,9 @@ class _Run:
             pol.Position.POST_MODEL, tuple(self.seen_results), text=response.text
         )
         if verdict.blocked:
-            return self._stop(TerminationReason.REFUSED, pol.SAFE_REPLY, verdict.rule)
+            return self._stop(
+                TerminationReason.REFUSED, pol.SAFE_REPLY, verdict.rule, verdict.reason
+            )
         return completed(self.span, self.trace, response.text)
 
     def _plan(
@@ -354,8 +358,10 @@ class _Run:
         self.seen_results.extend(held.results)
         return bool(held.messages)
 
-    def _stop(self, reason: TerminationReason, message: str, rule_id: str = "") -> Ended:
-        return stopped(self.span, self.trace, reason, message, rule_id)
+    def _stop(
+        self, reason: TerminationReason, message: str, rule_id: str = "", why: str = ""
+    ) -> Ended:
+        return stopped(self.span, self.trace, reason, message, rule_id, why)
 
 
 def _latest_user_text(messages: list[Message]) -> str:

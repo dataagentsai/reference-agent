@@ -112,6 +112,9 @@ async def test_a_rule_at_every_position_is_reached(
     assert type(result).__name__ == outcome, f"{position.value} did not take effect: {result}"
     if outcome == "Refused":
         assert result.rule_id == "planted", "a refusal names the rule that caused it"
+        # F-066: inside the loop the reason was the word "refused", and the
+        # rule's own explanation was dropped; the reply screen kept it.
+        assert result.reason == "planted rule", "a refusal carries the rule's reason"
     assert server.state["reads"] == ran, "the tool ran when the rule said it should not"
     assert len(llm.calls) == calls, "the model was asked more or fewer times than expected"
 
