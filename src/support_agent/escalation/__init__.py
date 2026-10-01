@@ -6,7 +6,7 @@ itself is a Temporal workflow (T-028), as an approval's is.
 
 What that policy **is** comes from the AOAS `policies.escalation` block entire:
 `on_request` and `on_condition` are the two tiers, and the statements are the
-rules — P-ESC-ONCE, P-ESC-CAP, P-ESC-TTL, P-ESC-LAPSE, P-ESC-TOLD, P-ESC-OWNS
+rules — P-ESC-ONCE, P-ESC-FRESH, P-ESC-CAP, P-ESC-TTL, P-ESC-LAPSE, P-ESC-TOLD, P-ESC-OWNS
 and P-ESC-OUTCOME. This package is that block, executable. Nothing here decides
 what an escalation means; it decides when the spec's answer applies.
 

@@ -1,0 +1,47 @@
+# The provider is down for the whole conversation. Two failures fetch a person,
+# the colleague hands it back, and two more fetch a person again.
+#
+# T-076c, decided by the owner on 2026-10-01. Generation run 2 read P-ESC-ONCE's
+# "once per conversation" literally and could not say whether a handback starts
+# the count again. It does: what happens after a colleague gives the
+# conversation back is new evidence. Each condition rule fires once per stretch
+# the agent holds the conversation, and the cap of two is what stops a loop.
+# Its companion, failures-before-a-handback-do-not-count.yaml, is the other half
+# of P-ESC-FRESH: the third failure alone fetches nobody.
+apiVersion: awd-scenario/v0
+scenario: after a handback, two fresh failures fetch a person again
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  The model is unreachable for four turns. A person is fetched after the second,
+  hands the conversation back, and is fetched again after the fourth — two
+  references, within the cap.
+concern: reliability
+discharges: [P-ESC-FRESH, P-ESC-ONCE, P-ESC-CAP, esc:tool-unavailable, fact:consecutive_failed]
+max_turns: 4
+# Ten minutes a turn: the colleague closes each escalation on the desk's next
+# pass, well inside tool-unavailable's fifteen-minute ttl.
+step_seconds: 600
+
+actor:
+  says:
+    - I need help with something about my account
+    - are you still there
+    - hello?
+    - is anyone there
+
+# Down for longer than the whole conversation, so every turn fails.
+perturbations:
+  - {kind: provider_unavailable, at_call: 1, lasts_s: 7200}
+
+desk:
+  resolves: handled
+
+expect:
+  - {handed_off: 2}
+  - {world: unchanged}
+
+# A model that answers, so only the declared outage can fail the turns.
+model:
+  - says: "Yes — you can return it within thirty days of delivery."
+    times: 30

@@ -542,7 +542,8 @@ what makes them different from a promise.</p>
 recent                the last few turn outcomes — what a Tier-2 rule reads
 facts                 asked · records · done · awaiting   (written from effects)
 turn_count            every turn, not just the remembered ones
-escalated_rules       the per-rule cooldown
+escalated_rules       the per-rule cooldown, emptied when it comes back
+returned_at_turn      when it last came back to the agent (P-ESC-FRESH)
 escalations_raised    how many references this conversation has been given
 pending_approval_id   set when a turn ended in NeedsApproval
 pending_escalation_id set when a person took the conversation

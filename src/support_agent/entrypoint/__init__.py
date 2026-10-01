@@ -233,7 +233,7 @@ class Agent:
             held = await self.desk.hold(conversation)
             if held is not None:
                 return held
-            conversation = conversation.model_copy(update={"pending_escalation_id": None})
+            conversation = conversation.returned()  # P-ESC-FRESH, P-ESC-ONCE
 
         if conversation.pending_approval_id is not None:
             resumed = await self.pending.resume(conversation, identity, run_id, self.tools)

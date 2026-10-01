@@ -24,7 +24,6 @@ from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import telemetry as tel
 from support_agent.contracts import (
-    Completed,
     Escalated,
     Identity,
     ModelResponse,
@@ -217,35 +216,160 @@ async def test_a_repeatedly_refused_customer_reaches_a_person(server) -> None:
 
 
 @pytest.mark.discharges("P-ESC-ONCE", "P-ESC-TTL")
-async def test_the_same_rule_does_not_raise_again_after_it_lapses(server) -> None:
-    """The loop the cooldown exists to prevent.
+async def test_the_same_rule_does_not_raise_again_while_the_agent_holds_it(server) -> None:
+    """The loop the cooldown exists to prevent, within one stretch.
 
-    The escalation lapses, the conversation comes back to the agent, and the
-    customer is refused again — the condition still holds. Without the cooldown
-    this mints a second reference, and a third, for as long as they keep talking.
+    Refused twice and handed over; the customer goes on being refused while the
+    agent holds the conversation. The condition still holds — it would hold for
+    as long as they kept talking — and the rule has had its turn.
     """
     store = durable.RememberedEscalations()
     async with connect(server, requests=InMemoryRequests()) as tools:
         agent = agent_with(tools, escalations=store)
-        await agent.handle("can I get a discount?", identity=customer())
         _, conversation = await agent.handle("can I get a discount?", identity=customer())
         _, conversation = await agent.handle(
             "a coupon?", identity=customer(), conversation=conversation
         )
+        facts = t2.facts_of(conversation)
 
-        # Nobody came, and the escalation's own timer said so.
-        store.lapse((await store.pending())[0].id)
+    assert facts.refusals == 2 and "second-refusal" in facts.already_fired
+    assert t2.evaluate(facts) is None
 
-        handed_back, conversation = await agent.handle(
-            "hello?", identity=customer(), conversation=conversation
-        )
-        again, conversation = await agent.handle(
-            "so about that discount", identity=customer(), conversation=conversation
-        )
 
-    assert isinstance(handed_back, Completed), "lapsed, so the agent has it again"
-    assert not isinstance(again, Escalated), "the same rule must not fetch a second person"
-    assert len(await store.pending()) == 0
+def hand_back(store: durable.RememberedEscalations, how: str, escalation_id: str) -> None:
+    if how == "resolved":
+        store.resolved(escalation_id, by="desk-1")
+    else:
+        store.lapse(escalation_id)
+
+
+# (how the conversation came back to the agent)
+HANDBACKS = ["resolved", "lapsed"]
+
+
+@pytest.mark.parametrize("how", HANDBACKS)
+@pytest.mark.discharges(
+    "P-ESC-FRESH", "P-ESC-ONCE", "P-ESC-CAP", "P-ESC-LAPSE", "esc:second-refusal"
+)
+async def test_a_handback_starts_the_count_again_and_the_cap_still_holds(server, how: str) -> None:
+    """T-076c, decided by the owner on 2026-10-01.
+
+    After a colleague hands the conversation back — or nobody came and it
+    lapsed — what happens next is new evidence. One refusal after the return is
+    one, not three: the two before it were seen by the person who had it
+    (P-ESC-FRESH). A second refusal fetches a person again, because the rule
+    fires once per stretch the agent holds the conversation (P-ESC-ONCE). And
+    after a second handback, two more refusals fetch nobody: the cap of two is
+    per conversation and is never reset (P-ESC-CAP).
+    """
+    store = durable.RememberedEscalations()
+    async with connect(server, requests=InMemoryRequests()) as tools:
+        agent = agent_with(tools, escalations=store)
+
+        async def turn(text: str, conversation: Conversation | None):
+            return await agent.handle(text, identity=customer(), conversation=conversation)
+
+        _, conversation = await turn("can I get a discount?", None)
+        first, conversation = await turn("a coupon?", conversation)
+        assert isinstance(first, Escalated) and first.rule_id == "second-refusal"
+
+        hand_back(store, how, (await store.pending())[0].id)
+        _, conversation = await turn("hello?", conversation)
+        assert conversation.pending_escalation_id is None, "back with the agent"
+
+        once, conversation = await turn("can I get a discount?", conversation)
+        assert once.kind == "refused", "the refusals before the handback do not count"
+        assert t2.facts_of(conversation).refusals == 1
+        assert conversation.turn_count >= 3, "the conversation's own count is untouched"
+
+        again, conversation = await turn("a voucher, then?", conversation)
+        assert isinstance(again, Escalated) and again.rule_id == "second-refusal"
+        assert again.ticket_id != first.ticket_id
+
+        hand_back(store, how, (await store.pending())[0].id)
+        _, conversation = await turn("hello?", conversation)
+        _, conversation = await turn("can I get a discount?", conversation)
+        third, conversation = await turn("a coupon?", conversation)
+
+    assert not isinstance(third, Escalated), "past the cap no third reference"
+    assert conversation.escalations_raised == t2.MAX_PER_CONVERSATION
+    assert await store.pending() == ()
+
+
+def notes(*results: str) -> tuple[TurnNote, ...]:
+    return tuple(TurnNote(route="agentic", result=r, intent="order_status") for r in results)
+
+
+# (name, the remembered turns, turn_count when it came back, the facts expected)
+FRESH = [
+    (
+        "never left: every turn counts",
+        notes("failed", "failed", "refused"),
+        0,
+        {"turn_count": 3, "consecutive_failed": 0, "refusals": 1, "repeated_intent": 3},
+    ),
+    (
+        "failures before the return do not count",
+        notes("failed", "failed", "failed"),
+        2,
+        {"turn_count": 1, "consecutive_failed": 1, "refusals": 0, "repeated_intent": 1},
+    ),
+    (
+        "refusals before the return do not count",
+        notes("refused", "refused", "completed", "refused"),
+        2,
+        {"turn_count": 2, "consecutive_failed": 0, "refusals": 1, "repeated_intent": 2},
+    ),
+    (
+        "just returned: nothing yet",
+        notes("failed", "failed"),
+        2,
+        {"turn_count": 0, "consecutive_failed": 0, "refusals": 0, "repeated_intent": 0},
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "recent", "returned_at", "expected"), FRESH, ids=[f[0] for f in FRESH]
+)
+@pytest.mark.discharges(
+    "P-ESC-FRESH",
+    "fact:consecutive_failed",
+    "fact:refusals",
+    "fact:repeated_intent",
+    "fact:turn_count",
+)
+def test_the_condition_facts_count_from_the_latest_return(
+    name: str, recent: tuple[TurnNote, ...], returned_at: int, expected: dict[str, int]
+) -> None:
+    conversation = Conversation(
+        conversation_id="cnv_f",  # type: ignore[arg-type]
+        customer_id="C-1042",
+        recent=recent,
+        turn_count=len(recent),
+        returned_at_turn=returned_at,
+    )
+    facts = t2.facts_of(conversation)
+    assert {k: facts.get(k) for k in expected} == expected
+    # Every other reader keeps the whole history.
+    assert conversation.turn_count == len(recent) and conversation.recent == recent
+
+
+@pytest.mark.discharges("P-ESC-ONCE", "P-ESC-FRESH", "P-ESC-CAP")
+def test_returning_resets_the_cooldown_and_never_the_cap() -> None:
+    held = Conversation(
+        conversation_id="cnv_r",  # type: ignore[arg-type]
+        customer_id="C-1042",
+        turn_count=7,
+        escalated_rules=("tool-unavailable",),
+        escalations_raised=1,
+        pending_escalation_id="E-1",
+    )
+    back = held.returned()
+    assert back.pending_escalation_id is None
+    assert back.escalated_rules == ()
+    assert back.returned_at_turn == 7
+    assert back.escalations_raised == 1, "the cap is what stops a loop"
 
 
 @pytest.mark.discharges("P-ESC-TIER1")

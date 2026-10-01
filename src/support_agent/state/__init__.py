@@ -118,11 +118,24 @@ class Conversation(BaseModel):
     """Every turn, not just the remembered ones. `len(recent)` stops at the cap
     and a rule about a long conversation needs the real number."""
     escalated_rules: tuple[str, ...] = ()
-    """Which rules have already fetched a person for this conversation.
+    """Which rules have fetched a person since the agent last took the
+    conversation back — from its start, or from the latest return.
 
-    The cooldown, in storage terms. A Tier 2 condition does not stop holding
-    because an escalation lapsed, so without this the same rule would raise,
-    lapse and raise again for as long as the customer kept talking."""
+    The cooldown, in storage terms (`P-ESC-ONCE`). A Tier 2 condition does not
+    stop holding because an escalation lapsed, so without this the same rule
+    would raise, lapse and raise again for as long as the customer kept talking.
+    Emptied by `returned`, because what happens after a colleague hands the
+    conversation back is new evidence; `escalations_raised` is what stops a
+    loop, and it is never emptied. Which rule raised each escalation stays on
+    the escalation's own record."""
+    returned_at_turn: int = 0
+    """`turn_count` when the conversation last came back to the agent: a
+    colleague closed the escalation, it lapsed, or its record was gone.
+
+    `P-ESC-FRESH`. The facts the condition rules read count only turns after
+    this, so two failures before a handback and one after are not two in a row.
+    `turn_count` and `recent` themselves are untouched — every other reader
+    keeps the conversation's whole history."""
     escalations_raised: int = 0
     """How many references this conversation has been given.
 
@@ -152,6 +165,31 @@ class Conversation(BaseModel):
 
     def with_messages(self, *added: Message) -> Conversation:
         return self.model_copy(update={"messages": (*self.messages, *added)})
+
+    @property
+    def since_return(self) -> tuple[TurnNote, ...]:
+        """The remembered turns since the agent last took the conversation
+        back (`P-ESC-FRESH`), newest last. All of `recent` when it never left."""
+        if not self.returned_at_turn:
+            return self.recent
+        held = self.turn_count - self.returned_at_turn
+        return self.recent[-held:] if held > 0 else ()
+
+    def returned(self) -> Conversation:
+        """The conversation comes back to the agent — `P-ESC-FRESH`, `P-ESC-ONCE`.
+
+        Whoever finished it: a colleague who resolved or closed the escalation,
+        the lapse when nobody came, or a record that is gone. The condition
+        rules' count starts again from here, and each of them may fire once more.
+        The cap (`escalations_raised`) is not reset — it is what bounds this.
+        """
+        return self.model_copy(
+            update={
+                "pending_escalation_id": None,
+                "escalated_rules": (),
+                "returned_at_turn": self.turn_count,
+            }
+        )
 
     def with_turn(self, note: TurnNote) -> Conversation:
         """Record what this turn did, dropping the oldest once the cap is hit."""

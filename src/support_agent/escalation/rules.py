@@ -37,10 +37,19 @@ raise on every subsequent failing turn, lapse, and raise again: a customer
 receiving a new reference number every few minutes, and a queue filling with
 duplicates of one problem.
 
-So a rule fires at most once per conversation, and a conversation raises at most
-`MAX_PER_CONVERSATION` escalations in total. Past the cap the agent stops
-promising and says something true instead — which is the honest end of a bad
-run, not a failure to handle.
+So a rule fires at most once while the agent holds the conversation, and a
+conversation raises at most `MAX_PER_CONVERSATION` escalations in total. Past
+the cap the agent stops promising and says something true instead — which is the
+honest end of a bad run, not a failure to handle.
+
+## A handback starts the count again
+
+`P-ESC-ONCE` and `P-ESC-FRESH` (T-076c, decided 2026-10-01). When the
+conversation comes back to the agent — a colleague closed it, or it lapsed —
+what happens next is new evidence. The facts the rules read count only turns
+since the return, and each rule may fire once more: two failures after a
+handback fetch a person again, and the two before it do not count towards that.
+The cap is what stops a loop, and it is never reset.
 """
 
 from __future__ import annotations
@@ -216,8 +225,13 @@ def facts_of(conversation: Conversation) -> Facts:
 
     Computed rather than stored, so a rule change never needs a migration and a
     conversation written last week answers today's rules.
+
+    Counted over the turns since the conversation last came back to the agent
+    (`P-ESC-FRESH`): a failure, a refusal or a turn before a colleague handed it
+    back is evidence that colleague has already seen. `Conversation.turn_count`
+    and `recent` keep the whole history for every other reader.
     """
-    recent = conversation.recent
+    recent = conversation.since_return
     failed = 0
     for note in reversed(recent):
         if note.result != "failed":
@@ -235,7 +249,7 @@ def facts_of(conversation: Conversation) -> Facts:
         repeated += 1
 
     return Facts(
-        turn_count=conversation.turn_count,
+        turn_count=conversation.turn_count - conversation.returned_at_turn,
         termination=recent[-1].termination if recent else None,
         consecutive_failed=failed,
         refusals=sum(1 for n in recent if n.result == "refused"),

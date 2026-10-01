@@ -1,0 +1,41 @@
+# Two failures fetch a person, the colleague hands the conversation back, and
+# the next failure is the first, not the third.
+#
+# P-ESC-FRESH (T-076c, 2026-10-01): the facts the condition rules read count
+# only turns since the conversation came back to the agent. The colleague has
+# already seen the two failures before the handback; counting them again would
+# fetch a person on the very next hiccup and hand the desk the same problem
+# twice. With the count carried across the handback this scenario sees two
+# references; counted from the return, one.
+apiVersion: awd-scenario/v0
+scenario: failures before a handback do not count towards the next one
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  The model is unreachable for three turns. A person is fetched after the
+  second and hands it back; the third failure, alone since the return, fetches
+  nobody.
+concern: reliability
+discharges: [P-ESC-FRESH, esc:tool-unavailable, fact:consecutive_failed]
+max_turns: 3
+step_seconds: 600
+
+actor:
+  says:
+    - I need help with something about my account
+    - are you still there
+    - hello?
+
+perturbations:
+  - {kind: provider_unavailable, at_call: 1, lasts_s: 7200}
+
+desk:
+  resolves: handled
+
+expect:
+  - {handed_off: 1}
+  - {world: unchanged}
+
+model:
+  - says: "Yes — you can return it within thirty days of delivery."
+    times: 30

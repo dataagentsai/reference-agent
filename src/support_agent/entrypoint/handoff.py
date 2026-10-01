@@ -108,7 +108,7 @@ class HandoffDesk:
             # conversation somebody abandoned sat in the desk's queue forever),
             # and the conversation returns with the truth — P-ESC-LAPSE.
             handed_back = Completed(reply=esc.LAPSED_REPLY.format(ticket=open_now.id))
-            released = conversation.model_copy(update={"pending_escalation_id": None})
+            released = conversation.returned()
             return handed_back, released.recording(handed_back)
 
         with tel.span(
