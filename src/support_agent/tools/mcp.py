@@ -27,6 +27,7 @@ from support_agent.contracts import (
 )
 from support_agent.contracts.failures import AgentFailure, Fault
 from support_agent.identity import Exchange
+from support_agent.telemetry.redaction import redact
 
 SESSION_META = "aoas/session"
 """Where the caller's verified session travels in a call's `_meta`, so the
@@ -153,7 +154,11 @@ class MCPTransport:
             meta = cast(RequestParamsMeta, fields)
             raw = await self._client.call_tool(name, arguments, meta=meta)
         except Exception as exc:
-            return ToolResult(name=name, text=str(exc), is_error=True, error_channel="protocol")
+            # Into the model's context, so scrubbed first: a far end's error can
+            # quote the token or key it refused (AHC-0035, F-074). The kind of
+            # failure stays, because the model chooses its next step by it.
+            said = f"{type(exc).__name__}: {redact(str(exc))}"
+            return ToolResult(name=name, text=said, is_error=True, error_channel="protocol")
 
         structured = getattr(raw, "structured_content", None)
         text = "".join(

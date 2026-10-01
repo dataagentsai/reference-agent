@@ -283,3 +283,32 @@ def test_user_turns_are_untrusted_but_not_fenced() -> None:
 def test_assemble_accepts_prebuilt_messages() -> None:
     out = ctx.assemble(system="s", history=[Message(role="user", content="hi")])
     assert len(out) == 2
+
+
+# (what the far end's error carried) — F-074: a protocol error's message went
+# to the model as it was, fenced but not scrubbed (AHC-0035, R-008).
+LEAKS = [
+    ("a bearer token", "401 for Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJDLTEwNDIifQ.c2lnbmF0dXJl"),
+    ("an API key", "upstream refused key gsk_live0123456789abcdef"),
+    ("a card number", "payment 4111111111111111 declined"),
+]
+
+
+@pytest.mark.discharges("AHC-0035")
+@pytest.mark.parametrize(("why", "said"), LEAKS, ids=[c[0] for c in LEAKS])
+async def test_a_protocol_error_reaches_the_model_scrubbed(why: str, said: str) -> None:
+    from support_agent.contracts import Identity
+    from support_agent.tools.mcp import MCPTransport
+
+    secret = said.split()[-1] if why != "a card number" else "4111111111111111"
+
+    class Failing:
+        async def call_tool(self, *_: object, **__: object) -> object:
+            raise RuntimeError(said)
+
+    result = await MCPTransport(Failing()).invoke(  # type: ignore[arg-type]
+        "get_order", {"id": "AB-1"}, caller=Identity(customer_id="C-1042")
+    )
+    assert result.is_error and result.error_channel == "protocol"
+    assert secret not in result.text, result.text
+    assert "RuntimeError" in result.text, "what kind of failure it was still reaches the model"

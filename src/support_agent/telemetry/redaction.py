@@ -17,6 +17,10 @@ _REDACTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+"), "[email]"),
     (re.compile(r"\b(?:\+91[- ]?)?[6-9]\d{9}\b"), "[phone]"),
     (re.compile(r"(?i)\b(sk|gsk|key)[-_][A-Za-z0-9]{8,}"), "[secret]"),
+    # A signed token (JWT) and whatever follows "Bearer": a far end's error can
+    # quote the credential it refused (F-074).
+    (re.compile(r"\beyJ[\w-]+\.[\w-]+\.[\w-]*"), "[token]"),
+    (re.compile(r"(?i)\bbearer\s+(?!\[token\])\S+"), "Bearer [token]"),
 )
 
 
