@@ -114,6 +114,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
             tooling=item.get_closest_marker("tooling") is not None,
             unwired=item.get_closest_marker("unwired") is not None,
             gap=_gap_of(item),
+            skipped=result.skipped,
         )
     )
     if result.skipped:

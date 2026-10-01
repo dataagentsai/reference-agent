@@ -72,3 +72,31 @@ def test_a_statement_verified_only_on_dead_code_is_not_met() -> None:
     assert m["tagged"] == 0 and m["untagged"] == []
     assert m["unwired"] == {"t.py::test_breaker": ["AHC-0005"]}
     assert "AHC-0005" not in m["by_statement"], "an unwired test exercises nothing"
+
+
+# (why, the cases of one function, where its statement lands) — F-073: a test
+# that skipped in its body was recorded as passed=False, so the map listed
+# test_a_refused_call_does_not_put_the_gateway_on_cooldown as failing AHC-0005.
+SKIPS = [
+    ("skipped alone is not exercised", [None], "not_exercised"),
+    ("skipped beside a pass is a pass", [None, True], "passed"),
+    ("skipped beside a failure is a failure", [None, False], "failed"),
+]
+
+
+@pytest.mark.parametrize(("why", "cases", "lands"), SKIPS, ids=[s[0] for s in SKIPS])
+def test_a_skipped_case_is_not_evidence_either_way(why: str, cases: list, lands: str) -> None:
+    outcomes = [
+        amap.Outcome(
+            f"t.py::test_gateway[{i}]",
+            ("AHC-0005",),
+            passed=bool(ran),
+            tooling=False,
+            skipped=ran is None,
+        )
+        for i, ran in enumerate(cases)
+    ]
+    m = amap.build(outcomes, VOCAB)
+    held = m["by_statement"].get("AHC-0005", {"passed": [], "failed": []})
+    landed = "passed" if held["passed"] else "failed" if held["failed"] else "not_exercised"
+    assert landed == lands, held

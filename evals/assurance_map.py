@@ -43,6 +43,9 @@ class Outcome:
     gap: str = ""
     """Why this test names no statement: it asserts one is *missing*. Listed
     with its reason rather than counted as an oversight."""
+    skipped: bool = False
+    """It did not run, so it is evidence of nothing: neither a pass nor a
+    failure. A skip in the test's body was once recorded as a failure (F-073)."""
 
     @property
     def function(self) -> str:
@@ -54,10 +57,19 @@ def build(outcomes: list[Outcome], vocab: Vocabulary) -> dict:
     for o in outcomes:
         f = functions.setdefault(
             o.function,
-            {"ids": set(), "passed": True, "tooling": False, "unwired": False, "gap": ""},
+            {
+                "ids": set(),
+                "passed": True,
+                "ran": False,
+                "tooling": False,
+                "unwired": False,
+                "gap": "",
+            },
         )
         f["ids"] |= set(o.ids)
-        f["passed"] &= o.passed
+        if not o.skipped:
+            f["passed"] &= o.passed
+            f["ran"] = True
         f["tooling"] |= o.tooling
         f["unwired"] |= o.unwired
         f["gap"] = f["gap"] or o.gap
@@ -66,7 +78,7 @@ def build(outcomes: list[Outcome], vocab: Vocabulary) -> dict:
         lambda: {"passed": [], "failed": []}
     )
     for name, f in functions.items():
-        if f["unwired"]:
+        if f["unwired"] or not f["ran"]:
             continue
         for sid in f["ids"]:
             by_statement[sid]["passed" if f["passed"] else "failed"].append(name)
