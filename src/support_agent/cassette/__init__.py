@@ -142,7 +142,9 @@ def fingerprint(request: ModelRequest) -> str:
         ],
         "tools": sorted(_tool_name(t) for t in request.tools),
         "max_tokens": request.max_tokens,
-        "temperature": request.temperature,
+        # Unset reads as 0.0, what it meant before it could be unset (F-064),
+        # so a recording made then is still the same question now.
+        "temperature": 0.0 if request.temperature is None else request.temperature,
     }
     canonical = json.dumps(material, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]

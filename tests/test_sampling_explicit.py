@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from support_agent import telemetry as tel
 from support_agent.contracts import ModelRequest
 from support_agent.llm import GroqClient
 
@@ -64,20 +65,27 @@ def client_with(recorder: Recorded, *, temperature: float) -> GroqClient:
 
 # (why, the client's declared temperature, what the request asks for, what is sent)
 ROWS = [
-    ("the configured temperature is sent", 0.0, 0.0, 0.0),
+    ("the configured temperature is sent", 0.0, None, 0.0),
     ("a request may raise it for one call", 0.0, 0.7, 0.7),
-    ("a configured non-zero default is sent", 0.3, 0.0, 0.3),
+    ("a configured non-zero default is sent", 0.3, None, 0.3),
+    # F-064: `asked or configured` read an asked-for 0.0 as not asking.
+    ("a request may lower it to zero", 0.3, 0.0, 0.0),
 ]
 
 
 @pytest.mark.parametrize(("why", "configured", "asked", "sent"), ROWS, ids=[r[0] for r in ROWS])
 @pytest.mark.discharges("AHC-0014")
 async def test_every_model_call_states_its_sampling(
-    why: str, configured: float, asked: float, sent: float
+    why: str, configured: float, asked: float | None, sent: float
 ) -> None:
+    exporter = tel.configure()
     recorder = Recorded()
     await client_with(recorder, temperature=configured).complete(
         ModelRequest(messages=(), tools=(), temperature=asked)
     )
     assert "temperature" in recorder.kwargs, "the call inherited the provider's default"
     assert recorder.kwargs["temperature"] == sent
+    (span,) = [s for s in exporter.get_finished_spans() if s.name == "gen_ai.chat"]
+    assert tel.attributes_of(span)["gen_ai.request.temperature"] == sent, (
+        "the call's record does not say what it was sent"
+    )

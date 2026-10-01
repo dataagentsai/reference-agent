@@ -178,6 +178,8 @@ class GroqClient:
                 tel.GEN_AI_REQUEST_MODEL: self._model,
             },
         ) as span:
+            temperature = self._temperature if request.temperature is None else request.temperature
+            span.set_attribute("gen_ai.request.temperature", temperature)
             standard = {
                 "gen_ai.operation.name": "chat",
                 "gen_ai.provider.name": self._provider,
@@ -194,7 +196,7 @@ class GroqClient:
                     messages=_to_wire(request.messages),  # type: ignore[arg-type]
                     tools=list(request.tools) or None,  # type: ignore[arg-type]
                     max_tokens=request.max_tokens,
-                    temperature=request.temperature or self._temperature,
+                    temperature=temperature,
                 )
             except APIError as exc:
                 failure = failure_from(exc)

@@ -213,6 +213,7 @@ CONTRACT: dict[str, SpanSpec] = {
                 GEN_AI_SYSTEM,
                 GEN_AI_OPERATION,
                 GEN_AI_REQUEST_MODEL,
+                "gen_ai.request.temperature",  # what was sent, not what was configured (F-064)
                 GEN_AI_RESPONSE_MODEL,
                 GEN_AI_INPUT_TOKENS,
                 GEN_AI_OUTPUT_TOKENS,

@@ -82,8 +82,11 @@ class ModelRequest(BaseModel):
     messages: tuple[Message, ...]
     tools: tuple[dict[str, object], ...] = ()
     max_tokens: int = 4096
-    temperature: float = 0.0
-    """Zero by default. Determinism is the floor; variance is opted into."""
+    temperature: float | None = None
+    """None takes the client's configured temperature, which is zero by default:
+    determinism is the floor, variance is opted into. A number is this call's
+    own. It was `0.0` meaning *unset*, so asking for zero under a non-zero
+    configuration was read as not asking (F-064)."""
 
 
 class ModelResponse(BaseModel):
