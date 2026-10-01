@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from support_agent.contracts import CheckpointStore, Requests, SessionStore
+from support_agent.contracts import CheckpointStore, Requests, RunId, SessionStore
 
 
 @dataclass(frozen=True)
@@ -88,7 +88,9 @@ async def forget(
     """
     runs = await checkpoints.forget(customer_id)
     answers = await requests.redact(runs) if requests is not None and runs else 0
-    replies = await deliveries.redact((customer_id,)) if deliveries is not None else 0
+    # `redact` matches a name's first segment, which for a delivery is its
+    # customer rather than a run; the type names the ledger's use of it.
+    replies = await deliveries.redact((RunId(customer_id),)) if deliveries is not None else 0
 
     # Read before deleting, because `delete` is idempotent and silent — it
     # cannot tell "there was one" from "there was not", and a report that
