@@ -300,7 +300,7 @@ async def answer(channel: Channel, message: Incoming) -> None:
             *where, getattr(result, "reply", "") or getattr(result, "customer_message", "")
         )
         if isinstance(result, Escalated):
-            await api.note(*where, after.facts.as_handoff())
+            await api.note(*where, f"Why: {result.reason}\n{after.facts.as_handoff()}")
             await api.hand_off(*where)
         if isinstance(result, NeedsApproval):
             # A doorbell, never a verdict (T-059). The note says what is waiting

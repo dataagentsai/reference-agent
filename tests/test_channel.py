@@ -223,6 +223,8 @@ async def test_an_escalation_hands_the_conversation_to_a_person() -> None:
     assert [c[0] for c in calls] == ["reply", "note", "hand_off"]
     assert "E-" in calls[0][2], "the customer is told the reference"
     assert "put me through to a human" in calls[1][2], "the person is handed what was asked"
+    # F-075: the note said what was asked and never why the agent passed it on.
+    assert "the customer asked for a human" in calls[1][2], "the person is told why"
 
 
 # --------------------------------------------------------------------------- #
