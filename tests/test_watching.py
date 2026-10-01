@@ -115,6 +115,7 @@ class Kept:
     def __init__(self) -> None:
         self.findings: list[Finding] = []
         self.scored: list[tuple[str, int]] = []
+        self.versions: set[str] = set()
         self.outcomes: list[Outcome] = []
 
     def finding(self, found: Finding) -> None:
@@ -122,6 +123,7 @@ class Kept:
 
     def evaluated(self, trace_id: str, findings: int, version: str) -> None:
         self.scored.append((trace_id, findings))
+        self.versions.add(version)
 
     def outcome(self, found: Outcome) -> None:
         self.outcomes.append(found)
@@ -311,6 +313,23 @@ def test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it() -> N
     assert [n for _, n in kept.scored] == [1]
     assert total("agent.online.findings", rule="W-01", severity="page") == 1
     assert total("agent.online.evaluated", captured="true") == 1
+    tel.configure()
+
+
+@pytest.mark.discharges("AHC-0028")
+def test_a_score_names_the_rules_that_made_it_when_they_are_injected() -> None:
+    """F-069's second half. `Watch.rules` is injectable, and every score was
+    written with the module's RULES_VERSION whatever rules ran."""
+    from support_agent.watch import RULES_VERSION, rules_version
+    from support_agent.watch.rules import RULES
+
+    exporter = tel.configure(capture_payloads=True)
+    with app_with(CONTRADICTS) as client:
+        chat(client, "I have a question about AB-10002")
+    kept, only = Kept(), RULES[:1]
+    Watch(Spans(exporter), kept, rules=only, settle_s=0).once(time.time() + 1)
+
+    assert kept.versions == {rules_version(only)} != {RULES_VERSION}
     tel.configure()
 
 

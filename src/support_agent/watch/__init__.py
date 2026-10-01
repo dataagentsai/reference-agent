@@ -114,12 +114,13 @@ class Watch:
 
     def _write(self, evaluated: list[Turn], findings: list[Finding], found: list[Outcome]) -> None:
         per_trace: dict[str, int] = {t.trace_id: 0 for t in evaluated}
+        version = rules_version(self.rules)  # the rules that ran, not the default set
         for finding in findings:
             per_trace[finding.trace_id] += 1
             self.sink.finding(finding)
             tel.counters.findings.add(1, {"rule": finding.rule, "severity": finding.severity})
         for turn in evaluated:
-            self.sink.evaluated(turn.trace_id, per_trace[turn.trace_id], RULES_VERSION)
+            self.sink.evaluated(turn.trace_id, per_trace[turn.trace_id], version)
             tel.counters.scored.add(1, {"captured": "true" if turn.captured else "false"})
         for outcome in found:
             self.sink.outcome(outcome)
