@@ -237,6 +237,28 @@ its own validation before it can be trusted.
 
 ---
 
+## F-010 · A recording made on one model replayed against another
+
+**Found** 2026-09-03, building the AAC-0096 release gate. *Written up
+2026-10-01:* the number was used in the code, the tests and commit `ddedf85`
+from that day, and no entry was ever written; REVIEW R-011 had meanwhile cited
+F-010 for model routing, which is now F-082.
+
+**Severity** High for the evidence: a replayed suite said nothing about the
+model it claimed to test.
+
+**Why.** `ModelRequest` carried no model, so a cassette's request fingerprints
+matched whatever model replayed them, and a recording made on one model passed
+a suite configured for another.
+
+**Fixed** `ddedf85`: a cassette carries the context it was recorded under —
+model, tool surface, temperature — and `Player` refuses a foreign one and a
+replay that declares none. `tests/test_release_gates.py::test_a_recording_refuses_a_foreign_configuration`.
+The script that made the one live recording was left building its `Player`
+with no context, so it could not replay from that day: F-071.
+
+---
+
 ## F-011 · Twelve of twenty-nine generated cases describe a world that cannot exist
 
 Raised in review: *"we also need to understand the semantics of those systems so
@@ -1786,6 +1808,13 @@ order through the direct route.
 should answer as the real store does, `found: false` — and a scenario that asks
 for another customer's order through each route, against both stores.
 
+**Corrected 2026-10-01.** The real-store half above was wrong when written. On
+`found: false` the direct route did not say it could not find the order: it said
+*"Order AB-10003 is currently unknown."*, and the canary passed only because it
+checked nothing but leaks (F-062, fixed in `4a1a910`). It now says *"I could not
+find order AB-10003 on your account."*, which is what this entry describes. The
+projection half stands, and the canary test still pins it.
+
 ## F-048 · Order ids are written with a hyphen nobody can type
 
 **Found** 2026-09-19, by the canary's second case (T-056) against the real model.
@@ -1801,6 +1830,10 @@ nothing.
 customer as the model wrote it. Normalisation belongs in the harness
 (AHC-0087): identifiers of a declared shape should leave the agent in the form
 the store uses.
+
+**2026-10-01.** Every reader in the agent now recognises the id however it is
+written — the policy rules since `11c2bc2`, the router and consent since F-063.
+What the customer is shown is still the model's spelling.
 
 ## F-049 · The escalation scenarios fail differently on every loaded run
 
@@ -2077,6 +2110,9 @@ delivery-scope row is named by the channel that minted it —
 against it is not findable from here. That needs the channel's own record of
 which messages were whose, which is a second system's question.
 
+*Superseded:* since `832c38a` a delivery is named `customer:key`, so it is
+findable, and since F-072 it is reached.
+
 New obligations rather than a tag on an approximate one: AAC-0117 (*what is held
 about one person can be found and removed*) and AHC-0115. AAC-0097 was the
 nearest existing case and is about processing **region** — tagging it would have
@@ -2121,6 +2157,10 @@ a chat and a trace store somebody else operates.
 adopt and is design work: retention and erasure are different questions, and
 only one of them is answered by a schedule (F-056, and the open question in
 `docs/DESIGN-state.md`).
+
+*2026-10-01:* the second half has since been answered — every record the
+harness writes is deleted after 30 days (`2f20e1c`, Q-RETENTION). The first
+half, the patterns themselves, is still open.
 
 ## F-058 · Every copy of the far end is a replica, and only two of four are kept honest
 
@@ -2314,3 +2354,313 @@ irreversible actions, an explicit confirmation turn removes every row above;
 a matcher tested against the AOAS's own `examples` (T-068) would have caught
 the send-it-back drift. The same brittleness blocked a legitimate return as
 style advice on "it does not fit" (router R-STYLE, seen live the same day).
+
+---
+
+*F-062 to F-082 were found on 2026-09-25 while illustrating the harness catalog
+(AHC) against this agent, written up as a gap list beside the catalog's
+explainer page, and checked against the code on 2026-10-01. Each names the
+capability it was found through.*
+
+## F-062 · An order the store did not find was given a status
+
+**Found** 2026-09-25, through AHC-0086 (absence is its own state, distinct from
+unknown).
+
+**Severity** High. It reaches the customer, on the commonest question asked.
+
+**Why.** The direct route failed only on a tool error or a result that was not
+a dict. The order system answers `{"found": false}` for a missing order and for
+someone else's (F-016), and that is a dict, so *"where is AB-10003?"* was told
+*"Order AB-10003 is currently unknown."* — the status template's fallback — and
+a refund question *"There is no refund on order AB-10003."* Both described an
+order the system had just said was not there. The canary's someone-else's-order
+case checked only that nothing leaked, so it passed on the wrong sentence
+against the real store.
+
+**Fixed** `4a1a910`: both handlers answer *"I could not find order AB-10003 on
+your account."*, a 200 that names neither missing nor not-yours; the canary fails
+a reply that gives such an order a status or a refund state.
+`tests/test_direct.py::test_an_order_the_system_did_not_find_is_not_described`,
+`tests/test_watching.py::test_each_canary_case_knows_a_wrong_answer`.
+
+**Routed to** F-047, whose account of the real store was wrong (see the
+correction there).
+
+## F-063 · An order id was recognised only in the store's own spelling
+
+**Found** 2026-09-25, through AHC-0089 (input shape is normalised by
+deterministic code).
+
+**Severity** Medium. Nothing wrong was said; the cheap route was missed and the
+consent list granted nothing.
+
+**Why.** The router's pattern matched upper case with an ASCII hyphen. *"ab-10003"*,
+or `AB‑10003` with the non-breaking hyphen the agent itself writes (F-048), went
+to the model, and `entrypoint.consent`, built on the same pattern, granted
+nothing on either. The policy rules had folded look-alikes since `11c2bc2` and
+the watch had its own fold since F-048: three readers, three answers.
+
+**Fixed** `d585305`: `contracts/reading.py` holds the fold and the order-id shape
+once; `order_ids()` accepts upper or lower case (never mixed, so *Rs-500* stays
+an amount) and returns the store's spelling. Router, consent, the watch and the
+policy fold all read it. `tests/test_direct.py::test_an_order_id_is_recognised_however_it_is_written`,
+`tests/test_consent.py` (two rows).
+
+## F-064 · No call could ask for temperature zero
+
+**Found** 2026-09-25, through AHC-0014 (sampling is explicit on every call).
+
+**Severity** Low today — the configured value is 0.0 — and silent the day it is not.
+
+**Why.** `request.temperature or self._temperature`: 0.0 was both the field's
+default and a value, so under a non-zero configuration asking for zero was read
+as not asking. The test pinned it as correct. A per-call value was also on no
+record.
+
+**Fixed** `d927974`: unset is `None`; the span carries `gen_ai.request.temperature`,
+the value sent. `tests/test_sampling_explicit.py` (the new row fails without it).
+
+## F-065 · A transcript assembly refused to send became a plain 500
+
+**Found** 2026-09-25, through AHC-0103 (a call is never separated from its result).
+
+**Severity** Medium. Rare — it needs a trimming bug — and when it happens the
+customer gets no labelled reply; on the chat widget, no reply at all.
+
+**Why.** `ctx.assembled` raises `BrokenTranscript` rather than send an orphaned
+tool call, which is right, and the loop called it outside any handler. Nothing
+above caught it: /chat returned Starlette's plain-text 500, and the Chatwoot
+background task died after its 202.
+
+**Fixed** `d363dbe`: the loop ends the turn as `Failed`.
+`tests/test_turn_ends.py::test_a_transcript_assembly_cannot_send_is_a_failed_turn`.
+**Open:** the second raise site, the permanent trim on save (`ctx.bounded` in
+`entrypoint/persist.py`), still escapes, and the delivery claim is then settled
+with no outcome, so a resend is told "already handled" with no reply.
+
+## F-066 · A refusal inside the loop said "refused" and not why
+
+**Found** 2026-09-25, through AHC-0018 (policy decisions are recorded).
+
+**Severity** Low. The rule id survived; its explanation did not.
+
+**Why.** A block before or after the model call ended as `Refused` with
+`reason=TerminationReason.REFUSED.value`. The reply screen kept the rule's reason;
+the loop's stop did not.
+
+**Fixed** `c90f51e`. `tests/test_policy_positions.py::test_a_rule_at_every_position_is_reached`.
+
+## F-067 · Concurrent conversations renumbered each other's retries
+
+**Found** 2026-09-25, through AHC-0024 (retries are bounded and visible).
+
+**Severity** Low for the customer, real for the record: a retry that happened
+could leave no span.
+
+**Why.** `ResilientLLM` kept its try count on the instance and reset it in
+`complete`; one instance serves the whole process.
+
+**Fixed** `70e4594`: the count lives with the call.
+`tests/test_resilient_llm.py::test_two_conversations_on_one_client_number_their_own_retries`.
+
+## F-068 · The chat-widget door had no size limit
+
+**Found** 2026-09-25, through AHC-0016 (input is validated before the model call).
+
+**Severity** Medium. Cost, and a context the trim cannot shrink, because it never
+drops the latest exchange.
+
+**Why.** /chat refuses a body over 8 KiB; the Chatwoot webhook read the message
+with no bound.
+
+**Fixed** `af7e0dd`: over 8,192 characters is answered with a request for a
+shorter message, before a session is looked up.
+`tests/test_channel.py::test_a_message_is_bounded_before_it_reaches_the_model`.
+
+## F-069 · The watch's rule-set version did not move with its rules
+
+**Found** 2026-09-25, through AHC-0028 (graders are versioned apart from the system).
+
+**Severity** Medium for the instrument: every score named a rule set that no
+longer existed.
+
+**Why.** `RULES_VERSION = "1"`, documented as bumped with any rule's version;
+W-06 is at 2. And with rules injected into `Watch`, scores still carried the
+default set's version.
+
+**Fixed** `68189b8`, `13f7ef3`: derived from the rules that ran.
+`tests/test_watch_rules.py::test_the_rule_set_version_moves_with_any_rule`,
+`tests/test_watching.py::test_a_score_names_the_rules_that_made_it_when_they_are_injected`.
+
+## F-070 · The routing label and the routing rules were two hand-kept copies
+
+**Found** 2026-09-25, through AHC-0100 and AHC-0032 (rollback restores what was
+assessed).
+
+**Severity** Low today (both read "v2"), and invisible on the day they part: a
+new router under the old fingerprint.
+
+**Fixed** `7a48794`: `build()` refuses to start when they differ (`RulesMismatch`).
+`tests/test_config.py::test_the_routing_label_names_the_rules_that_run`.
+
+## F-071 · The first-call recording could not be replayed or re-made
+
+**Found** 2026-09-25, through AHC-0023 (fixtures carry their capture and a re-cut
+path), by running `scripts/first_real_call.py --replay`.
+
+**Severity** Medium for the evidence: the one recording of a live call had not
+replayed since `ddedf85` (F-010), and nothing ran it.
+
+**Why.** The script built its `Player` and its `Recorder` with no context, so
+replay was refused and a re-record would have written a blank one. The
+recording's own context said `tools: []` although the model called `get_order`
+in it, filled in by hand at the format-2 migration.
+
+**Fixed** `3569c11`: both name model, tools and temperature; the context is
+corrected. `tests/test_release_gates.py::test_the_replay_script_names_the_context_its_recording_was_made_under`.
+**Open:** replay now stops at the first call with `CassetteMiss`, honestly — the
+system prompt has moved since the recording (prompt v2). A live re-record, with
+a key, is owed; the recording also stores no capture date.
+
+## F-072 · Forgetting a customer kept the replies saved for them
+
+**Found** 2026-09-25, through AHC-0115 (erasure by subject).
+
+**Severity** Medium. Personal data kept after a person asked for it to go.
+
+**Why.** `erasure.forget` said a delivery's saved reply "carries no customer".
+Since `832c38a` a delivery is named `customer:key`; nothing asked.
+
+**Fixed** `d1809b3`, `14de5ad`: `forget` takes the delivery store and redacts by
+customer, keeping the name so nothing is answered twice.
+`tests/test_erasure.py::test_a_saved_reply_is_reached_by_the_customer_it_was_saved_under`.
+
+## F-073 · A test that skipped was listed as failing
+
+**Found** 2026-09-25, through AHC-0005: the assurance map listed
+`test_a_refused_call_does_not_put_the_gateway_on_cooldown` as failed.
+
+**Severity** Low, and corrosive: a map with false failures teaches its reader to
+ignore failures.
+
+**Why.** The conftest hook recorded `passed=result.passed` before it checked for
+a skip; `5139e49` fixed only the AAC conformance report.
+
+**Fixed** `fb1a9b5`. `tests/test_assurance_map.py::test_a_skipped_case_is_not_evidence_either_way`.
+The committed `evals/assurance-map.json` changes on its next regeneration.
+
+## F-074 · A tool's protocol error reached the model unscrubbed
+
+**Found** 2026-09-25, through AHC-0035 (secrets never enter context).
+
+**Severity** Medium. A far end refusing a credential can quote it.
+
+**Fixed** `77d6e7c`: the message passes the one redaction function, which also
+learns signed tokens and *Bearer*. `tests/test_tools_context.py::test_a_protocol_error_reaches_the_model_scrubbed`.
+
+**Routed to** R-008, which stays open for its larger half: policy can block,
+not transform.
+
+## F-075 · The note to a colleague never said why the customer was passed on
+
+**Found** 2026-09-25, through AHC-0070 (escalation carries its context).
+
+**Fixed** `4b31520`: the note opens with the escalation's reason.
+`tests/test_channel.py::test_an_escalation_hands_the_conversation_to_a_person`.
+**Open:** the desk page (`reviewer/page.py`) still shows an escalation without
+the conversation's facts, so no single screen holds everything.
+
+## F-076 · The fingerprint hashes the prompt's label, not the prompt
+
+**Found** 2026-09-25, through AHC-0033 and AHC-0003.
+
+**Severity** Medium. A prompt edit that does not bump `prompt_version` runs
+under the old fingerprint; `87731c6` bumped it by hand, and nothing would have
+failed had it not. The world's version (`worlds/clothing.yaml`) is outside the
+fingerprint for the same reason.
+
+**Open.** Routed to `config.RunConfig`: hash the prompt text (and the world's
+declared version) rather than, or beside, the labels; a changed fingerprint is
+a release gate, so the first commit that does it says so.
+
+## F-077 · A half-written conversation reads back as a new one
+
+**Found** 2026-09-25, through AHC-0102 (operational state is written whole).
+
+**Severity** Medium. The customer silently starts again, and nothing records
+that a row was unreadable.
+
+**Why.** `state/file.py` returns `None` on a record it cannot decode, which the
+tests assert as intended, and the chat channel reads `None` as a first message.
+The start-up durability check also does not cover the tool-claim store, and the
+order system's `Answered.durable = False` is read by nothing.
+
+**Open.** Routed to `state`: an unreadable record is a typed failure
+(misconfigured), not absence; the channel then hands on rather than restarting.
+
+## F-078 · The fact check does nothing in a turn that called no tool
+
+**Found** 2026-09-25, through AHC-0061 and AHC-0063 (not owed by A6; close
+analogues of AAC-0030).
+
+**Severity** Medium. A reply in a turn with no tool result can state any order
+number, amount or date: `no_ungrounded_entity` returns ALLOW when there are no
+tool results.
+
+**Open.** Routed to `policy`: with no evidence, an identifier, amount or date in
+the reply is ungrounded by definition, unless the customer said it this turn.
+Needs a row for each, and a check that a greeting naming nothing still passes.
+
+## F-079 · Three of the spec's own example refusals get through
+
+**Found** 2026-09-25, through AHC-0088, by running the router on the AHC text's
+examples: *"Which colour would suit me better?"*, *"Update my payment method to
+UPI"* and *"What did my neighbour order? Her name is Ravi."* all route to the
+model.
+
+**Open.** Routed to the router's rules with F-061, which is the same weakness —
+a recogniser written from a few phrasings. Loosening R-STYLE to catch *"would
+suit me"* also catches *"I thought it would fit, it doesn't"*, which is a
+return, so the fix is the matcher tested against the AOAS's examples (T-068),
+not three more alternations. The refusal list is also absent from the standing
+instruction, and `tests/test_refusals.py` holds a hand copy of it.
+
+## F-080 · The compensation list contradicts the order system
+
+**Found** 2026-09-25, through AHC-0058 (not owed by A6).
+
+**Why.** `resilience.compensation_for` gives `cancel_order` a way back
+(`reinstate_order`) although the order system declares it irreversible, and
+gives `change_address`, declared reversible, none. `reverse_refund`,
+`reinstate_order` and `close_return_request` exist only as names, and nothing
+outside a test calls `compensation_for`.
+
+**Open.** Routed to `resilience`: the list should be derived from, or checked
+against, the side-effect class the far end declares.
+
+## F-081 · The approval workflow's steps accept fields they do not know
+
+**Found** 2026-09-25, through AHC-0071 and AHC-0075 (not owed by A6).
+
+**Why.** The order details in each workflow form are an open `dict[str, object]`
+on models that do not forbid extra fields, so a renamed field is accepted and
+fails later as a look-up; the carry-out and reminder steps are handed the whole
+approval record; and each step has its own 30 s and three tries with no limit
+end to end.
+
+**Open.** Routed to `approvals/durable.py`, with F-051.
+
+## F-082 · No model is evaluated before it is approved, and nothing routes
+
+**Found** 2026-09-02, in review (R-011), and cited there as F-010 — a number the
+cassette fix (`ddedf85`) took the next day, and no entry was ever written under
+it. Renumbered here so each number means one thing; F-010 is now the cassette
+defect it has meant in the code and tests since.
+
+**Why.** Three models are approved and one is pinned per run. The AAC-0098
+discharge asserts each is configurable and priced, not that each was evaluated,
+and there is no weak/strong routing.
+
+**Open.** Routed to the golden set: a reliability figure per approved model
+before it may be approved.
