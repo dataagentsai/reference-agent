@@ -175,15 +175,32 @@ def configure(
     return exporter
 
 
-def begin_capture(run_id: str) -> bool:
-    """Decide whether this turn's words are kept, and remember it for the turn.
+def capture_decision(run_id: str) -> bool:
+    """Whether a turn with this run id has its words kept.
 
     Deterministic in the run id rather than random, so the decision can be
     recomputed later from the record alone and a replay makes the same one.
+    Pure: deciding does not switch anything on.
     """
-    keep = _CAPTURE_PAYLOADS and _sampled(run_id, _CAPTURE_SAMPLE)
-    _CAPTURING.set(keep)
-    return keep
+    return _CAPTURE_PAYLOADS and _sampled(run_id, _CAPTURE_SAMPLE)
+
+
+@contextmanager
+def capturing_turn(run_id: str) -> Iterator[bool]:
+    """Keep this turn's words, or not, for exactly as long as the turn (F-084).
+
+    The decision used to be set on the context and never taken back, so it
+    outlived its turn: whatever ran next in the same task — an opening, the
+    next caller's work, a test — kept or dropped words by a decision made for
+    something else, and switching capture off did not withdraw it. Now it is
+    restored on the way out, whatever way the turn leaves.
+    """
+    keep = capture_decision(run_id)
+    token = _CAPTURING.set(keep)
+    try:
+        yield keep
+    finally:
+        _CAPTURING.reset(token)
 
 
 def capturing() -> bool:
@@ -261,12 +278,13 @@ def set_payload(current: Span, key: str, text: str, *, limit: int = 4000) -> Non
 
     Off by default. Payload capture is the single largest privacy surface in an
     agent, and a default that leaks is a default that ships. When on, it is on
-    for a declared sample of turns (`begin_capture`), not for all traffic.
+    for a declared sample of turns (`capturing_turn`), not for all traffic.
 
     Until T-057 this was defined and called from nowhere, so switching
     capture on captured nothing (found writing AHC-0114).
     """
-    if _CAPTURING.get():
+    # Both: inside a turn chosen for capture, and capture still on (F-084).
+    if _CAPTURE_PAYLOADS and _CAPTURING.get():
         current.set_attribute(key, redact(text)[:limit])
 
 
@@ -329,7 +347,8 @@ __all__ = [
     "configure",
     "redact",
     "set_current_attribute",
-    "begin_capture",
+    "capture_decision",
+    "capturing_turn",
     "capturing",
     "exporting_metrics",
     "flush_metrics",

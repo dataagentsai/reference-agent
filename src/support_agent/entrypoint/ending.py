@@ -32,14 +32,15 @@ def opened(
     from a test, and a join key only some callers produce is one nothing
     downstream can rely on.
 
-    Whether the turn's words are kept is decided here, once, for the whole turn.
+    Whether the turn's words are kept was decided once, for the whole turn, by
+    `telemetry.capturing_turn` around it; this records the decision.
     """
     attributes: dict[str, str | bool] = {
         tel.RUN_ID: run_id,
         tel.SESSION_ID: conversation.conversation_id,
         tel.USER_ID: identity.customer_id,
         tel.SYNTHETIC: synthetic,
-        tel.CAPTURED: tel.begin_capture(run_id),
+        tel.CAPTURED: tel.capturing(),
     }
     if config is not None:
         attributes[tel.CONFIG_FINGERPRINT] = config.fingerprint

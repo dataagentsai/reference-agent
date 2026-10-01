@@ -73,12 +73,49 @@ def test_payload_capture_is_off_by_default(exporter) -> None:
 @pytest.mark.discharges("AAC-0095", "AAC-0006", "AHC-0019")
 def test_payload_capture_redacts_when_enabled() -> None:
     ex = tel.configure(capture_payloads=True)
-    tel.begin_capture("run_redacts")
-    with tel.span("gen_ai.chat") as s:
+    with tel.capturing_turn("run_redacts"), tel.span("gen_ai.chat") as s:
         tel.set_payload(s, "prompt", "my card is 4111111111111111")
     attrs = tel.attributes_of(ex.get_finished_spans()[0])
     assert "4111111111111111" not in attrs["prompt"]
     assert "[card]" in attrs["prompt"]
+    tel.configure(capture_payloads=False)
+
+
+def _in_turn(switch_off) -> None:
+    with tel.capturing_turn("run_in"), tel.span("capture.probe") as s:
+        switch_off()
+        tel.set_payload(s, "prompt", "my card is 4111111111111111")
+
+
+def _after_turn(switch_off) -> None:
+    with tel.capturing_turn("run_before"):
+        pass
+    switch_off()
+    with tel.span("capture.probe") as s:
+        tel.set_payload(s, "prompt", "my card is 4111111111111111")
+
+
+# (why, what runs with capture on, whether switched off on the way, whether kept)
+# F-084: the decision was set on the context and never taken back, so it
+# outlived its turn and survived capture being switched off.
+SCOPE = [
+    ("inside a turn chosen for capture", _in_turn, False, True),
+    ("switched off during the turn", _in_turn, True, False),
+    ("work after a captured turn", _after_turn, False, False),
+    ("switched off after a captured turn", _after_turn, True, False),
+]
+
+
+@pytest.mark.parametrize(("why", "work", "off", "kept"), SCOPE, ids=[c[0] for c in SCOPE])
+@pytest.mark.discharges("AAC-0095", "AHC-0019", "AHC-0114")
+def test_a_capture_decision_lasts_exactly_as_long_as_its_turn(
+    why: str, work, off: bool, kept: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    exporter = tel.configure(capture_payloads=True)
+    work(lambda: off and monkeypatch.setattr(tel, "_CAPTURE_PAYLOADS", False))
+    probe = next(s for s in exporter.get_finished_spans() if s.name == "capture.probe")
+    assert ("prompt" in tel.attributes_of(probe)) is kept
+    assert not tel.capturing(), "nothing is left switched on for whatever runs next"
     tel.configure(capture_payloads=False)
 
 

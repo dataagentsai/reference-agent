@@ -2689,3 +2689,29 @@ and there is no weak/strong routing.
 
 **Open.** Routed to the golden set: a reliability figure per approved model
 before it may be approved.
+
+## F-084 · A turn's capture decision outlived the turn
+
+**Found** 2026-10-01, chasing a test that failed only after another file:
+`test_payload_capture_is_off_by_default` passed alone and, after
+`tests/test_watching.py`, found `{'prompt': 'my card is [card]'}` on a span
+written with capture switched off.
+
+**Severity** Low. Redacted, but words kept that nobody chose to keep —
+the privacy surface AAC-0095 and AHC-0019 bound to a declared sample.
+
+**Why.** Whether a turn's words are kept is decided once per turn
+(`begin_capture`), and the decision was set on the context and never taken back.
+Whatever ran next in the same task — an opening, the next piece of work, a test
+— kept or dropped words by a decision made for something else, and switching
+capture off with `configure` did not withdraw a decision already in force,
+because `set_payload` read only the turn's flag. Separate requests on the server
+run in separate tasks, so it did not cross between customers there; it did in
+any caller that runs several pieces of work in one task.
+
+**Fixed.** `telemetry.capturing_turn(run_id)` holds the decision for exactly the
+turn and restores it on the way out, however the turn ends; deciding
+(`capture_decision`) no longer switches anything on; and `set_payload` keeps
+words only when capture is on *and* the turn was chosen.
+`tests/test_telemetry.py::test_a_capture_decision_lasts_exactly_as_long_as_its_turn`,
+four cases.

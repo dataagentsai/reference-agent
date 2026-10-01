@@ -235,8 +235,8 @@ def test_a_turns_words_are_kept_only_when_it_is_sampled(
 
 def test_sampling_is_decided_by_the_run_id_so_a_replay_decides_the_same() -> None:
     tel.configure(capture_payloads=True, capture_sample=0.5)
-    decided = [tel.begin_capture(f"run_{i}") for i in range(200)]
-    assert decided == [tel.begin_capture(f"run_{i}") for i in range(200)]
+    decided = [tel.capture_decision(f"run_{i}") for i in range(200)]
+    assert decided == [tel.capture_decision(f"run_{i}") for i in range(200)]
     assert 60 < sum(decided) < 140
     tel.configure()
 

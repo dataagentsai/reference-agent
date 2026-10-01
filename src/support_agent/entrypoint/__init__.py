@@ -177,8 +177,11 @@ class Agent:
         )
         started = time.monotonic()
         synthetic = identity.customer_id in self.synthetic_customers
-        attributes = ending.opened(run_id, conversation, identity, self.config, synthetic)
-        with tel.span("agent.turn", **attributes) as turn_span:
+        opened = (run_id, conversation, identity, self.config, synthetic)
+        with (
+            tel.capturing_turn(run_id),
+            tel.span("agent.turn", **ending.opened(*opened)) as turn_span,
+        ):
             tel.set_payload(turn_span, tel.INPUT, text)
             held, conversation = await self._gates(conversation, identity, run_id)
             if held is not None:
@@ -196,12 +199,10 @@ class Agent:
             result, landed, tried = await self._dispatch(decision, conversation, identity, run_id)
             conversation = conversation.with_turn(TurnNote.of(decision, result))
 
-            # Tier 2, after the work rather than before it. Every rule here asks
-            # how the turn *went* — did the loop give up, did the tools answer, is
-            # this the third time they have asked — and none of those facts exist
-            # until the route has run. That is also what closes R-011: a trajectory
-            # that exhausted its budget can fetch a person without the loop
-            # knowing this module exists.
+            # Tier 2, after the work: every rule asks how the turn *went*, and
+            # none of those facts exist until the route has run. That is also
+            # what closes R-011 — an exhausted trajectory can fetch a person
+            # without the loop knowing this module exists.
             escalated = await self.desk.raise_on_condition(conversation, identity, run_id, result)
             if escalated is not None:
                 result = escalated
