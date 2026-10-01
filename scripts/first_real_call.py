@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from support_agent import entrypoint as ep
 from support_agent import identity as ident
 from support_agent import telemetry as tel
-from support_agent.cassette import Cassette, Player, Recorder
+from support_agent.cassette import Cassette, Context, Player, Recorder
 from support_agent.config import Settings, resolve
 from support_agent.contracts import Identity, SideEffectClass
 from support_agent.cost import Meter
@@ -38,6 +38,7 @@ from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import META_SIDE_EFFECT, connect
 
 CASSETTE = Path(__file__).parent.parent / "cassettes" / "first_real_call.json"
+TOOLS = ("get_order",)
 QUESTION = "Hi — can you tell me what is happening with my order AB-77120? I ordered it last week."
 
 
@@ -67,13 +68,17 @@ async def main(replay: bool, record: bool = False) -> int:
 
     config = resolve(settings)
     meter = Meter(config.model, ceiling_usd=config.budgets.max_cost_usd)
+    # What the recording is made and replayed under. Both sides must say: since
+    # the cassette began declaring its context, a replay that named none was
+    # refused and a recording that named none wrote a blank one (F-071).
+    context = Context(model=config.model, tools=TOOLS, temperature=config.temperature)
 
     if replay:
-        llm: object = Player(Cassette.load(CASSETTE))
+        llm: object = Player(Cassette.load(CASSETTE), expect=context)
         recorder, verified = None, False
     else:
         client, verified = await connect_model(config, api_key=settings.provider_api_key)
-        llm = recorder = Recorder(client)
+        llm = recorder = Recorder(client, context=context)
 
     who: Identity = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
 

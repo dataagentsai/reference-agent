@@ -202,3 +202,28 @@ def _request():
     from support_agent.contracts import Message, ModelRequest
 
     return ModelRequest(messages=(Message(role="user", content="hello"),))
+
+
+@pytest.mark.discharges("AHC-0023")
+def test_the_replay_script_names_the_context_its_recording_was_made_under() -> None:
+    """F-071. `first_real_call.py --replay` built a Player with no context, so
+    the recording refused it (TrustBoundaryCrossed) from the day recordings
+    began declaring one, and `--record` wrote a blank context this file's own
+    gate rejects. The recording's context also said `tools: []` though the
+    model called get_order in it."""
+    import importlib.util
+
+    from support_agent.config import Settings, resolve
+
+    path = CASSETTE.parent.parent / "scripts" / "first_real_call.py"
+    spec = importlib.util.spec_from_file_location("first_real_call", path)
+    assert spec is not None and spec.loader is not None
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    config = resolve(Settings())
+    context = Context(model=config.model, tools=script.TOOLS, temperature=config.temperature)
+
+    cassette = Cassette.load(CASSETTE)
+    called = {c.name for e in cassette for c in e.response.tool_calls}
+    assert called <= set(script.TOOLS), "the recording used a tool its context does not declare"
+    assert isinstance(Player(cassette, expect=context), LLMClient)

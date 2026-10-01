@@ -38,5 +38,5 @@
       }
     }
   ],
-  "context": "{\"model\":\"openai/gpt-oss-120b\",\"temperature\":0.0,\"tools\":[]}"
+  "context": "{\"model\":\"openai/gpt-oss-120b\",\"temperature\":0.0,\"tools\":[\"get_order\"]}"
 }
