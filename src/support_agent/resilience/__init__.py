@@ -252,16 +252,18 @@ class ResilientLLM:
         self.breaker = breaker or CircuitBreaker()
         self.throttle = throttle or Throttle()
         self._sleep = sleep or asyncio.sleep
-        self._tries = 0
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
         if not self.breaker.closed:
             with tel.span("agent.breaker", **{"agent.breaker.state": self.breaker.state.value}):
                 raise ModelUnavailable("the model provider is not answering; not calling it yet")
-        self._tries = 0
+        # Counted per call, never on the client: one client serves every
+        # conversation in the process, and a count it held was reset by whichever
+        # call started next, renumbering another's retries (F-067).
+        tries = [0]
         try:
             return await with_retry(
-                partial(self._attempt, request),
+                partial(self._attempt, request, tries),
                 attempts=self.attempts,
                 backoff=self.backoff,
                 retry_on=(_Retry,),
@@ -270,8 +272,8 @@ class ResilientLLM:
         except _Retry as exhausted:
             raise exhausted.cause from None
 
-    async def _attempt(self, request: ModelRequest) -> ModelResponse:
-        self._tries += 1
+    async def _attempt(self, request: ModelRequest, tries: list[int]) -> ModelResponse:
+        tries[0] += 1
         await self.throttle.wait(self._sleep)
         try:
             response = await self.inner.complete(request)
@@ -282,20 +284,20 @@ class ResilientLLM:
         except ModelThrottled as exc:
             if exc.retry_after is not None:
                 self.throttle.note_retry_after(exc.retry_after)
-            self._visible_retry("throttled")
+            self._visible_retry("throttled", tries[0])
             raise _Retry(exc) from exc
         except ModelUnavailable as exc:
             self.breaker.record_failure()
-            self._visible_retry("unavailable")
+            self._visible_retry("unavailable", tries[0])
             raise _Retry(exc) from exc
         self.breaker.record_success()
         return response
 
-    def _visible_retry(self, reason: str) -> None:
-        if self._tries < self.attempts:
+    def _visible_retry(self, reason: str, tried: int) -> None:
+        if tried < self.attempts:
             with tel.span(
                 "agent.llm.retry",
-                **{"agent.retry.attempt": self._tries, "agent.retry.reason": reason},
+                **{"agent.retry.attempt": tried, "agent.retry.reason": reason},
             ):
                 pass
 

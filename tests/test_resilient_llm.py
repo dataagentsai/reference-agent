@@ -154,3 +154,45 @@ async def test_a_provider_blip_does_not_reach_the_customer() -> None:
     )
     assert isinstance(result, Completed) and result.reply == "Happy to help with that."
     assert provider.calls == 2
+
+
+@pytest.mark.discharges("AHC-0024")
+async def test_two_conversations_on_one_client_number_their_own_retries() -> None:
+    """F-067. The try count lived on the client, and `complete` reset it: one
+    `ResilientLLM` serves every conversation in the process, so a second call
+    starting while the first was retrying renumbered the first one's retries —
+    and could swallow the span of a retry that did happen."""
+    import asyncio
+
+    from support_agent import telemetry as tel
+
+    exporter = tel.configure()
+
+    class Blip:
+        """Fails each request's first two attempts, letting others run between."""
+
+        def __init__(self) -> None:
+            self.failed: dict[str, int] = {}
+
+        async def complete(self, request: ModelRequest) -> ModelResponse:
+            await asyncio.sleep(0)
+            said = request.messages[0].content
+            if self.failed.get(said, 0) < 2:
+                self.failed[said] = self.failed.get(said, 0) + 1
+                await asyncio.sleep(0)
+                raise down()
+            return OK
+
+    async def no_wait(_: float) -> None:
+        await asyncio.sleep(0)
+
+    llm = ResilientLLM(Blip(), backoff=Backoff(base_s=0.0, jitter=0.0), sleep=no_wait)
+    asks = [ModelRequest(messages=(Message(role="user", content=who),)) for who in "ab"]
+    await asyncio.gather(*(llm.complete(ask) for ask in asks))
+
+    numbered = [
+        tel.attributes_of(s)["agent.retry.attempt"]
+        for s in exporter.get_finished_spans()
+        if s.name == "agent.llm.retry"
+    ]
+    assert sorted(numbered) == [1, 1, 2, 2], f"each conversation numbers its own: {numbered}"
