@@ -82,3 +82,29 @@ async def test_how_the_turn_ends(
     if ends is not TerminationReason.GOAL_REACHED:
         # Handed on (loop-exhausted reads the termination), never sent as whole.
         assert said.text not in result.reply, "a clipped or late answer was passed on"
+
+
+@pytest.mark.discharges("AHC-0103", "AHC-0017")
+async def test_a_transcript_assembly_cannot_send_is_a_failed_turn(monkeypatch) -> None:
+    """F-065. Assembly refuses to send a call without its result, and raised
+    `BrokenTranscript` outside any handler: the loop let it out, so the caller
+    got a plain 500 and the customer no labelled reply. It ends the turn as
+    Failed, with the reason for the operator and nothing internal for the
+    customer."""
+    from support_agent import context as ctx
+    from support_agent.contracts import Failed
+
+    def broken(**_: object) -> ctx.Assembly:
+        raise ctx.BrokenTranscript("assembly orphaned tool calls ['tc'] and results []")
+
+    monkeypatch.setattr("support_agent.loop.ctx.assembled", broken)
+    world = Live.start(load(WORLD))
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
+        agent = ep.build(
+            llm=ScriptedClient([]), tools=tools, store=InMemoryCheckpointStore(), clock=still
+        )
+        who = Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES)
+        result, _ = await agent.handle("can you look into my orders please", identity=who)
+
+    assert isinstance(result, Failed), result
+    assert "orphaned" in result.detail and "orphaned" not in result.customer_message

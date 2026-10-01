@@ -211,7 +211,13 @@ class _Run:
         """One model call, over the assembled context; its failures become typed ends."""
         # Measured on the way past rather than computed separately: the assembly
         # already knows what it dropped, and asking again would do the work twice.
-        built = ctx.assembled(system=self.system_prompt, history=self.messages)
+        try:
+            built = ctx.assembled(system=self.system_prompt, history=self.messages)
+        except ctx.BrokenTranscript as exc:
+            # A transcript no provider will accept is a typed end like any other
+            # failure here. It escaped the loop, and the caller got a plain 500
+            # with no reply for the customer (F-065).
+            return failed(self.span, self.trace, TROUBLE, str(exc))
         step_span.set_attribute(tel.CONTEXT_CHARS, built.chars)
         step_span.set_attribute(tel.CONTEXT_EXCHANGES, built.exchanges)
         step_span.set_attribute(tel.CONTEXT_TRIMMED, built.trimmed)
