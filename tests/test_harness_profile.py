@@ -201,3 +201,22 @@ def test_this_resolver_agrees_with_the_catalogs_own(profile: dict) -> None:
     )
     assert done.returncode == 0, done.stderr
     assert yaml.safe_load(done.stdout) == profile, "the two resolvers disagree"
+
+
+@pytest.mark.tooling
+def test_a_shortfall_is_owned_dated_and_on_a_capability_that_is_exercised(profile: dict) -> None:
+    """`x_shortfalls` says what an exercised capability does not yet do. An
+    entry on a capability nothing exercises belongs in accepted_gaps, and one
+    without an owner and a date is a note nobody has to come back to."""
+    import datetime
+
+    owed = {s.id for s in statements.load().owed("AHC")}
+    exercised = set(json.loads(MAP.read_text())["by_statement"]) & owed
+    shortfalls = profile.get("x_shortfalls", [])
+    named = [entry["capability"] for entry in shortfalls]
+
+    assert len(named) == len(set(named)), "a capability's shortfalls are one entry"
+    assert set(named) <= exercised, f"not exercised, so an accepted gap: {set(named) - exercised}"
+    for entry in shortfalls:
+        assert entry.get("owner") and len(entry.get("reason", "")) >= 20, entry["capability"]
+        datetime.date.fromisoformat(str(entry["review"]))

@@ -87,9 +87,10 @@ stated tolerance.
 ### AAC-0097 — Processing region is enforced and recorded
 
 **Why not covered.** Provider configuration we do not currently set or assert.
-The endpoint is recorded in `RunConfig` and appears in the fingerprint, so the
-*record* half is arguably present; the *enforce* half is not, and claiming half
-an obligation is worse than claiming none.
+The endpoint is recorded in `RunConfig` but, since T-018, deliberately left out
+of the fingerprint (a gateway in front of the same provider is the same model),
+and the region that served a call is recorded nowhere — so neither half is
+present. *(Corrected 2026-10-01: this said the endpoint was in the fingerprint.)*
 
 **What would change it.** A provider that offers a region parameter, and a
 deployment with a reason to pin it.

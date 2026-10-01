@@ -121,7 +121,7 @@ ROWS = [
 @pytest.mark.parametrize(
     ("why", "before", "now", "awaiting", "granted", "withheld"), ROWS, ids=[r[0] for r in ROWS]
 )
-@pytest.mark.discharges("AAC-0106", "AHC-0034", "P-OWNERSHIP")
+@pytest.mark.discharges("AAC-0106", "AHC-0034", "AHC-0116", "P-OWNERSHIP")
 def test_what_the_customer_asked_for(
     why: str, before: tuple, now: str, awaiting: tuple, granted: set, withheld: set
 ) -> None:

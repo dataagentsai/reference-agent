@@ -102,8 +102,9 @@ decisions:
       argued and rejected on the capability's own grounds: a model-written
       summary of a window containing fenced material is untrusted output, and
       getting that wrong launders a planted instruction into the system's own
-      voice. Trimming loses the earliest exchange instead, which is a worse
-      product and a smaller hole.
+      voice. Trimming drops exchanges from the middle instead, keeping the
+      first (which sets the task) and the latest (which is being answered) —
+      a worse product than a good summary, and a smaller hole.
 
   AHC-0057/irreversible_scope:
     value: authority-by-whose
@@ -140,7 +141,10 @@ decisions:
       name (F-039). An approval stores its key and rebuilds it when the grant is
       carried out, so a resumed approval cannot refund twice. Not verified: a
       process that dies mid-turn loses the owed-key map, which lives in memory,
-      and whether the redelivered turn re-derives the same key has no test.
+      and whether the redelivered turn re-derives the same key has no test —
+      it does not: a re-run turn gets a new run id, so the same change gets a
+      new name. The order system's own record of names is in memory too
+      (`Answered.durable = False`).
   AHC-0014/unsettable_parameter:
     value: not-arising
     source: chosen
@@ -265,7 +269,8 @@ thresholds:
   max_cost_usd_per_task: 0.50
   max_tool_result_characters: 8000
   max_history_characters: 32000
-  max_concurrent_reads: 4
+  max_concurrent_reads: 4             # reads overlap, up to this many; writes run one at a time
+  max_turn_seconds: 60                # AHC-0096; checked before each step, not during a call
   oscillation_repeat_threshold: 3
   approval_validity_hours: 24
   escalation_queued_ttl_minutes: 30
@@ -349,7 +354,14 @@ accepted_gaps:
     owner: reference-agent
     review: "2026-12-01"
   - capability: AHC-0015
-    reason: The agent does not stream; a completion and abort contract has nothing to govern.
+    reason: >-
+      The agent does not stream; a completion and abort contract has nothing to
+      govern, and a release gate fails the build if a client starts to. The
+      capability's other half does apply and is not met: nothing stops a turn
+      when the customer goes away (no disconnect check), so a closed tab keeps
+      paying for its turn. A6 lists AHC-0015 as owed while this says the
+      streaming half is not applicable; the catalog has been asked which reading
+      holds.
     owner: reference-agent
     review: "2026-12-01"
   - capability: AHC-0071
@@ -371,21 +383,32 @@ accepted_gaps:
     review: "2026-12-01"
   - capability: AHC-0098
     reason: >-
-      One class of traffic, one entry point. A priority scheme needs a second
-      class to separate this one from.
+      Not met. There are three classes of traffic, not one: customers, the
+      canary and evaluation runs. Evaluation has its own gateway key and limit
+      (F-053), but the canary is admitted through /chat on the customers' key,
+      shares their 30 requests a minute, and its synthetic mark is used only for
+      counting. Nothing is admitted by class, and saturation degrades whichever
+      request arrives last.
     owner: reference-agent
     review: "2026-12-01"
   - capability: AHC-0092
     reason: >-
       Residency is declared absent in the AOAS rather than left out, and there is
-      one provider endpoint, so there is no region choice to pin or record.
+      one provider endpoint, so there is no region choice to pin. The region
+      that served a call is not recorded either. A6 lists AHC-0092 as owed; the
+      catalog has been asked whether a declared absence of residency discharges
+      it.
     owner: reference-agent
     review: "2026-12-01"
   - capability: AHC-0028
     reason: >-
-      No grader runs in the loop. Judgement with no scenario suite to score it
-      against is an opinion that costs a model call, so this is sequenced with
-      AgentTwin's scenarios rather than built first (TODO G0.11).
+      Partly met. The online watch (watch/) runs 22 deterministic rules, each
+      with its own id and version, injected into the watch and named on every
+      score by a version derived from the rules that ran (F-069). The offline
+      graders are not: a scenario's checks and the golden set's assertions are
+      compiled into the files that run them and carry no version of their own,
+      so a changed check is not distinguishable in the record from a changed
+      agent. No model-graded judge exists.
     owner: reference-agent
     review: "2026-11-01"
   - capability: AHC-0029
@@ -397,8 +420,10 @@ accepted_gaps:
     review: "2026-11-01"
   - capability: AHC-0031
     reason: >-
-      No metrics are emitted at all — only spans — so every aggregate question is
-      answered by aggregating traces, which is the wrong instrument. TODO G0.11.
+      Metrics are emitted now (T-055), and context size is still one number per
+      call: never broken into instruction, tool definitions and history, tool
+      descriptions never counted, and the between-releases figure in
+      tests/test_golden.py is measured on stand-in text rather than a release.
     owner: reference-agent
     review: "2026-11-01"
   - capability: AHC-0095
@@ -416,19 +441,26 @@ accepted_gaps:
   - capability: AHC-0090
     reason: >-
       No segment labels are attached at the boundary, so evaluation cannot be
-      sliced by customer segment. Nothing in the AOAS names a segment yet.
+      sliced by customer segment. Nothing in the AOAS names a segment yet. The
+      router does work out what a message is about (its candidate intents), and
+      that reaches neither the trace record nor the metric labels.
     owner: reference-agent
     review: "2026-12-01"
   - capability: AHC-0032
     reason: >-
-      Prompt, model and policy are versioned and diffable, and no release process
-      restores them together, because this agent is not deployed.
+      No release process restores prompt, model and policy together, because
+      this agent is not deployed. And not all three are versioned: the safety
+      rules (policy DEFAULT_RULES) carry no version and are not in the
+      fingerprint, the prompt is versioned by a hand-kept label (F-076), and
+      the routing rules live in code, held to their label only since F-070.
     owner: reference-agent
     review: "2026-12-01"
   - capability: AHC-0033
     reason: >-
       No deployment, so there is no artifact serving traffic to compare with the
       one that was assessed. The Build Manifest is the half of this that exists.
+      The fingerprint that would make the comparison hashes the prompt's label
+      rather than its text, and leaves out the world's version (F-076).
     owner: reference-agent
     review: "2026-12-01"
   # T-009, 2026-09-16. Both were listed under x_untested as believed met. Looking
@@ -440,7 +472,8 @@ accepted_gaps:
       context is injected into anything that leaves: a tool call's MCP `_meta`
       carries the session and, for writes, the idempotency key, and never a
       `traceparent`, so the tool server's work cannot attach to the agent's trace.
-      Nothing crosses a gateway because there is none (T-018). Closing it is
+      Calls to the model gateway (LiteLLM, T-029) carry no trace context either,
+      and the order system has no tracing. Closing it is
       `propagate.inject` into `_meta` on the transport and an extract on the
       server, with a test that the server's span has the agent's trace id.
     owner: reference-agent
@@ -451,7 +484,9 @@ accepted_gaps:
       `agent.run` and `agent.step` by the span contract, so in-process spans join
       on it. It does not cross a service boundary on its own: it reaches the tool
       server only inside a write's idempotency key, and a read carries no run id
-      at all. Same fix as AHC-0006 — the run id rides beside the trace context.
+      at all. Calls to the model gateway carry no run id either, so the
+      gateway's spend cannot be joined back to a run. Same fix as AHC-0006 —
+      the run id rides beside the trace context.
     owner: reference-agent
     review: "2026-12-01"
 
@@ -464,3 +499,264 @@ accepted_gaps:
 # not name them — AHC-0002, 0004, 0010, 0020, 0036 are tagged now. AHC-0006 and
 # AHC-0026 were not met across the process edge and moved to accepted_gaps.
 x_untested: []
+
+# Exercised, and met only in part. `x_` again, because the format's
+# accepted_gaps is for a capability not met at all, and this file's own test
+# refuses a capability that is both an accepted gap and exercised by a passing
+# test. These are both: the part that holds is tagged and tested, and what does
+# not hold is said here, in the accepted gap's own shape — owned and dated —
+# so a partial pass never reads as a whole one. A test holds every entry to an
+# exercised capability; one that stops being exercised moves to accepted_gaps.
+#
+# 2026-10-01, from the gap list written while illustrating the catalog against
+# this agent (25 Sep). Wrong behaviour found on the way is in evals/FINDINGS.md
+# (F-062 to F-082).
+x_shortfalls:
+  - capability: AHC-0018
+    reason: >-
+      Partly met. A block records its rule and, since F-066, its reason. The
+      record has no rule-set version (policy rules are unversioned, see
+      AHC-0032), and an allow is written once per position rather than once per
+      rule, so an empty rule list reads the same as every rule passing.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0093
+    reason: >-
+      Partly met. Rules run in a declared order at each of five positions
+      (F-027), but evaluation stops at the first block where the capability
+      asks for every rule to run and the first block to act, and the order the
+      rules ran in is not recorded.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0008
+    reason: >-
+      Partly met. Every rule blocks when it fails — fail-closed is one default
+      for all of them, not chosen per rule as the capability's design notes ask.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0094
+    reason: >-
+      The single exit is `policy.enforce`, a function in this process, not a
+      shared gateway in front of it; a second process calling the model or the
+      tools would not pass through it. The model gateway (LiteLLM) carries no
+      output rules.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0035
+    reason: >-
+      Partly met. A protocol error is scrubbed before the model reads it
+      (F-074), and the token never enters a repr. The scrub is a regex floor
+      (F-057), it is not applied to a successful tool result, and policy can
+      block but not transform text on its way to the model (REVIEW R-008).
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0024
+    reason: >-
+      Partly met. Retries are bounded per model call (three) and each is a span,
+      numbered per call since F-067. There is no bound per task — twelve steps
+      can make thirty-six calls — and the task's record has no retry total.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0101
+    reason: >-
+      Partly met. Prices are decimal and an unpriced model fails at startup. The
+      table's date is a code comment, not a value anything checks, and the table
+      lives in code rather than configuration.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0007
+    reason: >-
+      Partly met. Spend is metered per run and emitted as a metric (T-055), but
+      not split by how the run ended, so cost per successful task exists only
+      as a figure in tests/test_golden.py.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0030
+    reason: >-
+      Partly met. The ceiling is checked after each call (spend >= ceiling), with
+      no headroom held for the most expensive next call, so the overshoot is
+      bounded only by max_output_tokens. Nothing warns before the gateway's
+      30-day budget runs out; the only cost alert is SpendPerRunDoubled. At
+      today's prices twelve steps cost about $0.05, so the $0.50 ceiling cannot
+      be reached with the pinned model and is untested in production.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0041
+    reason: >-
+      Partly met. Steps and money are bounded and the turn has a 60-second clock
+      (max_turn_seconds), but the clock is checked only between steps — a call
+      in flight is not cut off — and tokens are counted with no limit of their
+      own.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0096
+    reason: >-
+      Partly met since 56021f2: a turn past its clock ends as deadline_reached.
+      The deadline is not passed into the model call or the tool call, so the
+      worst case is the clock plus one full step, retries included.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0042
+    reason: >-
+      Partly met. A call repeated three times with the same arguments stops the
+      run, but the result is not part of the comparison, so a legitimate retry
+      after a brief failure counts toward the three; a series of different calls
+      that changes nothing is stopped only by the step limit; and the threshold
+      is a default in the loop that the entry point does not pass, so the
+      profile's oscillation_repeat_threshold is not read by anything.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0097
+    reason: >-
+      Not met. Concurrency within a step is bounded (four reads at once), but
+      the number of calls one step may plan is not: a step asking for fifty
+      look-ups counts as one of the twelve.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0104
+    reason: >-
+      Partly met. Reads overlap and writes run one at a time, as the thresholds
+      say. Within dispatch, results are matched to calls by list position and
+      the call id is attached afterwards; safe today, but the id is not carried
+      through every path as the capability prefers.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0020
+    reason: >-
+      Not met across the program. The code's only AHC-0020 citation is the
+      four-at-once limit on reads within one reply. Nothing caps how many
+      conversations wait on the model at once; the gateway's limit is per
+      minute, with no queue and no queue timeout. With the default base URL
+      (the provider directly) none of the gateway's limits apply.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0004
+    reason: >-
+      Partly met. One module may import a provider SDK (import contract), but
+      nothing stops a second route at the network: the provider is reachable
+      from anywhere. The default provider_base_url is the provider itself, so
+      the gateway's per-caller key, limit and budget apply only when a
+      deployment points the agent at it.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0010
+    reason: >-
+      Partly met. `handle()` returns the result and the conversation, and the
+      loop's trace is dropped on the way out, so a caller holds no trace or
+      trace link; `build()` takes many separate settings rather than one
+      resolved configuration record.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0014
+    reason: >-
+      Partly met. Temperature is sent on every call and recorded per call
+      (F-064). top_p, seed and stop sequences are never sent or recorded, so the
+      provider's defaults decide them.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0023
+    reason: >-
+      Partly met. A recording declares its context and refuses a foreign one.
+      No capture date is stored, and the one live recording no longer matches
+      the agent's requests (prompt v2) and needs a live re-record (F-071).
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0022
+    reason: >-
+      Partly met. The provider is substitutable through one interface, and a
+      sealed run is refused the real model. The `resolution` setting does not
+      choose which provider is plugged in — the start-up script's --real flag
+      does — and nothing stops scripted replies or a recording being plugged
+      into a live agent.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0105
+    reason: >-
+      Partly met. A replay matches its originating request (F-010). A replayed
+      run can say "real" on the turn record (from settings) and "replay" on each
+      call record (AHC-0027 the same), and a scripted model that runs out
+      reports itself unavailable rather than exhausted.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0027
+    reason: >-
+      Partly met. The route and its reason are recorded. The replay marker sits
+      on the turn record for live calls and on the call record for playback, so
+      the two cannot be read the same way.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0013
+    reason: >-
+      Partly met. The standing instruction is separable and versioned by label.
+      The configuration fingerprint is written only when a configuration is
+      passed in, so the demo's scripted mode records none.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0110
+    reason: >-
+      Partly met. Five kinds by the caller's next move. The base class defaults
+      to refused, so a failure that never chose a kind passes the build check;
+      and nothing reads the kind — retries decide by exception type and the
+      metric records the type name.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0043
+    reason: >-
+      Partly met. A failed tool call returns to the loop as a result, never an
+      exception. What the model is told does not say whether trying again
+      later would help, and the harness never retries a failed read itself, so
+      the model spends a step on it.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0044
+    reason: >-
+      Partly met. The trajectory is saved once per turn, not after each step,
+      and not just before an irreversible change; the claim taken before a
+      change lives in memory in the demo server.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0017
+    reason: >-
+      Partly met. Every path returns a typed result. There is no abstained
+      result: "I am not sure" comes back as Completed prose, and declining to
+      answer is left to the prompt's wording.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0113
+    reason: >-
+      Partly met. The canary crosses every hop as a real customer every ten
+      minutes, and pages on failure and on silence. The schedule is the
+      script's own loop, not a service in compose.yaml, and its someone-else's-
+      order case fails against the projected world (F-047).
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0111
+    reason: >-
+      Partly met. Metrics are emitted apart from traces (T-055), with no link
+      from a metric total to an example trace (no exemplars).
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0112
+    reason: >-
+      Partly met. A customer's thumbs up or down is joined to the conversation.
+      Replies carry no id of their own, so feedback attaches to the last reply
+      before the click; an outcome has no event time of its own; and a refund
+      reversed later or a colleague's verdict on an escalation is not recorded
+      as an outcome.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0114
+    reason: >-
+      Partly met. Each turn leaves one record. A reply's position in the
+      conversation and its token total are not on it; the fingerprint and how
+      the reply ended are optional in the span contract, so nothing enforces
+      them; captured text is cut at 4,000 characters.
+    owner: reference-agent
+    review: "2026-12-01"
+  - capability: AHC-0102
+    reason: >-
+      Partly met. Every store declares whether it survives the process and the
+      agent refuses a mixture. A half-written record reads back as no record
+      (F-077), and the start-up check does not cover the tool-claim store.
+    owner: reference-agent
+    review: "2026-12-01"

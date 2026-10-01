@@ -192,8 +192,9 @@ it is still cheap"*.
 
 And we do not route at all: three approved models, one pinned per run.
 
-→ **F-010**, and our AAC-0098 discharge is thinner than the obligation: it
-asserts each model is *configurable and priced*, not *evaluated*.
+→ **F-082** (recorded here as F-010, a number the cassette fix took the next
+day; renumbered 2026-10-01), and our AAC-0098 discharge is thinner than the
+obligation: it asserts each model is *configurable and priced*, not *evaluated*.
 
 ---
 
@@ -449,6 +450,31 @@ case: AHC's scope excludes them by design, so they route to the Baseline profile
 
 → Catalog gap-filling, reverse-engineered from the modules that do the work,
 now that the runtime exists to lift them from.
+
+---
+
+## R-020 · "Illustrate every harness capability with this agent"
+
+*Gap list of 2026-09-25, routed 2026-10-01.*
+
+**Exposed:** not a question but an exercise — writing the catalog's explainer
+page with this agent as the running example — and it asked more than any
+question here. Putting each capability next to the line of code that meets it
+found two defects that reach a customer (F-062, F-063), one leak across
+customers (fixed the next day in `832c38a`), a replay that had not worked for
+three weeks (F-071), a profile that contradicted its own code in four places,
+and about sixty places where a capability is met in part.
+
+| Where it went | Items |
+|---|---|
+| Fixed, with a finding and a test | F-062 to F-075: the direct route's *not found*, order-id spellings, temperature zero, a broken transcript as a 500, the loop's refusal reason, retry numbering, the chat-widget size limit, the watch's rule-set version, the routing label, the replay script, erasure of saved replies, skips in the map, the tool-error scrub, the escalation note |
+| Fixed, no defect | the gateway's model copies are now checked against the approved list (AHC-0009); `Fault.EXHAUSTED`'s wrong example; four stale texts in harness-profile.yaml (AHC-0109 trimming, AHC-0028 "no grader runs", AHC-0098 "one class of traffic", AHC-0031/0006 "no metrics", "no gateway"); the AAC-0011 citations; run_server's Temporal comment; NOT_EXERCISED's AAC-0097 |
+| Already fixed before routing | the security leak (`832c38a`); a clipped answer sent as Completed (`56021f2`); the deadline never produced (`56021f2`); the policy rules blind to look-alike hyphens (`11c2bc2`) |
+| Open findings | F-076 prompt label, not prompt text, in the fingerprint · F-077 a half-written record read as none · F-078 the fact check skips no-tool turns · F-079 three spec refusals missed · F-080 the compensation list contradicts the far end · F-081 the approval forms accept unknown fields · F-082 no model evaluated before approval |
+| Met in part, owned and dated | harness-profile.yaml `x_shortfalls`, one entry per capability (32) |
+| Not met, owned and dated | the existing `accepted_gaps`, with corrected text |
+| Not owed by A6, kept here | AHC-0054 no stop-all switch, and a takeover is seen only when a message arrives · AHC-0055 only the canary has a silence alarm · AHC-0056 only refunds write a durable record before the effect · AHC-0059 no setting bounds how many changes one request may make · AHC-0066 no idle expiry, and the demo server's conversations die with it · AHC-0067 a trim records its size, not its rule or what went, and earlier constraints are not kept · AHC-0068 the owner check is at each door, not in the store · AHC-0085 the /chat reply carries no schema version · AHC-0053 the demo server's delivery claims are in memory |
+| Handed back to the catalog | AHC-0011 (fixed marker with escaping: the third question has no answer), AHC-0015 and AHC-0092 (A6 owes them; the profile reads them as not applicable), AHC-0021 (the page's wording on jitter beside Retry-After) |
 
 ---
 
