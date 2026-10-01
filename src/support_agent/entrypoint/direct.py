@@ -40,10 +40,23 @@ class DirectHandler(Protocol):
     ) -> TurnResult: ...
 
 
+NOT_FOUND_REPLY = "I could not find order {{ order_id }} on your account."
+"""What `found: false` is told. The order system answers it alike for an order
+that does not exist and for one that is somebody else's (F-016), so the reply
+names neither case — it says the one thing both share."""
+
+
 async def _order(
     decision: Direct, identity: Identity, run_id: RunId, tools: ToolClient
-) -> dict[str, object] | Failed:
-    """The order the router found, from the order system — or a typed failure.
+) -> dict[str, object] | Completed | Failed:
+    """The order the router found, from the order system — or an answer that it
+    was not found, or a typed failure.
+
+    `found: false` is a successful call that says the order is absent (AHC-0086:
+    absence is its own state, not a field left empty). Read as an order, it
+    became *"Order AB-10003 is currently unknown."* and *"There is no refund on
+    order AB-10003."* — both describing an order the system had just said was
+    not there (F-062).
 
     The tool's argument name is read from its declared schema rather than
     assumed: a hard-coded `order_id` once bound this route to one tool signature,
@@ -72,6 +85,10 @@ async def _order(
             customer_message="I could not find that order.",
             detail=result.text or "no structured content",
         )
+    if result.structured.get("found") is False:
+        return Completed(
+            reply=ctx.render(NOT_FOUND_REPLY, order_id=decision.args.get("order_id", ""))
+        )
     return result.structured
 
 
@@ -84,7 +101,7 @@ async def order_status(
 ) -> TurnResult:
     """The order's current status, from the order system, rendered by template."""
     order = await _order(decision, identity, run_id, tools)
-    if isinstance(order, Failed):
+    if not isinstance(order, dict):
         return order
     return Completed(
         reply=ctx.render(
@@ -115,7 +132,7 @@ async def refund_status(
     question was answered with the order's status (F-018).
     """
     order = await _order(decision, identity, run_id, tools)
-    if isinstance(order, Failed):
+    if not isinstance(order, dict):
         return order
     template = REFUND_REPLIES.get(str(order.get("status")), NO_REFUND_REPLY)
     return Completed(reply=ctx.render(template, order_id=_order_id(order)))
@@ -148,6 +165,7 @@ async def answer(
 __all__ = [
     "HANDLERS",
     "LOOKUP_TOOL",
+    "NOT_FOUND_REPLY",
     "NO_REFUND_REPLY",
     "REFUND_REPLIES",
     "STATUS_REPLY",

@@ -17,7 +17,8 @@ The cases are chosen to cross every hop at least once and to write nothing:
 - **return outside the window** adds a refusal the store owns: the reply must
   not claim a return was opened.
 - **someone else's order** tests ownership at the far end: nothing about
-  another customer's order may come back.
+  another customer's order may come back, and the reply may not describe it
+  as though it were found (F-062).
 
 Its turns are marked synthetic by the agent (`AGENT_SYNTHETIC_CUSTOMERS`) and
 excluded from every rate and from the online rules.
@@ -26,6 +27,7 @@ excluded from every rate and from the online rules.
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -107,7 +109,15 @@ def _not_theirs(status: int, body: dict[str, Any]) -> str | None:
         return wrong
     if "Park Street" in _reply(body) or "4999" in _reply(body):
         return "another customer's order came back"
+    # Nothing leaking is not the whole of a right answer: the store said the
+    # order is not there, and a reply giving it a status or a refund state
+    # describes an order that does not exist for this customer (F-062).
+    if _DESCRIBED.search(_reply(body)):
+        return f"described an order the store did not find: {_reply(body)[:120]}"
     return None
+
+
+_DESCRIBED = re.compile(r"\bis currently\b|\bno refund\b|\brefund has been\b", re.I)
 
 
 CASES: tuple[Case, ...] = (

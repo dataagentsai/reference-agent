@@ -11,7 +11,18 @@ from __future__ import annotations
 import pytest
 
 from support_agent import router
-from support_agent.contracts import Direct, Failed, Identity, Intent, RunId
+from support_agent.contracts import (
+    Completed,
+    Direct,
+    Failed,
+    Identity,
+    Intent,
+    RunId,
+    SideEffectClass,
+    ToolRegistry,
+    ToolResult,
+    ToolSpec,
+)
 from support_agent.entrypoint import direct
 
 
@@ -102,3 +113,55 @@ async def test_a_refund_status_question_is_answered_about_the_refund(
             identity=Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES),
         )
     assert isinstance(result, Completed) and result.reply == told
+
+
+class _AnswersNotFound:
+    """An order system that answers as the real store does for an order that is
+    missing or is not this customer's: `found: false`, a successful call."""
+
+    async def list_tools(self, identity: Identity) -> ToolRegistry:
+        return ToolRegistry(
+            tools=(
+                ToolSpec(
+                    name=direct.LOOKUP_TOOL,
+                    description="Look up an order's current status.",
+                    input_schema={
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                        "required": ["id"],
+                    },
+                    output_schema={"type": "object"},
+                    side_effect=SideEffectClass.READ,
+                ),
+            )
+        )
+
+    async def call(
+        self, name: str, arguments: dict[str, object], identity: Identity, idempotency_key: object
+    ) -> ToolResult:
+        return ToolResult(name=name, structured={"found": False, "id": arguments["id"]})
+
+
+# (handler, what the customer asked) — F-062: both answered about an order that
+# the order system said is not there, "currently unknown" and "no refund".
+NOT_FOUND = [
+    ("order_status", Intent.ORDER_STATUS),
+    ("refund_status", Intent.REFUND_STATUS),
+]
+
+
+@pytest.mark.discharges("P-DIRECT", "AHC-0086")
+@pytest.mark.parametrize(("handler", "intent"), NOT_FOUND, ids=[c[0] for c in NOT_FOUND])
+async def test_an_order_the_system_did_not_find_is_not_described(
+    handler: str, intent: Intent
+) -> None:
+    """`found: false` is an answer about absence, not an order with no status.
+    The reply says the order was not found on this account, and says nothing
+    the order system did not return."""
+    decision = Direct(intent=intent, handler=handler, args={"order_id": "AB-10003"})
+    result = await direct.answer(
+        decision, Identity(customer_id="C-7001"), RunId("r"), tools=_AnswersNotFound()
+    )
+    assert isinstance(result, Completed), result
+    assert result.reply == "I could not find order AB-10003 on your account.", result.reply
+

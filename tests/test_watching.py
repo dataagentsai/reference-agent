@@ -414,6 +414,21 @@ VERDICTS = [
     ("another's order leaked", "someone else's order", 200, {"reply": "5 Park Street"}, False),
     ("another's order refused", "someone else's order", 200, {"reply": "Not found."}, True),
     ("turned away at the door", "someone else's order", 401, {"error": "not valid"}, False),
+    # F-062: the direct route described an order the store said is not there.
+    (
+        "a missing order given a status",
+        "someone else's order",
+        200,
+        {"reply": "Order AB-10003 is currently unknown."},
+        False,
+    ),
+    (
+        "a missing order given no refund",
+        "someone else's order",
+        200,
+        {"reply": "There is no refund on order AB-10003."},
+        False,
+    ),
 ]
 
 
