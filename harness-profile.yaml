@@ -342,28 +342,6 @@ x_store:   { approach: open-source, adapter: saleor, x_status: current, x_item: 
 x_runs_from: reference-agent/compose.yaml
 
 accepted_gaps:
-  - capability: AHC-0109
-    reason: >-
-      Met vacuously and deliberately: this agent reduces context by dropping
-      whole exchanges, never by summarising, so it produces no new text for a
-      provenance label to be lost across. That is the capability's own third
-      decision taken as written — discarding is the reduction with no laundering
-      surface, and is the right default until measurement says otherwise. If a
-      summariser is ever added here, this entry is the thing that has to change
-      with it, which is why it is recorded rather than left to be noticed.
-    owner: reference-agent
-    review: "2026-12-01"
-  - capability: AHC-0015
-    reason: >-
-      The agent does not stream; a completion and abort contract has nothing to
-      govern, and a release gate fails the build if a client starts to. The
-      capability's other half does apply and is not met: nothing stops a turn
-      when the customer goes away (no disconnect check), so a closed tab keeps
-      paying for its turn. A6 lists AHC-0015 as owed while this says the
-      streaming half is not applicable; the catalog has been asked which reading
-      holds.
-    owner: reference-agent
-    review: "2026-12-01"
   - capability: AHC-0071
     reason: >-
       One loop, no graph. There are no nodes to give typed edges to, and building
@@ -389,15 +367,6 @@ accepted_gaps:
       shares their 30 requests a minute, and its synthetic mark is used only for
       counting. Nothing is admitted by class, and saturation degrades whichever
       request arrives last.
-    owner: reference-agent
-    review: "2026-12-01"
-  - capability: AHC-0092
-    reason: >-
-      Residency is declared absent in the AOAS rather than left out, and there is
-      one provider endpoint, so there is no region choice to pin. The region
-      that served a call is not recorded either. A6 lists AHC-0092 as owed; the
-      catalog has been asked whether a declared absence of residency discharges
-      it.
     owner: reference-agent
     review: "2026-12-01"
   - capability: AHC-0028
@@ -489,6 +458,50 @@ accepted_gaps:
       the run id rides beside the trace context.
     owner: reference-agent
     review: "2026-12-01"
+
+# Owed only where a condition holds, and it does not hold here (AHC f21d662,
+# `applies_when`). Not a gap: nothing is owed, so no owner and no review date —
+# which is why the catalog's linter allows this block only for a capability
+# that states its condition. Until 2026-10-01 the first three were accepted
+# gaps with review dates, which read as a debt being carried, and AHC-0097
+# was a shortfall measured against tool calls when it is about model calls.
+not_applicable:
+  - capability: AHC-0015
+    reason: >-
+      Nothing is streamed: the answer is returned whole in one response, on
+      /chat and through handle(), and a release gate fails the build if a
+      client starts to stream.
+    revisit_when: the reply is streamed to the caller
+    x_note: >-
+      The cancellation clause cancels the stream, so it goes with the condition.
+      The concern behind it does not: a turn keeps running, and paying, after
+      the customer closes the tab, because nothing checks the caller is still
+      there. No capability owns that for a system that does not stream; handed
+      back to the catalog (REVIEW R-020).
+  - capability: AHC-0092
+    reason: >-
+      No data-residency obligation binds this agent: the AOAS declares residency
+      absent rather than leaving it out, and there is one provider endpoint, so
+      there is no region to pin. The region that serves a call is not recorded.
+    revisit_when: a jurisdiction constrains where conversations may be processed
+  - capability: AHC-0109
+    reason: >-
+      Context is reduced only by discarding whole units: context.assembled drops
+      whole exchanges from the middle and keeps the first, and nothing
+      summarises, so no new text is produced for a provenance label to be lost
+      across. The decision AHC-0109/summary_provenance records why.
+    revisit_when: a summariser is added to context reduction
+  - capability: AHC-0097
+    reason: >-
+      One request never issues model calls in parallel: the loop makes one model
+      call per step, in sequence. What fans out is the tool calls a step asks
+      for, which is AHC-0104's, and their concurrency is bounded at four.
+    revisit_when: a request issues several model calls at once — per document, candidate or branch
+    x_note: >-
+      Filed here as a shortfall until 2026-10-01: the number of tool calls one
+      step may plan is unbounded (a step asking for fifty look-ups counts as one
+      of the twelve). That is still true and is not 0097's; handed back to the
+      catalog (REVIEW R-020).
 
 # `x_` is the format's extension point. These are not accepted gaps: each is
 # believed met and **no test names it**, which the Assurance Map reports and this
@@ -604,13 +617,6 @@ x_shortfalls:
       that changes nothing is stopped only by the step limit; and the threshold
       is a default in the loop that the entry point does not pass, so the
       profile's oscillation_repeat_threshold is not read by anything.
-    owner: reference-agent
-    review: "2026-12-01"
-  - capability: AHC-0097
-    reason: >-
-      Not met. Concurrency within a step is bounded (four reads at once), but
-      the number of calls one step may plan is not: a step asking for fifty
-      look-ups counts as one of the twelve.
     owner: reference-agent
     review: "2026-12-01"
   - capability: AHC-0104

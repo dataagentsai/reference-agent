@@ -26,7 +26,7 @@ from typing import Any
 import yaml
 
 OBJECT_KEYS = ("harness", "decisions", "thresholds")
-LIST_KEYS = ("accepted_gaps", "x_untested")
+LIST_KEYS = ("accepted_gaps", "not_applicable", "x_untested")
 
 
 def _is_object(value: Any) -> bool:

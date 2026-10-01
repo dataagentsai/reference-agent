@@ -52,7 +52,7 @@ async def test_results_come_back_in_the_order_they_were_asked_for() -> None:
     assert out == [0, 1, 2, 3, 4]
 
 
-@pytest.mark.discharges("AHC-0097", "AHC-0020")
+@pytest.mark.discharges("AHC-0020")
 async def test_concurrency_is_actually_bounded() -> None:
     """AHC-0020 — the limit is the harness's and exists whether or not the
     runtime would have imposed one. `peak` is the assertion that it was
@@ -66,12 +66,12 @@ async def test_concurrency_is_actually_bounded() -> None:
     assert limiter.peak <= 2
 
 
-@pytest.mark.discharges("AHC-0097")
+@pytest.mark.discharges("AHC-0104")
 async def test_an_empty_batch_is_not_an_error() -> None:
     assert await flw.gather_bounded([]) == []
 
 
-@pytest.mark.discharges("AHC-0097")
+@pytest.mark.discharges("AHC-0104")
 def test_a_zero_limit_is_refused() -> None:
     with pytest.raises(ValueError, match="at least 1"):
         flw.Limiter(limit=0)
@@ -329,7 +329,7 @@ def batch(name: str, *ids: str) -> ModelResponse:
     )
 
 
-@pytest.mark.discharges("AHC-0097", "AHC-0104")
+@pytest.mark.discharges("AHC-0104")
 async def test_parallel_reads_interleave(server) -> None:
     async with connect(server, requests=InMemoryRequests()) as tools:
         await agent_loop.run(

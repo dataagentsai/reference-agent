@@ -70,6 +70,8 @@ def test_every_bound_port_is_a_port_the_catalog_declares(profile: dict) -> None:
 def test_every_capability_named_in_the_profile_exists(profile: dict) -> None:
     known = {p.stem for p in (CATALOG / "capabilities").glob("AHC-*.yaml")}
     named = {gap["capability"] for gap in profile["accepted_gaps"]} | set(profile["x_untested"])
+    named |= {entry["capability"] for entry in profile.get("not_applicable", [])}
+    named |= {entry["capability"] for entry in profile.get("x_shortfalls", [])}
     named |= {key.split("/", 1)[0] for key in profile["decisions"]}
     assert named <= known, f"names capabilities that do not exist: {sorted(named - known)}"
 
@@ -77,22 +79,47 @@ def test_every_capability_named_in_the_profile_exists(profile: dict) -> None:
 @needs_catalog
 @pytest.mark.discharges("B7")
 def test_every_capability_this_shape_owes_is_accounted_for(profile: dict) -> None:
-    """Exercised, accepted as a gap, or believed met and untested — and nothing
-    in two of those at once, because a capability cannot be both owed-and-absent
-    and quietly present."""
+    """Exercised, accepted as a gap, believed met and untested, or not
+    applicable because its condition does not hold — and nothing in two of
+    those at once, because a capability cannot be both owed-and-absent and
+    quietly present, nor both inapplicable and tested as if it applied."""
     owed = {s.id for s in statements.load().owed("AHC")}
     exercised = set(json.loads(MAP.read_text())["by_statement"]) & owed
     gaps = {gap["capability"] for gap in profile["accepted_gaps"]}
     untested = set(profile["x_untested"])
+    inapplicable = {entry["capability"] for entry in profile.get("not_applicable", [])}
 
-    overlap = (gaps & exercised) | (untested & exercised) | (gaps & untested)
-    assert overlap == set(), f"accounted for twice, and inconsistently: {sorted(overlap)}"
+    kinds = {"exercised": exercised, "gaps": gaps, "untested": untested, "n/a": inapplicable}
+    overlap = {
+        f"{a}+{b}": sorted(kinds[a] & kinds[b])
+        for i, a in enumerate(kinds)
+        for b in list(kinds)[i + 1 :]
+        if kinds[a] & kinds[b]
+    }
+    assert overlap == {}, f"accounted for twice, and inconsistently: {overlap}"
 
-    unaccounted = owed - exercised - gaps - untested
+    unaccounted = owed - exercised - gaps - untested - inapplicable
     assert unaccounted == set(), (
         "owed by this shape and mentioned nowhere — each is exercised, an accepted "
-        f"gap, or untested, and somebody has to say which: {sorted(unaccounted)}"
+        f"gap, untested, or not applicable, and somebody has to say which: {sorted(unaccounted)}"
     )
+
+
+@needs_catalog
+@pytest.mark.discharges("B7")
+def test_not_applicable_is_only_for_a_capability_whose_condition_is_stated(profile: dict) -> None:
+    """AHC's `applies_when` (f21d662). "Not applicable" carries no owner and no
+    date, so on a capability that states no condition it is a gap that has
+    stopped saying so — the escape hatch README's Conformance section refuses.
+    The catalog's linter checks the same; this keeps it checked when Node is
+    absent, and adds what only this repository can see: not also a shortfall."""
+    shortfalls = {entry["capability"] for entry in profile.get("x_shortfalls", [])}
+    for entry in profile.get("not_applicable", []):
+        cid = entry["capability"]
+        capability = yaml.safe_load((CATALOG / "capabilities" / f"{cid}.yaml").read_text())
+        assert capability.get("applies_when"), f"{cid} states no condition"
+        assert len(entry.get("reason", "")) >= 20, f"{cid}: a reason a reviewer can check"
+        assert cid not in shortfalls, f"{cid} is both a shortfall and not applicable"
 
 
 @pytest.mark.discharges("AHC-0040")
