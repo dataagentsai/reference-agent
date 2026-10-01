@@ -2357,10 +2357,35 @@ style advice on "it does not fit" (router R-STYLE, seen live the same day).
 
 ---
 
-*F-062 to F-082 were found on 2026-09-25 while illustrating the harness catalog
+*F-062 to F-083 were found on 2026-09-25 while illustrating the harness catalog
 (AHC) against this agent, written up as a gap list beside the catalog's
 explainer page, and checked against the code on 2026-10-01. Each names the
 capability it was found through.*
+
+## F-083 · Another customer's idempotency key returned their saved reply
+
+*Out of sequence: written last, placed first, because it is the one that
+mattered most.*
+
+**Found** 2026-09-25, through AHC-0068 (isolation is structural), and reproduced
+in a temporary test: C-1042 sent `Idempotency-Key: shared-key-1` and asked about
+AB-10002; C-9999 sent *"hello"* with the same key and was handed C-1042's reply
+and conversation id. Generation run 2 had found the same leak in its own build
+(NOTES §8) the same week.
+
+**Severity** Critical. One customer's order details, and a handle on their
+conversation, to anyone who could guess or replay a key.
+
+**Why.** The /chat key became the delivery's name on its own, and a redelivery
+is answered with the first run's stored outcome — with no check of whose it was.
+
+**Fixed** `832c38a`: a delivery is named `customer:key`, so another customer's
+key starts their own turn. `tests/test_serve.py::test_another_customers_key_is_not_their_reply`.
+Recorded as the profile's `AHC-0053/claim_scope` decision; this entry was
+missing until 2026-10-01.
+
+**Routed to** AHC-0068 as written (the owner check is still at each door, not
+in the store: REVIEW R-020).
 
 ## F-062 · An order the store did not find was given a status
 
