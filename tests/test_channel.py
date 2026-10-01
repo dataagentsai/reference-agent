@@ -163,6 +163,30 @@ async def test_a_webhook_causes_only_what_it_may(
         assert expected.split(":", 1)[1].lower() in text.lower(), text
 
 
+# (why, the message's length, what Chatwoot is told) — F-068: /chat refused a
+# body over 8 KiB, and this door read the message with no bound at all, so a
+# paste of any size went to the model (and the trim never drops the latest turn).
+LENGTHS = [
+    ("a support question", 40, "reply:AB-10003"),
+    ("exactly the bound", ch.MAX_TEXT, "reply:"),
+    ("a paste far past it", 9 * 1024 * 1024, "reply:shorter"),
+]
+
+
+@pytest.mark.parametrize(("why", "size", "told"), LENGTHS, ids=[r[0] for r in LENGTHS])
+@pytest.mark.discharges("AHC-0016")
+async def test_a_message_is_bounded_before_it_reaches_the_model(
+    why: str, size: int, told: str
+) -> None:
+    text = ("where is my order AB-10003 " + "x" * size)[:size]
+    (response,), calls = await post(changed(content=text))
+    assert response.status_code == 202
+    assert [c[0] for c in calls] == ["reply"], calls
+    assert told.split(":", 1)[1].lower() in calls[0][2].lower(), calls[0][2]
+    if size > ch.MAX_TEXT:
+        assert calls[0][2] == ch.TOO_LONG
+
+
 # (why, what is wrong with the signature)
 UNSIGNED = [
     ("no signature", {"x-chatwoot-signature": ""}),

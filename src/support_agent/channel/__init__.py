@@ -180,6 +180,10 @@ class Channel:
         return hmac.compare_digest(signature, f"sha256={expected.hexdigest()}")
 
 
+MAX_TEXT = 8 * 1024  # characters: the bound /chat puts on its whole body
+TOO_LONG = "That message is too long for me. Could you send a shorter one?"
+
+
 def incoming(payload: Any) -> Incoming | None:
     """A customer's message the bot should answer, or `None` for anything else."""
     if not isinstance(payload, dict) or payload.get("event") != "message_created":
@@ -273,7 +277,8 @@ async def answer(channel: Channel, message: Incoming) -> None:
     with tel.span("agent.channel.turn") as span:
         who = await _customer(channel, message)
         if isinstance(who, str):
-            span.set_attribute("agent.channel.outcome", "sign-in")
+            outcome = "too-long" if who is TOO_LONG else "sign-in"
+            span.set_attribute("agent.channel.outcome", outcome)
             await api.reply(*where, who.format(portal=channel.portal_url))
             return
         conversation = await _conversation(channel.store, message, who)
@@ -318,9 +323,16 @@ def _waiting_note(result: NeedsApproval) -> str:
 
 
 async def _customer(channel: Channel, message: Incoming) -> Identity | str:
-    """The customer's live session, or the sentence telling them to sign in."""
+    """The customer's live session, or the sentence turning the message away:
+    sign in, or send something shorter."""
     if not message.verified:
         return SIGN_IN
+    if len(message.text) > MAX_TEXT:
+        # Before a session is looked up or anything is paid for (AHC-0016).
+        # /chat refuses a body over 8 KiB; this door had no bound, and the trim
+        # never drops the latest turn, so a paste of any size reached the model
+        # (F-068).
+        return TOO_LONG
     try:
         return await channel.sessions.identity_for(message.subject)
     except (ident.SessionEnded, ident.NotACustomer):
@@ -353,7 +365,9 @@ __all__ = [
     "Inbox",
     "ChatwootClient",
     "Incoming",
+    "MAX_TEXT",
     "Opening",
+    "TOO_LONG",
     "build",
     "greet",
     "incoming",
