@@ -42,12 +42,44 @@ async def as_customer(customer_id: str) -> Identity:
     return Identity(customer_id=customer_id, scopes=ident.CUSTOMER_SCOPES)
 
 
+ALIGN_LEAD_S = 5
+"""How far ahead of the server the scenario's clock starts. More than the real
+time the first turn can take before it asks for anything, so the server is
+still behind when it does."""
+
+
 @dataclass
 class OnClock:
     """Moves the test server's time to the clock's before every call."""
 
     env: WorkflowEnvironment
     clock: Clock | None
+
+    async def align(self) -> None:
+        """Put the scenario's clock ahead of the server's, once, before turn one.
+
+        The test server starts on the wall clock and runs on in real time, and
+        the scenario's clock started earlier, truncated to a whole second. So
+        the server was up to about a second *ahead* when the first approval was
+        asked, `catch_up` had nothing to do, and the approval was stamped one
+        second late or not depending on where the wall clock was inside its
+        second. A reviewer due "two turns after" is due on an exact multiple of
+        the step, so that one second decided which review pass granted it:
+        `the-order-moves-while-a-colleague-decides` failed whenever it fell
+        the wrong side (T-076f; measured at diff -1 against 0).
+
+        Moving the scenario's start a few seconds forward is free — where it
+        starts is arbitrary — and from then on `catch_up` always has the server
+        to move, and lands it on the clock's own second.
+        """
+        # A stepped scenario clock (AgentTwin's) has a settable start; any
+        # other clock is left as it is.
+        start = getattr(self.clock, "now", None)
+        if not isinstance(start, int) or not hasattr(self.clock, "tick"):
+            return
+        ahead = int((await self.env.get_current_time()).timestamp()) + ALIGN_LEAD_S
+        if start < ahead:
+            setattr(self.clock, "now", ahead)  # noqa: B010 — the Protocol has no `now`
 
     async def catch_up(self, moment: int | None = None) -> None:
         target = moment if moment is not None else (self.clock() if self.clock else None)
@@ -321,6 +353,7 @@ async def server(
     async with env:
         queue = f"approvals-{uuid.uuid4().hex[:8]}"
         time = OnClock(env, clock)
+        await time.align()
         # The policy here is the *wait's*: how long an approval lives and when
         # it says it is still waiting. The worker's copy is the assessment's.
         extra = {} if policy is None else {"policy": policy}
