@@ -13,6 +13,12 @@ oscillation check somebody wrote against unsorted JSON.
 orders is a trajectory. Reading one order three times is a model that has stopped
 making progress and not noticed, and it will spend the whole step budget before
 anything else catches it.
+
+**A step's plan is bounded in width, not only the run in length (AHC-0097).**
+The step budget counts steps, so a step asking for fifty look-ups — or fifty
+writes — spends one and does fifty things. `over_fan_out` names the bound a plan
+would pass; the loop refuses such a plan whole, since running its first N would
+be a partial result nobody marked (AHC-0025).
 """
 
 from __future__ import annotations
@@ -21,6 +27,7 @@ import json
 from collections import Counter
 from dataclasses import dataclass, field
 
+from support_agent.config import Budgets
 from support_agent.contracts import IdempotencyKey, RunId
 
 
@@ -72,4 +79,14 @@ def circling(counts: Counter[tuple[str, str]], call: tuple[str, str], threshold:
     return counts[call] >= threshold
 
 
-__all__ = ["Keys", "circling", "signature"]
+def over_fan_out(asked: int, so_far: int, budgets: Budgets) -> str | None:
+    """`per_step` or `per_turn`: the bound a plan of `asked` calls would pass, after
+    `so_far` calls already planned this turn; `None` when it passes neither."""
+    if asked > budgets.max_tool_calls_per_step:
+        return "per_step"
+    if so_far + asked > budgets.max_tool_calls_per_turn:
+        return "per_turn"
+    return None
+
+
+__all__ = ["Keys", "circling", "over_fan_out", "signature"]

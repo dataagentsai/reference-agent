@@ -42,7 +42,6 @@ from support_agent.contracts import (
     Direct,
     Escalate,
     Escalations,
-    Failed,
     Identity,
     LLMClient,
     Refuse,
@@ -222,7 +221,7 @@ class Agent:
             )
             conversation = conversation.model_copy(update={"facts": after})
             result = await promise.honest(result, self.desk, conversation, identity, run_id)
-            result = _screened(result, identity, self.policy_rules)
+            result = ending.screened(result, identity, self.policy_rules)
             ending.closed(turn_span, result, decision, started, synthetic)
             return result, await self._persist(run_id, conversation.recording(result))
 
@@ -338,40 +337,6 @@ class Agent:
 
     def _now(self) -> int:
         return self.clock() if self.clock is not None else int(time.time())
-
-
-def _screened(
-    result: TurnResult,
-    identity: Identity,
-    rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None = None,
-) -> TurnResult:
-    """Every reply passes the reply guardrails before the customer reads it —
-    whichever route produced it (F-020). One point, so the next template edit on
-    any route is screened without anyone remembering to screen it. The verdict
-    and the rule that fired are on the `agent.policy` span `enforce` opens.
-
-    The agent's **configured** rules, not only the built-in ones: this read the
-    defaults whatever it was given, so a deployment that added a reply rule was
-    screened by the rules it had not configured (F-027)."""
-    text = result.customer_message if isinstance(result, Failed) else result.reply
-    verdict = pol.enforce(
-        pol.Context(position=pol.Position.REPLY, identity=identity, text=text),
-        None if rules is None else rules.get(pol.Position.REPLY),
-    )
-    if not verdict.blocked:
-        return result
-    # The words are replaced; what the turn *did* is not. An escalation that was
-    # raised stays raised and an approval stays pending — replacing the result
-    # type would drop the handoff the reply was about.
-    if isinstance(result, Failed):
-        return result.model_copy(update={"customer_message": pol.SAFE_REPLY})
-    if isinstance(result, Completed):
-        # A completion carries nothing but its words, and the words were
-        # refused — so the result is a refusal. It used to stay `Completed`
-        # with a `REFUSED` termination, which a caller branching on the type
-        # read as a success (F-026, AHC-0017).
-        return Refused(reply=pol.SAFE_REPLY, reason=verdict.reason, rule_id=verdict.rule)
-    return result.model_copy(update={"reply": pol.SAFE_REPLY})
 
 
 def build(

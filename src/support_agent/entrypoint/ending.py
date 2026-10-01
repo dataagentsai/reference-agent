@@ -4,17 +4,22 @@ The evaluation record's structure is set on every turn — the join keys, the
 versions, the synthetic and captured markers, how the turn ended and by which
 rule — and its words only on a turn chosen for capture. Kept apart from the
 turn's sequence so that sequence stays readable as a sequence.
+
+The reply screen is here too (`screened`): the last thing a turn does before it
+ends is pass its words through the reply guardrails, whichever route made them.
 """
 
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
 
 from opentelemetry.trace import Span
 
+from support_agent import policy as pol
 from support_agent import telemetry as tel
 from support_agent.config import RunConfig
-from support_agent.contracts import Identity, Route, RunId, TurnResult
+from support_agent.contracts import Completed, Failed, Identity, Refused, Route, RunId, TurnResult
 from support_agent.state import Conversation
 from support_agent.telemetry import counters
 
@@ -91,4 +96,38 @@ def as_answer(result: TurnResult, conversation: Conversation) -> dict[str, objec
     }
 
 
-__all__ = ["as_answer", "closed", "opened"]
+def screened(
+    result: TurnResult,
+    identity: Identity,
+    rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None = None,
+) -> TurnResult:
+    """Every reply passes the reply guardrails before the customer reads it —
+    whichever route produced it (F-020). One point, so the next template edit on
+    any route is screened without anyone remembering to screen it. The verdict
+    and the rule that fired are on the `agent.policy` span `enforce` opens.
+
+    The agent's **configured** rules, not only the built-in ones: this read the
+    defaults whatever it was given, so a deployment that added a reply rule was
+    screened by the rules it had not configured (F-027)."""
+    text = result.customer_message if isinstance(result, Failed) else result.reply
+    verdict = pol.enforce(
+        pol.Context(position=pol.Position.REPLY, identity=identity, text=text),
+        None if rules is None else rules.get(pol.Position.REPLY),
+    )
+    if not verdict.blocked:
+        return result
+    # The words are replaced; what the turn *did* is not. An escalation that was
+    # raised stays raised and an approval stays pending — replacing the result
+    # type would drop the handoff the reply was about.
+    if isinstance(result, Failed):
+        return result.model_copy(update={"customer_message": pol.SAFE_REPLY})
+    if isinstance(result, Completed):
+        # A completion carries nothing but its words, and the words were
+        # refused — so the result is a refusal. It used to stay `Completed`
+        # with a `REFUSED` termination, which a caller branching on the type
+        # read as a success (F-026, AHC-0017).
+        return Refused(reply=pol.SAFE_REPLY, reason=verdict.reason, rule_id=verdict.rule)
+    return result.model_copy(update={"reply": pol.SAFE_REPLY})
+
+
+__all__ = ["as_answer", "closed", "opened", "screened"]

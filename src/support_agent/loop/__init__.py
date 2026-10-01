@@ -27,16 +27,11 @@ single call may overshoot, bounded by `max_output_tokens`. Attribution happens
 at P3 where the call is made; the ceiling is here because only P4 can see the
 whole task.
 
-**Tool fan-out.** One step may plan at most `max_tool_calls_per_step` calls and
-one turn `max_tool_calls_per_turn` (AHC-0097). A plan past either bound stops
-the turn before any of the step's calls runs: the step budget counts steps, so
-without this a step asking for fifty look-ups spends one and does fifty things.
+**Tool fan-out** past a step's or a turn's bound stops the turn before any of
+the step's calls runs (AHC-0097, `plan.over_fan_out`).
 
-**The caller left.** Where the door can tell that whoever asked has gone — the
-HTTP connection closed — the loop is handed `gone` and asks it where it checks
-the deadline, and again before a step's tool calls run (AHC-0096). A departed
-caller ends the turn as surely as the clock, so no further model or tool call
-starts for a reply nobody will read.
+**The caller left.** `gone`, where a door can tell, is asked with the deadline
+and before a step's tools run, so no call starts for nobody (AHC-0096).
 """
 
 from __future__ import annotations
@@ -91,8 +86,7 @@ from support_agent.loop.ends import (
 from support_agent.loop.screen import Screen
 
 Gone = Callable[[], Awaitable[bool]]
-"""Whether the caller has left. Supplied by a door that can tell (`/chat`'s
-`request.is_disconnected`); a door that cannot passes nothing (AHC-0096)."""
+"""Whether the caller has left: `/chat`'s `request.is_disconnected` (AHC-0096)."""
 
 
 async def run(
@@ -311,12 +305,9 @@ class _Run:
     ) -> list[tuple[ToolCall, IdempotencyKey]] | Ended:
         """Mint keys and check for oscillation in the order the model emitted the
         calls, before anything runs. Scheduling must not change which call gets
-        which key.
-
-        The fan-out bounds come first (AHC-0097): a plan past either one is
-        refused whole, before a key is minted or a call counted, because
-        running its first N would be a partial result nobody marked."""
-        bound = self._over_fan_out(len(calls))
+        which key. The fan-out bounds come first: a plan past one is refused
+        whole, before a key is minted or a call counted (AHC-0097)."""
+        bound = plan.over_fan_out(len(calls), len(self.trace.tool_calls), self.budgets)
         if bound is not None:
             self.span.set_attribute(tel.TOOL_CALL_BOUND, bound)
             return self._stop(TerminationReason.TOOL_CALL_BUDGET_EXHAUSTED, PASS_ON)
@@ -331,14 +322,6 @@ class _Run:
             planned.append((call, key))
         return planned
 
-    def _over_fan_out(self, asked: int) -> str | None:
-        """Which bound this step's plan would pass, if any."""
-        if asked > self.budgets.max_tool_calls_per_step:
-            return "per_step"
-        if len(self.trace.tool_calls) + asked > self.budgets.max_tool_calls_per_turn:
-            return "per_turn"
-        return None
-
     async def _act(self, planned: list[tuple[ToolCall, IdempotencyKey]]) -> Ended | None:
         """Run the calls and feed their results back — or stop for a person.
 
@@ -346,8 +329,7 @@ class _Run:
         result. The loop does not know which action it was; the signal carries
         what the customer is told.
         """
-        # The model call may have taken most of the turn; the tools have not
-        # started, and need not start for nobody (AHC-0096).
+        # The tools have not started, and need not start for nobody (AHC-0096).
         if await self._caller_gone():
             return self._stop(TerminationReason.CALLER_GONE, CALLER_LEFT)
         # AHC-0107, before the screen and before anything is dispatched: an
