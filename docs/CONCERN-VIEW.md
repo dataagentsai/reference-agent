@@ -16,8 +16,8 @@ behind the specs, because it is made of them.
 |---|---|---|---|---|
 | **functional-suitability** | 15 | 8 | 15 | 3 |
 | **safety** | 17 | 3 | 4 | 4 |
-| **security** | 6 | 15 | 9 | 3 |
-| **reliability** | 7 | 14 | 7 | 4 |
+| **security** | 6 | 16 | 9 | 3 |
+| **reliability** | 8 | 14 | 7 | 6 |
 | **cost** | 4 | 9 | 6 | 3 |
 | **maintainability** | 6 | 22 | 10 | 0 |
 | **performance-efficiency** | 1 | 6 | 0 | 0 |
@@ -124,7 +124,7 @@ behind the specs, because it is made of them.
 - `the-reviewer-comes-too-late` the reviewer answers after the grant has expired
 
 
-## security — 33
+## security — 34
 
 **AOAS**
 
@@ -152,6 +152,7 @@ behind the specs, because it is made of them.
 - `AHC-0099` The identity a run acts as is established from a credential the caller cannot author *(authenticity)*
 - `AHC-0109` A summary carries the least trusted provenance of what it summarised *(resistance)*
 - `AHC-0115` Every store the harness writes to can be asked about one person, and emptied of them *(confidentiality)*
+- `AHC-0116` An action taken on the requester's authority is one their own words asked for *(integrity)*
 
 **AAC**
 
@@ -172,12 +173,13 @@ behind the specs, because it is made of them.
 - `planted-instructions` a planted instruction produces no effect, whatever it says
 
 
-## reliability — 32
+## reliability — 35
 
 **AOAS**
 
 - `P-APPROVAL-QUEUE` the queue a reviewer reads holds the undecided, and a decided approval leaves it
-- `P-ESC-ONCE` each on_condition rule fires once per conversation, whatever happens to what it raised; an on_request rule may fire again once what it raised has lapsed or closed, within P-ESC-CAP
+- `P-ESC-ONCE` each on_condition rule fires at most once while the agent holds the conversation — from its start, or from the latest time it returned to the agent; an on_request rule may fire again once what it raised has lapsed or closed; both within P-ESC-CAP
+- `P-ESC-FRESH` when the conversation returns to the agent, the facts on_condition rules read — consecutive_failed, refusals, repeated_intent, turn_count — count only turns since it returned; the facts themselves keep their definitions for every other reader
 - `P-ESC-MODEL` where the model is offered the escalate operation, an escalation it raises records the rule model-requested, is not limited by P-ESC-ONCE, and counts towards P-ESC-CAP
 - `P-ESC-TTL` a queued escalation nobody comes to lapses after its rule's own ttl, or after this one where the rule declares none
 - `P-ESC-LAPSE` on lapse the conversation returns to the agent, and the customer is told nobody came
@@ -213,6 +215,8 @@ behind the specs, because it is made of them.
 
 **scenario**
 
+- `a-handback-starts-the-count-again` after a handback, two fresh failures fetch a person again
+- `failures-before-a-handback-do-not-count` failures before a handback do not count towards the next one
 - `the-belief-goes-stale-mid-turn` a belief older than its window is re-read before it is acted on
 - `the-model-fails-twice` two failed turns in a row fetch a person
 - `the-provider-throttles` the provider throttles, and the customer still gets an answer

@@ -369,17 +369,6 @@ accepted_gaps:
       request arrives last.
     owner: reference-agent
     review: "2026-12-01"
-  - capability: AHC-0028
-    reason: >-
-      Partly met. The online watch (watch/) runs 22 deterministic rules, each
-      with its own id and version, injected into the watch and named on every
-      score by a version derived from the rules that ran (F-069). The offline
-      graders are not: a scenario's checks and the golden set's assertions are
-      compiled into the files that run them and carry no version of their own,
-      so a changed check is not distinguishable in the record from a changed
-      agent. No model-graded judge exists.
-    owner: reference-agent
-    review: "2026-11-01"
   - capability: AHC-0029
     reason: >-
       A production turn cannot yet become a dataset row without a translation
@@ -413,15 +402,6 @@ accepted_gaps:
       sliced by customer segment. Nothing in the AOAS names a segment yet. The
       router does work out what a message is about (its candidate intents), and
       that reaches neither the trace record nor the metric labels.
-    owner: reference-agent
-    review: "2026-12-01"
-  - capability: AHC-0032
-    reason: >-
-      No release process restores prompt, model and policy together, because
-      this agent is not deployed. And not all three are versioned: the safety
-      rules (policy DEFAULT_RULES) carry no version and are not in the
-      fingerprint, the prompt is versioned by a hand-kept label (F-076), and
-      the routing rules live in code, held to their label only since F-070.
     owner: reference-agent
     review: "2026-12-01"
   - capability: AHC-0033
@@ -525,6 +505,29 @@ x_untested: []
 # this agent (25 Sep). Wrong behaviour found on the way is in evals/FINDINGS.md
 # (F-062 to F-082).
 x_shortfalls:
+  # AHC-0028 and AHC-0032 moved here from accepted_gaps on 2026-10-01, when the
+  # regenerated map showed each exercised by a passing test (F-069, F-070).
+  - capability: AHC-0028
+    reason: >-
+      Partly met. The online watch (watch/) runs 22 deterministic rules, each
+      with its own id and version, injected into the watch and named on every
+      score by a version derived from the rules that ran (F-069). The offline
+      graders are not: a scenario's checks and the golden set's assertions are
+      compiled into the files that run them and carry no version of their own,
+      so a changed check is not distinguishable in the record from a changed
+      agent. No model-graded judge exists.
+    owner: reference-agent
+    review: "2026-11-01"
+  - capability: AHC-0032
+    reason: >-
+      Partly met: the routing rules are held to their label at start-up
+      (F-070), which is the tested part. No release process restores prompt, model and policy together, because
+      this agent is not deployed. And not all three are versioned: the safety
+      rules (policy DEFAULT_RULES) carry no version and are not in the
+      fingerprint, the prompt is versioned by a hand-kept label (F-076), and
+      the routing rules live in code, held to their label only since F-070.
+    owner: reference-agent
+    review: "2026-12-01"
   - capability: AHC-0018
     reason: >-
       Partly met. A block records its rule and, since F-066, its reason. The
