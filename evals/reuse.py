@@ -110,6 +110,7 @@ PARAMETERISED = {
     "watch/rules.py",  # the engine is universal; statuses, claims, write tools are this shop's
     "watch/checks.py",  # the checks are universal; the vocabulary they read is this shop's
     "watch/canary.py",  # the probe is universal; its cases ask this shop's questions (F-062)
+    "watch/evidence.py",  # the verdict is universal; which rule evidences which AAC id is ours
     "contracts/reading.py",  # the fold is universal; the order-id shape is this store's
 }
 """Code a second agent keeps and values it replaces. **The layer to watch:**

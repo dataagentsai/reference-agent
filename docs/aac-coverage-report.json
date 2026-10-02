@@ -1,0 +1,1800 @@
+{
+  "report_version": "1.0",
+  "catalog_version": "0.16.0",
+  "generated_at": "2026-10-01T17:24:00Z",
+  "subject": {
+    "archetypes": [
+      "A6"
+    ],
+    "description": "Customer support for a clothing retailer: a deterministic router, a bounded loop over an MCP tool surface, and an online watch over production turns.",
+    "name": "support-agent",
+    "repository": "https://github.com/dataagentsai/reference-agent",
+    "version": "31cac79+dirty"
+  },
+  "results": [
+    {
+      "case": "AAC-0001",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_the_golden_set_is_frozen_and_covers_its_boundaries"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_a_refusal_changes_nothing_in_the_world"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0002",
+      "status": "covered",
+      "outcome": "unknown",
+      "mechanisms": [
+        "M1",
+        "M5"
+      ],
+      "stages": [
+        "S2",
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_every_route_returns_a_conforming_result"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-12 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-12 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-12 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-12 @ trace:tr-unseen",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-17 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-17 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-17 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-12: 4 scores (4 unknown) | langfuse watch.W-17: 3 scores (3 pass)"
+    },
+    {
+      "case": "AAC-0003",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0004",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0005",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0006",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M5"
+      ],
+      "stages": [
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "experiment",
+          "ref": "watch.W-03 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-03 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-03 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-03 @ trace:tr-unseen",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-03: 4 scores (4 pass)"
+    },
+    {
+      "case": "AAC-0007",
+      "owner": "reference-agent",
+      "rationale": "Every test replays or scripts the model, so a latency measured here is a dictionary lookup. The watch's W-07 scores a slow turn in production but leaves the verdict to the rate (aac.outcome unknown); load against a live provider is owed.",
+      "review_by": "2026-12-01",
+      "status": "accepted-risk"
+    },
+    {
+      "case": "AAC-0008",
+      "status": "covered",
+      "outcome": "unknown",
+      "mechanisms": [
+        "M5"
+      ],
+      "stages": [
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "experiment",
+          "ref": "watch.W-08 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-08 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-08 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-08 @ trace:tr-unseen",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-08: 4 scores (4 unknown)"
+    },
+    {
+      "case": "AAC-0009",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_router_loop::test_provider_failure_is_a_declared_path_not_a_stack_trace"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_the_contract_holds_on_the_failure_route_too"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0010",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0011",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_router_loop::test_the_trajectory_is_reconstructable_from_the_trace"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0012",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1",
+        "M5"
+      ],
+      "stages": [
+        "S2",
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a correct answer fires nothing]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the reply names the wrong status]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a list result is truth too]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[naming the true status beside another is not a contradiction]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a successful cancel moves the truth to cancelled]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[claims a cancel the store refused]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[claims a refund with no refund call]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[an offer is not a claim]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[personal data in the reply]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the run ran out of steps]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the run went in circles]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[answered although a tool failed]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the same tool failing twice]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a negated status is not a claim]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[slow]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[costly]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[completed with nothing said]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[an unbacked promise]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[refused a question naming an order]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[unreadable model output]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a refused write sent again]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a write on an order nothing read]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a lookup for an order nobody named]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the reply names an order nothing returned]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a tool's name shown to the customer]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[asks for the order it was given]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a write after instructions in a result]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[answered on a truncated result]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[served by a model other than the one asked for]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a gateway's provider prefix is one model, not two]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a failed call names no served model]"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-21 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-21 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-21 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-21 @ trace:tr-unseen",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-21: 4 scores (4 pass)"
+    },
+    {
+      "case": "AAC-0013",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_nothing_regressed_against_the_committed_baseline"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0014",
+      "status": "covered",
+      "outcome": "unknown",
+      "mechanisms": [
+        "M1",
+        "M5"
+      ],
+      "stages": [
+        "S2",
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-01]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-02]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-03]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-04]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-05]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-06]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-07]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-08]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-09]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-10]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-11]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-12]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-13]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-14]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-15]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-16]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-17]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-18]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-19]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-20]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[W-21]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[C-01]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[C-02]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes[C-03]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_a_rule_score_says_what_it_evidences[a page rule that held: BOOLEAN true is its own verdict]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_a_rule_score_says_what_it_evidences[a page rule that fired: BOOLEAN false is its own verdict]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_a_rule_score_says_what_it_evidences[a trend rule that fired: one turn is not the rate's verdict]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_a_rule_score_says_what_it_evidences[a trend rule that held says unknown too]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_a_rule_score_says_what_it_evidences[a rule that evidences nothing declares nothing]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_every_rule_that_ran_writes_a_verdict_and_one_that_did_not_writes_none[captured: every rule writes, pass or fail]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_every_rule_that_ran_writes_a_verdict_and_one_that_did_not_writes_none[not captured: a rule that needs the words writes nothing at all]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_a_numeric_or_categorical_score_states_its_verdict[the per-trace count: AAC-0014 ran, the verdict is the rules']"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_a_numeric_or_categorical_score_states_its_verdict[an outcome on the run that produced it: the join is the verdict]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_the_saved_fixture_is_what_the_writer_writes"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_aacs_langfuse_adapter_reads_the_watch_as_coverage[a contradiction fails the claim's obligation]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_aacs_langfuse_adapter_reads_the_watch_as_coverage[an action claim that held passes]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_aacs_langfuse_adapter_reads_the_watch_as_coverage[a slow turn is covered with no verdict]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_aacs_langfuse_adapter_reads_the_watch_as_coverage[the count says scoring ran]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_aacs_langfuse_adapter_reads_the_watch_as_coverage[feedback joined to its run]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a correct answer fires nothing]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the reply names the wrong status]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a list result is truth too]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[naming the true status beside another is not a contradiction]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a successful cancel moves the truth to cancelled]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[claims a cancel the store refused]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[claims a refund with no refund call]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[an offer is not a claim]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[personal data in the reply]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the run ran out of steps]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the run went in circles]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[answered although a tool failed]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the same tool failing twice]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a negated status is not a claim]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[slow]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[costly]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[completed with nothing said]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[an unbacked promise]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[refused a question naming an order]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[unreadable model output]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a refused write sent again]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a write on an order nothing read]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a lookup for an order nobody named]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the reply names an order nothing returned]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a tool's name shown to the customer]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[asks for the order it was given]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a write after instructions in a result]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[answered on a truncated result]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[served by a model other than the one asked for]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a gateway's provider prefix is one model, not two]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a failed call names no served model]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn[said the same thing twice]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn[three apologies, nothing done]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn[the late turns read five times the first's tokens]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn[history grows, within bounds]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn[a conversation that moves on]"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.findings @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.findings @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.findings @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.findings @ trace:tr-unseen",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.findings: 4 scores (4 unknown)"
+    },
+    {
+      "case": "AAC-0015",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_a_malformed_request_is_refused[no text-body0-400]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_a_malformed_request_is_refused[empty text-body1-400]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_a_malformed_request_is_refused[whitespace only-body2-400]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_a_malformed_request_is_refused[text is not a string-body3-400]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_a_malformed_request_is_refused[body is not an object-body4-400]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_a_malformed_request_is_refused[conversation id is not a string-body5-400]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_an_oversized_message_is_refused_before_it_is_parsed"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0016",
+      "owner": "reference-agent",
+      "rationale": "Live runs exist (scripts/live_runs.py, scripts/reliability.py) but are started by hand; nothing re-runs them on a schedule against pinned inputs.",
+      "review_by": "2026-12-01",
+      "status": "accepted-risk"
+    },
+    {
+      "case": "AAC-0029",
+      "status": "covered",
+      "outcome": "fail",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "experiment",
+          "ref": "watch.W-01 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-01 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-16 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-16 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-01 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-01, watch.W-16: 6 scores (1 fail, 5 pass); 5 of 6 shown | reply says AB-10002 is shipped; the store said pending"
+    },
+    {
+      "case": "AAC-0046",
+      "owner": "reference-agent",
+      "rationale": "Its only test was removed when the delivery claim and the idempotency ledger became one store (T-062, 8a40e85). A test against the merged store is owed: a far end that fails partway leaves nothing done or a compensating action recorded.",
+      "review_by": "2026-12-01",
+      "status": "accepted-risk"
+    },
+    {
+      "case": "AAC-0047",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0051",
+      "owner": "reference-agent",
+      "rationale": "Offline, tool choices are scripted, so the suite tests what the harness does with a choice, never how often the choice is right. Needs a scored live eval with labelled tool choices.",
+      "review_by": "2026-12-01",
+      "status": "accepted-risk"
+    },
+    {
+      "case": "AAC-0052",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2",
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_router_loop::test_invalid_arguments_are_reported_back_not_raised"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-15 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-15 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-15 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-15: 3 scores (3 pass)"
+    },
+    {
+      "case": "AAC-0053",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M5",
+        "M1"
+      ],
+      "stages": [
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "experiment",
+          "ref": "watch.W-05 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-06 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-05 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-06 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-05 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-13 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-13 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-13 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-05, watch.W-06: 8 scores (8 pass); 5 of 8 shown | langfuse watch.W-13: 3 scores (3 pass)"
+    },
+    {
+      "case": "AAC-0054",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_router_loop::test_oscillation_is_caught_inside_the_budget"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0055",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_router_loop::test_the_step_budget_terminates_and_says_why"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0056",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0057",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0058",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "experiment",
+          "ref": "watch.W-19 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-19 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-19 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-19: 3 scores (3 pass)"
+    },
+    {
+      "case": "AAC-0059",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0060",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_router_loop::test_the_trajectory_is_reconstructable_from_the_trace"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0076",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_a_repeated_delivery_is_answered_not_repeated"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_a_repeated_delivery_is_told_what_the_first_one_answered"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_another_customers_key_is_not_their_reply"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0091",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0092",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0093",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0094",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a correct answer fires nothing]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the reply names the wrong status]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a list result is truth too]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[naming the true status beside another is not a contradiction]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a successful cancel moves the truth to cancelled]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[claims a cancel the store refused]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[claims a refund with no refund call]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[an offer is not a claim]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[personal data in the reply]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the run ran out of steps]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the run went in circles]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[answered although a tool failed]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the same tool failing twice]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a negated status is not a claim]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[slow]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[costly]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[completed with nothing said]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[an unbacked promise]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[refused a question naming an order]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[unreadable model output]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a refused write sent again]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a write on an order nothing read]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a lookup for an order nobody named]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the reply names an order nothing returned]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a tool's name shown to the customer]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[asks for the order it was given]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a write after instructions in a result]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[answered on a truncated result]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[served by a model other than the one asked for]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a gateway's provider prefix is one model, not two]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a failed call names no served model]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_every_approved_model_is_configurable_priced_and_reachable"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0095",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0096",
+      "rationale": "No response cache exists. The cassette is a recording replayed only in tests and never serves a customer.",
+      "status": "not-applicable"
+    },
+    {
+      "case": "AAC-0097",
+      "rationale": "No data-residency obligation binds this agent; the AOAS declares it absent and the profile lists AHC-0092 as not applicable for the same reason.",
+      "status": "not-applicable"
+    },
+    {
+      "case": "AAC-0098",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_every_approved_model_is_configurable_priced_and_reachable"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0099",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_every_route_returns_a_conforming_result"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_the_contract_holds_on_the_failure_route_too"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0100",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_router_loop::test_the_route_and_its_reason_are_on_the_trace"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0101",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_router_loop::test_the_route_and_its_reason_are_on_the_trace"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0102",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_nothing_regressed_against_the_committed_baseline"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0103",
+      "status": "covered",
+      "outcome": "unknown",
+      "mechanisms": [
+        "M1",
+        "M5"
+      ],
+      "stages": [
+        "S2",
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn[said the same thing twice]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn[three apologies, nothing done]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn[the late turns read five times the first's tokens]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn[history grows, within bounds]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn[a conversation that moves on]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_nothing_regressed_against_the_committed_baseline"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_golden::test_context_grows_with_history_and_is_bounded"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.C-03 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.C-03 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.C-03 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.C-03: 3 scores (3 unknown)"
+    },
+    {
+      "case": "AAC-0104",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0105",
+      "status": "covered",
+      "outcome": "unknown",
+      "mechanisms": [
+        "M5"
+      ],
+      "stages": [
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "experiment",
+          "ref": "watch.W-20 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-20 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-20 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-20 @ trace:tr-unseen",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-20: 4 scores (4 unknown)"
+    },
+    {
+      "case": "AAC-0106",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0107",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0109",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_router_loop::test_oscillation_is_caught_inside_the_budget"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_router_loop::test_argument_order_does_not_hide_an_oscillation"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0110",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2",
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a correct answer fires nothing]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the reply names the wrong status]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a list result is truth too]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[naming the true status beside another is not a contradiction]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a successful cancel moves the truth to cancelled]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[claims a cancel the store refused]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[claims a refund with no refund call]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[an offer is not a claim]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[personal data in the reply]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the run ran out of steps]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the run went in circles]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[answered although a tool failed]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the same tool failing twice]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a negated status is not a claim]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[slow]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[costly]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[completed with nothing said]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[an unbacked promise]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[refused a question naming an order]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[unreadable model output]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a refused write sent again]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a write on an order nothing read]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a lookup for an order nobody named]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[the reply names an order nothing returned]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a tool's name shown to the customer]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[asks for the order it was given]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a write after instructions in a result]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[answered on a truncated result]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[served by a model other than the one asked for]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a gateway's provider prefix is one model, not two]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_each_rule_fires_on_its_case_and_nothing_else_does[a failed call names no served model]"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-02 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-02 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-02 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-02: 3 scores (3 pass)"
+    },
+    {
+      "case": "AAC-0111",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S2"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_a_turn_needs_a_token"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_a_forged_token_is_refused_without_saying_why"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_an_expired_token_is_refused"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_identity_comes_from_the_token_not_the_body"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_serve::test_the_page_is_served_and_cannot_mint_its_own_identity"
+        }
+      ]
+    },
+    {
+      "case": "AAC-0112",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1",
+        "M5"
+      ],
+      "stages": [
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "experiment",
+          "ref": "watch.W-09 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-09 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-09 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-10 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-10 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-10 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-10 @ trace:tr-unseen",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-09: 3 scores (3 pass) | langfuse watch.W-10: 4 scores (4 pass)"
+    },
+    {
+      "case": "AAC-0113",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1"
+      ],
+      "stages": [
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "experiment",
+          "ref": "watch.W-14 @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-14 @ trace:tr-contradicts",
+          "at": "2026-10-01T12:00:00Z"
+        },
+        {
+          "type": "experiment",
+          "ref": "watch.W-14 @ trace:tr-slow",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse watch.W-14: 3 scores (3 pass)"
+    },
+    {
+      "case": "AAC-0114",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0115",
+      "status": "covered",
+      "outcome": "pass",
+      "mechanisms": [
+        "M1",
+        "M5"
+      ],
+      "stages": [
+        "S2",
+        "S5"
+      ],
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_a_numeric_or_categorical_score_states_its_verdict[the per-trace count: AAC-0014 ran, the verdict is the rules']"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_a_numeric_or_categorical_score_states_its_verdict[an outcome on the run that produced it: the join is the verdict]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_aacs_langfuse_adapter_reads_the_watch_as_coverage[a contradiction fails the claim's obligation]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_aacs_langfuse_adapter_reads_the_watch_as_coverage[an action claim that held passes]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_aacs_langfuse_adapter_reads_the_watch_as_coverage[a slow turn is covered with no verdict]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_aacs_langfuse_adapter_reads_the_watch_as_coverage[the count says scoring ran]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_scores::test_aacs_langfuse_adapter_reads_the_watch_as_coverage[feedback joined to its run]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_customer_coming_back_is_an_outcome_on_the_answer_before[back within a day about the same order]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_customer_coming_back_is_an_outcome_on_the_answer_before[back within minutes is a follow-up]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_customer_coming_back_is_an_outcome_on_the_answer_before[back after two days is a new matter]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_customer_coming_back_is_an_outcome_on_the_answer_before[an escalated conversation was not an answer that failed]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_customer_coming_back_is_an_outcome_on_the_answer_before[another customer is not a return]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_customer_coming_back_is_an_outcome_on_the_answer_before[a second turn in the same conversation is not a return]"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_a_burst_of_new_conversations_is_one_return"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_asking_for_a_person_after_an_answer_is_an_outcome_on_that_answer"
+        },
+        {
+          "type": "test",
+          "ref": "tests.test_watch_rules::test_feedback_lands_on_the_last_turn_before_it"
+        },
+        {
+          "type": "experiment",
+          "ref": "outcome @ trace:tr-held",
+          "at": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "note": "langfuse outcome: 1 score (1 pass)"
+    },
+    {
+      "case": "AAC-0116",
+      "status": "not-covered"
+    },
+    {
+      "case": "AAC-0117",
+      "status": "not-covered"
+    }
+  ],
+  "summary": {
+    "applicable": 56,
+    "covered": 32,
+    "not_covered": 18,
+    "accepted_risk": 4,
+    "not_applicable": 2,
+    "failing": 1,
+    "uncovered_musts": 11,
+    "uncovered_gates": 12
+  }
+}

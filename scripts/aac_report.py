@@ -1,0 +1,186 @@
+"""The agent's own AAC coverage report: its tests and its watch, read by AAC's tools.
+
+    uv run python scripts/aac_report.py --pytest tests/test_watch_scores.py \\
+        --scores tests/fixtures/langfuse-scores.v3.json      # a targeted run
+    uv run python scripts/aac_report.py --pytest tests \\
+        --scores reports/aac/langfuse-scores.json           # the suite, live scores
+    uv run python scripts/aac_report.py                       # reuse the last junit
+
+Three steps, none of them ours to judge:
+
+1. **The tests**, as junit (`--pytest` runs pytest with `--junitxml`; without it
+   the last `reports/aac/junit.xml` is read). `tests/conftest.py` records each
+   test's AAC ids as the `aac` property AAC's junit adapter reads.
+2. **The watch's scores**, as `scripts/export_scores.py` saved them from
+   Langfuse, or a fixture page (`--scores` copies it into place).
+3. **AAC's `build-report`** (node, from the catalog checked out beside this
+   repository, or `AAC_CATALOG`) over `aac.config.yaml`, then its
+   `validate-report`. The report is written to `docs/aac-coverage-report.json`
+   and rendered as `docs/AAC-REPORT.md`.
+
+The config is committed with paths relative to this repository; the copy handed
+to `build-report` has them made absolute and the subject's version set to the
+commit, so the report says which code it is about.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+ROOT = Path(__file__).resolve().parents[1]
+CONFIG = ROOT / "aac.config.yaml"
+WORK = ROOT / "reports" / "aac"
+REPORT = ROOT / "docs" / "aac-coverage-report.json"
+PAGE = ROOT / "docs" / "AAC-REPORT.md"
+
+
+def catalog() -> Path:
+    return Path(os.environ.get("AAC_CATALOG", ROOT.parent / "ai-assurance-catalog")).resolve()
+
+
+def run_tests(targets: list[str]) -> str:
+    """pytest over `targets`, serially, junit to the place the config reads."""
+    WORK.mkdir(parents=True, exist_ok=True)
+    junit = WORK / "junit.xml"
+    command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *targets]
+    command.append(f"--junitxml={junit}")
+    subprocess.run(command, cwd=ROOT, check=False)  # noqa: S603 — our own interpreter
+    return " ".join(targets)
+
+
+def resolved(config: dict[str, Any], version: str) -> dict[str, Any]:
+    """The committed config with every path absolute and the version stamped."""
+    out = json.loads(json.dumps(config))
+    out["subject"]["version"] = version
+    for source in out.get("sources", []):
+        for key in ("path", "map"):
+            if key in source:
+                source[key] = str((ROOT / source[key]).resolve())
+    return out
+
+
+def commit() -> str:
+    sha = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    dirty = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=no"],  # noqa: S607
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    return f"{sha}+dirty" if dirty else sha
+
+
+def build(version: str) -> tuple[dict[str, Any], str]:
+    """AAC's build-report and validate-report; returns the report and their warnings."""
+    WORK.mkdir(parents=True, exist_ok=True)
+    config = WORK / "aac.config.resolved.yaml"
+    config.write_text(yaml.safe_dump(resolved(yaml.safe_load(CONFIG.read_text()), version)))
+    tools = catalog() / "tools"
+    built = subprocess.run(
+        ["node", str(tools / "build-report.js"), str(config), "-o", str(REPORT)],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    checked = subprocess.run(
+        ["node", str(tools / "validate-report.js"), str(REPORT)],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    said = (built.stderr + checked.stdout + checked.stderr).strip().replace(f"{ROOT}/", "")
+    if checked.returncode != 0:
+        raise SystemExit(f"validate-report refused the report:\n{said}")
+    return json.loads(REPORT.read_text()), said
+
+
+def provenance(scores: Path) -> str:
+    """What a saved scores file says about itself (a fixture's `_comment`)."""
+    try:
+        doc = json.loads(scores.read_text())
+    except (OSError, ValueError):
+        return ""
+    return str(doc.get("_comment", "")) if isinstance(doc, dict) else ""
+
+
+def render(report: dict[str, Any], said: str, tests: str, scores: str, about: str = "") -> str:
+    """The report as a page: the counts, then every obligation by status."""
+    s = report["summary"]
+    rows = report["results"]
+    by = Counter(r["status"] for r in rows)
+    lines = [
+        "# AAC coverage report",
+        "",
+        "*Generated by `scripts/aac_report.py` with AAC's `build-report` — do not edit.*",
+        "",
+        f"Subject `{report['subject']['name']}` at `{report['subject']['version']}`,"
+        f" archetypes {', '.join(report['subject']['archetypes'])}; catalog"
+        f" {report['catalog_version']}; built {report['generated_at']}.",
+        "",
+        f"- **Tests:** a pytest run over `{tests}`, read as junit.",
+        f"- **Scores:** `{scores}`, read by the Langfuse adapter.",
+        *([f"  {about}"] if about else []),
+        "",
+        "| Applicable | Covered | Failing | Not covered | Accepted risk | Not applicable |",
+        "|---|---|---|---|---|---|",
+        f"| {s['applicable']} | {s['covered']} | {s['failing']} | {s['not_covered']}"
+        f" | {s['accepted_risk']} | {s['not_applicable']} |",
+        "",
+        "A targeted run covers what it ran and nothing else: an obligation whose",
+        "tests were not in the run reads as not covered, which is the report",
+        "working, not a regression. The full suite's report is the one to quote.",
+        "",
+    ]
+    for status in ("covered", "not-covered", "accepted-risk", "not-applicable"):
+        group = [r for r in rows if r["status"] == status]
+        if not group:
+            continue
+        lines += [f"## {status} ({by[status]})", "", "| Obligation | Outcome | Mechanisms | Note |"]
+        lines.append("|---|---|---|---|")
+        for r in group:
+            note = (r.get("note") or r.get("rationale") or "").replace("|", "/").replace("\n", " ")
+            outcome = r.get("outcome", "")
+            mechanisms = " ".join(r.get("mechanisms", []))
+            lines.append(f"| {r['case']} | {outcome} | {mechanisms} | {note[:240]} |")
+        lines.append("")
+    if said:
+        lines += ["## What the tools said", "", "```", said, "```", ""]
+    return "\n".join(lines)
+
+
+def main(targets: list[str] | None, scores: Path | None) -> None:
+    tests = run_tests(targets) if targets else "(the last run, reports/aac/junit.xml)"
+    if scores is not None:
+        WORK.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(scores, WORK / "langfuse-scores.json")
+    shown = str(scores.relative_to(ROOT)) if scores else "reports/aac/langfuse-scores.json"
+    report, said = build(commit())
+    about = provenance(WORK / "langfuse-scores.json")
+    PAGE.write_text(render(report, said, tests, shown, about))
+    s = report["summary"]
+    print(f"{s['covered']}/{s['applicable']} covered, {s['failing']} failing -> {PAGE}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--pytest", nargs="+", metavar="TARGET", help="run pytest over these")
+    parser.add_argument("--scores", type=Path, help="a saved scores file to report from")
+    args = parser.parse_args()
+    main(args.pytest, args.scores.resolve() if args.scores else None)

@@ -38,6 +38,11 @@ the architecture**.
 uv sync --extra dev
 uv run pytest          # everything: the suite, plus the build checks below
                        # database tests skip if none is reachable
+
+# The agent's own AAC coverage report (docs/AAC-REPORT.md), built by AAC's
+# build-report from a junit run and the watch's saved Langfuse scores:
+uv run python scripts/export_scores.py       # when Langfuse is running
+uv run python scripts/aac_report.py --pytest tests --scores reports/aac/langfuse-scores.json
 ```
 
 `pytest` also runs the three build-time checks (`tests/test_build_checks.py`),

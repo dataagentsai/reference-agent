@@ -32,7 +32,7 @@ from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import connect
 from support_agent.watch import Watch, canary, record
 from support_agent.watch.outcomes import Outcome
-from support_agent.watch.rules import Finding
+from support_agent.watch.rules import Finding, Verdict
 
 WORLD = Path(__file__).parent.parent / "worlds" / "clothing.yaml"
 ISSUER = issuing.issuer()
@@ -115,12 +115,16 @@ class Spans:
 class Kept:
     def __init__(self) -> None:
         self.findings: list[Finding] = []
+        self.passes: list[Verdict] = []
         self.scored: list[tuple[str, int]] = []
         self.versions: set[str] = set()
         self.outcomes: list[Outcome] = []
 
     def finding(self, found: Finding) -> None:
         self.findings.append(found)
+
+    def passed(self, verdict: Verdict) -> None:
+        self.passes.append(verdict)
 
     def evaluated(self, trace_id: str, findings: int, version: str) -> None:
         self.scored.append((trace_id, findings))

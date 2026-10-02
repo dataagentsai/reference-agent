@@ -56,6 +56,22 @@ def family(statement_id: str) -> str:
     return "AOAS"
 
 
+NOT_EVIDENCE = ("documents_gap", "tooling", "unwired")
+"""Markers that make a test evidence of none of the ids it names."""
+
+
+def aac_claim(ids: tuple[str, ...], markers: set[str]) -> str:
+    """The AAC ids among a test's claims, as AAC's junit adapter reads them.
+
+    That adapter reads a junit property named `aac` (adapters/junit.js), not
+    `discharges`, and only AAC ids in it. A test that documents a gap, tests an
+    instrument, or tests a component the agent never calls is evidence of none
+    of them; the assurance map leaves those out, and so does this."""
+    if markers & set(NOT_EVIDENCE):
+        return ""
+    return " ".join(i for i in ids if family(i) == "AAC")
+
+
 @dataclass(frozen=True)
 class Statement:
     id: str
@@ -189,4 +205,12 @@ def load(world: Path = WORLD) -> Vocabulary:
     return vocab
 
 
-__all__ = ["FAMILIES", "Statement", "Vocabulary", "family", "load"]
+__all__ = [
+    "FAMILIES",
+    "NOT_EVIDENCE",
+    "Statement",
+    "Vocabulary",
+    "aac_claim",
+    "family",
+    "load",
+]

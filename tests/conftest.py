@@ -76,6 +76,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         marker = item.get_closest_marker("discharges")
         if marker is not None:
             item.user_properties.append(("discharges", ",".join(marker.args)))
+            if aac := _aac_claim(item, marker.args):
+                item.user_properties.append(("aac", aac))
         for flag in ("tooling", "unwired"):
             if item.get_closest_marker(flag) is not None:
                 item.user_properties.append((flag, "true"))
@@ -89,6 +91,13 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     if bad:
         detail = "\n".join(f"  {test}: {', '.join(ids)}" for test, ids in sorted(bad.items()))
         raise pytest.UsageError(f"discharges names statements that do not exist:\n{detail}")
+
+
+def _aac_claim(item: pytest.Item, ids: tuple[str, ...]) -> str:
+    """Recorded twice, once for each reader: `discharges` for the gates, `aac`
+    for AAC's junit adapter, which reads only that name (`statements.aac_claim`)."""
+    marked = {m for m in statements.NOT_EVIDENCE if item.get_closest_marker(m) is not None}
+    return statements.aac_claim(ids, marked)
 
 
 def _gap_of(item: pytest.Item) -> str:

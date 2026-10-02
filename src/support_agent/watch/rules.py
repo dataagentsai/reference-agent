@@ -31,13 +31,18 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
-from typing import Literal
 
 from support_agent.watch import checks as c
 from support_agent.watch.checks import CLAIMS, STATUSES, Thresholds
+from support_agent.watch.evidence import (
+    BEYOND_THE_PATTERN,
+    EVIDENCE,
+    Evidence,
+    Finding,
+    Severity,
+    Verdict,
+)
 from support_agent.watch.record import Turn
-
-Severity = Literal["page", "ticket", "trend"]
 
 
 @dataclass(frozen=True)
@@ -59,16 +64,6 @@ class ConversationRule:
     title: str
     severity: Severity
     check: Callable[[Sequence[Turn], Thresholds], str | None]
-
-
-@dataclass(frozen=True)
-class Finding:
-    rule: str
-    version: str
-    severity: Severity
-    trace_id: str
-    session_id: str
-    detail: str
 
 
 RULES: tuple[Rule, ...] = (
@@ -242,60 +237,81 @@ def evaluate(
     thresholds: Thresholds | None = None,
     conversation_rules: Iterable[ConversationRule] = CONVERSATION_RULES,
 ) -> tuple[list[Finding], list[Turn]]:
-    """Every finding in `turns`, and the turns evaluated. Synthetic turns are
-    the canary's and are left to it (AHC-0113).
+    """Every finding in `turns`, and the turns evaluated."""
+    verdicts, evaluated = judge(turns, rules, thresholds, conversation_rules)
+    return [v.finding() for v in verdicts if not v.passed], evaluated
 
-    A conversation rule reads the captured turns of each conversation in the
-    batch and its finding lands on the last of them.
+
+def judge(
+    turns: Iterable[Turn],
+    rules: Iterable[Rule] = RULES,
+    thresholds: Thresholds | None = None,
+    conversation_rules: Iterable[ConversationRule] = CONVERSATION_RULES,
+) -> tuple[list[Verdict], list[Turn]]:
+    """Every rule's verdict on `turns`, passes included, and the turns evaluated.
+    Synthetic turns are the canary's and are left to it (AHC-0113).
+
+    A rule that needs the words gives no verdict on a turn without them — not a
+    pass, and not a `skipped` score either: nothing is written, so the report
+    reads that obligation from the turns that were captured. A conversation
+    rule reads the captured turns of each conversation in the batch and its
+    verdict lands on the last of them.
     """
     limits = thresholds or Thresholds()
     evaluated = [t for t in turns if not t.synthetic]
-    findings = [f for turn in evaluated for f in _of_turn(turn, tuple(rules), limits)]
+    verdicts = [v for turn in evaluated for v in _of_turn(turn, tuple(rules), limits)]
     sessions: dict[str, list[Turn]] = defaultdict(list)
     for turn in (t for t in evaluated if t.captured):
         sessions[turn.session_id].append(turn)
     for session in sessions.values():
-        findings += _of_conversation(
+        verdicts += _of_conversation(
             sorted(session, key=lambda t: t.started), conversation_rules, limits
         )
-    return findings, evaluated
+    return verdicts, evaluated
 
 
-def _of_turn(turn: Turn, rules: tuple[Rule, ...], limits: Thresholds) -> list[Finding]:
-    out = []
-    for rule in rules:
-        if rule.needs_words and not turn.captured:
-            continue
-        detail = rule.check(turn, limits)
-        if detail is not None:
-            out.append(_found(rule, turn, detail))
-    return out
+def _of_turn(turn: Turn, rules: tuple[Rule, ...], limits: Thresholds) -> list[Verdict]:
+    return [
+        _verdict(rule, turn, rule.check(turn, limits))
+        for rule in rules
+        if turn.captured or not rule.needs_words
+    ]
 
 
 def _of_conversation(
     ordered: list[Turn], rules: Iterable[ConversationRule], limits: Thresholds
-) -> list[Finding]:
-    out = []
-    for rule in rules:
-        detail = rule.check(ordered, limits)
-        if detail is not None:
-            out.append(_found(rule, ordered[-1], detail))
-    return out
+) -> list[Verdict]:
+    return [_verdict(rule, ordered[-1], rule.check(ordered, limits)) for rule in rules]
 
 
-def _found(rule: Rule | ConversationRule, turn: Turn, detail: str) -> Finding:
-    return Finding(rule.id, rule.version, rule.severity, turn.trace_id, turn.session_id, detail)
+def _verdict(rule: Rule | ConversationRule, turn: Turn, detail: str | None) -> Verdict:
+    evidence = EVIDENCE.get(rule.id, Evidence((), "M5"))
+    return Verdict(
+        rule.id,
+        rule.version,
+        rule.severity,
+        turn.trace_id,
+        turn.session_id,
+        detail,
+        evidence.aac,
+        evidence.mechanism,
+    )
 
 
 __all__ = [
+    "BEYOND_THE_PATTERN",
     "CLAIMS",
     "CONVERSATION_RULES",
+    "EVIDENCE",
     "NOT_YET",
     "RULES",
     "STATUSES",
     "ConversationRule",
+    "Evidence",
     "Finding",
     "Rule",
     "Thresholds",
+    "Verdict",
     "evaluate",
+    "judge",
 ]

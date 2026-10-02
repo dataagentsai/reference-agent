@@ -31,7 +31,7 @@ from support_agent.watch import outcomes as oc
 from support_agent.watch import record
 from support_agent.watch.outcomes import Outcome
 from support_agent.watch.record import Turn
-from support_agent.watch.rules import RULES, Finding, Rule, Thresholds, evaluate
+from support_agent.watch.rules import RULES, Finding, Rule, Thresholds, Verdict, judge
 
 
 def rules_version(rules: Iterable[Rule]) -> str:
@@ -57,6 +57,7 @@ class Source(Protocol):
 
 class Sink(Protocol):
     def finding(self, found: Finding) -> None: ...
+    def passed(self, verdict: Verdict) -> None: ...
     def evaluated(self, trace_id: str, findings: int, version: str) -> None: ...
     def outcome(self, found: Outcome) -> None: ...
 
@@ -86,13 +87,14 @@ class Watch:
         if end <= start:
             return Report((), (), ())
         turns = record.turns(record.from_observations(self.source.traces_between(start, end)))
-        findings, evaluated = evaluate(turns, self.rules, self.thresholds)
+        verdicts, evaluated = judge(turns, self.rules, self.thresholds)
+        findings = [v.finding() for v in verdicts if not v.passed]
         found = [
             *oc.returned(evaluated, self._history(evaluated, end)),
             *oc.asked_for_person(evaluated),
             *self._stated(start, end),
         ]
-        self._write(evaluated, findings, found)
+        self._write(evaluated, verdicts, found)
         self.cursor = end
         return Report(tuple(evaluated), tuple(findings), tuple(found))
 
@@ -112,10 +114,16 @@ class Watch:
         ]
         return oc.stated(given, record.turns(record.from_observations(observed)))
 
-    def _write(self, evaluated: list[Turn], findings: list[Finding], found: list[Outcome]) -> None:
+    def _write(self, evaluated: list[Turn], verdicts: list[Verdict], found: list[Outcome]) -> None:
         per_trace: dict[str, int] = {t.trace_id: 0 for t in evaluated}
         version = rules_version(self.rules)  # the rules that ran, not the default set
-        for finding in findings:
+        for verdict in verdicts:
+            if verdict.passed:
+                # Written as well, so the export says what held and not only
+                # what fired (AAC's Langfuse adapter reads both).
+                self.sink.passed(verdict)
+                continue
+            finding = verdict.finding()
             per_trace[finding.trace_id] += 1
             self.sink.finding(finding)
             tel.counters.findings.add(1, {"rule": finding.rule, "severity": finding.severity})

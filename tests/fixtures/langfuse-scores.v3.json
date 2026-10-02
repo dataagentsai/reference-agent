@@ -1,0 +1,1791 @@
+{
+  "_comment": "Fixture for the AAC report while Langfuse is not running: what GET /api/public/v3/scores?fields=details,subject would answer for the scores the watch's own writer posts over four turns (held; a status contradicting the store; slow; words not captured) and one feedback outcome. The one failing score (watch.W-01 on tr-contradicts) is planted, to show a finding reaching the report. Rebuilt by tests/test_watch_scores.py with AAC_FIXTURE=write; not an export from a live project.",
+  "data": [
+    {
+      "id": "w70ad73e87e748daab0d916ca",
+      "name": "watch.W-01",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0029"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wf10f8a49597f0349144eb58c",
+      "name": "watch.W-02",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0110"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wace75cf561a8e670e2c5142b",
+      "name": "watch.W-03",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0006"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wdda351d764a0b528cebc3186",
+      "name": "watch.W-04",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w6c4e6b93c022fd50c117296c",
+      "name": "watch.W-05",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0053"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w1ae697393227a592a0045a30",
+      "name": "watch.W-06",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "2",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0053"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wa21ca6be4ec26019e033f205",
+      "name": "watch.W-07",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0007"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wca0e7d8a9342c6fad1659203",
+      "name": "watch.W-08",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0008"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w8e11c7b4b4eb00a145fb03eb",
+      "name": "watch.W-09",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0112"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w9fc5d662696331176c7321eb",
+      "name": "watch.W-10",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0112"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w852eb4b2a692227d84b6cc3e",
+      "name": "watch.W-11",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w71bee79b43accb497ec9610a",
+      "name": "watch.W-12",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0002"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w578041e3cea25ee3e0f6005c",
+      "name": "watch.W-13",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0053"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wb1e254c5b310e434e9d45f24",
+      "name": "watch.W-14",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0113"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w0ec96c108c74ec856068f035",
+      "name": "watch.W-15",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0052"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w99628012930f4804d44c7a2f",
+      "name": "watch.W-16",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0029"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w78e096b1ca7f694cbaf857c5",
+      "name": "watch.W-17",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0002"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w438b89069a292a5e17f6d01d",
+      "name": "watch.W-18",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wb062433a5df2df565536b0af",
+      "name": "watch.W-19",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0058"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w768f7a25a7e28f0ca00854c4",
+      "name": "watch.W-20",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0105"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "we2f648ae1cf504441908b3ee",
+      "name": "watch.W-21",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0012"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wefd98331736b90f8b4ad68f0",
+      "name": "watch.W-01",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": false,
+      "comment": "reply says AB-10002 is shipped; the store said pending",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0029"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wc895480b8079a0a0091ef796",
+      "name": "watch.W-02",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0110"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w10d4495289deed578b217f13",
+      "name": "watch.W-03",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0006"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w6422c0bc74a80f6f82980ae9",
+      "name": "watch.W-04",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w412d599eb94ccde7d57c3b5e",
+      "name": "watch.W-05",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0053"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w668ae53c3b6b1e699cb39c72",
+      "name": "watch.W-06",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "2",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0053"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "we1a9080d03ea7d8594ddb4aa",
+      "name": "watch.W-07",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0007"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w2b9abd3734747d79179b7ced",
+      "name": "watch.W-08",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0008"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w79e97462f5136f0281fbb657",
+      "name": "watch.W-09",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0112"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w1e11c7d9e77bb64f728de70b",
+      "name": "watch.W-10",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0112"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wde843b21f985b4cd5527bd3a",
+      "name": "watch.W-11",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "we34d5065b1fe8c23428aadee",
+      "name": "watch.W-12",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0002"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w272a713868faabe016c70596",
+      "name": "watch.W-13",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0053"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w4ebf11b991d3dd3a985aeaa5",
+      "name": "watch.W-14",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0113"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wb80f07cd1a9fd8a4644799f1",
+      "name": "watch.W-15",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0052"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wdaf069c2d819a608d0f7ea52",
+      "name": "watch.W-16",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0029"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wbdc4d2ef0e0707adbd8373fd",
+      "name": "watch.W-17",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0002"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w18dce815c1acaa29ca461fb8",
+      "name": "watch.W-18",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "waea512d2059d5736afcda62e",
+      "name": "watch.W-19",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0058"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wd22c2e890240a6e329cb83e9",
+      "name": "watch.W-20",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0105"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wb1eb0cb321981a0de463c8d8",
+      "name": "watch.W-21",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0012"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w7c44ac1dc3680768ba1afe71",
+      "name": "watch.W-01",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0029"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w89bd712cc578de4b04d3bd03",
+      "name": "watch.W-02",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0110"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wa0fcafe1987395288d078b2c",
+      "name": "watch.W-03",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0006"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w4818993c81aeea5970125f09",
+      "name": "watch.W-04",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w406882f3dd6cdf197584b80c",
+      "name": "watch.W-05",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0053"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w9a2d99325946a59f500368b0",
+      "name": "watch.W-06",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "2",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0053"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w4f3926c89e664e4d91fe5318",
+      "name": "watch.W-07",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": false,
+      "comment": "took 45.0s",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0007"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "we0dd55f9c79ad6fa83d36198",
+      "name": "watch.W-08",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0008"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w3eecdb7a165535951c26203d",
+      "name": "watch.W-09",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0112"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w89c8368003a3e4941174df40",
+      "name": "watch.W-10",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0112"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wb090d61b6df79ee75694d5c0",
+      "name": "watch.W-11",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w25de4ce248d2d87afc0f8a6a",
+      "name": "watch.W-12",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0002"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w47cb72961ebae82bde1b135e",
+      "name": "watch.W-13",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0053"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w464430d4ba4f8224a6980529",
+      "name": "watch.W-14",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0113"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w1ea598bd868a21c3d1925677",
+      "name": "watch.W-15",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0052"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w2437a80a216638bceba5fd42",
+      "name": "watch.W-16",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0029"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w8b6d3960c986900c55174879",
+      "name": "watch.W-17",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0002"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w791cabb45afff60d70bc36c9",
+      "name": "watch.W-18",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wfb87b44e36af2a9b99b6eedb",
+      "name": "watch.W-19",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0058"
+        ],
+        "aac.mechanism": "M1"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w06cb0b6c43e477d631de3ec0",
+      "name": "watch.W-20",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0105"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wdbd61b076381ca68b10c7fde",
+      "name": "watch.W-21",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0012"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w122c965be15ce16be4dfe01e",
+      "name": "watch.W-03",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "page",
+        "aac": [
+          "AAC-0006"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-unseen"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w768813727dda2c5fc34866c4",
+      "name": "watch.W-04",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-unseen"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wb4b15d75643236207219ad9b",
+      "name": "watch.W-05",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0053"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-unseen"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wcc266df646172d4d030db085",
+      "name": "watch.W-06",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "2",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0053"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-unseen"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wf95f3f6e39a15ce30581e5bc",
+      "name": "watch.W-07",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0007"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-unseen"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w1f363d213f82148bd8b2c3c9",
+      "name": "watch.W-08",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0008"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-unseen"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w51637df475f6083260c4b1a6",
+      "name": "watch.W-10",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0112"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-unseen"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "we61f66190704885e95fd10c7",
+      "name": "watch.W-12",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0002"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-unseen"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w9b8bbad06f7ebe68b7ce0523",
+      "name": "watch.W-20",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0105"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-unseen"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wd13cdce2231a2ecd44da5c89",
+      "name": "watch.W-21",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket",
+        "aac": [
+          "AAC-0012"
+        ],
+        "aac.mechanism": "M5"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-unseen"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w066a0d3c29e48fa4aa75e676",
+      "name": "watch.C-01",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w0c64f12503db03eba82621b3",
+      "name": "watch.C-02",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w05f08af40f5bd4e5d2a45725",
+      "name": "watch.C-03",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0103"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wcc8e1535117f19da06b86afe",
+      "name": "watch.C-01",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w5d03bbd8bdda33a2647ae224",
+      "name": "watch.C-02",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w05ae81e3663462de817cad31",
+      "name": "watch.C-03",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0103"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w4d2ff50804588a0490c811e8",
+      "name": "watch.C-01",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wfe26ba3ae1d89285f7e3581f",
+      "name": "watch.C-02",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "ticket"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w3cd64c71e89261400a750621",
+      "name": "watch.C-03",
+      "source": "API",
+      "dataType": "BOOLEAN",
+      "value": true,
+      "comment": "held",
+      "metadata": {
+        "version": "1",
+        "severity": "trend",
+        "aac": [
+          "AAC-0103"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "unknown"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wd2bb80444a83083e70455fc0",
+      "name": "watch.findings",
+      "source": "API",
+      "dataType": "NUMERIC",
+      "value": 0,
+      "comment": "findings from the online rules",
+      "metadata": {
+        "version": "ca5ccdd4170c",
+        "aac": [
+          "AAC-0014"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "pass"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w0b490314a872508463ef2f6e",
+      "name": "watch.findings",
+      "source": "API",
+      "dataType": "NUMERIC",
+      "value": 1,
+      "comment": "findings from the online rules",
+      "metadata": {
+        "version": "ca5ccdd4170c",
+        "aac": [
+          "AAC-0014"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "pass"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-contradicts"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "we99574a037961080858eb55f",
+      "name": "watch.findings",
+      "source": "API",
+      "dataType": "NUMERIC",
+      "value": 1,
+      "comment": "findings from the online rules",
+      "metadata": {
+        "version": "ca5ccdd4170c",
+        "aac": [
+          "AAC-0014"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "pass"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-slow"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "w9edb667265237756b5e08b07",
+      "name": "watch.findings",
+      "source": "API",
+      "dataType": "NUMERIC",
+      "value": 0,
+      "comment": "findings from the online rules",
+      "metadata": {
+        "version": "ca5ccdd4170c",
+        "aac": [
+          "AAC-0014"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "pass"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-unseen"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "wc7dc69734b81d859453a68f4",
+      "name": "outcome",
+      "source": "API",
+      "dataType": "CATEGORICAL",
+      "value": "feedback_up",
+      "comment": "up",
+      "metadata": {
+        "source": "stated",
+        "version": "3",
+        "aac": [
+          "AAC-0115"
+        ],
+        "aac.mechanism": "M5",
+        "aac.outcome": "pass"
+      },
+      "subject": {
+        "kind": "trace",
+        "id": "tr-held"
+      },
+      "timestamp": "2026-10-01T12:00:00.000Z"
+    }
+  ],
+  "meta": {
+    "cursor": null
+  }
+}

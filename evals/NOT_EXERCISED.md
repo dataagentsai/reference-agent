@@ -14,6 +14,13 @@ the right label for some of these, and it would also be the label every
 inconvenient obligation eventually acquired. `not_exercised` stays uncomfortable
 on purpose.
 
+The AAC coverage report (`docs/AAC-REPORT.md`, built by AAC's own tools from
+`aac.config.yaml`) is a different reader with a different vocabulary, and it
+is given the catalog's: the two `MAY` cases whose condition does not hold
+(`AAC-0096`, `AAC-0097`) are declared `not-applicable` there, as the harness
+profile does for AHC-0092, and the other four below are `accepted-risk`, owned
+and dated. A test holds every declaration there to an entry here.
+
 *State as of 2026-09-29 — 50/56 exercised, 50 passed, 0 failed.* A test that
 skips (a live service not running) records nothing, so its obligation reads as
 not exercised in that run rather than failed.

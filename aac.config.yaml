@@ -1,0 +1,88 @@
+# The agent's own AAC coverage report: what its tests and its watch evidence,
+# read by AAC's adapters, merged by AAC's build-report. Nothing here scores
+# anything; every verdict is a test's or a watch rule's.
+#
+#   uv run python scripts/aac_report.py --pytest tests --scores reports/aac/langfuse-scores.json
+#
+# Paths are relative to this repository; scripts/aac_report.py hands
+# build-report a copy with them made absolute and the version set to the commit.
+
+subject:
+  name: support-agent
+  version: "working tree"          # stamped with the commit by scripts/aac_report.py
+  archetypes: [A6]
+  description: >-
+    Customer support for a clothing retailer: a deterministic router, a bounded
+    loop over an MCP tool surface, and an online watch over production turns.
+  repository: https://github.com/dataagentsai/reference-agent
+
+sources:
+  # pytest's junit. tests/conftest.py records each test's AAC ids (from its
+  # `discharges` marker) as the `aac` property AAC's junit adapter reads; the
+  # AHC and AOAS ids in the same marker are this repository's own map's
+  # (evals/ASSURANCE-MAP.md). Tests that document a gap, test an instrument or
+  # test a component the agent never calls carry no `aac`. Most tests assert on
+  # a typed result or a world's state (M1); per-test overrides would go in an
+  # `aac.mechanism` property, and none is recorded yet.
+  - adapter: junit
+    path: reports/aac/junit.xml
+    mechanisms: [M1]
+    stages: [S2]
+
+  # The watch's scores, as scripts/export_scores.py saved them: GET
+  # /api/public/v3/scores?fields=details,subject. Every score that evidences an
+  # obligation says so in its own metadata (aac, aac.mechanism, and aac.outcome
+  # where the value is not a verdict), so nothing is mapped here, and a score
+  # without a mechanism is dropped rather than given one.
+  - adapter: langfuse
+    path: reports/aac/langfuse-scores.json
+    stages: [S5]
+
+# Consistent with harness-profile.yaml and evals/NOT_EXERCISED.md: what is not
+# covered on purpose, owned and dated like the profile's accepted gaps, and
+# what is not applicable because its condition does not hold.
+declarations:
+  - case: AAC-0096
+    status: not-applicable
+    rationale: >-
+      No response cache exists. The cassette is a recording replayed only in
+      tests and never serves a customer.
+  - case: AAC-0097
+    status: not-applicable
+    rationale: >-
+      No data-residency obligation binds this agent; the AOAS declares it absent
+      and the profile lists AHC-0092 as not applicable for the same reason.
+
+  - case: AAC-0046
+    status: accepted-risk
+    owner: reference-agent
+    rationale: >-
+      Its only test was removed when the delivery claim and the idempotency
+      ledger became one store (T-062, 8a40e85). A test against the merged store
+      is owed: a far end that fails partway leaves nothing done or a
+      compensating action recorded.
+    review_by: "2026-12-01"
+  - case: AAC-0051
+    status: accepted-risk
+    owner: reference-agent
+    rationale: >-
+      Offline, tool choices are scripted, so the suite tests what the harness
+      does with a choice, never how often the choice is right. Needs a scored
+      live eval with labelled tool choices.
+    review_by: "2026-12-01"
+  - case: AAC-0007
+    status: accepted-risk
+    owner: reference-agent
+    rationale: >-
+      Every test replays or scripts the model, so a latency measured here is a
+      dictionary lookup. The watch's W-07 scores a slow turn in production but
+      leaves the verdict to the rate (aac.outcome unknown); load against a live
+      provider is owed.
+    review_by: "2026-12-01"
+  - case: AAC-0016
+    status: accepted-risk
+    owner: reference-agent
+    rationale: >-
+      Live runs exist (scripts/live_runs.py, scripts/reliability.py) but are
+      started by hand; nothing re-runs them on a schedule against pinned inputs.
+    review_by: "2026-12-01"
