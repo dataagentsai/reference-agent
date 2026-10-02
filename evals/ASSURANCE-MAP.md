@@ -7,10 +7,10 @@ Never edit by hand — regenerate.*
 
 | Spec | Owed | Exercised | Failing | Not exercised |
 |---|---|---|---|---|
-| AOAS | 61 | 57 | 0 | 4 |
+| AOAS | 62 | 58 | 0 | 4 |
 | AAC | 56 | 49 | 0 | 7 |
 | AHC | 79 | 64 | 0 | 15 |
-| Baseline | 13 | 8 | 1 | 5 |
+| Baseline | 13 | 8 | 0 | 5 |
 
 ## Tests that name no statement
 

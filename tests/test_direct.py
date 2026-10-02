@@ -83,7 +83,7 @@ REFUND_STATES = [
 ]
 
 
-@pytest.mark.discharges("P-REFUND-STATUS", "op:get_order")
+@pytest.mark.discharges("P-REFUND-STATUS", "P-REFUND-OWED", "op:get_order")
 @pytest.mark.parametrize(("status", "told"), REFUND_STATES, ids=[r[0] for r in REFUND_STATES])
 async def test_a_refund_status_question_is_answered_about_the_refund(
     status: str, told: str
@@ -113,6 +113,8 @@ async def test_a_refund_status_question_is_answered_about_the_refund(
             identity=Identity(customer_id="C-1042", scopes=ident.CUSTOMER_SCOPES),
         )
     assert isinstance(result, Completed) and result.reply == told
+    # Asking about a refund is not asking for one, even where one is owed.
+    assert world.count("issue_refund") == 0
 
 
 class _AnswersNotFound:

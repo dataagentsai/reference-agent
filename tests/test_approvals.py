@@ -895,7 +895,9 @@ GROUNDING = [
 ]  # fmt: skip
 
 
-@pytest.mark.discharges("P-REFUND", "op:request_refund", "op:issue_refund", "AHC-0057")
+@pytest.mark.discharges(
+    "P-REFUND", "op:request_refund", "op:issue_refund", "AHC-0057", "P-REFUND-OWED"
+)
 @pytest.mark.parametrize(
     ("name", "order", "stated", "outcome", "refunded", "amount", "granted_by"),
     GROUNDING,

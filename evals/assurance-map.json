@@ -143,8 +143,8 @@
   ],
   "families": {
     "AOAS": {
-      "owed": 61,
-      "exercised": 57,
+      "owed": 62,
+      "exercised": 58,
       "failing": [],
       "not_exercised": [
         {
@@ -270,9 +270,7 @@
     "Baseline": {
       "owed": 13,
       "exercised": 8,
-      "failing": [
-        "B7"
-      ],
+      "failing": [],
       "not_exercised": [
         {
           "id": "B1",
@@ -1712,14 +1710,13 @@
     "B7": {
       "passed": [
         "tests/test_harness_profile.py::test_the_profile_validates_against_the_published_schema",
+        "tests/test_harness_profile.py::test_every_capability_this_shape_owes_is_accounted_for",
         "tests/test_harness_profile.py::test_not_applicable_is_only_for_a_capability_whose_condition_is_stated",
         "tests/test_harness_profile.py::test_the_profile_names_the_stack_it_runs_on",
         "tests/test_harness_profile.py::test_no_product_is_named_twice",
         "tests/test_harness_profile.py::test_resolving_actually_supplies_the_stack"
       ],
-      "failed": [
-        "tests/test_harness_profile.py::test_every_capability_this_shape_owes_is_accounted_for"
-      ]
+      "failed": []
     },
     "B8": {
       "passed": [
@@ -1939,6 +1936,13 @@
         "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_nobody",
         "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system",
         "tests/test_refusals.py::test_asking_for_a_refund_is_not_asking_after_one"
+      ],
+      "failed": []
+    },
+    "P-REFUND-OWED": {
+      "passed": [
+        "tests/test_approvals.py::test_a_refund_is_for_the_orders_total_and_the_gate_reads_it",
+        "tests/test_direct.py::test_a_refund_status_question_is_answered_about_the_refund"
       ],
       "failed": []
     },

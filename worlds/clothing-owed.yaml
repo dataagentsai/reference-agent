@@ -1,0 +1,72 @@
+# P-REFUND-OWED: the one store state in which a refund is owed.
+# A clothing e-commerce world.
+#
+# The declared environment the support agent is exercised in: the rows that
+# exist at t₀, what the world is faithful about, and which of the agent's
+# external systems it stands in for. Nothing else.
+#
+# The return window used to be declared in this file. It is now declared once,
+# in the agent's spec, and a world that disagrees with the spec can no longer
+# be written — there is only one statement of the rule to disagree with.
+
+apiVersion: awd/v0
+name: clothing-ecom-owed
+version: 1
+seed: 20260901
+
+# The domain is cited, not declared. Entities, operations and the eligibility
+# policy — the return window included — live once, in the agent's spec. The
+# loader composes them with what follows, and refuses a world file that tries
+# to declare them here.
+spec:
+  aoas: support-agent-clothing
+  version: 0.1.0
+  path: ../../clean-ai-engineering/drafts/examples/support-agent.aoas.yaml
+
+fidelity:
+  faithful_about:
+    - order.status and the transitions between states
+    - the return window, in whole days since delivery
+    - the final-sale exclusion
+    - which actions are irreversible
+    - each order's total, which is what a refund is for — never an amount anybody states
+    - the delivery address, and that changing it changes the order
+  not_faithful_about:
+    - product descriptions, sizes and prices
+    - carrier names and real delivery timing
+    - payment authorisation and settlement
+    - anything about stock
+  verified_against: null   # asserted, not yet tested. `shadow` mode is what fixes this.
+
+systems:
+  ecom:
+    projects: order_system       # the spec's external contract this system stands in for
+    resolution: mock
+
+    # How the stand-in presents itself: its tool descriptions and the refusal
+    # text it returns. The system's words, not the agent's — what the agent
+    # offers instead is the spec's `on_refusal`.
+    presents:
+      get_order:
+        description: Look up an order's current status.
+      cancel_order:
+        description: Cancel an order. Only possible before it has been picked.
+        refusal: an order that is {status} can no longer be cancelled
+      open_return_request:
+        description: Open a return. Delivered orders only, inside the window, not final sale.
+        refusal: "no new return can be opened for this order: it is {status}, and a return is already open: {return_open}"
+      change_address:
+        description: Change the delivery address. Only while the order is still pending.
+        refusal: the carrier owns the address once an order is {status}
+      issue_refund:
+        description: Issue a refund. Requires the elevated scope a granted approval mints.
+        refusal: this order has already been refunded
+
+records:
+  customer:
+    - {id: C-1042, email: basant@example.com}
+  order:
+    # One order, and it is owed a refund: returned, below the automatic limit.
+    # A world of its own because `owed: satisfied` reads the whole world, and
+    # a returned order in clothing.yaml would be owed in every scenario there.
+    - {id: AB-10006, customer_id: C-1042, address: "5 Park Street, Kolkata 700016", total: 2199, status: returned, days_since_delivery: 12, final_sale: false, return_open: false}

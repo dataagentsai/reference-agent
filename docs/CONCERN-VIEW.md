@@ -14,7 +14,7 @@ behind the specs, because it is made of them.
 
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
-| **functional-suitability** | 15 | 8 | 15 | 3 |
+| **functional-suitability** | 16 | 8 | 15 | 3 |
 | **safety** | 17 | 3 | 4 | 4 |
 | **security** | 6 | 16 | 9 | 3 |
 | **reliability** | 8 | 14 | 7 | 6 |
@@ -25,7 +25,7 @@ behind the specs, because it is made of them.
 | **interaction-capability** | 1 | 0 | 0 | 1 |
 | **flexibility** | 0 | 1 | 0 | 0 |
 
-## functional-suitability — 41
+## functional-suitability — 42
 
 **AOAS**
 
@@ -33,6 +33,7 @@ behind the specs, because it is made of them.
 - `P-RETURN` a return may be opened within 30 days of delivery; final-sale items are never returned
 - `P-ADDRESS` the delivery address may be changed only while the order is pending
 - `P-REFUND-STATUS` refund status is answered from the order's status, deterministically, and never promises a date or an amount
+- `P-REFUND-OWED` an owed refund is issued when the customer asks for a refund on that order, through request_refund; a question about refund status states the status and issues nothing
 - `P-APPROVAL-WAIT` while a decision is pending the conversation continues, and the customer is told a request exists and nothing more
 - `P-ESC-TOLD` the customer is told a reference number, and a wait only when one is measured from queue depth and observed throughput
 - `R-DELIVERY-DATE` refuses a delivery date the carrier record does not state

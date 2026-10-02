@@ -1,0 +1,37 @@
+# P-REFUND-OWED — a refund that is owed is issued when the customer asks for it.
+#
+# The order came back; a refund is owed (`owed_when: status returned`) and below
+# the automatic limit, so no person decides. Asking about the refund first is
+# not asking for it. Asking for it is what issues it. From outside, one refund
+# looks the same whichever turn issued it, so the "nothing is issued" half is
+# shown where the effect count can be read between turns: tests/test_direct.py,
+# the refund-status table. Decided by the owner 2026-10-02, after
+# generation run 3 found the AOAS saying a refund is owed and nothing saying
+# which path issues it.
+apiVersion: awd-scenario/v0
+scenario: an owed refund is issued when the customer asks, and not before
+world: ../worlds/clothing-owed.yaml
+as: C-1042
+objective: >-
+  A returned order is owed a refund. A question about the refund is answered
+  and issues nothing; a request for it issues it at once, for the order's total,
+  with no person involved.
+discharges: [P-REFUND-OWED, P-REFUND, P-REFUND-STATUS, op:request_refund, op:issue_refund]
+max_turns: 2
+
+actor:
+  says:
+    - has the refund for AB-10006 been processed
+    - please refund my order AB-10006
+
+expect:
+  - {effect: issue_refund, key: AB-10006, times: 1}
+  - {row: order, id: AB-10006, field: status, equals: refunded}
+  - {owed: satisfied}
+  - {truthful: order, id: AB-10006}
+
+# The model's side, when the run is scripted. The status question is answered
+# without a model; the request reaches it, and it asks for the refund.
+model:
+  - calls: [{request_refund: {id: "AB-10006"}}]
+  - says: "Your refund for AB-10006 has been issued to the original payment method."
