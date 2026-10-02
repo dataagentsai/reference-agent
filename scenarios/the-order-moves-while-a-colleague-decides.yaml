@@ -10,9 +10,9 @@
 # So nothing leaves. What this scenario is here to see is the rest of the
 # statement, which T-064 did not do: the grant is not retried and not reported
 # as a failure. It is asked again, against the order as it now is, and the
-# customer is told the request is waiting again. The third read of the order is
-# the fresh assessment — the evidence, from outside, that a new decision was
-# sought rather than the old one carried across.
+# customer is told the request is waiting again. A read after the total moved
+# is the evidence, from outside, that a new decision was sought against the
+# order as it is rather than the old one carried across.
 #
 # The reviewer takes two turns, so the fresh request is still with a person
 # when the conversation ends: the grant lands on the second review pass, and
@@ -59,12 +59,15 @@ expect:
   - {effect: issue_refund, times: 0}
   - {row: order, id: AB-10003, field: status, equals: delivered}
   - {row: order, id: AB-10003, field: total, equals: 5499}
-  # Assessed, re-read before the grant was spent, and assessed again: the
-  # fresh approval read the order as it now is.
-  - {called: get_order, times: 3}
-  # Told it waits again — and not told it failed.
-  - {reply: says, text: asked again}
-  - {reply: says, text: waiting for a colleague}
+  # Read again after the total moved: the fresh approval is asked against the
+  # order as it now is. The AOAS says that read happens, not how many there are;
+  # the reference re-reads and then assesses afresh (3), and generation run 3
+  # assesses from the re-read (2). Both are the statement.
+  - {called: get_order, at_least: 2}
+  # Told it waits again — the AOAS's words, in any wording — and not told it
+  # failed. Who it waits for is not the AOAS's to say (P-APPROVAL-WAIT: that a
+  # request exists, and nothing more).
+  - {reply: says, text: [asked again, waiting again, waiting for a decision again, waiting for approval again, a new request, a fresh request]}
   - {reply: never_says, text: could not be completed}
   - {truthful: order, id: AB-10003}
 

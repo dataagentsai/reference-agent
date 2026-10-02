@@ -1,8 +1,12 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 647,
-  "tagged": 526,
+  "functions": 662,
+  "tagged": 535,
   "tooling": [
+    "tests/test_aac_report.py::test_the_aac_property_is_the_aac_subset_of_what_a_test_claims",
+    "tests/test_aac_report.py::test_the_config_handed_to_build_report_is_absolute_and_stamped",
+    "tests/test_aac_report.py::test_the_declarations_are_owned_and_dated_like_the_profiles_gaps",
+    "tests/test_aac_report.py::test_the_page_lists_every_obligation_by_status",
     "tests/test_actors.py::test_a_model_driven_actor_says_what_it_is_told_and_stops",
     "tests/test_actors.py::test_a_persona_is_behaviour_and_the_situation_is_the_domains",
     "tests/test_actors.py::test_a_run_is_as_reproducible_as_its_weakest_actor",
@@ -119,6 +123,7 @@
     "tests/test_watch_catalog.py::test_every_detector_names_a_pattern_that_exists",
     "tests/test_watch_catalog.py::test_every_pattern_with_a_signal_is_detected_or_says_why_not",
     "tests/test_watch_rules.py::test_every_rule_names_the_statement_it_serves_and_a_version",
+    "tests/test_watch_scores.py::test_the_export_pages_v3_with_details_and_keeps_every_page_whole",
     "tests/test_why_each_file.py::test_every_mechanism_file_has_a_recorded_reason",
     "tests/test_why_each_file.py::test_the_document_names_no_file_that_is_not_mechanism"
   ],
@@ -133,6 +138,7 @@
     "tests/test_portal.py::test_an_expired_session_cookie_is_no_session",
     "tests/test_store_token.py::test_an_expired_store_token_is_renewed_once",
     "tests/test_watch_rules.py::test_thresholds_are_configuration",
+    "tests/test_watch_scores.py::test_every_rule_says_what_it_evidences",
     "tests/test_watching.py::test_sampling_is_decided_by_the_run_id_so_a_replay_decides_the_same"
   ],
   "families": {
@@ -196,7 +202,7 @@
     },
     "AHC": {
       "owed": 79,
-      "exercised": 63,
+      "exercised": 64,
       "failing": [],
       "not_exercised": [
         {
@@ -250,10 +256,6 @@
         {
           "id": "AHC-0095",
           "title": "Policy evaluation has its own budget and a declared timeout path"
-        },
-        {
-          "id": "AHC-0097",
-          "title": "Fan-out within one unit of work is bounded"
         },
         {
           "id": "AHC-0098",
@@ -417,6 +419,12 @@
       "passed": [
         "tests/test_watch_rules.py::test_each_rule_fires_on_its_case_and_nothing_else_does",
         "tests/test_watch_rules.py::test_a_conversation_rule_fires_on_its_case_and_lands_on_the_last_turn",
+        "tests/test_watch_scores.py::test_each_rule_evidences_only_what_its_pattern_catches_and_this_shape_owes",
+        "tests/test_watch_scores.py::test_a_rule_score_says_what_it_evidences",
+        "tests/test_watch_scores.py::test_every_rule_that_ran_writes_a_verdict_and_one_that_did_not_writes_none",
+        "tests/test_watch_scores.py::test_a_numeric_or_categorical_score_states_its_verdict",
+        "tests/test_watch_scores.py::test_the_saved_fixture_is_what_the_writer_writes",
+        "tests/test_watch_scores.py::test_aacs_langfuse_adapter_reads_the_watch_as_coverage",
         "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
       ],
       "failed": []
@@ -864,6 +872,8 @@
         "tests/test_watch_rules.py::test_a_burst_of_new_conversations_is_one_return",
         "tests/test_watch_rules.py::test_asking_for_a_person_after_an_answer_is_an_outcome_on_that_answer",
         "tests/test_watch_rules.py::test_feedback_lands_on_the_last_turn_before_it",
+        "tests/test_watch_scores.py::test_a_numeric_or_categorical_score_states_its_verdict",
+        "tests/test_watch_scores.py::test_aacs_langfuse_adapter_reads_the_watch_as_coverage",
         "tests/test_watching.py::test_feedback_is_the_customers_verdict_on_their_own_conversation",
         "tests/test_watching.py::test_asking_for_a_person_right_after_an_answer_is_an_outcome"
       ],
@@ -1130,6 +1140,7 @@
     },
     "AHC-0025": {
       "passed": [
+        "tests/test_flow_resilience.py::test_a_steps_tool_fan_out_is_bounded_and_says_so",
         "tests/test_turn_ends.py::test_how_the_turn_ends",
         "tests/test_typed_boundary.py::test_a_completion_with_no_answer_in_it_is_malformed"
       ],
@@ -1145,6 +1156,7 @@
     "AHC-0028": {
       "passed": [
         "tests/test_watch_rules.py::test_the_rule_set_version_moves_with_any_rule",
+        "tests/test_watch_scores.py::test_a_rule_score_says_what_it_evidences",
         "tests/test_watching.py::test_a_score_names_the_rules_that_made_it_when_they_are_injected"
       ],
       "failed": []
@@ -1332,6 +1344,12 @@
       ],
       "failed": []
     },
+    "AHC-0059": {
+      "passed": [
+        "tests/test_flow_resilience.py::test_a_steps_tool_fan_out_is_bounded_and_says_so"
+      ],
+      "failed": []
+    },
     "AHC-0066": {
       "passed": [
         "tests/test_serve.py::test_a_conversation_continues_across_requests",
@@ -1422,7 +1440,19 @@
     "AHC-0096": {
       "passed": [
         "tests/test_break_it.py::test_a_slow_call_still_completes",
-        "tests/test_turn_ends.py::test_how_the_turn_ends"
+        "tests/test_turn_ends.py::test_how_the_turn_ends",
+        "tests/test_turn_ends.py::test_a_caller_who_has_gone_starts_no_further_call",
+        "tests/test_turn_ends.py::test_chat_asks_the_connection_whether_the_caller_is_still_there"
+      ],
+      "failed": []
+    },
+    "AHC-0097": {
+      "passed": [
+        "tests/test_flow_resilience.py::test_concurrency_is_actually_bounded",
+        "tests/test_flow_resilience.py::test_an_empty_batch_is_not_an_error",
+        "tests/test_flow_resilience.py::test_a_zero_limit_is_refused",
+        "tests/test_flow_resilience.py::test_a_steps_tool_fan_out_is_bounded_and_says_so",
+        "tests/test_flow_resilience.py::test_parallel_reads_interleave"
       ],
       "failed": []
     },
@@ -1607,6 +1637,7 @@
         "tests/test_telemetry.py::test_a_capture_decision_lasts_exactly_as_long_as_its_turn",
         "tests/test_watch_rules.py::test_each_rule_fires_on_its_case_and_nothing_else_does",
         "tests/test_watch_rules.py::test_a_rule_that_needs_the_words_does_not_pass_a_turn_without_them",
+        "tests/test_watch_scores.py::test_every_rule_that_ran_writes_a_verdict_and_one_that_did_not_writes_none",
         "tests/test_watching.py::test_a_turns_words_are_kept_only_when_it_is_sampled",
         "tests/test_watching.py::test_a_turn_is_rebuilt_whole_from_its_spans",
         "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it",
