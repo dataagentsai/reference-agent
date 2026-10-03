@@ -235,7 +235,12 @@ decisions:
     source: chosen
     note: >-
       Only a row an irreversible action is about to act on is held to the
-      window; reads that only inform a reply are not re-read.
+      window here. A reply is held to it by AHC-0117 instead (F-085, T-092):
+      every row an earlier turn read is read again before the loop's first
+      ask, and a status the latest read contradicts is not said
+      (`no_superseded_state`). Until 3 Oct this note ended "reads that only
+      inform a reply are not re-read", and a resumed conversation said a
+      delivered order was still on its way.
   AHC-0107/read_stamp:
     value: when-asked
     source: golden-path

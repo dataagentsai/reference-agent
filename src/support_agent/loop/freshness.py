@@ -24,7 +24,9 @@ an action should happen: that is authority, and it is elsewhere.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Protocol
 
 from opentelemetry.trace import Span
 
@@ -41,6 +43,7 @@ from support_agent.contracts import (
     ToolRegistry,
     ToolResult,
 )
+from support_agent.loop.ends import Trace
 
 
 @dataclass
@@ -226,6 +229,100 @@ async def refresh(
     return _transcript(planned, out)
 
 
+async def resume(
+    earlier: tuple[str, ...],
+    *,
+    fresh: Freshness,
+    registry: ToolRegistry,
+    tools: ToolClient,
+    identity: Identity,
+    run_id: RunId,
+    now: int,
+) -> Refreshed:
+    """Read again, before the model is asked anything, every row an earlier turn
+    read (AHC-0117).
+
+    A read from an earlier turn has no stamp this run can trust — a minute ago
+    or nine days — so where a window is declared at all, each such row is read
+    again the way it was first read, and the result follows the history as what
+    is now true. The model is never the reason a stale value is caught (F-085).
+    A row whose reader is gone from the surface, or that is not a read, is
+    skipped: nothing here invents a lookup the surface does not offer.
+    """
+    if fresh.window_s is None:
+        return Refreshed()
+    out = Refreshed()
+    with tel.span("agent.freshness.resume", **{tel.FRESHNESS_ROWS: len(earlier)}):
+        for n, entry in enumerate(earlier):
+            tool, _, row = entry.partition(":")
+            if not row or not reads(registry, tool):
+                continue
+            # Its own key per row, and `step=-2` so no resumed read shares one
+            # with a refresh (`-1`) or a step the model planned: a far end that
+            # answers a repeated key from its record would hand one row's answer
+            # back for another.
+            key = IdempotencyKey(run_id=run_id, step=-2, iteration=n)
+            call = ToolCall(id=f"resumed-{row}", name=tool, arguments={"id": row})
+            result = await tools.call(tool, {"id": row}, identity, key)
+            if not result.is_error and _is_about(result.structured, row):
+                fresh.remember(registry, call, now, result.structured)
+            out.messages.append(Message(role="assistant", content="", tool_calls=(call,)))
+            out.results.append(result)
+            out.messages.append(tool_message(result, tool_call_id=call.id))
+    return out
+
+
+class Run(Protocol):
+    """What a re-read needs of the run it happens in, and what it adds to."""
+
+    fresh: Freshness
+    registry: ToolRegistry
+    tools: ToolClient
+    identity: Identity
+    run_id: RunId
+    span: Span
+    messages: list[Message]
+    seen_results: list[ToolResult]
+    trace: Trace
+
+    @property
+    def now(self) -> Callable[[], int]: ...
+
+
+async def refreshed(planned: list[tuple[ToolCall, IdempotencyKey]], run: Run) -> bool:
+    """`refresh`, put into the run's transcript; whether anything was re-read."""
+    held = await refresh(
+        planned,
+        fresh=run.fresh,
+        registry=run.registry,
+        tools=run.tools,
+        identity=run.identity,
+        run_id=run.run_id,
+        iteration=len(run.trace.tool_calls),
+        now=run.now(),
+        span=run.span,
+    )
+    run.messages.extend(held.messages)
+    run.seen_results.extend(held.results)
+    return bool(held.messages)
+
+
+async def resumed(earlier: tuple[str, ...], run: Run) -> None:
+    """`resume`, put into the run's transcript before its first ask (AHC-0117)."""
+    if earlier:
+        again = await resume(
+            earlier,
+            fresh=run.fresh,
+            registry=run.registry,
+            tools=run.tools,
+            identity=run.identity,
+            run_id=run.run_id,
+            now=run.now(),
+        )
+        run.messages.extend(again.messages)
+        run.seen_results.extend(again.results)
+
+
 def _transcript(
     planned: list[tuple[ToolCall, IdempotencyKey]], read: list[tuple[ToolCall, ToolResult]]
 ) -> Refreshed:
@@ -310,5 +407,9 @@ __all__ = [
     "entity_of",
     "key_of",
     "reads",
+    "Run",
     "refresh",
+    "refreshed",
+    "resume",
+    "resumed",
 ]

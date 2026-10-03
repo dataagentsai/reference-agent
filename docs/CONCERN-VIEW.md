@@ -14,7 +14,7 @@ behind the specs, because it is made of them.
 
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
-| **functional-suitability** | 16 | 8 | 15 | 3 |
+| **functional-suitability** | 16 | 9 | 15 | 4 |
 | **safety** | 17 | 3 | 4 | 4 |
 | **security** | 6 | 16 | 9 | 3 |
 | **reliability** | 8 | 14 | 7 | 6 |
@@ -25,7 +25,7 @@ behind the specs, because it is made of them.
 | **interaction-capability** | 1 | 0 | 0 | 1 |
 | **flexibility** | 0 | 1 | 0 | 0 |
 
-## functional-suitability — 42
+## functional-suitability — 44
 
 **AOAS**
 
@@ -56,6 +56,7 @@ behind the specs, because it is made of them.
 - `AHC-0106` A turn that commits to future work does not end as a completed answer *(functional completeness)*
 - `AHC-0107` A fact an irreversible action relies on is read inside its declared freshness window *(functional correctness)*
 - `AHC-0108` A structured record of the work runs beside the transcript *(functional completeness)*
+- `AHC-0117` What the caller is told about a record was read inside that field's freshness window *(functional correctness)*
 
 **AAC**
 
@@ -78,6 +79,7 @@ behind the specs, because it is made of them.
 **scenario**
 
 - `a-promise-nobody-is-keeping` the agent promises to check and something has to be checking
+- `a-resumed-conversation-reads-the-order-again` a conversation resumed days later reads the order again before saying where it is
 - `it-will-not-cite-an-order-nobody-has` an order number no tool returned never reaches the customer
 - `it-will-not-state-a-figure-no-tool-returned` a refund figure no tool returned never reaches the customer
 

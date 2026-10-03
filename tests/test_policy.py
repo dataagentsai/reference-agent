@@ -404,3 +404,77 @@ def test_an_ungrounded_id_is_caught_however_it_is_spelled(name: str, spelled: st
     )
     verdict = pol.no_ungrounded_entity(ctx)
     assert verdict.blocked, f"{name}: an order no tool returned passed as grounded"
+
+
+def order(status: str, row: str = "AB-10001") -> ToolResult:
+    return ToolResult(name="get_order", structured={"id": row, "status": status})
+
+
+# [name, reply, the reads behind it in order, blocked]. F-085: a resumed
+# conversation re-read the order and the model repeated what it read days ago.
+SUPERSEDED = [
+    (
+        "the stale claim, after a re-read",
+        "Your order AB-10001 has shipped.",
+        (order("shipped"), order("delivered")),
+        True,
+    ),
+    (
+        "the current state",
+        "Order AB-10001 is delivered.",
+        (order("shipped"), order("delivered")),
+        False,
+    ),
+    (
+        "no row named, one row read",
+        "It is still out for delivery.",
+        (order("delivered"),),
+        True,
+    ),
+    (
+        "no row named, two rows read",
+        "It has shipped.",
+        (order("delivered"), order("shipped", "AB-10002")),
+        False,
+    ),
+    (
+        "a refusal is not a claim (F-004)",
+        "It has shipped, so it can no longer be cancelled.",
+        (order("delivered"),),
+        False,
+    ),
+    (
+        "a negation is not a claim",
+        "AB-10001 has not shipped yet.",
+        (order("delivered"),),
+        False,
+    ),
+    (
+        "the past is not the present",
+        "AB-10001 was shipped on Monday.",
+        (order("delivered"),),
+        False,
+    ),
+    (
+        "no read, nothing to judge",
+        "Your order AB-10001 has shipped.",
+        (),
+        False,
+    ),
+    (
+        "a failed read says nothing",
+        "AB-10001 has shipped.",
+        (ToolResult(name="get_order", text="down", is_error=True),),
+        False,
+    ),
+]
+
+
+@pytest.mark.discharges("AHC-0117", "AAC-0029")
+@pytest.mark.parametrize(
+    ("name", "text", "reads", "blocked"), SUPERSEDED, ids=[s[0] for s in SUPERSEDED]
+)
+def test_a_status_the_latest_read_contradicts_is_not_said(
+    name: str, text: str, reads: tuple[ToolResult, ...], blocked: bool
+) -> None:
+    assert pol.no_superseded_state(reply(text, *reads)).allowed is not blocked

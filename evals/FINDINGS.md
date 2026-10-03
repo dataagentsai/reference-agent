@@ -2737,4 +2737,11 @@ grounded. Nothing re-reads the records in play when a conversation resumes.
 **Routed** to AHC-0117 (new, 3 Oct): before the turn's context is assembled the
 harness re-reads every record in play whose windowed fields (`order.status
 fresh_for: 30s`) have expired, and the reply is judged against the latest read.
-**Open** — the reference does not yet do it; the scenario fails until it does.
+**Fixed** 2026-10-03 (T-092). `Facts.read` keeps every read that answered as
+`tool:record`; `freshness.resume` reads each again, the harness's own call,
+before the loop's first ask, so the fresh value follows the history as what is
+now true; and `no_superseded_state` (`policy/states.py`) stops a present-tense
+status claim the latest read contradicts — hedged and negated sentences are not
+judged (F-004). The claim grammar is now one, `contracts.reading.claimed_states`,
+shared with the watch, whose own list had lost `picked` and `out_for_delivery`.
+The scenario passes, and all four gates.

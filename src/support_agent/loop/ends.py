@@ -40,6 +40,9 @@ class Trace:
     cancellation and a successful one are the same entry there, and the
     difference is the only part anybody handing this conversation over cares
     about."""
+    reads: list[tuple[str, str]] = field(default_factory=list)
+    """`(tool, record)` for every read that answered — what a later turn must
+    read again before anything is said about it (AHC-0117)."""
     termination: TerminationReason = TerminationReason.GOAL_REACHED
 
     def signature_counts(self) -> Counter[tuple[str, str]]:

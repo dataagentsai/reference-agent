@@ -422,3 +422,42 @@ async def test_a_read_is_stamped_when_it_was_asked(name: str, takes: int, reread
         await agent.handle(f"please cancel {PENDING}", identity=caller())
 
     assert (seen.count("get_order") >= 2) is reread, seen
+
+
+# AHC-0117 / F-085. [name, the binding's window, whether the stale claim is kept
+# from the customer]. Turn one reads the order on the deterministic path; the
+# parcel is delivered while the customer is away; turn two goes to the loop,
+# whose model repeats what it was told days ago and calls nothing.
+RESUMED = [
+    ("a window declared: read again, and the stale claim stopped", FRESH_FOR_S, True),
+    ("no window: nothing goes stale, so nothing is read again", None, False),
+]
+
+
+@pytest.mark.discharges("AHC-0117", "AHC-0108", "op:get_order")
+@pytest.mark.parametrize(("name", "window", "stopped"), RESUMED, ids=[r[0] for r in RESUMED])
+async def test_a_resumed_conversation_reads_its_order_again(
+    name: str, window: int | None, stopped: bool
+) -> None:
+    world = Live.start(load(WORLD))
+    stale = ModelResponse(
+        text="Your order AB-10001 has shipped and is still on its way to you.",
+        usage=Usage(input_tokens=5, output_tokens=2),
+    )
+    async with connect(project(world), requests=InMemoryRequests()) as tools:
+        agent = ep.build(
+            llm=ScriptedClient([stale]),
+            tools=tools,
+            store=InMemoryCheckpointStore(),
+            fresh_for_s=window,
+        )
+        _, conversation = await agent.handle("where is my order AB-10001", identity=caller())
+        assert conversation.facts.read == ("get_order:AB-10001",)
+        world.rows["order"]["AB-10001"]["status"] = "delivered"
+        result, _ = await agent.handle(
+            "is AB-10001 still on its way, and can I change where it goes?",
+            identity=caller(),
+            conversation=conversation,
+        )
+    told = getattr(result, "reply", "")
+    assert ("has shipped" not in told) is stopped, told

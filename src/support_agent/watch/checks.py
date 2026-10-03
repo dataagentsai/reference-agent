@@ -17,25 +17,15 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from support_agent.contracts.reading import ORDER_ID, order_ids
+from support_agent.contracts.domain import OrderStatus
+from support_agent.contracts.reading import ORDER_ID, claimed_states, order_ids
 from support_agent.watch.record import Turn
 
 # --------------------------------------------------------------------------- #
 # This shop's vocabulary.
 # --------------------------------------------------------------------------- #
 
-STATUSES = ("pending", "confirmed", "shipped", "delivered", "cancelled", "refunded", "returned")
-_SPELLINGS = {"canceled": "cancelled"}
-_STATUS_WORD = re.compile(
-    r"\b(is|was|are|were|has|have|had|been|be)\b((?:\s+[\w']+){0,2}?)\s+("
-    + "|".join((*STATUSES, *_SPELLINGS))
-    + r")\b",
-    re.I,
-)
-"""A status *asserted* of something: "is pending", "has been delivered". The
-words between may not negate it — "cannot be cancelled" and "has not shipped"
-state nothing about what the order is."""
-_NEGATION = re.compile(r"\b(not|never|no longer|cannot)\b|n't", re.I)
+STATUSES = tuple(s.value for s in OrderStatus)
 
 SURFACE = (
     "get_order",
@@ -174,11 +164,7 @@ def contradicts_tool(turn: Turn, _: Thresholds) -> str | None:
     for sentence in re.split(r"(?<=[.!?])\s+", plain(turn.reply)):
         for order in sorted(order_ids(sentence)):
             actual = truth.get(order)
-            said = {
-                _SPELLINGS.get(word.lower(), word.lower())
-                for verb, between, word in _STATUS_WORD.findall(sentence)
-                if not _NEGATION.search(verb + between) and verb.lower() != "be"
-            }
+            said = claimed_states(sentence)
             if actual and said and actual not in said:
                 return f"reply says {order} is {'/'.join(sorted(said))}; the store said {actual}"
     return None

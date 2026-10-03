@@ -61,6 +61,12 @@ class Facts(BaseModel):
     same rows in a different order produce the same record — a handoff that
     differed by scheduling would be one nobody could compare."""
 
+    read: tuple[str, ...] = ()
+    """The reads that answered, as `tool:record`. What the conversation has
+    looked at, and therefore what a later turn must look at again before it is
+    spoken of: a read from an earlier turn has no age this turn can trust, and
+    after a pause of days it is a claim about the past (AHC-0117, F-085)."""
+
     done: tuple[str, ...] = ()
     """The operations whose effects landed, as `operation:record`. Not what was
     attempted and not what was claimed: what the far system confirmed."""
@@ -78,6 +84,15 @@ class Facts(BaseModel):
         if not record or record in self.records:
             return self
         return self.model_copy(update={"records": tuple(sorted((*self.records, record)))})
+
+    def reading(self, tool: str, record: str) -> Facts:
+        """A read that answered, kept as the tool and the row it read, so a later
+        turn can read the same row the same way (AHC-0117). Bounded like the
+        rest: a row read nine times is one entry."""
+        entry = f"{tool}:{record}"
+        if not tool or not record or entry in self.read:
+            return self
+        return self.model_copy(update={"read": tuple(sorted((*self.read, entry)))})
 
     def landed(self, operation: str, record: str) -> Facts:
         entry = f"{operation}:{record}" if record else operation
@@ -112,7 +127,12 @@ class Facts(BaseModel):
         return "\n".join(lines)
 
 
-def after(facts: Facts, result: TurnResult, landed: tuple[tuple[str, str], ...] = ()) -> Facts:
+def after(
+    facts: Facts,
+    result: TurnResult,
+    landed: tuple[tuple[str, str], ...] = (),
+    looked: tuple[tuple[str, str], ...] = (),
+) -> Facts:
     """What the turn's outcome adds to the record (AHC-0108).
 
     Two kinds of thing. What the far system confirmed — which is the fact half
@@ -124,6 +144,8 @@ def after(facts: Facts, result: TurnResult, landed: tuple[tuple[str, str], ...] 
     """
     for operation, record in landed:
         facts = facts.touching(record).landed(operation, record)
+    for tool, record in looked:
+        facts = facts.reading(tool, record)
     match result:
         case NeedsApproval():
             return facts.waiting_on("approval", result.approval_id)

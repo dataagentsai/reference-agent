@@ -18,6 +18,8 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from support_agent.contracts.domain import OrderStatus
+
 _FOLD = str.maketrans(
     {
         **dict.fromkeys("‐‑‒–—―−﹘﹣－", "-"),
@@ -49,4 +51,47 @@ def order_ids(text: str) -> set[str]:
     }
 
 
-__all__ = ["ORDER_ID", "normalised", "order_ids"]
+STATUS_SPELLINGS = {"canceled": "cancelled"}
+_STATES = sorted((s.value.replace("_", "[ _]") for s in OrderStatus), key=len, reverse=True)
+STATUS_CLAIM = re.compile(
+    r"\b(is|was|are|were|has|have|had|been|be)\b((?:\s+[\w']+){0,2}?)\s+("
+    + "|".join((*_STATES, *STATUS_SPELLINGS))
+    + r")\b",
+    re.I,
+)
+"""A status *asserted* of something: "is pending", "has been delivered". The
+words between may not negate it — "cannot be cancelled" and "has not shipped"
+state nothing about what the order is."""
+_NEGATION = re.compile(r"\b(not|never|no longer|cannot)\b|n't", re.I)
+_PAST = frozenset({"was", "were", "had"})
+
+
+def claimed_states(sentence: str, *, present_only: bool = False) -> set[str]:
+    """The statuses a sentence asserts, as `OrderStatus` values.
+
+    One grammar for the two places that judge a reply against what the store
+    said: the online watch afterwards (AACP-0028) and the output screen before
+    the reply is sent (AHC-0117). They had a copy each, and the watch's list of
+    states had already lost `picked` and `out_for_delivery`. `present_only`
+    drops "was shipped": true of the past, and no claim about now.
+    """
+    said: set[str] = set()
+    for verb, between, word in STATUS_CLAIM.findall(sentence):
+        verb = verb.lower()
+        if _NEGATION.search(verb + between) or verb == "be":
+            continue
+        if present_only and verb in _PAST:
+            continue
+        state = word.lower().replace(" ", "_")
+        said.add(STATUS_SPELLINGS.get(state, state))
+    return said
+
+
+__all__ = [
+    "ORDER_ID",
+    "STATUS_CLAIM",
+    "STATUS_SPELLINGS",
+    "claimed_states",
+    "normalised",
+    "order_ids",
+]

@@ -60,7 +60,7 @@ distinction this page exists to keep visible.
 - `op:cancel_order` — a-planted-note-on-a-cancellable-order, stale-read-then-refused, the-belief-goes-stale-mid-turn
 - `op:change_address` — the-address-changes-while-it-can
 - `op:escalate` — a-long-conversation-fetches-a-person, a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, asking-for-a-person-four-times, asking-three-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, the-model-fails-twice, while-a-person-holds-it
-- `op:get_order` — a-customer-who-forgets-the-number, a-stranger-learns-nothing, answered-without-a-model, it-will-not-cite-an-order-nobody-has, it-will-not-state-a-figure-no-tool-returned, planted-instructions, the-belief-goes-stale-mid-turn, the-provider-throttles
+- `op:get_order` — a-customer-who-forgets-the-number, a-resumed-conversation-reads-the-order-again, a-stranger-learns-nothing, answered-without-a-model, it-will-not-cite-an-order-nobody-has, it-will-not-state-a-figure-no-tool-returned, planted-instructions, the-belief-goes-stale-mid-turn, the-provider-throttles
 - `op:issue_refund` — a-refund-above-the-limit-needs-a-person, an-owed-refund-is-issued-when-asked, refund-needs-a-person, the-reviewer-approves-it-twice
 - `op:list_orders` — opening-shows-your-orders
 - `op:open_return_request` — the-reply-is-lost-after-the-return-opens, the-window-closes-while-they-talk
@@ -121,4 +121,6 @@ Statements from the catalogs rather than this agent's own specification.
 - `AHC-0094`
 - `AHC-0100`
 - `AHC-0106`
+- `AHC-0108`
+- `AHC-0117`
 - `Q-TRUTH`

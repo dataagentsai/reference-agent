@@ -42,6 +42,7 @@ from support_agent.contracts import (
     Direct,
     Escalate,
     Escalations,
+    Failed,
     Identity,
     LLMClient,
     Refuse,
@@ -61,8 +62,12 @@ from support_agent.entrypoint.opening import opening
 from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
 from support_agent.entrypoint.persist import TurnPersister, agree_on_durability
 from support_agent.escalation import rules as t2
+from support_agent.loop import freshness
 from support_agent.loop.ends import CALLER_LEFT
 from support_agent.state import Conversation, TurnNote, facts
+
+Pairs = tuple[tuple[str, str], ...]
+"""`(operation or tool, record)`: what a turn landed, attempted or read."""
 
 DEFAULT_SYSTEM_PROMPT = binding.SYSTEM_PROMPT  # the words are the agent's (G0.10)
 
@@ -203,7 +208,7 @@ class Agent:
                 update={"facts": conversation.facts.asking(text)}
             ).with_messages(ctx.user_message(text))
             identity = consent.granting(identity, conversation, text, self.rules)
-            result, landed, tried = await self._dispatch(
+            result, landed, tried, looked = await self._dispatch(
                 decision, conversation, identity, run_id, gone
             )
             conversation = conversation.with_turn(TurnNote.of(decision, result))
@@ -217,7 +222,7 @@ class Agent:
                 result = escalated
 
             after = consent.pending(
-                facts.after(conversation.facts, result, landed), tried, identity
+                facts.after(conversation.facts, result, landed, looked), tried, identity
             )
             conversation = conversation.model_copy(update={"facts": after})
             result = await promise.honest(result, self.desk, conversation, identity, run_id)
@@ -259,11 +264,12 @@ class Agent:
         identity: Identity,
         run_id: RunId,
         gone: agent_loop.Gone | None = None,
-    ) -> tuple[TurnResult, tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]:
+    ) -> tuple[TurnResult, Pairs, Pairs, Pairs]:
         """Four routes, and only one of them reaches the model.
 
-        Returns the effects the far system confirmed as well as the result,
-        because only this function ever sees them and the record they go into
+        Returns with the result the effects confirmed, the calls attempted and
+        the reads that answered (AHC-0117), because only this function ever sees
+        them and the record they go into
         (AHC-0108) is the caller's. Three of the four routes confirm nothing:
         two never act, and the deterministic one never writes (`P-DIRECT-READS`).
 
@@ -272,7 +278,7 @@ class Agent:
         """
         if isinstance(decision, Direct | Agentic) and gone is not None and await gone():
             left = Completed(reply=CALLER_LEFT, termination=TerminationReason.CALLER_GONE)
-            return left, (), ()
+            return left, (), (), ()
         match decision:
             case Refuse():
                 return (
@@ -283,12 +289,18 @@ class Agent:
                     ),
                     (),
                     (),
+                    (),
                 )
             case Escalate():
                 held = await self.desk.raise_requested(decision, conversation, identity, run_id)
-                return held, (), ()
+                return held, (), (), ()
             case Direct():
-                return await direct.answer(decision, identity, run_id, self.tools), (), ()
+                answered = await direct.answer(decision, identity, run_id, self.tools)
+                row = freshness.key_of(decision.args)
+                looked = (
+                    () if isinstance(answered, Failed) or not row else ((direct.LOOKUP_TOOL, row),)
+                )
+                return answered, (), (), looked
             case Agentic():
                 result, trace = await agent_loop.run(
                     decision.goal,
@@ -307,8 +319,9 @@ class Agent:
                     now=self._now,
                     fresh_for_s=self.fresh_for_s,
                     gone=gone,
+                    resumed=conversation.facts.read,
                 )
-                return result, tuple(trace.effects), tuple(trace.tool_calls)
+                return result, tuple(trace.effects), tuple(trace.tool_calls), tuple(trace.reads)
             case _:
                 assert_never(decision)
 

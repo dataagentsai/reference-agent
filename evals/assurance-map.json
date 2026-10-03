@@ -1,7 +1,7 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 662,
-  "tagged": 535,
+  "functions": 664,
+  "tagged": 537,
   "tooling": [
     "tests/test_aac_report.py::test_the_aac_property_is_the_aac_subset_of_what_a_test_claims",
     "tests/test_aac_report.py::test_the_config_handed_to_build_report_is_absolute_and_stamped",
@@ -168,7 +168,9 @@
     "AAC": {
       "owed": 56,
       "exercised": 49,
-      "failing": [],
+      "failing": [
+        "AAC-0110"
+      ],
       "not_exercised": [
         {
           "id": "AAC-0016",
@@ -201,9 +203,11 @@
       ]
     },
     "AHC": {
-      "owed": 79,
-      "exercised": 64,
-      "failing": [],
+      "owed": 80,
+      "exercised": 65,
+      "failing": [
+        "AHC-0114"
+      ],
       "not_exercised": [
         {
           "id": "AHC-0006",
@@ -270,7 +274,9 @@
     "Baseline": {
       "owed": 13,
       "exercised": 8,
-      "failing": [],
+      "failing": [
+        "B7"
+      ],
       "not_exercised": [
         {
           "id": "B1",
@@ -422,10 +428,11 @@
         "tests/test_watch_scores.py::test_every_rule_that_ran_writes_a_verdict_and_one_that_did_not_writes_none",
         "tests/test_watch_scores.py::test_a_numeric_or_categorical_score_states_its_verdict",
         "tests/test_watch_scores.py::test_the_saved_fixture_is_what_the_writer_writes",
-        "tests/test_watch_scores.py::test_aacs_langfuse_adapter_reads_the_watch_as_coverage",
-        "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
+        "tests/test_watch_scores.py::test_aacs_langfuse_adapter_reads_the_watch_as_coverage"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
+      ]
     },
     "AAC-0015": {
       "passed": [
@@ -447,7 +454,8 @@
     },
     "AAC-0029": {
       "passed": [
-        "tests/test_policy.py::test_an_invented_entity_is_blocked"
+        "tests/test_policy.py::test_an_invented_entity_is_blocked",
+        "tests/test_policy.py::test_a_status_the_latest_read_contradicts_is_not_said"
       ],
       "failed": []
     },
@@ -815,10 +823,11 @@
         "tests/test_policy.py::test_a_successful_tool_result_does_license_it",
         "tests/test_release_gates.py::test_policy_screens_the_whole_reply_and_can_still_block_it",
         "tests/test_tier2.py::test_without_a_store_tier_two_never_fires",
-        "tests/test_watch_rules.py::test_each_rule_fires_on_its_case_and_nothing_else_does",
-        "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
+        "tests/test_watch_rules.py::test_each_rule_fires_on_its_case_and_nothing_else_does"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
+      ]
     },
     "AAC-0111": {
       "passed": [
@@ -1593,7 +1602,8 @@
         "tests/test_facts.py::test_an_empty_record_says_so_rather_than_saying_nothing",
         "tests/test_facts.py::test_the_record_is_written_from_what_happened_not_what_was_said",
         "tests/test_facts.py::test_the_colleague_is_handed_the_record_not_the_transcript",
-        "tests/test_facts.py::test_a_pending_approval_is_in_the_record_before_anybody_reads_it"
+        "tests/test_facts.py::test_a_pending_approval_is_in_the_record_before_anybody_reads_it",
+        "tests/test_freshness.py::test_a_resumed_conversation_reads_its_order_again"
       ],
       "failed": []
     },
@@ -1638,10 +1648,11 @@
         "tests/test_watch_scores.py::test_every_rule_that_ran_writes_a_verdict_and_one_that_did_not_writes_none",
         "tests/test_watching.py::test_a_turns_words_are_kept_only_when_it_is_sampled",
         "tests/test_watching.py::test_a_turn_is_rebuilt_whole_from_its_spans",
-        "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it",
         "tests/test_watching.py::test_the_record_carries_a_turns_tokens_and_its_models"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
+      ]
     },
     "AHC-0115": {
       "passed": [
@@ -1654,6 +1665,14 @@
     "AHC-0116": {
       "passed": [
         "tests/test_consent.py::test_what_the_customer_asked_for"
+      ],
+      "failed": []
+    },
+    "AHC-0117": {
+      "passed": [
+        "tests/test_facts.py::test_what_the_record_holds",
+        "tests/test_freshness.py::test_a_resumed_conversation_reads_its_order_again",
+        "tests/test_policy.py::test_a_status_the_latest_read_contradicts_is_not_said"
       ],
       "failed": []
     },
@@ -1710,13 +1729,14 @@
     "B7": {
       "passed": [
         "tests/test_harness_profile.py::test_the_profile_validates_against_the_published_schema",
-        "tests/test_harness_profile.py::test_every_capability_this_shape_owes_is_accounted_for",
         "tests/test_harness_profile.py::test_not_applicable_is_only_for_a_capability_whose_condition_is_stated",
         "tests/test_harness_profile.py::test_the_profile_names_the_stack_it_runs_on",
         "tests/test_harness_profile.py::test_no_product_is_named_twice",
         "tests/test_harness_profile.py::test_resolving_actually_supplies_the_stack"
       ],
-      "failed": []
+      "failed": [
+        "tests/test_harness_profile.py::test_every_capability_this_shape_owes_is_accounted_for"
+      ]
     },
     "B8": {
       "passed": [
@@ -2221,6 +2241,7 @@
     "op:get_order": {
       "passed": [
         "tests/test_direct.py::test_a_refund_status_question_is_answered_about_the_refund",
+        "tests/test_freshness.py::test_a_resumed_conversation_reads_its_order_again",
         "tests/test_ownership.py::test_only_the_owner_reaches_the_order",
         "tests/test_ownership.py::test_a_stranger_asking_after_an_order_learns_nothing",
         "tests/test_router_loop.py::test_a_tool_call_then_an_answer",

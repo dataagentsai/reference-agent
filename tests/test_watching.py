@@ -279,9 +279,13 @@ def test_a_deployment_whose_metrics_go_nowhere_does_not_start(
 # The record and the watch (T-057, AHC-0114, AAC-0014, AAC-0115).
 # --------------------------------------------------------------------------- #
 
+# False, and past the in-turn screen on purpose: since AHC-0117 the screen stops
+# "AB-10002 has shipped" before it is sent, but it judges only present-tense
+# claims outside a modal (F-004). Past tense under "should" is the watch's to
+# find afterwards — the two layers, each catching what the other cannot.
 CONTRADICTS = [
     ModelResponse(tool_calls=(ToolCall(id="c1", name="get_order", arguments={"id": "AB-10002"}),)),
-    ModelResponse(text="Good news: AB-10002 has shipped and is on its way to you."),
+    ModelResponse(text="Good news: AB-10002 was shipped this morning and should reach you soon."),
 ]
 
 

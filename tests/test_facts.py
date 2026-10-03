@@ -57,6 +57,17 @@ BUILDING = [
         Facts(done=("cancel_order:AB-1",)),
     ),
     (
+        "a read is kept as the tool and the row, sorted",
+        lambda f: f.reading("get_order", "AB-9").reading("get_order", "AB-1"),
+        Facts(read=("get_order:AB-1", "get_order:AB-9")),
+    ),
+    (
+        "the same read nine times costs one entry",
+        lambda f: f.reading("get_order", "AB-1").reading("get_order", "AB-1"),
+        Facts(read=("get_order:AB-1",)),
+    ),
+    ("a read with no row is not kept", lambda f: f.reading("get_order", ""), Facts()),
+    (
         "waiting on somebody",
         lambda f: f.waiting_on("approval", "apr_1"),
         Facts(awaiting=("approval:apr_1",)),
@@ -69,7 +80,7 @@ BUILDING = [
 ]
 
 
-@pytest.mark.discharges("AHC-0108")
+@pytest.mark.discharges("AHC-0108", "AHC-0117")
 @pytest.mark.parametrize(("name", "build", "expected"), BUILDING, ids=[c[0] for c in BUILDING])
 def test_what_the_record_holds(name: str, build, expected: Facts) -> None:
     """Bounded by kind rather than by age — which is what lets the transcript be

@@ -281,6 +281,7 @@ CONTRACT: dict[str, SpanSpec] = {
     # belief older than its window, so a rate here says how often the world
     # moves faster than the conversation.
     "agent.freshness.refresh": SpanSpec(required=frozenset({"agent.freshness.rows"})),
+    "agent.freshness.resume": SpanSpec(required=frozenset({"agent.freshness.rows"})),
     "agent.breaker": SpanSpec(required=frozenset({"agent.breaker.state"})),
     "agent.llm.retry": SpanSpec(required=frozenset({"agent.retry.attempt", "agent.retry.reason"})),
 }

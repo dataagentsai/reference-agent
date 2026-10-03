@@ -107,6 +107,7 @@ async def run(
     now: Callable[[], int] | None = None,
     fresh_for_s: int | None = None,
     gone: Gone | None = None,
+    resumed: tuple[str, ...] = (),
 ) -> Ended:
     """One task, step by step, until one of the terminations above.
 
@@ -150,6 +151,7 @@ async def run(
             gone=gone,
         )
         this.started = this.now()
+        await freshness.resumed(resumed, this)
         for step in range(budgets.max_steps):
             ended = await this.step(step)
             if ended is not None:
@@ -338,7 +340,7 @@ class _Run:
         # what comes back enters context as a result the run must account for —
         # so the model plans again against what is true, and every other control
         # applies to that plan exactly as it applied to the first.
-        if await self._refresh(planned):
+        if await freshness.refreshed(planned, self):
             return None
 
         # Screened before anything runs, so a refused call costs nothing and the
@@ -373,29 +375,13 @@ class _Run:
                 self.keys.settled(plan.signature(call.name, call.arguments))
                 if freshness.reads(self.registry, call.name):
                     self.fresh.remember(self.registry, call, asked, result.structured)
+                    self.trace.reads.append((call.name, freshness.key_of(call.arguments)))
                 else:
                     # Confirmed by the far system, not claimed by the model — AHC-0108's fact half.
                     self.trace.effects.append((call.name, freshness.key_of(call.arguments)))
             self.seen_results.append(result)
             self.messages.append(ctx.tool_message(result, tool_call_id=call.id))
         return None
-
-    async def _refresh(self, planned: list[tuple[ToolCall, IdempotencyKey]]) -> bool:
-        """Re-read the rows a stale irreversible action would have acted on."""
-        held = await freshness.refresh(
-            planned,
-            fresh=self.fresh,
-            registry=self.registry,
-            tools=self.tools,
-            identity=self.identity,
-            run_id=self.run_id,
-            iteration=len(self.trace.tool_calls),
-            now=self.now(),
-            span=self.span,
-        )
-        self.messages.extend(held.messages)
-        self.seen_results.extend(held.results)
-        return bool(held.messages)
 
     def _stop(
         self, reason: TerminationReason, message: str, rule_id: str = "", why: str = ""
