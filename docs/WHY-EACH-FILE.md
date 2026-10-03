@@ -67,6 +67,8 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `loop/screen.py` | AAC-0051 |
 | `loop/spend.py` | AHC-0101 |
 | `policy/reading.py` | AHC-0094 |
+| `policy/states.py` | AHC-0117 |
+| `policy/verdicts.py` | AHC-0094 |
 | `resilience/__init__.py` | AAC-0009, AHC-0005, AHC-0021, AHC-0024, AHC-0058 |
 | `state/__init__.py` | AHC-0108, P-ESC-CAP, P-ESC-ONCE |
 | `state/facts.py` | AHC-0108 |

@@ -2745,3 +2745,21 @@ status claim the latest read contradicts — hedged and negated sentences are no
 judged (F-004). The claim grammar is now one, `contracts.reading.claimed_states`,
 shared with the watch, whose own list had lost `picked` and `out_for_delivery`.
 The scenario passes, and all four gates.
+
+## F-086 · A message with several concerns is recorded as one
+
+**Found** 2026-10-04, from a CCA-F case (T-093): customers open with several
+problems, the first reply covers one, the rest never come back, and the person
+who takes the conversation sees no record they were raised.
+
+**Severity** Medium. Nothing false is said; something the customer asked for is
+silently not done, and the handoff hides it.
+
+**Why.** `Facts.asked` (AHC-0108) is one string — "what the customer last asked
+for … the latest rather than the first" — and `awaiting` holds approvals and
+escalations only. A message is routed as a whole: several intents go to the
+loop, and nothing after that asks whether each was answered.
+
+**Routed** to AHC-0118 (new, 4 Oct) and the AOAS's P-CONCERNS. **Open** — an
+accepted gap in the profile until T-093 lands.
+

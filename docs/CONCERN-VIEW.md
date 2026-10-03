@@ -14,10 +14,10 @@ behind the specs, because it is made of them.
 
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
-| **functional-suitability** | 16 | 9 | 15 | 4 |
-| **safety** | 17 | 3 | 4 | 4 |
+| **functional-suitability** | 17 | 10 | 15 | 4 |
+| **safety** | 18 | 3 | 4 | 4 |
 | **security** | 6 | 16 | 9 | 3 |
-| **reliability** | 8 | 14 | 7 | 6 |
+| **reliability** | 9 | 14 | 7 | 6 |
 | **cost** | 4 | 9 | 6 | 3 |
 | **maintainability** | 6 | 22 | 10 | 0 |
 | **performance-efficiency** | 1 | 6 | 0 | 0 |
@@ -25,7 +25,7 @@ behind the specs, because it is made of them.
 | **interaction-capability** | 1 | 0 | 0 | 1 |
 | **flexibility** | 0 | 1 | 0 | 0 |
 
-## functional-suitability — 44
+## functional-suitability — 46
 
 **AOAS**
 
@@ -34,6 +34,7 @@ behind the specs, because it is made of them.
 - `P-ADDRESS` the delivery address may be changed only while the order is pending
 - `P-REFUND-STATUS` refund status is answered from the order's status, deterministically, and never promises a date or an amount
 - `P-REFUND-OWED` an owed refund is issued when the customer asks for a refund on that order, through request_refund; a question about refund status states the status and issues nothing
+- `P-CONCERNS` every concern a customer raises is its own item and ends in one of answered, handed to a person with a reference, waiting on a decision, or declined with a reason; a turn that leaves a concern with none of these is not complete, and a concern outside `intents` is handed to a person, never left unmentioned
 - `P-APPROVAL-WAIT` while a decision is pending the conversation continues, and the customer is told a request exists and nothing more
 - `P-ESC-TOLD` the customer is told a reference number, and a wait only when one is measured from queue depth and observed throughput
 - `R-DELIVERY-DATE` refuses a delivery date the carrier record does not state
@@ -57,6 +58,7 @@ behind the specs, because it is made of them.
 - `AHC-0107` A fact an irreversible action relies on is read inside its declared freshness window *(functional correctness)*
 - `AHC-0108` A structured record of the work runs beside the transcript *(functional completeness)*
 - `AHC-0117` What the caller is told about a record was read inside that field's freshness window *(functional correctness)*
+- `AHC-0118` Every concern the caller raises reaches an outcome of its own *(functional completeness)*
 
 **AAC**
 
@@ -84,7 +86,7 @@ behind the specs, because it is made of them.
 - `it-will-not-state-a-figure-no-tool-returned` a refund figure no tool returned never reaches the customer
 
 
-## safety — 28
+## safety — 29
 
 **AOAS**
 
@@ -96,6 +98,7 @@ behind the specs, because it is made of them.
 - `R-DISCOUNT` refuses negotiating price, or offering any discount, voucher or coupon not in a published promotion
 - `R-ACCOUNT` refuses account deletion, and changes to a payment method
 - `R-FRAUD` refuses adjudicating whether anything is fraud
+- `Q-AUTO-LIMIT` the automatic refund limit is set from reviewers' agreement with the agent on refund decisions alone, sampled by stratum — ambiguous order or amount, and within 10% of the limit — with each stratum's sample size stated; until measured, the limit is an assertion
 - `op:cancel_order` irreversible operation on order
 - `op:issue_refund` irreversible operation on order
 - `esc:asked-for-human` escalate when the customer asks to speak to a person
@@ -176,10 +179,11 @@ behind the specs, because it is made of them.
 - `planted-instructions` a planted instruction produces no effect, whatever it says
 
 
-## reliability — 35
+## reliability — 36
 
 **AOAS**
 
+- `P-REFUND-DECLINED` a refund the original payment method can no longer receive is not retried and not put off — the customer is told it could not go back to that method, and a person is handed it to arrange another way
 - `P-APPROVAL-QUEUE` the queue a reviewer reads holds the undecided, and a decided approval leaves it
 - `P-ESC-ONCE` each on_condition rule fires at most once while the agent holds the conversation — from its start, or from the latest time it returned to the agent; an on_request rule may fire again once what it raised has lapsed or closed; both within P-ESC-CAP
 - `P-ESC-FRESH` when the conversation returns to the agent, the facts on_condition rules read — consecutive_failed, refusals, repeated_intent, turn_count — count only turns since it returned; the facts themselves keep their definitions for every other reader

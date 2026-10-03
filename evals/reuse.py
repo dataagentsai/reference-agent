@@ -63,6 +63,8 @@ MECHANISM = {
     "loop/screen.py",
     "loop/ends.py",
     "policy/reading.py",  # folds look-alike characters; no domain in it
+    "policy/verdicts.py",  # where a rule runs, what it sees, what it returns
+    "policy/states.py",  # a claim against the latest read; the states come from contracts.reading
     "resilience/__init__.py",
     "reviewer/__init__.py",
     "reviewer/guard.py",
@@ -111,7 +113,7 @@ PARAMETERISED = {
     "watch/checks.py",  # the checks are universal; the vocabulary they read is this shop's
     "watch/canary.py",  # the probe is universal; its cases ask this shop's questions (F-062)
     "watch/evidence.py",  # the verdict is universal; which rule evidences which AAC id is ours
-    "contracts/reading.py",  # the fold is universal; the order-id shape is this store's
+    "contracts/reading.py",  # the fold is universal; order ids and status words are ours
 }
 """Code a second agent keeps and values it replaces. **The layer to watch:**
 these read as shared and are not, so the values carry a version and the code

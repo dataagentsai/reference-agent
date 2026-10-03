@@ -349,6 +349,13 @@ x_store:   { approach: open-source, adapter: saleor, x_status: current, x_item: 
 x_runs_from: reference-agent/compose.yaml
 
 accepted_gaps:
+  - capability: AHC-0118
+    reason: >-
+      Not met (F-086). The work record holds one question — the latest — so a
+      message raising three concerns becomes one, and nothing checks that each
+      reached an outcome. Owned by T-093; the scenario lands with the fix.
+    owner: reference-agent
+    review: "2026-11-01"
   - capability: AHC-0071
     reason: >-
       One loop, no graph. There are no nodes to give typed edges to, and building
