@@ -1,0 +1,59 @@
+# AHC-0117 — a conversation resumed days later reads its order again before
+# anything is said about it.
+#
+# The customer asks where an order is; it is shipped, and that is read and
+# answered. The parcel is delivered after the read has been answered, and the
+# customer comes back nine days later. Their message names two things, so it is
+# not the deterministic status path (which reads afresh every time) but the
+# loop — whose history holds a tool result saying `shipped`.
+#
+# The scripted model is the defect: it trusts the result already in context and
+# says the order is still on its way, calling nothing. A grounding check passes
+# it, because a tool result does say `shipped`. What has to catch it is the
+# harness re-reading the order before the turn (the second `get_order`, which
+# the model never asks for) and judging the claim against that read.
+#
+# Found as an exam case, 3 Oct 2026: a resumed warranty conversation told a
+# customer their laptop was still in transit after it had reached the repair
+# centre, and the transcript was posted online.
+apiVersion: awd-scenario/v0
+scenario: a conversation resumed days later reads the order again before saying where it is
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  An order read as shipped is delivered while the customer is away. When they
+  come back nine days later, the agent does not repeat what it read then: the
+  order is read again before the reply, and nothing the customer is told says
+  it is still on its way.
+concern: functional-suitability
+discharges: [AHC-0117, AHC-0108, AAC-0029, op:get_order]
+max_turns: 2
+step_days: 9
+
+actor:
+  says:
+    - where is my order AB-10001
+    - it still hasn't come. is AB-10001 still on its way, and can I change where it goes?
+
+# The read on turn one is answered, then the parcel arrives.
+perturbations:
+  - kind: stale_read
+    tool: get_order
+    at_call: 1
+    entity: order
+    key: AB-10001
+    sets: {status: delivered, days_since_delivery: 0}
+
+expect:
+  # Read on turn one, and read again before turn two's reply — by the harness,
+  # since the scripted model calls nothing.
+  - {called: get_order, at_least: 2}
+  - {truthful: order, id: AB-10001}
+  - {reply: never_says, text: [still on its way, in transit, has shipped]}
+  # The address cannot change on a delivered order, so nothing may have.
+  - {effect: change_address, times: 0}
+
+# The model's side, when the run is scripted. Turn one is answered without a
+# model; turn two reaches it, and it answers from the history it was given.
+model:
+  - says: "Your order AB-10001 has shipped and is still on its way to you."

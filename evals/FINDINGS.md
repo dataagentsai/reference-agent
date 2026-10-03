@@ -2715,3 +2715,26 @@ turn and restores it on the way out, however the turn ends; deciding
 words only when capture is on *and* the turn was chosen.
 `tests/test_telemetry.py::test_a_capture_decision_lasts_exactly_as_long_as_its_turn`,
 four cases.
+
+## F-085 · A conversation resumed days later repeats what it read then
+
+**Found** 2026-10-03, from an exam case: a resumed warranty conversation told a
+customer their laptop was still in transit after it had reached the repair
+centre. Reproduced by `scenarios/a-resumed-conversation-reads-the-order-again.yaml`:
+the order is read as shipped, delivered while the customer is away, and nine
+days later the loop's reply says it has shipped and is still on its way.
+
+**Severity** High. A false statement about the customer's own order, made with
+the authority of a tool result, on the turn they came back to ask.
+
+**Why.** The profile chose `AHC-0107/freshness_scope:
+rows-an-irreversible-action-depends-on`, so "reads that only inform a reply are
+not re-read"; the deterministic status path reads afresh, but the loop answers
+from the history it is given. The truthfulness screen compares a claim against
+tool results in context, and the stale result is one, so the claim passes as
+grounded. Nothing re-reads the records in play when a conversation resumes.
+
+**Routed** to AHC-0117 (new, 3 Oct): before the turn's context is assembled the
+harness re-reads every record in play whose windowed fields (`order.status
+fresh_for: 30s`) have expired, and the reply is judged against the latest read.
+**Open** — the reference does not yet do it; the scenario fails until it does.
