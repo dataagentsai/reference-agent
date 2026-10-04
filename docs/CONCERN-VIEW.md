@@ -37,7 +37,7 @@ behind the specs, because it is made of them.
 - `P-CONCERNS` every concern a customer raises is its own item and ends in one of answered, handed to a person with a reference, waiting on a decision, or declined with a reason; a turn that leaves a concern with none of these is not complete, and a concern outside `intents` is handed to a person, never left unmentioned
 - `P-APPROVAL-WAIT` while a decision is pending the conversation continues, and the customer is told a request exists and nothing more
 - `P-ESC-TOLD` the customer is told a reference number, and a wait only when one is measured from queue depth and observed throughput
-- `R-DELIVERY-DATE` refuses a delivery date the carrier record does not state
+- `R-DELIVERY-DATE` refuses a delivery date the carrier record does not state — and no carrier date is held on the order
 - `R-STYLE` refuses style or fit advice presented as authoritative
 - `Q-TOOL-RESULT` a tool result enters context at most 8000 characters long
 - `op:get_order` read operation on order
@@ -95,7 +95,7 @@ behind the specs, because it is made of them.
 - `P-APPROVAL-TTL` a grant older than its validity fails closed rather than executing, and records execution grant_expired
 - `P-APPROVAL-STALE` a granted refund whose order no longer has the status or total it was granted on is not carried out: the approval records execution stale, a fresh pending approval is asked against the order as it now is and named in superseded_by, and the customer is told the request is waiting again — its own outcome, never reported as a failure
 - `P-APPROVAL-FINAL` a decision is final: a decided approval cannot be decided again
-- `R-DISCOUNT` refuses negotiating price, or offering any discount, voucher or coupon not in a published promotion
+- `R-DISCOUNT` refuses negotiating price, or offering any discount, voucher or coupon not in a published promotion — and none is published to this agent
 - `R-ACCOUNT` refuses account deletion, and changes to a payment method
 - `R-FRAUD` refuses adjudicating whether anything is fraud
 - `Q-AUTO-LIMIT` the automatic refund limit is set from reviewers' agreement with the agent on refund decisions alone, sampled by stratum — ambiguous order or amount, and within 10% of the limit — with each stratum's sample size stated; until measured, the limit is an assertion
@@ -135,8 +135,8 @@ behind the specs, because it is made of them.
 **AOAS**
 
 - `P-OWNERSHIP` a customer may see and act on only the orders they placed
-- `P-APPROVER` a refund is authorised by an operations reviewer, never by the customer whose refund it is
-- `P-ESC-OWNS` while a person owns the conversation the agent does not answer it, and only the desk that holds it may close it
+- `P-APPROVER` a refund is authorised by an operations reviewer, or by the automatic limit operations owns (issue_refund.authority.agent_when), never by the customer whose refund it is
+- `P-ESC-OWNS` while a person owns the conversation the agent does not answer it — a message then gets a fixed notice naming the reference, with no model call and no tool call — and only the desk that holds it may close it
 - `R-OTHER-CUSTOMER` refuses anything about an order the signed-in customer did not place
 - `Q-MODEL` only a model from the approved list is called
 - `Q-RETENTION` transcripts, traces and every record the harness writes are kept 30 days, then deleted
@@ -275,8 +275,8 @@ behind the specs, because it is made of them.
 - `fact:turn_count` turns taken in this conversation
 - `fact:termination` why the loop stopped on the latest turn, or absent if it never ran
 - `fact:consecutive_failed` turns ending in failure, counting back from the latest until one did not; a turn ends in failure when its loop stopped on unrecoverable_error, or when an operation it called did not answer (unavailable, or slow past the turn's deadline) and the turn ended without that answer
-- `fact:refusals` turns in this conversation the agent refused
-- `fact:repeated_intent` turns carrying the latest turn's intent, counting back from it until the intent changes; zero when the latest turn's intent is `other`
+- `fact:refusals` turns in this conversation refused by the harness — on the customer's words or by an output rule — not a model's own decline
+- `fact:repeated_intent` for each of the latest turn's intents other than `other`, the turns carrying it, counting back until one does not; the largest of those counts, and zero when the latest turn carries only `other`
 
 **AHC**
 
