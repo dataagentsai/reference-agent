@@ -77,7 +77,11 @@ async def test_an_unregistered_handler_is_a_typed_failure_not_a_crash() -> None:
 # (order's status in the world, what a refund-status question must be told)
 REFUND_STATES = [
     ("refunded", "A refund has been issued for order AB-10003, to the original payment method."),
-    ("returned", "Your return for order AB-10003 has arrived, and the refund is being processed."),
+    (
+        "returned",
+        "Your return for order AB-10003 has arrived, and a refund is owed on it. "
+        "Ask me to refund it and I will request it now.",
+    ),
     ("delivered", "There is no refund on order AB-10003."),
     ("shipped", "There is no refund on order AB-10003."),
 ]

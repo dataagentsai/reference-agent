@@ -64,10 +64,14 @@ expect:
   # the reference re-reads and then assesses afresh (3), and generation run 3
   # assesses from the re-read (2). Both are the statement.
   - {called: get_order, at_least: 2}
-  # Told it waits again — the AOAS's words, in any wording — and not told it
-  # failed. Who it waits for is not the AOAS's to say (P-APPROVAL-WAIT: that a
-  # request exists, and nothing more).
-  - {reply: says, text: [asked again, waiting again, waiting for a decision again, waiting for approval again, a new request, a fresh request]}
+  # Told it waits again, and not told it failed. Who it waits for is not the
+  # AOAS's to say (P-APPROVAL-WAIT: that a request exists, and nothing more).
+  # One word, because the AOAS states the fact and not the phrase: a list of
+  # phrasings failed a correct reply a third time ("has to be reviewed again …
+  # waiting for a decision", generation run 4). That it was asked again is
+  # shown above, by the read and by nothing issued; the words only have to
+  # say it is again, and the check below says they do not call it a failure.
+  - {reply: says, text: again}
   - {reply: never_says, text: could not be completed}
   - {truthful: order, id: AB-10003}
 

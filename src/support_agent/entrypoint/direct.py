@@ -115,7 +115,8 @@ REFUND_REPLIES: Mapping[str, str] = {
         "A refund has been issued for order {{ order_id }}, to the original payment method."
     ),
     "returned": (
-        "Your return for order {{ order_id }} has arrived, and the refund is being processed."
+        "Your return for order {{ order_id }} has arrived, and a refund is owed on it. "
+        "Ask me to refund it and I will request it now."
     ),
 }
 NO_REFUND_REPLY = "There is no refund on order {{ order_id }}."
