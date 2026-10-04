@@ -2763,3 +2763,29 @@ loop, and nothing after that asks whether each was answered.
 **Routed** to AHC-0118 (new, 4 Oct) and the AOAS's P-CONCERNS. **Open** — an
 accepted gap in the profile until T-093 lands.
 
+
+## F-087 · Retries are bounded per call, not per unit of work
+
+**Found** 2026-10-04 by generation run 4 (NOTES X5): AHC-0024 says "a retry
+count exists per unit of work, not per call site, and it is bounded", while the
+stack's threshold is `max_retries_per_call: 2` and this agent's resilience
+layer applies it to each call.
+
+**Severity** Low. Each call is bounded, so nothing runs away; but a turn of
+twelve steps may retry twenty-four times, which is the stacking AHC-0024
+exists to forbid.
+
+**Open** — a per-unit retry budget beside the per-call one, and the stack's
+threshold renamed to say which it is.
+
+## F-088 · The automatic refund limit is stated twice
+
+**Found** 2026-10-04 by generation run 4 (NOTES M11): the AOAS bounds
+`issue_refund.authority.agent_when` at ₹10,000, and this profile's thresholds
+carry `refund_without_a_person_inr: 10000`. Nothing says which governs if they
+part.
+
+**Severity** Low. They agree today.
+
+**Open** — the AOAS governs; the composition root refuses to start when the
+profile's number differs from it, or the threshold is read from the AOAS.
