@@ -14,7 +14,7 @@ behind the specs, because it is made of them.
 
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
-| **functional-suitability** | 17 | 10 | 15 | 4 |
+| **functional-suitability** | 17 | 10 | 15 | 5 |
 | **safety** | 18 | 3 | 4 | 4 |
 | **security** | 6 | 16 | 9 | 3 |
 | **reliability** | 9 | 14 | 7 | 6 |
@@ -25,7 +25,7 @@ behind the specs, because it is made of them.
 | **interaction-capability** | 1 | 0 | 0 | 1 |
 | **flexibility** | 0 | 1 | 0 | 0 |
 
-## functional-suitability — 46
+## functional-suitability — 47
 
 **AOAS**
 
@@ -84,6 +84,7 @@ behind the specs, because it is made of them.
 - `a-resumed-conversation-reads-the-order-again` a conversation resumed days later reads the order again before saying where it is
 - `it-will-not-cite-an-order-nobody-has` an order number no tool returned never reaches the customer
 - `it-will-not-state-a-figure-no-tool-returned` a refund figure no tool returned never reaches the customer
+- `money-back-is-a-status-question` money back, asked about, is answered as refund status and requests nothing
 
 
 ## safety — 29

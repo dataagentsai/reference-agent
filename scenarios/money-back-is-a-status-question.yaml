@@ -1,0 +1,35 @@
+# T-094 — a question about money already owed is a status question, whatever
+# it is called.
+#
+# From a CCA-F case: an agent called its refund tool in 7% of conversations
+# where the customer only asked where an existing refund had got to, and every
+# one said "money back", "credit" or "compensation". This agent had the same
+# hole: "where is my money back" was answered with the parcel's status, and
+# "credit" and "compensation" reached the model with no intent at all.
+#
+# So the question is answered on the deterministic path — no model, which the
+# empty `model` block below enforces — from the order's status, and nothing is
+# requested or issued. AB-10003 is delivered and not returned: no refund exists.
+apiVersion: awd-scenario/v0
+scenario: money back, asked about, is answered as refund status and requests nothing
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  The customer asks where their money back has got to. They are told what the
+  order's status says about a refund, without a model call, and no refund is
+  requested or issued.
+concern: functional-suitability
+discharges: [P-REFUND-STATUS, P-DIRECT, P-DIRECT-READS, op:get_order]
+max_turns: 1
+
+actor:
+  says:
+    - where is my money back for AB-10003?
+
+expect:
+  - {called: get_order}
+  - {called: request_refund, times: 0}
+  - {effect: issue_refund, times: 0}
+  - {world: unchanged}
+  - {reply: says, text: no refund}
+  - {truthful: order, id: AB-10003}

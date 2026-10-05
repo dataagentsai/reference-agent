@@ -27,6 +27,9 @@ from support_agent import telemetry as tel
 from support_agent.contracts import Agentic, Direct, Escalate, Intent, Refuse, Route
 from support_agent.contracts.reading import ORDER_ID, order_ids
 
+_MONEY = r"(?:refunds?|money\s+back|credit|compensation)\b"
+"""What a customer calls money owed back to them (T-094)."""
+
 
 @dataclass(frozen=True)
 class Rules:
@@ -142,7 +145,16 @@ class Rules:
             (
                 "lost-in-transit",
                 "the item is reported lost in transit",
-                re.compile(r"\blost in transit\b", re.I),
+                # The AOAS's own examples (T-094): "My parcel is lost", and
+                # "Tracking says delivered but I never got it" — which went to
+                # the status path and was told the parcel was delivered.
+                re.compile(
+                    r"\blost in transit\b"
+                    r"|\b(?:parcel|package|order|item|it)\s+(?:is|was|has been|got)\s+lost\b"
+                    r"|\bsays\s+delivered\s+but\b"
+                    r"|\bnever\s+(?:got|received|arrived|came)\b",
+                    re.I,
+                ),
             ),
         )
     )
@@ -156,8 +168,14 @@ class Rules:
     """
     intents: tuple[tuple[Intent, re.Pattern[str]], ...] = field(
         default_factory=lambda: (
-            (Intent.CANCEL_ORDER, re.compile(r"\bcancel\b", re.I)),
-            (Intent.RETURN_REQUEST, re.compile(r"\breturn\b", re.I)),
+            (
+                Intent.CANCEL_ORDER,
+                re.compile(r"\bcancel\b|\bdon'?t\s+want\s+(?:this|the|my)\s+order\b", re.I),
+            ),
+            (
+                Intent.RETURN_REQUEST,
+                re.compile(r"\breturn\b|\bsend\s+(?:it|this|them)\s+back\b", re.I),
+            ),
             (Intent.EXCHANGE_REQUEST, re.compile(r"\b(exchange|swap|different size)\b", re.I)),
             (
                 Intent.REFUND_STATUS,
@@ -166,15 +184,39 @@ class Rules:
                 # money back was answered with its status — true, useless, and
                 # not what was asked (F-030). Third time this shape of defect
                 # has appeared: the escalate rule and R-STYLE both learned it.
+                #
+                # And on the money, whatever it is called (T-094, a CCA-F case):
+                # "where is my money back" went to the parcel's status, and
+                # "credit" and "compensation" questions reached the model with
+                # no intent, free to request a refund nobody asked for.
                 re.compile(
-                    r"\b(where|when|what|how)\b[^.?!]{0,30}\brefunds?\b"
-                    r"|\brefunds?\b[^.?!]{0,24}\b(status|update|yet|processed|arrived?|coming)\b"
+                    rf"\b(where|when|what|how)\b[^.?!]{{0,30}}\b{_MONEY}"
+                    rf"|\b{_MONEY}[^.?!]{{0,24}}\b(status|update|yet|processed|arrived?|coming)\b"
+                    rf"|\b(did|has|have)\b[^.?!]{{0,20}}\b{_MONEY}[^.?!]{{0,20}}\b(go|gone|come|came)\b"
+                    rf"|\bany\s+news\b[^.?!]{{0,30}}\b{_MONEY}"
                     r"|\b(been|was|is)\s+refunded\b"
                     r"|\brefund\s+status\b",
                     re.I,
                 ),
             ),
-            (Intent.ADDRESS_CHANGE, re.compile(r"\b(change|update).{0,20}address\b", re.I)),
+            (
+                Intent.REFUND_REQUEST,
+                # Asking for the money, not about it. The AOAS's `refund_request`
+                # had no intent here at all until T-094.
+                re.compile(
+                    r"\b(?:want|need|like|give\s+me|get)\b[^.?!]{0,20}"
+                    r"\b(?:my\s+money\s+back|money\s+back|a\s+refund|compensation)\b"
+                    r"|\brefund\s+(?:my|this|the|it)\b",
+                    re.I,
+                ),
+            ),
+            (
+                Intent.ADDRESS_CHANGE,
+                re.compile(
+                    r"\b(change|update).{0,20}address\b|\b(?:ship|send)\s+(?:it|this|them)\s+to\b",
+                    re.I,
+                ),
+            ),
             (Intent.DAMAGED_ITEM, re.compile(r"\b(damaged|broken|missing|torn)\b", re.I)),
             (
                 Intent.ORDER_STATUS,
@@ -183,7 +225,10 @@ class Rules:
                 # ambiguous — so the one utterance P-REFUND-STATUS exists for
                 # went to the loop (F-030).
                 re.compile(
-                    r"^(?!.*\brefunds?\b).*\b(where is|status|track|delivered|arriv)\w*\b",
+                    # Nor when it is about money or damage: "it arrived torn" is
+                    # a damaged item, and "where is my money back" a refund (T-094).
+                    r"^(?!.*\b(?:refunds?|money\s+back|credit|compensation|damaged|broken|torn)\b)"
+                    r".*\b(where is|status|track|delivered|arriv|shipped)\w*\b",
                     re.I | re.S,
                 ),
             ),

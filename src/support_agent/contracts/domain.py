@@ -19,6 +19,7 @@ class Intent(StrEnum):
     RETURN_REQUEST = "return_request"
     EXCHANGE_REQUEST = "exchange_request"
     REFUND_STATUS = "refund_status"
+    REFUND_REQUEST = "refund_request"
     ADDRESS_CHANGE = "address_change"
     DAMAGED_ITEM = "damaged_item"
     POLICY_QUESTION = "policy_question"
