@@ -1,0 +1,255 @@
+<!doctype html>
+<title>Dev Setup</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+:root{--ink:#16181d;--dim:#646b79;--rule:#e2e5ea;--bg:#fbfaf8;--card:#fff;
+ --accent:#2f5d50;--shade:#f3f4f7;--warn:#8a5a12;--warn-bg:#fbf0dd;--code-bg:#f0f1f4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;--bg:#111318;--card:#181b21;
+ --accent:#6fc0a6;--shade:#20242b;--warn:#d9a44c;--warn-bg:#2b2412;--code-bg:#1d2127}}
+:root[data-theme="dark"]{--ink:#e6e8ec;--dim:#9aa2b1;--rule:#2a2e36;--bg:#111318;--card:#181b21;
+ --accent:#6fc0a6;--shade:#20242b;--warn:#d9a44c;--warn-bg:#2b2412;--code-bg:#1d2127}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","IBM Plex Sans",sans-serif;
+ -webkit-font-smoothing:antialiased}
+.shell{max-width:900px;margin:0 auto;padding:60px 28px 40px}
+.eyebrow{font:600 11px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--accent);margin:0 0 16px}
+h1{font:600 38px/1.1 "Iowan Old Style",Palatino,Georgia,"Source Serif 4",serif;margin:0 0 14px;
+ letter-spacing:-.02em;text-wrap:balance}
+.lede{color:var(--dim);font-size:17px;max-width:62ch;margin:0 0 6px}
+nav.toc{margin:40px 0 0;padding:22px 0 0;border-top:1px solid var(--rule);
+ display:flex;flex-wrap:wrap;gap:6px 16px;font:600 11.5px/1.5 "IBM Plex Mono",monospace;
+ text-transform:uppercase;letter-spacing:.04em}
+nav.toc a{color:var(--dim);text-decoration:none}
+nav.toc a:hover{color:var(--accent)}
+nav.toc span{color:var(--rule)}
+section{border-top:1px solid var(--rule);padding:48px 0 4px;scroll-margin-top:16px}
+.n{font:600 11px/1 "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase;
+ color:var(--accent);display:block;margin-bottom:10px}
+h2{font:600 26px/1.2 "Iowan Old Style",Palatino,Georgia,"Source Serif 4",serif;
+ margin:0 0 14px;letter-spacing:-.015em;text-wrap:balance}
+h3{font:600 15px/1.4 "IBM Plex Sans",sans-serif;margin:30px 0 10px}
+p{margin:0 0 14px;max-width:70ch}
+p.sub{color:var(--dim);font-size:15px}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;
+ background:var(--code-bg);padding:.12em .4em;border-radius:3px}
+pre{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;line-height:1.65;
+ background:var(--code-bg);border:1px solid var(--rule);border-radius:6px;
+ padding:16px 18px;overflow-x:auto;margin:14px 0 22px;color:var(--ink)}
+pre .c{color:var(--dim)}
+.steps{counter-reset:s;margin:20px 0 28px;padding:0}
+.step{position:relative;padding:0 0 22px 42px;border-left:2px solid var(--rule);margin-left:13px}
+.step:last-child{border-left-color:transparent;padding-bottom:2px}
+.step::before{counter-increment:s;content:counter(s);position:absolute;left:-14px;top:-2px;
+ width:27px;height:27px;border-radius:50%;background:var(--card);border:1.5px solid var(--rule);
+ color:var(--ink);font:600 12px/27px "IBM Plex Mono",monospace;text-align:center}
+.step h4{margin:0 0 6px;font:600 15.5px/1.4 "IBM Plex Sans",sans-serif}
+.step p{font-size:14.5px;color:var(--dim);margin:0 0 10px}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0 26px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font:600 10.5px/1.4 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;
+ color:var(--dim)}
+td.k{font-family:"IBM Plex Mono",monospace;font-size:13px;white-space:nowrap}
+.tbl-wrap{overflow-x:auto}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:18px 20px;margin:0 0 16px}
+.note{border-left:3px solid var(--accent);background:var(--shade);border-radius:0 6px 6px 0;
+ padding:14px 18px;margin:18px 0;font-size:14.5px}
+.note .tag{font:600 10.5px/1.4 "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase;
+ color:var(--accent);display:block;margin-bottom:6px}
+.note p{margin:0;font-size:14.5px}
+.note.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+.note.warn .tag{color:var(--warn)}
+.chip{display:inline-block;font:600 10px/1 "IBM Plex Mono",monospace;letter-spacing:.06em;
+ text-transform:uppercase;padding:3px 7px;border-radius:3px;border:1px solid var(--rule);
+ color:var(--dim);margin-left:6px}
+.chip.req{color:var(--warn);border-color:var(--warn)}
+footer{border-top:1px solid var(--rule);margin-top:40px;padding:28px 0 70px;
+ color:var(--dim);font-size:13px}
+footer a{color:var(--accent)}
+@media (max-width:560px){.shell{padding:40px 18px 30px}h1{font-size:29px}section{padding:38px 0 4px}}
+</style>
+
+<div class="shell">
+
+<p class="eyebrow">Reference Agent · Getting started</p>
+<h1>Dev Setup</h1>
+<p class="lede">How to get the agent running on your machine — three levels, from a zero-setup
+scripted demo to the real model behind the full Docker stack — and exactly which secrets you
+have to supply versus which ones already work out of the box.</p>
+<p class="sub">Source for everything below: <code>README.md</code>, <code>.env.example</code>,
+<code>compose.yaml</code>, <code>pyproject.toml</code> and <code>scripts/run_server.py</code> in
+this repository.</p>
+
+<nav class="toc">
+  <a href="#prereqs">Prerequisites</a><span>/</span>
+  <a href="#clone">Clone &amp; install</a><span>/</span>
+  <a href="#levels">Three ways to run it</a><span>/</span>
+  <a href="#keys">Keys &amp; secrets</a><span>/</span>
+  <a href="#profiles">Docker profiles</a><span>/</span>
+  <a href="#testing">Testing</a><span>/</span>
+  <a href="#notes">Gotchas</a>
+</nav>
+
+<section id="prereqs">
+  <span class="n">01 — Before you start</span>
+  <h2>Prerequisites</h2>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th style="width:170px">Tool</th><th>Needed for</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Python 3.12+</td><td>Running the agent at all. CI and the devcontainer pin 3.13 — matching that avoids surprises, but 3.12 satisfies <code>pyproject.toml</code>.</td></tr>
+      <tr><td class="k">uv</td><td>The only package/env manager this repo uses — no <code>pip</code>, no <code>venv</code> by hand. <a href="https://astral.sh/uv">astral.sh/uv</a></td></tr>
+      <tr><td class="k">git + SSH</td><td>Cloning both repositories below over SSH to <code>github.com</code>.</td></tr>
+      <tr><td class="k">Docker Desktop (or Engine + Compose v2)</td><td><strong>Only for Level 2 and 3</strong> — Level 1 needs no Docker at all.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn"><span class="tag">Windows note</span>
+  <p>Install uv with <code>powershell -c "irm https://astral.sh/uv/install.ps1 | iex"</code>, not the
+  <code>curl … | sh</code> line in <code>.devcontainer/post-create.sh</code> — that script targets the
+  Linux dev container. The native-Postgres alternative in the README (<code>brew install postgresql@16</code>)
+  is Mac/Linux only; on Windows just use the Postgres that <code>docker compose</code> brings up on
+  port 5433, which every default already points at.</p></div>
+</section>
+
+<section id="clone">
+  <span class="n">02 — Clone &amp; install</span>
+  <h2>Two repos, side by side</h2>
+  <p><code>pyproject.toml</code> declares AgentTwin — the world simulator the demo server and the
+  test suite both build the fake shop from — as a local editable path, <code>../agenttwin</code>. It has
+  to sit next to this checkout, not inside it.</p>
+  <pre>git clone git@github.com:dataagentsai/reference-agent.git
+git clone git@github.com:dataagentsai/agenttwin.git
+<span class="c"># now: .../reference-agent  and  .../agenttwin, as siblings</span>
+
+cd reference-agent
+uv sync --extra dev</pre>
+  <p class="sub">The import contract in <code>pyproject.toml</code> forbids <code>support_agent</code> from
+  ever importing <code>agenttwin</code> — "a system that can see its own simulator is a system whose
+  results mean nothing" — so this dependency is dev/test-only, never a runtime one.</p>
+</section>
+
+<section id="levels">
+  <span class="n">03 — Running it</span>
+  <h2>Three levels, each one exit further</h2>
+  <p>Each level swaps exactly one thing out for the real version — the model, then the store — so you
+  can tell which part you're actually testing.</p>
+
+  <div class="steps">
+    <div class="step">
+      <h4>Level 1 — scripted model, no Docker, free</h4>
+      <p>No credentials, no containers, no network call. The simulated shop is projected in-process
+      from <code>worlds/clothing.yaml</code>; the model is a canned script.</p>
+      <pre>uv run python scripts/run_server.py</pre>
+      <p>Open the printed URL — it carries a token the local test issuer minted for you, plus a
+      separate desk link (<code>/ops/desk</code>) for approvals and escalations.</p>
+    </div>
+    <div class="step">
+      <h4>Level 2 — the real model, via Groq <span class="chip req">needs GROQ_API_KEY</span></h4>
+      <p>Brings up Postgres, the LiteLLM gateway and Keycloak; the agent now calls a real model
+      through the gateway rather than the script.</p>
+      <pre>cp .env.example .env
+<span class="c"># edit .env — set GROQ_API_KEY=&lt;your key&gt;, see §04</span>
+docker compose up -d
+uv run python scripts/run_server.py --real</pre>
+    </div>
+    <div class="step">
+      <h4>Level 3 — + the real store</h4>
+      <p>Adds Saleor, a real e-commerce backend, behind its own MCP server — every tool call is now
+      checked by a far end rather than trusted.</p>
+      <pre>docker compose --profile store up -d
+uv run python scripts/run_server.py --real --store</pre>
+    </div>
+  </div>
+</section>
+
+<section id="keys">
+  <span class="n">04 — Keys &amp; secrets</span>
+  <h2>What you actually have to supply</h2>
+  <p>Everything in <code>.env.example</code> ships with a working <code>local-dev-only</code> default.
+  <strong>There is exactly one secret you have to bring yourself.</strong></p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th style="width:150px">Variable</th><th style="width:90px">Required?</th><th>Where it comes from</th></tr></thead>
+    <tbody>
+      <tr><td class="k">GROQ_API_KEY</td><td><span class="chip req">yes</span></td>
+        <td>Free key from <a href="https://console.groq.com">console.groq.com</a>. Set it in <code>.env</code> before
+        <code>docker compose up -d</code>. Only the <code>litellm</code> container ever reads it — the agent
+        itself never holds the provider credential, by design (<code>AHC-0004</code>).</td></tr>
+      <tr><td class="k">AGENT_GATEWAY_KEY</td><td>no</td>
+        <td>The agent's own scoped key to the LiteLLM gateway — rate-limited (30 rpm) and budget-capped ($5) by
+        default. Auto-created by the one-shot <code>litellm-keys</code> service on first <code>up</code>; the
+        <code>local-dev-only</code> value in <code>.env.example</code> just has to match on both sides.</td></tr>
+      <tr><td class="k">everything else</td><td>no</td>
+        <td>DB passwords, the LiteLLM master key, Keycloak admin password, Langfuse keys, Chatwoot secrets — all
+        default to <code>local-dev-only</code> placeholders that work as-is for local dev. Change them only if
+        you're exposing a profile beyond your own machine.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><span class="tag">Nothing to copy if you skip Level 2/3</span>
+  <p>A fresh clone with no <code>.env</code> at all runs fine at Level 1 — the local issuer signs its own
+  tokens and the scripted model needs no key.</p></div>
+</section>
+
+<section id="profiles">
+  <span class="n">05 — Docker Compose profiles</span>
+  <h2>One file, opt-in pieces</h2>
+  <p>The whole stack doesn't fit in the ~4 GB Docker gets on an 8 GB laptop, so everything past the
+  default set sits behind a profile. Add one at a time unless your machine has the memory for all of
+  them together.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th style="width:150px">Command</th><th>Adds</th><th style="width:150px">Ports</th></tr></thead>
+    <tbody>
+      <tr><td class="k">docker compose up -d</td><td>Postgres, the LiteLLM gateway, Keycloak — the default set every level above needs</td><td class="k">5433, 4000, 8080</td></tr>
+      <tr><td class="k">--profile obs</td><td>Langfuse (traces) — ClickHouse, MinIO, Redis plus its web &amp; worker</td><td class="k">3000</td></tr>
+      <tr><td class="k">--profile durable</td><td>Temporal — makes approval/escalation waits survive a restart</td><td class="k">7233, 8233 (UI)</td></tr>
+      <tr><td class="k">--profile channel</td><td>Chatwoot — the human escalation desk and customer chat widget</td><td class="k">3100</td></tr>
+      <tr><td class="k">--profile store</td><td>Saleor — the real e-commerce backend, plus its dashboard</td><td class="k">8100, 9000</td></tr>
+      <tr><td class="k">--profile watch</td><td>OTel collector, Prometheus, Alertmanager, Grafana</td><td class="k">4318, 9090, 9093, 3001</td></tr>
+    </tbody>
+  </table></div>
+  <p class="sub">The agent itself listens on <code>:8077</code> by default (<code>--port</code> to change it).</p>
+</section>
+
+<section id="testing">
+  <span class="n">06 — Testing</span>
+  <h2>One command, three build checks included</h2>
+  <pre>uv run pytest</pre>
+  <p>Runs the whole suite plus three build-time checks that cannot be skipped: strict <code>mypy</code>,
+  the <code>import-linter</code> architecture contract (5 rules — e.g. only <code>llm</code> may import a
+  provider SDK, only <code>tools</code> may speak MCP), and <code>ruff</code> size/complexity ceilings.
+  Database-backed tests skip cleanly if no Postgres is reachable, rather than failing.</p>
+</section>
+
+<section id="notes">
+  <span class="n">07 — Gotchas</span>
+  <h2>Things that bite on a first run</h2>
+  <div class="card">
+    <h3>Linux Docker / a Codespace needs <code>--host 0.0.0.0</code></h3>
+    <p>Chatwoot's containers reach the agent over <code>host.docker.internal</code>. Docker Desktop
+    (Mac/Windows) maps that to the host's loopback automatically; plain Linux Docker does not, so the
+    agent has to listen beyond <code>127.0.0.1</code> there: <code>uv run python scripts/run_server.py --host 0.0.0.0</code>.</p>
+  </div>
+  <div class="card">
+    <h3>Changing <code>deploy/keycloak</code> needs a dropped database</h3>
+    <p>The <code>support</code> realm is imported once, on first start. Keycloak never overwrites an
+    existing realm, so editing that file and re-running <code>up</code> does nothing until you drop the
+    <code>keycloak</code> database (or the whole <code>postgres_data</code> volume).</p>
+  </div>
+  <div class="card">
+    <h3>Seeding Saleor</h3>
+    <p>After <code>--profile store up -d</code>, <code>python deploy/saleor/seed.py</code> populates the
+    orders the scenarios and shadow tests expect. The admin login it creates is
+    <code>SALEOR_ADMIN_EMAIL</code> / <code>SALEOR_ADMIN_PASSWORD</code> (both default to
+    <code>local-dev-only</code> values in <code>compose.yaml</code>).</p>
+  </div>
+</section>
+
+<footer>
+  Reference Agent · see also <a href="AGENT-HARNESS-EXPLAINED.html">Agent Harness Explained</a> and
+  <a href="SUPPORT-AGENT.html">The Support Agent</a> · <a href="https://github.com/dataagentsai/reference-agent">github.com/dataagentsai/reference-agent</a>
+</footer>
+
+</div>
