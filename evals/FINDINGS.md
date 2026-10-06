@@ -2760,8 +2760,12 @@ for … the latest rather than the first" — and `awaiting` holds approvals and
 escalations only. A message is routed as a whole: several intents go to the
 loop, and nothing after that asks whether each was answered.
 
-**Routed** to AHC-0118 (new, 4 Oct) and the AOAS's P-CONCERNS. **Open** — an
-accepted gap in the profile until T-093 lands.
+**Routed** to AHC-0118 (new, 4 Oct) and the AOAS's P-CONCERNS. **Half fixed**
+6 Oct (T-093): `router.concerns` splits a message into its concerns,
+`Facts.concerns` keeps them and the handoff lists each; a concern with no route
+here (billing dispute, warranty) goes to a person — the owner's decision. Scenario
+`three-problems-in-one-message`. **Open:** the closing check for concerns the
+agent can answer.
 
 
 ## F-087 · Retries are bounded per call, not per unit of work

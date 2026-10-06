@@ -205,7 +205,7 @@ class Agent:
             # (AHC-0108). Recorded before anything runs, so a turn that fails
             # still leaves a record of what was being attempted.
             conversation = conversation.model_copy(
-                update={"facts": conversation.facts.asking(text)}
+                update={"facts": conversation.facts.asking(text, router.concerns(text))}
             ).with_messages(ctx.user_message(text))
             identity = consent.granting(identity, conversation, text, self.rules)
             result, landed, tried, looked = await self._dispatch(

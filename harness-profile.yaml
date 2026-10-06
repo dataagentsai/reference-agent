@@ -351,9 +351,11 @@ x_runs_from: reference-agent/compose.yaml
 accepted_gaps:
   - capability: AHC-0118
     reason: >-
-      Not met (F-086). The work record holds one question — the latest — so a
-      message raising three concerns becomes one, and nothing checks that each
-      reached an outcome. Owned by T-093; the scenario lands with the fix.
+      Half met (F-086, T-093). Each concern a message raises is recorded and a
+      handoff lists every one, and a concern this agent has no route for goes
+      to a person (outside-scope). Not yet: the closing check that each concern
+      the agent *can* answer reached an outcome — a model answering one of two
+      and dropping the other is still not caught.
     owner: reference-agent
     review: "2026-11-01"
   - capability: AHC-0071

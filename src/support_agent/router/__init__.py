@@ -99,7 +99,8 @@ class Rules:
                 "R-FRAUD",
                 "I cannot judge whether something is fraud",
                 # Adjudication, which is what the spec refuses — not a report.
-                # "my card was charged twice" is a question this agent answers.
+                # "my card was charged twice" is not an accusation to refuse: it
+                # is a billing dispute, and since 6 Oct a person's (outside-scope).
                 re.compile(
                     r"\b(?:is|was|isn'?t|wasn'?t)\s+(?:this|that|it|the|my)\s*"
                     r"(?:\w+\s+){0,2}(?:fraud|fraudulent|scam|stolen)\b"
@@ -153,6 +154,19 @@ class Rules:
                     r"|\b(?:parcel|package|order|item|it)\s+(?:is|was|has been|got)\s+lost\b"
                     r"|\bsays\s+delivered\s+but\b"
                     r"|\bnever\s+(?:got|received|arrived|came)\b",
+                    re.I,
+                ),
+            ),
+            (
+                "outside-scope",
+                "the customer raised a concern this agent has no route for",
+                # P-CONCERNS, decided by the owner 6 Oct (T-093): anything the
+                # agent cannot handle goes to a person. Billing disputes and
+                # warranty are the AOAS's named ones.
+                re.compile(
+                    r"\b(?:charged|billed)\s+twice\b|\bdouble[- ]charged?\b"
+                    r"|\bpayment\b[^.?!]{0,40}\b(?:don'?t|do\s+not)\s+recogni[sz]e\b"
+                    r"|\bwarrant(?:y|ies)\b",
                     re.I,
                 ),
             ),
@@ -217,7 +231,7 @@ class Rules:
                     re.I,
                 ),
             ),
-            (Intent.DAMAGED_ITEM, re.compile(r"\b(damaged|broken|missing|torn)\b", re.I)),
+            (Intent.DAMAGED_ITEM, re.compile(r"\b(damaged|broken|missing|torn|cracked)\b", re.I)),
             (
                 Intent.ORDER_STATUS,
                 # Not when the subject is a refund: "where is my refund" is a
@@ -227,7 +241,7 @@ class Rules:
                 re.compile(
                     # Nor when it is about money or damage: "it arrived torn" is
                     # a damaged item, and "where is my money back" a refund (T-094).
-                    r"^(?!.*\b(?:refunds?|money\s+back|credit|compensation|damaged|broken|torn)\b)"
+                    r"^(?!.*\b(?:refunds?|money\s+back|credit|compensation|damaged|broken|torn|cracked)\b)"
                     r".*\b(where is|status|track|delivered|arriv|shipped)\w*\b",
                     re.I | re.S,
                 ),
@@ -235,6 +249,30 @@ class Rules:
             (Intent.POLICY_QUESTION, re.compile(r"\b(policy|how long|window|allowed)\b", re.I)),
         )
     )
+
+
+_CLAUSE = re.compile(
+    r"(?<=[.?!;])\s+|,\s*(?:and\s+)?|\s+and\s+(?=(?:i|i'm|i've|is|was|my|the|it|can|could"
+    r"|please|where|what|when|how|why|also)\b)",
+    re.I,
+)
+
+
+def concerns(text: str) -> tuple[str, ...]:
+    """The separate things a message raises, one per clause (AHC-0118, T-093).
+
+    A CCA-F case: customers open with several problems — a cracked hinge, a
+    double charge, a warranty question — and the first reply covered one, and
+    the person who later took the conversation found no record of the others.
+    Split here so the record holds each, and a handoff carries each.
+
+    A clause is a concern when it names an order or runs to three words:
+    "Cancel AB-10002" is one, "thanks" and "that's all" are not.
+    Splitting is by punctuation and a new clause after "and", which is crude and
+    errs towards keeping a concern whole rather than cutting one in two.
+    """
+    parts = (part.strip(" ,.;") for part in _CLAUSE.split(text))
+    return tuple(part for part in parts if ORDER_ID.search(part) or len(part.split()) >= 3)
 
 
 DIRECT_HANDLERS: dict[Intent, str] = {
@@ -333,4 +371,4 @@ def refusal_text(decision: Refuse) -> str:
     return f"I am sorry — {decision.reason}."
 
 
-__all__ = ["DIRECT_HANDLERS", "ORDER_ID", "Rules", "refusal_text", "route"]
+__all__ = ["concerns", "DIRECT_HANDLERS", "ORDER_ID", "Rules", "refusal_text", "route"]

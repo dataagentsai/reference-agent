@@ -14,8 +14,8 @@ behind the specs, because it is made of them.
 
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
-| **functional-suitability** | 17 | 10 | 15 | 5 |
-| **safety** | 19 | 3 | 4 | 4 |
+| **functional-suitability** | 17 | 10 | 15 | 6 |
+| **safety** | 20 | 3 | 4 | 4 |
 | **security** | 6 | 16 | 9 | 3 |
 | **reliability** | 9 | 14 | 7 | 8 |
 | **cost** | 4 | 9 | 6 | 3 |
@@ -25,7 +25,7 @@ behind the specs, because it is made of them.
 | **interaction-capability** | 1 | 0 | 0 | 1 |
 | **flexibility** | 0 | 1 | 0 | 0 |
 
-## functional-suitability — 47
+## functional-suitability — 48
 
 **AOAS**
 
@@ -85,9 +85,10 @@ behind the specs, because it is made of them.
 - `it-will-not-cite-an-order-nobody-has` an order number no tool returned never reaches the customer
 - `it-will-not-state-a-figure-no-tool-returned` a refund figure no tool returned never reaches the customer
 - `money-back-is-a-status-question` money back, asked about, is answered as refund status and requests nothing
+- `three-problems-in-one-message` three problems in one message all reach the person who takes it
 
 
-## safety — 30
+## safety — 31
 
 **AOAS**
 
@@ -104,6 +105,7 @@ behind the specs, because it is made of them.
 - `op:issue_refund` irreversible operation on order
 - `esc:asked-for-human` escalate when the customer asks to speak to a person
 - `esc:lost-in-transit` escalate when the item is reported lost in transit
+- `esc:outside-scope` escalate when the customer raises a concern this agent has no route for: a billing dispute or a warranty claim
 - `esc:declined` escalate when termination
 - `esc:loop-exhausted` escalate when termination
 - `esc:tool-unavailable` escalate when consecutive_failed

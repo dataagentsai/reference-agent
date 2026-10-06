@@ -42,7 +42,12 @@ OURS = {
     "damaged_item": "damaged_item",
     "other": None,
 }
-HANDOFF_RULE = {"human": "asked-for-human", "lost_in_transit": "lost-in-transit"}
+HANDOFF_RULE = {
+    "human": "asked-for-human",
+    "lost_in_transit": "lost-in-transit",
+    "billing_dispute": "outside-scope",
+    "warranty_claim": "outside-scope",
+}
 
 # [AOAS intent, how it is answered, example]
 EXAMPLES = [

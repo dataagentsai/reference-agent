@@ -56,6 +56,11 @@ class Facts(BaseModel):
     opening one.
     """
 
+    concerns: tuple[str, ...] = ()
+    """Each thing the latest message raised, in the customer's words — one per
+    clause (AHC-0118, T-093). What a person picking this up must see all of,
+    because the transcript's next turn is about whichever one was answered."""
+
     records: tuple[str, ...] = ()
     """The identifiers that reached a tool. Sorted, so two runs that touched the
     same rows in a different order produce the same record — a handoff that
@@ -77,8 +82,8 @@ class Facts(BaseModel):
     states least reliably, because the sentence that mentions it is the one most
     likely to have been compacted away."""
 
-    def asking(self, text: str) -> Facts:
-        return self.model_copy(update={"asked": text.strip()})
+    def asking(self, text: str, concerns: tuple[str, ...] = ()) -> Facts:
+        return self.model_copy(update={"asked": text.strip(), "concerns": concerns})
 
     def touching(self, record: str) -> Facts:
         if not record or record in self.records:
@@ -119,6 +124,9 @@ class Facts(BaseModel):
         bounded, which is the whole reason for keeping it this shape.
         """
         lines = [f"They asked: {self.asked}" if self.asked else "Nothing asked yet."]
+        if len(self.concerns) > 1:
+            lines.append(f"They raised {len(self.concerns)} things — each needs an outcome:")
+            lines += [f"  {n}. {c}" for n, c in enumerate(self.concerns, 1)]
         if self.records:
             lines.append(f"About: {', '.join(self.records)}")
         lines.append(f"Already done: {', '.join(self.done)}" if self.done else "Nothing done yet.")

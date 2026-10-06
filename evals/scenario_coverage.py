@@ -66,13 +66,6 @@ UNREACHABLE = {
         "has no such row — the honest way to demonstrate it is a perturbation "
         "that pads a read, which the format does not yet have."
     ),
-    "P-CONCERNS": (
-        "Every concern raised reaches an outcome, and a handoff carries each one. "
-        "The second half needs a check on what a handoff contains, which the "
-        "format does not yet have (AgentTwin SPEC, *Not yet in the format*). Not "
-        "an excuse for the first half: this agent does not itemise concerns at "
-        "all (F-086), and the scenario lands with that fix, T-093."
-    ),
     "Q-AUTO-LIMIT": (
         "The automatic refund limit set from reviewers' agreement on refund "
         "decisions, by stratum. A measurement made by people on sampled "

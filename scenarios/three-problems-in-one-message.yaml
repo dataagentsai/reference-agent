@@ -1,0 +1,40 @@
+# AHC-0118, P-CONCERNS — every concern raised reaches an outcome, and a person
+# taking the conversation sees each one (T-093).
+#
+# From a CCA-F case: customers open with several problems at once, the first
+# reply covered only one, the others never came back, and staff on the human
+# queue said nothing in the record showed they were raised — 18% wrote back
+# days later about the double charge.
+#
+# This store sells clothes. A double charge and a warranty question have no
+# route here, and the owner decided on 6 Oct that anything the agent cannot
+# handle goes to a person. So the whole message goes to a colleague, and what
+# the colleague is handed lists all three, in the customer's words.
+apiVersion: awd-scenario/v0
+scenario: three problems in one message all reach the person who takes it
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  A customer raises a cracked hinge, a double charge and a warranty question
+  in one message. A person takes it, with a reference the customer is given,
+  and what they are handed carries every one of the three.
+concern: functional-suitability
+discharges: [P-CONCERNS, AHC-0118, esc:outside-scope, AHC-0108, AHC-0070, op:escalate, ext:escalation_desk]
+max_turns: 1
+step_seconds: 60
+
+actor:
+  says:
+    - The hinge on AB-10003 is cracked, I was charged twice for AB-10004, and is my laptop still under warranty?
+
+desk:
+  resolves: never
+
+expect:
+  - {handed_off: 1}
+  - {handoff_mentions: [hinge on AB-10003 is cracked, charged twice for AB-10004, still under warranty]}
+  - {reply: says, text: [reference, colleague]}
+  - {world: unchanged}
+
+# No model: the router hands a concern it has no route for to a person, from the
+# customer's words alone.
