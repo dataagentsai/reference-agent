@@ -55,3 +55,24 @@ def test_a_single_concern_is_not_listed_twice() -> None:
         Facts().asking("where is my order AB-10001", ("where is my order AB-10001",)).as_handoff()
     )
     assert "raised" not in handed
+
+
+# [name, message, what the turn owes: (order, the operations that deal with it)]
+OWED = [
+    ("two requests this agent can act on",
+     "please cancel AB-10002 and where is my refund for AB-10003",
+     (("AB-10002", ("cancel_order",)), ("AB-10003", ("get_order", "list_orders")))),
+    ("one request is the whole turn, owes no list", "please cancel AB-10002", ()),
+    ("a concern naming no order is not checked", "please cancel AB-10002 and where is my refund",
+     (("AB-10002", ("cancel_order",)),)),
+    ("a concern with no route is a person's, not owed here", THREE,
+     ()),
+]  # fmt: skip
+
+
+@pytest.mark.discharges("AHC-0118", "P-CONCERNS")
+@pytest.mark.parametrize(("name", "message", "expected"), OWED, ids=[o[0] for o in OWED])
+def test_what_a_several_concern_turn_owes(name: str, message: str, expected) -> None:
+    from support_agent.router import owed
+
+    assert tuple((o.order, o.tools) for o in owed(message)) == expected

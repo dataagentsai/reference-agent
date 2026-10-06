@@ -66,8 +66,7 @@ from support_agent.loop import freshness
 from support_agent.loop.ends import CALLER_LEFT
 from support_agent.state import Conversation, TurnNote, facts
 
-Pairs = tuple[tuple[str, str], ...]
-"""`(operation or tool, record)`: what a turn landed, attempted or read."""
+Pairs = tuple[tuple[str, str], ...]  # (operation or tool, record): landed, tried or read
 
 DEFAULT_SYSTEM_PROMPT = binding.SYSTEM_PROMPT  # the words are the agent's (G0.10)
 
@@ -320,6 +319,7 @@ class Agent:
                     fresh_for_s=self.fresh_for_s,
                     gone=gone,
                     resumed=conversation.facts.read,
+                    owed=router.owed(decision.goal),
                 )
                 return result, tuple(trace.effects), tuple(trace.tool_calls), tuple(trace.reads)
             case _:

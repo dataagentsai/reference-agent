@@ -1,0 +1,36 @@
+# AHC-0118, P-CONCERNS — a concern still skipped after the model is sent back
+# goes to a person, and the customer is told why (T-093).
+#
+# The same two requests as two-requests-the-model-answers-one, with a model that
+# ignores being sent back. Ending the turn as done would be the CCA-F failure
+# itself, so it stops typed `concerns_unanswered` and a colleague takes it.
+apiVersion: awd-scenario/v0
+scenario: a concern the model still skips after being sent back goes to a person
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  The model deals with one of two requests and ignores being sent back for the
+  other. The turn does not end as done: a person takes it, the customer is told
+  not everything could be dealt with here, and is given a reference.
+concern: functional-suitability
+discharges: [P-CONCERNS, AHC-0118, esc:loop-exhausted, op:escalate, ext:escalation_desk]
+max_turns: 1
+step_seconds: 60
+
+actor:
+  says:
+    - please cancel AB-10002 and where is my refund for AB-10003
+
+desk:
+  resolves: never
+
+expect:
+  - {effect: cancel_order, key: AB-10002, times: 1}
+  - {handed_off: 1}
+  - {reply: says, text: everything you raised}
+  - {reply: says, text: reference}
+
+model:
+  - calls: [{cancel_order: {id: "AB-10002"}}]
+  - says: "I've cancelled order AB-10002."
+  - says: "I've cancelled order AB-10002."

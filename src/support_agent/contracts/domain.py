@@ -102,6 +102,9 @@ class TerminationReason(StrEnum):
     """
     REFUSED = "refused"
     DECLINED = "declined"
+    CONCERNS_UNANSWERED = "concerns_unanswered"
+    """The model ended a turn with a concern the customer raised not dealt with,
+    after being sent back once (AHC-0118, T-093). A person takes it."""
     """A far end refused an action for good — the same answer however often it is
     asked (P-REFUND-DECLINED). Not a failure to retry: a person arranges another way."""
     UNRECOVERABLE_ERROR = "unrecoverable_error"

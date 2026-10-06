@@ -17,7 +17,7 @@ distinction this page exists to keep visible.
 - `P-APPROVAL-WAIT` — a-refund-above-the-limit-needs-a-person, a-rule-does-not-take-it-from-a-person, nobody-comes, refund-needs-a-person, the-order-moves-while-a-colleague-decides, the-reviewer-says-no
 - `P-APPROVER` — the-reviewer-says-no
 - `P-CANCEL` — a-planted-note-on-a-cancellable-order, stale-read-then-refused, the-belief-goes-stale-mid-turn
-- `P-CONCERNS` — three-problems-in-one-message
+- `P-CONCERNS` — three-problems-in-one-message, two-requests-one-still-dropped, two-requests-the-model-answers-one
 - `P-DIRECT` — answered-without-a-model, it-will-not-account-deletion, it-will-not-call-it-fraud, it-will-not-say-what-suits-you, money-back-is-a-status-question
 - `P-DIRECT-READS` — a-discount-is-refused, answered-without-a-model, money-back-is-a-status-question
 - `P-ESC-CAP` — a-handback-starts-the-count-again, asking-for-a-person-four-times
@@ -46,7 +46,7 @@ distinction this page exists to keep visible.
 - `R-STYLE` — it-will-not-say-what-suits-you
 - `esc:asked-for-human` — nobody-picks-up-the-escalation
 - `esc:declined` — a-closed-card-is-not-retried
-- `esc:loop-exhausted` — twelve-steps-and-then-a-person
+- `esc:loop-exhausted` — twelve-steps-and-then-a-person, two-requests-one-still-dropped
 - `esc:lost-in-transit` — a-lost-parcel-goes-to-a-person
 - `esc:outside-scope` — three-problems-in-one-message
 - `esc:repeated-intent` — asking-three-times
@@ -54,17 +54,17 @@ distinction this page exists to keep visible.
 - `esc:tool-unavailable` — a-handback-starts-the-count-again, failures-before-a-handback-do-not-count, the-model-fails-twice
 - `esc:turns-exceeded` — a-long-conversation-fetches-a-person
 - `ext:approval_queue` — a-refund-above-the-limit-needs-a-person, nobody-comes, refund-needs-a-person, the-order-moves-while-a-colleague-decides, the-reviewer-approves-it-twice, the-reviewer-comes-too-late, the-reviewer-says-no
-- `ext:escalation_desk` — a-closed-card-is-not-retried, a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, asking-for-a-person-four-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, three-problems-in-one-message, twelve-steps-and-then-a-person, while-a-person-holds-it
+- `ext:escalation_desk` — a-closed-card-is-not-retried, a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, asking-for-a-person-four-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, three-problems-in-one-message, twelve-steps-and-then-a-person, two-requests-one-still-dropped, while-a-person-holds-it
 - `ext:order_system` — a-closed-card-is-not-retried, a-refund-timeout-is-retried, a-stranger-learns-nothing, it-will-not-cite-an-order-nobody-has, it-will-not-state-a-figure-no-tool-returned, stale-read-then-refused, the-address-changes-while-it-can, the-belief-goes-stale-mid-turn, the-order-moves-while-a-colleague-decides, the-reply-is-lost-after-the-return-opens, the-window-closes-while-they-talk
 - `fact:consecutive_failed` — a-handback-starts-the-count-again, failures-before-a-handback-do-not-count, the-model-fails-twice
 - `fact:refusals` — refused-twice-reaches-a-person
 - `fact:repeated_intent` — asking-three-times
 - `fact:termination` — the-model-fails-twice
 - `fact:turn_count` — a-long-conversation-fetches-a-person
-- `op:cancel_order` — a-planted-note-on-a-cancellable-order, stale-read-then-refused, the-belief-goes-stale-mid-turn
+- `op:cancel_order` — a-planted-note-on-a-cancellable-order, stale-read-then-refused, the-belief-goes-stale-mid-turn, two-requests-the-model-answers-one
 - `op:change_address` — the-address-changes-while-it-can
-- `op:escalate` — a-closed-card-is-not-retried, a-long-conversation-fetches-a-person, a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, asking-for-a-person-four-times, asking-three-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, the-model-fails-twice, three-problems-in-one-message, while-a-person-holds-it
-- `op:get_order` — a-customer-who-forgets-the-number, a-resumed-conversation-reads-the-order-again, a-stranger-learns-nothing, answered-without-a-model, it-will-not-cite-an-order-nobody-has, it-will-not-state-a-figure-no-tool-returned, money-back-is-a-status-question, planted-instructions, the-belief-goes-stale-mid-turn, the-provider-throttles
+- `op:escalate` — a-closed-card-is-not-retried, a-long-conversation-fetches-a-person, a-lost-parcel-goes-to-a-person, a-promise-nobody-is-keeping, asking-for-a-person-four-times, asking-three-times, nobody-picks-up-the-escalation, refused-twice-reaches-a-person, the-model-fails-twice, three-problems-in-one-message, two-requests-one-still-dropped, while-a-person-holds-it
+- `op:get_order` — a-customer-who-forgets-the-number, a-resumed-conversation-reads-the-order-again, a-stranger-learns-nothing, answered-without-a-model, it-will-not-cite-an-order-nobody-has, it-will-not-state-a-figure-no-tool-returned, money-back-is-a-status-question, planted-instructions, the-belief-goes-stale-mid-turn, the-provider-throttles, two-requests-the-model-answers-one
 - `op:issue_refund` — a-closed-card-is-not-retried, a-refund-above-the-limit-needs-a-person, a-refund-timeout-is-retried, an-owed-refund-is-issued-when-asked, refund-needs-a-person, the-reviewer-approves-it-twice
 - `op:list_orders` — opening-shows-your-orders
 - `op:open_return_request` — the-reply-is-lost-after-the-return-opens, the-window-closes-while-they-talk

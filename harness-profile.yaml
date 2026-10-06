@@ -349,15 +349,6 @@ x_store:   { approach: open-source, adapter: saleor, x_status: current, x_item: 
 x_runs_from: reference-agent/compose.yaml
 
 accepted_gaps:
-  - capability: AHC-0118
-    reason: >-
-      Half met (F-086, T-093). Each concern a message raises is recorded and a
-      handoff lists every one, and a concern this agent has no route for goes
-      to a person (outside-scope). Not yet: the closing check that each concern
-      the agent *can* answer reached an outcome — a model answering one of two
-      and dropping the other is still not caught.
-    owner: reference-agent
-    review: "2026-11-01"
   - capability: AHC-0071
     reason: >-
       One loop, no graph. There are no nodes to give typed edges to, and building

@@ -14,7 +14,7 @@ behind the specs, because it is made of them.
 
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
-| **functional-suitability** | 17 | 10 | 15 | 6 |
+| **functional-suitability** | 17 | 10 | 15 | 8 |
 | **safety** | 20 | 3 | 4 | 4 |
 | **security** | 6 | 16 | 9 | 3 |
 | **reliability** | 9 | 14 | 7 | 8 |
@@ -25,7 +25,7 @@ behind the specs, because it is made of them.
 | **interaction-capability** | 1 | 0 | 0 | 1 |
 | **flexibility** | 0 | 1 | 0 | 0 |
 
-## functional-suitability — 48
+## functional-suitability — 50
 
 **AOAS**
 
@@ -86,6 +86,8 @@ behind the specs, because it is made of them.
 - `it-will-not-state-a-figure-no-tool-returned` a refund figure no tool returned never reaches the customer
 - `money-back-is-a-status-question` money back, asked about, is answered as refund status and requests nothing
 - `three-problems-in-one-message` three problems in one message all reach the person who takes it
+- `two-requests-one-still-dropped` a concern the model still skips after being sent back goes to a person
+- `two-requests-the-model-answers-one` two requests in one message, the model answers one, and is sent back for the other
 
 
 ## safety — 31

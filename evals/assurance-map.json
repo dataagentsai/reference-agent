@@ -1,7 +1,7 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 664,
-  "tagged": 537,
+  "functions": 672,
+  "tagged": 545,
   "tooling": [
     "tests/test_aac_report.py::test_the_aac_property_is_the_aac_subset_of_what_a_test_claims",
     "tests/test_aac_report.py::test_the_config_handed_to_build_report_is_absolute_and_stamped",
@@ -143,8 +143,8 @@
   ],
   "families": {
     "AOAS": {
-      "owed": 62,
-      "exercised": 58,
+      "owed": 67,
+      "exercised": 60,
       "failing": [],
       "not_exercised": [
         {
@@ -160,6 +160,18 @@
           "title": "at most 4096 output tokens per model call"
         },
         {
+          "id": "Q-AUTO-LIMIT",
+          "title": "the automatic refund limit is set from reviewers' agreement with the agent on refund decisions alone, sampled by stratum \u2014 ambiguous order or amount, and within 10% of the limit \u2014 with each stratum's sample size stated; until measured, the limit is an assertion"
+        },
+        {
+          "id": "esc:outside-scope",
+          "title": "escalate when the customer raises a concern this agent has no route for: a billing dispute or a warranty claim"
+        },
+        {
+          "id": "esc:declined",
+          "title": "escalate when termination"
+        },
+        {
           "id": "fact:termination",
           "title": "why the loop stopped on the latest turn, or absent if it never ran"
         }
@@ -168,9 +180,7 @@
     "AAC": {
       "owed": 56,
       "exercised": 49,
-      "failing": [
-        "AAC-0110"
-      ],
+      "failing": [],
       "not_exercised": [
         {
           "id": "AAC-0016",
@@ -203,11 +213,9 @@
       ]
     },
     "AHC": {
-      "owed": 80,
-      "exercised": 65,
-      "failing": [
-        "AHC-0114"
-      ],
+      "owed": 81,
+      "exercised": 66,
+      "failing": [],
       "not_exercised": [
         {
           "id": "AHC-0006",
@@ -428,11 +436,10 @@
         "tests/test_watch_scores.py::test_every_rule_that_ran_writes_a_verdict_and_one_that_did_not_writes_none",
         "tests/test_watch_scores.py::test_a_numeric_or_categorical_score_states_its_verdict",
         "tests/test_watch_scores.py::test_the_saved_fixture_is_what_the_writer_writes",
-        "tests/test_watch_scores.py::test_aacs_langfuse_adapter_reads_the_watch_as_coverage"
-      ],
-      "failed": [
+        "tests/test_watch_scores.py::test_aacs_langfuse_adapter_reads_the_watch_as_coverage",
         "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
-      ]
+      ],
+      "failed": []
     },
     "AAC-0015": {
       "passed": [
@@ -509,6 +516,7 @@
         "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system",
         "tests/test_postgres.py::test_two_callers_racing_for_one_name_leave_one_holder",
         "tests/test_postgres.py::test_the_first_definite_answer_is_the_answer",
+        "tests/test_refund_outcomes.py::test_what_a_retry_under_the_same_key_is_handed",
         "tests/test_tools_context.py::test_a_retry_under_the_same_key_does_not_refund_twice",
         "tests/test_tools_context.py::test_a_later_iteration_is_a_genuine_second_execution"
       ],
@@ -823,11 +831,10 @@
         "tests/test_policy.py::test_a_successful_tool_result_does_license_it",
         "tests/test_release_gates.py::test_policy_screens_the_whole_reply_and_can_still_block_it",
         "tests/test_tier2.py::test_without_a_store_tier_two_never_fires",
-        "tests/test_watch_rules.py::test_each_rule_fires_on_its_case_and_nothing_else_does"
-      ],
-      "failed": [
+        "tests/test_watch_rules.py::test_each_rule_fires_on_its_case_and_nothing_else_does",
         "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
-      ]
+      ],
+      "failed": []
     },
     "AAC-0111": {
       "passed": [
@@ -1264,6 +1271,8 @@
         "tests/test_break_it.py::test_no_arbitrary_order_id_can_crash_or_change_the_world",
         "tests/test_break_it.py::test_an_execution_channel_fault_is_survivable",
         "tests/test_break_it.py::test_a_protocol_channel_fault_is_survivable",
+        "tests/test_refund_outcomes.py::test_a_refund_answer_is_read_by_its_kind",
+        "tests/test_refund_outcomes.py::test_what_a_retry_under_the_same_key_is_handed",
         "tests/test_tools_context.py::test_an_execution_error_is_a_result_not_an_exception"
       ],
       "failed": []
@@ -1293,6 +1302,7 @@
     },
     "AHC-0053": {
       "passed": [
+        "tests/test_refund_outcomes.py::test_what_a_retry_under_the_same_key_is_handed",
         "tests/test_requests.py::test_a_definite_answer_is_returned_to_whoever_repeats_the_name",
         "tests/test_requests.py::test_a_tool_call_with_nothing_to_report_leaves_the_name_free",
         "tests/test_requests.py::test_a_delivery_with_nothing_to_report_is_still_answered",
@@ -1379,6 +1389,7 @@
         "tests/test_channel.py::test_an_escalation_hands_the_conversation_to_a_person",
         "tests/test_channel_approval.py::test_a_waiting_approval_is_put_in_front_of_a_person",
         "tests/test_channel_approval.py::test_a_turn_that_needs_nobody_tells_nobody",
+        "tests/test_concerns.py::test_a_handoff_lists_every_concern_raised",
         "tests/test_escalation.py::test_an_escalation_writes_a_record_and_names_it",
         "tests/test_escalation.py::test_escalation_still_never_reaches_the_model",
         "tests/test_facts.py::test_the_handoff_is_assembled_rather_than_summarised",
@@ -1433,6 +1444,7 @@
     },
     "AHC-0094": {
       "passed": [
+        "tests/test_aoas_intents.py::test_every_aoas_example_is_read_as_its_intent",
         "tests/test_policy.py::test_first_block_wins_and_later_rules_do_not_run",
         "tests/test_policy.py::test_an_empty_rule_set_allows",
         "tests/test_policy.py::test_a_false_claim_never_reaches_the_customer",
@@ -1597,6 +1609,8 @@
     },
     "AHC-0108": {
       "passed": [
+        "tests/test_concerns.py::test_a_handoff_lists_every_concern_raised",
+        "tests/test_concerns.py::test_a_single_concern_is_not_listed_twice",
         "tests/test_facts.py::test_what_the_record_holds",
         "tests/test_facts.py::test_the_handoff_is_assembled_rather_than_summarised",
         "tests/test_facts.py::test_an_empty_record_says_so_rather_than_saying_nothing",
@@ -1648,11 +1662,10 @@
         "tests/test_watch_scores.py::test_every_rule_that_ran_writes_a_verdict_and_one_that_did_not_writes_none",
         "tests/test_watching.py::test_a_turns_words_are_kept_only_when_it_is_sampled",
         "tests/test_watching.py::test_a_turn_is_rebuilt_whole_from_its_spans",
+        "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it",
         "tests/test_watching.py::test_the_record_carries_a_turns_tokens_and_its_models"
       ],
-      "failed": [
-        "tests/test_watching.py::test_the_watch_finds_a_reply_that_contradicts_the_store_and_counts_it"
-      ]
+      "failed": []
     },
     "AHC-0115": {
       "passed": [
@@ -1673,6 +1686,14 @@
         "tests/test_facts.py::test_what_the_record_holds",
         "tests/test_freshness.py::test_a_resumed_conversation_reads_its_order_again",
         "tests/test_policy.py::test_a_status_the_latest_read_contradicts_is_not_said"
+      ],
+      "failed": []
+    },
+    "AHC-0118": {
+      "passed": [
+        "tests/test_concerns.py::test_a_message_splits_into_its_concerns",
+        "tests/test_concerns.py::test_a_handoff_lists_every_concern_raised",
+        "tests/test_concerns.py::test_what_a_several_concern_turn_owes"
       ],
       "failed": []
     },
@@ -1821,8 +1842,17 @@
       ],
       "failed": []
     },
+    "P-CONCERNS": {
+      "passed": [
+        "tests/test_concerns.py::test_a_message_splits_into_its_concerns",
+        "tests/test_concerns.py::test_what_a_several_concern_turn_owes"
+      ],
+      "failed": []
+    },
     "P-DIRECT": {
       "passed": [
+        "tests/test_aoas_intents.py::test_every_aoas_example_is_read_as_its_intent",
+        "tests/test_aoas_intents.py::test_a_direct_example_naming_one_order_is_answered_by_its_handler",
         "tests/test_contracts.py::test_only_the_agentic_route_reaches_the_model",
         "tests/test_direct.py::test_every_handler_the_router_names_is_registered",
         "tests/test_direct.py::test_the_deterministic_path_needs_one_intent_and_one_order",
@@ -1959,6 +1989,12 @@
       ],
       "failed": []
     },
+    "P-REFUND-DECLINED": {
+      "passed": [
+        "tests/test_refund_outcomes.py::test_a_refund_answer_is_read_by_its_kind"
+      ],
+      "failed": []
+    },
     "P-REFUND-OWED": {
       "passed": [
         "tests/test_approvals.py::test_a_refund_is_for_the_orders_total_and_the_gate_reads_it",
@@ -1968,6 +2004,7 @@
     },
     "P-REFUND-STATUS": {
       "passed": [
+        "tests/test_aoas_intents.py::test_a_direct_example_naming_one_order_is_answered_by_its_handler",
         "tests/test_direct.py::test_a_refund_status_question_is_answered_about_the_refund",
         "tests/test_refusals.py::test_asking_for_a_refund_is_not_asking_after_one"
       ],
@@ -2257,7 +2294,8 @@
         "tests/test_approvals.py::test_a_refund_is_for_the_orders_total_and_the_gate_reads_it",
         "tests/test_approvals_desk.py::test_a_decision_is_carried_out_by_the_workflow_not_by_the_desk",
         "tests/test_approver.py::test_the_four_reviewers",
-        "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system"
+        "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system",
+        "tests/test_refund_outcomes.py::test_a_refund_answer_is_read_by_its_kind"
       ],
       "failed": []
     },

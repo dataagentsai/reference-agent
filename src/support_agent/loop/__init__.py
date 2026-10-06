@@ -76,6 +76,7 @@ from support_agent.loop.ends import (
     IN_CIRCLES,
     PASS_ON,
     TROUBLE,
+    UNANSWERED,
     UNREACHABLE,
     Ended,
     Trace,
@@ -109,6 +110,7 @@ async def run(
     fresh_for_s: int | None = None,
     gone: Gone | None = None,
     resumed: tuple[str, ...] = (),
+    owed: tuple[tuple[str, str, tuple[str, ...]], ...] = (),
 ) -> Ended:
     """One task, step by step, until one of the terminations above.
 
@@ -150,6 +152,7 @@ async def run(
             messages=[*history, ctx.user_message(goal)],
             screen=Screen(identity=identity, rules=policy_rules, span=run_span),
             gone=gone,
+            owed=owed,
         )
         this.started = this.now()
         await freshness.resumed(resumed, this)
@@ -193,6 +196,9 @@ class _Run:
     started: int = 0
     keys: plan.Keys = field(default_factory=plan.Keys)
     gone: Gone | None = None
+    owed: tuple[tuple[str, str, tuple[str, ...]], ...] = ()
+    """(concern, order, the operations that deal with it) — AHC-0118."""
+    sent_back: bool = False
 
     async def step(self, step: int) -> Ended | None:
         """Ask, account, then answer or act. `None` means take another step."""
@@ -292,8 +298,23 @@ class _Run:
             self.span.set_attribute(tel.COST_CALL_USD, cost)
             self.span.set_attribute(tel.COST_USD, spent)
 
-    def _answer(self, response: ModelResponse) -> Ended:
-        """The model is done: its reply passes the output guardrail, or is replaced."""
+    def _answer(self, response: ModelResponse) -> Ended | None:
+        """The model is done: its reply passes the output guardrail, or is replaced.
+
+        AHC-0118, T-093: not done while a concern the customer raised has had
+        nothing done about it — decided from the calls made, never from the
+        reply's words. Sent back once with what is missing; a second miss stops
+        the turn typed `concerns_unanswered`, and a person takes it.
+        """
+        missing = [c for c, order, tools in self.owed if not self._dealt_with(order, tools)]
+        if missing and not self.sent_back:
+            self.sent_back = True
+            self.messages.append(Message(role="assistant", content=response.text or ""))
+            note = "Also raised and not yet dealt with: " + "; ".join(missing)
+            self.messages.append(Message(role="system", content=note, provenance="operator"))
+            return None
+        if missing:
+            return self._stop(TerminationReason.CONCERNS_UNANSWERED, UNANSWERED)
         verdict = self.screen.at(
             pol.Position.POST_MODEL, tuple(self.seen_results), text=response.text
         )
@@ -302,6 +323,9 @@ class _Run:
                 TerminationReason.REFUSED, pol.SAFE_REPLY, verdict.rule, verdict.reason
             )
         return completed(self.span, self.trace, response.text)
+
+    def _dealt_with(self, order: str, tools: tuple[str, ...]) -> bool:
+        return any(name in tools and order in args for name, args in self.trace.tool_calls)
 
     def _plan(
         self, calls: tuple[ToolCall, ...], step: int

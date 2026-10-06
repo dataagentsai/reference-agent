@@ -133,6 +133,7 @@ class Tier2Rule:
 
 
 TERMINATED_BADLY = (
+    "concerns_unanswered",
     "step_budget_exhausted",
     "cost_ceiling_reached",
     "deadline_reached",

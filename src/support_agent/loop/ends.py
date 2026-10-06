@@ -53,6 +53,8 @@ class Trace:
 
 
 PASS_ON = "I have not been able to resolve this — let me pass you to a colleague."
+UNANSWERED = "I could not deal with everything you raised here."
+"""AHC-0118: a concern still not dealt with after the model was sent back once."""
 IN_CIRCLES = "I am going round in circles on this — let me pass you to a colleague."
 TROUBLE = "I am having trouble answering right now."
 UNREACHABLE = "I cannot reach our order system right now."
@@ -133,6 +135,7 @@ __all__ = [
     "IN_CIRCLES",
     "PASS_ON",
     "TROUBLE",
+    "UNANSWERED",
     "UNREACHABLE",
     "Ended",
     "Trace",

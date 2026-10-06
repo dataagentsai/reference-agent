@@ -1,0 +1,36 @@
+# AHC-0118, P-CONCERNS — a concern the model skipped is not left behind (T-093).
+#
+# The CCA-F case's own failure, on concerns this agent can handle: two requests
+# in one message, and the model deals with the first and answers. The harness
+# checks what was done against what was raised — from the calls made, never the
+# reply's words — and sends the model back once with what is missing. Here it
+# then looks up the refund, and nobody needs to be fetched.
+apiVersion: awd-scenario/v0
+scenario: two requests in one message, the model answers one, and is sent back for the other
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  A customer asks to cancel one order and where the refund on another is. The
+  model cancels and tries to finish; it is sent back for the refund question,
+  answers it, and the turn ends with both dealt with and no person needed.
+concern: functional-suitability
+discharges: [P-CONCERNS, AHC-0118, op:cancel_order, op:get_order]
+max_turns: 1
+
+actor:
+  says:
+    - please cancel AB-10002 and where is my refund for AB-10003
+
+expect:
+  - {effect: cancel_order, key: AB-10002, times: 1}
+  - {called: get_order, at_least: 1}
+  - {handed_off: 0}
+  - {truthful: order, id: AB-10003}
+
+# The model's side, when the run is scripted: it deals with the first request,
+# tries to finish, and after being sent back deals with the second.
+model:
+  - calls: [{cancel_order: {id: "AB-10002"}}]
+  - says: "I've cancelled order AB-10002."
+  - calls: [{get_order: {id: "AB-10003"}}]
+  - says: "I've cancelled AB-10002, and there is no refund on order AB-10003."

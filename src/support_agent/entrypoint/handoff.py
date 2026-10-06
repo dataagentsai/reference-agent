@@ -195,6 +195,8 @@ class HandoffDesk:
         # first: who takes it on is the second half (P-REFUND-DECLINED, T-095).
         if isinstance(result, Failed) and result.termination is TerminationReason.DECLINED:
             handoff = f"{result.customer_message} {handoff}"
+        elif result.termination is TerminationReason.CONCERNS_UNANSWERED:
+            handoff = f"{getattr(result, 'reply', '')} {handoff}".strip()
         return Escalated(
             reply=handoff,
             reason=rule.reason,

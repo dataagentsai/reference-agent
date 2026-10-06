@@ -251,30 +251,6 @@ class Rules:
     )
 
 
-_CLAUSE = re.compile(
-    r"(?<=[.?!;])\s+|,\s*(?:and\s+)?|\s+and\s+(?=(?:i|i'm|i've|is|was|my|the|it|can|could"
-    r"|please|where|what|when|how|why|also)\b)",
-    re.I,
-)
-
-
-def concerns(text: str) -> tuple[str, ...]:
-    """The separate things a message raises, one per clause (AHC-0118, T-093).
-
-    A CCA-F case: customers open with several problems — a cracked hinge, a
-    double charge, a warranty question — and the first reply covered one, and
-    the person who later took the conversation found no record of the others.
-    Split here so the record holds each, and a handoff carries each.
-
-    A clause is a concern when it names an order or runs to three words:
-    "Cancel AB-10002" is one, "thanks" and "that's all" are not.
-    Splitting is by punctuation and a new clause after "and", which is crude and
-    errs towards keeping a concern whole rather than cutting one in two.
-    """
-    parts = (part.strip(" ,.;") for part in _CLAUSE.split(text))
-    return tuple(part for part in parts if ORDER_ID.search(part) or len(part.split()) >= 3)
-
-
 DIRECT_HANDLERS: dict[Intent, str] = {
     Intent.ORDER_STATUS: "order_status",
     Intent.REFUND_STATUS: "refund_status",
@@ -371,4 +347,17 @@ def refusal_text(decision: Refuse) -> str:
     return f"I am sorry — {decision.reason}."
 
 
-__all__ = ["concerns", "DIRECT_HANDLERS", "ORDER_ID", "Rules", "refusal_text", "route"]
+# Below everything it reads: the concerns module imports `route` from here.
+from support_agent.router.concerns import VIA, Owed, concerns, owed  # noqa: E402
+
+__all__ = [
+    "Owed",
+    "VIA",
+    "concerns",
+    "owed",
+    "DIRECT_HANDLERS",
+    "ORDER_ID",
+    "Rules",
+    "refusal_text",
+    "route",
+]

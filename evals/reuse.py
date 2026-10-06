@@ -108,6 +108,7 @@ PARAMETERISED = {
     "entrypoint/promise.py",  # the gate is universal; the phrase table is English and this voice
     "policy/__init__.py",  # the engine is universal; the claim patterns are this domain's
     "router/__init__.py",  # the engine is universal; the intents and refusals are not
+    "router/concerns.py",  # the split and the check are universal; VIA names this shop's intents
     "telemetry/contract.py",  # the span contract: mechanism, with this agent's span names in it
     "watch/rules.py",  # the engine is universal; statuses, claims, write tools are this shop's
     "watch/checks.py",  # the checks are universal; the vocabulary they read is this shop's

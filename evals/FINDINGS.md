@@ -2764,8 +2764,12 @@ loop, and nothing after that asks whether each was answered.
 6 Oct (T-093): `router.concerns` splits a message into its concerns,
 `Facts.concerns` keeps them and the handoff lists each; a concern with no route
 here (billing dispute, warranty) goes to a person — the owner's decision. Scenario
-`three-problems-in-one-message`. **Open:** the closing check for concerns the
-agent can answer.
+`three-problems-in-one-message`. **Fixed** 6 Oct, the second half: a concern
+the agent can act on, naming an order, is owed a call to one of its intent's
+operations on that order (`router.concerns.owed`, the AOAS's `via`); a model
+that tries to finish without one is sent back once with what is missing, and a
+second miss ends the turn `concerns_unanswered`, which a person takes.
+Scenarios `two-requests-the-model-answers-one` and `two-requests-one-still-dropped`.
 
 
 ## F-087 · Retries are bounded per call, not per unit of work
