@@ -48,6 +48,7 @@ from support_agent import policy as pol
 from support_agent import telemetry as tel
 from support_agent.config import Budgets
 from support_agent.contracts import (
+    ActionDeclined,
     ApprovalRequested,
     IdempotencyKey,
     Identity,
@@ -58,7 +59,6 @@ from support_agent.contracts import (
     ModelRequest,
     ModelResponse,
     ModelUnavailable,
-    NeedsApproval,
     RunId,
     TerminationReason,
     ToolCall,
@@ -81,6 +81,7 @@ from support_agent.loop.ends import (
     Trace,
     completed,
     failed,
+    handed_on,
     stopped,
 )
 from support_agent.loop.screen import Screen
@@ -327,9 +328,9 @@ class _Run:
     async def _act(self, planned: list[tuple[ToolCall, IdempotencyKey]]) -> Ended | None:
         """Run the calls and feed their results back — or stop for a person.
 
-        An `ApprovalRequested` is the one outcome a tool cannot express as a
-        result. The loop does not know which action it was; the signal carries
-        what the customer is told.
+        `ApprovalRequested` and `ActionDeclined` are the outcomes a tool cannot
+        express as a result (`ends.handed_on`). The loop does not know which
+        action it was; the signal carries what the customer is told.
         """
         # The tools have not started, and need not start for nobody (AHC-0096).
         if await self._caller_gone():
@@ -354,17 +355,8 @@ class _Run:
             results = await dispatch(
                 self.tools, allowed, self.identity, self.local_tools, self.registry, self.fan_out
             )
-        except ApprovalRequested as raised:
-            self.trace.termination = TerminationReason.AWAITING_APPROVAL
-            self.span.set_attribute(tel.TERMINATION, self.trace.termination.value)
-            approval = raised.approval
-            waiting = NeedsApproval(
-                approval_id=approval.id,
-                action=approval.action,
-                reason=approval.reason,
-                reply=raised.reply,
-            )
-            return waiting, self.trace
+        except (ApprovalRequested, ActionDeclined) as raised:
+            return handed_on(self.span, self.trace, raised)
 
         answered = dict(zip([c.id for c, _ in allowed], results, strict=True))
         for call, _ in planned:

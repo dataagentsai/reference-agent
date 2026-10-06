@@ -23,10 +23,12 @@ from support_agent.contracts import (
     Escalated,
     Escalations,
     EscalationState,
+    Failed,
     Identity,
     NeedsApproval,
     Refused,
     RunId,
+    TerminationReason,
     TurnResult,
 )
 from support_agent.escalation import rules as t2
@@ -188,8 +190,13 @@ class HandoffDesk:
             tier=2,
             ttl_s=rule.ttl_s,
         )
+        handoff = await self._handoff_text(raised.id)
+        # A declined turn has said what happened, and the customer hears that
+        # first: who takes it on is the second half (P-REFUND-DECLINED, T-095).
+        if isinstance(result, Failed) and result.termination is TerminationReason.DECLINED:
+            handoff = f"{result.customer_message} {handoff}"
         return Escalated(
-            reply=await self._handoff_text(raised.id),
+            reply=handoff,
             reason=rule.reason,
             ticket_id=raised.id,
             rule_id=raised.rule_id,

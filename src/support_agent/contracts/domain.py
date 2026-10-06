@@ -101,4 +101,7 @@ class TerminationReason(StrEnum):
     would report a handoff as a stalled refund.
     """
     REFUSED = "refused"
+    DECLINED = "declined"
+    """A far end refused an action for good — the same answer however often it is
+    asked (P-REFUND-DECLINED). Not a failure to retry: a person arranges another way."""
     UNRECOVERABLE_ERROR = "unrecoverable_error"

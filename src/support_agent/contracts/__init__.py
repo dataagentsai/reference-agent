@@ -70,6 +70,7 @@ from support_agent.contracts.results import (
     TurnResult,
 )
 from support_agent.contracts.tools import (
+    ActionDeclined,
     Approval,
     ApprovalRequested,
     ApprovalState,
@@ -97,6 +98,7 @@ __all__ = [
     "ModelBudgetExhausted",
     "ModelRefused",
     "ModelThrottled",
+    "ActionDeclined",
     "ApprovalRequested",
     "Unbindable",
     "bind_arguments",

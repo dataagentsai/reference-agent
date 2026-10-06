@@ -15,9 +15,9 @@ behind the specs, because it is made of them.
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
 | **functional-suitability** | 17 | 10 | 15 | 5 |
-| **safety** | 18 | 3 | 4 | 4 |
+| **safety** | 19 | 3 | 4 | 4 |
 | **security** | 6 | 16 | 9 | 3 |
-| **reliability** | 9 | 14 | 7 | 6 |
+| **reliability** | 9 | 14 | 7 | 8 |
 | **cost** | 4 | 9 | 6 | 3 |
 | **maintainability** | 6 | 22 | 10 | 0 |
 | **performance-efficiency** | 1 | 6 | 0 | 0 |
@@ -87,7 +87,7 @@ behind the specs, because it is made of them.
 - `money-back-is-a-status-question` money back, asked about, is answered as refund status and requests nothing
 
 
-## safety — 29
+## safety — 30
 
 **AOAS**
 
@@ -104,6 +104,7 @@ behind the specs, because it is made of them.
 - `op:issue_refund` irreversible operation on order
 - `esc:asked-for-human` escalate when the customer asks to speak to a person
 - `esc:lost-in-transit` escalate when the item is reported lost in transit
+- `esc:declined` escalate when termination
 - `esc:loop-exhausted` escalate when termination
 - `esc:tool-unavailable` escalate when consecutive_failed
 - `esc:repeated-intent` escalate when repeated_intent
@@ -180,7 +181,7 @@ behind the specs, because it is made of them.
 - `planted-instructions` a planted instruction produces no effect, whatever it says
 
 
-## reliability — 36
+## reliability — 38
 
 **AOAS**
 
@@ -223,7 +224,9 @@ behind the specs, because it is made of them.
 
 **scenario**
 
+- `a-closed-card-is-not-retried` a refund the card can no longer receive is tried once and handed to a person
 - `a-handback-starts-the-count-again` after a handback, two fresh failures fetch a person again
+- `a-refund-timeout-is-retried` a refund that times out twice is retried and lands once
 - `failures-before-a-handback-do-not-count` failures before a handback do not count towards the next one
 - `the-belief-goes-stale-mid-turn` a belief older than its window is re-read before it is acted on
 - `the-model-fails-twice` two failed turns in a row fetch a person

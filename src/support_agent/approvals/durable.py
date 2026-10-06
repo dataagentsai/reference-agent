@@ -32,7 +32,7 @@ from datetime import timedelta
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
-from temporalio.exceptions import ApplicationError
+from temporalio.exceptions import ActivityError, ApplicationError
 
 with workflow.unsafe.imports_passed_through():
     from pydantic import BaseModel, ConfigDict
@@ -145,6 +145,9 @@ class CarriedOut(BaseModel):
 
     ok: bool
     text: str
+    declined: bool = False
+    """The far end refused for good (`kind: declined`): not retried, and a
+    person arranges another way (P-REFUND-DECLINED)."""
     stale: bool = False
     """The action did not run because what it was decided against had changed.
     Not a failure: nothing was attempted, nothing is half-done, and what the
@@ -244,16 +247,24 @@ class ApprovalWorkflow:
         if not current.granted:
             return await self._settle(ApprovalState.REFUSED)
         self._set(state=ApprovalState.CARRYING_OUT)
-        done = await workflow.execute_activity(
-            CARRY_OUT,
-            self._current,
-            result_type=CarriedOut,
-            start_to_close_timeout=TIMEOUT,
-            retry_policy=RETRIES,
-        )
+        try:
+            done = await workflow.execute_activity(
+                CARRY_OUT,
+                self._current,
+                result_type=CarriedOut,
+                start_to_close_timeout=TIMEOUT,
+                retry_policy=RETRIES,
+            )
+        except ActivityError as exc:
+            # A fault that would not clear within the retry bound (T-095): the
+            # grant stands unexecuted and says why, rather than the workflow
+            # failing with the approval stuck in CARRYING_OUT.
+            return await self._settle(ApprovalState.FAILED, f"not carried out: {exc.cause or exc}")
         if done.stale:
             return await self._ask_again(ask, done.text)
         state = ApprovalState.DONE if done.ok else ApprovalState.FAILED
+        if done.declined:
+            self._set(declined=True)
         return await self._settle(state, done.text)
 
     async def _ask_again(self, ask: Ask, moved: str) -> Approval:

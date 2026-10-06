@@ -185,6 +185,7 @@ def test_every_failure_this_package_declares_says_what_kind_it_is() -> None:
     control_flow = {
         "ApprovalRequested",  # the loop catches it and returns NeedsApproval
         "RefundRequested",  # the same signal, carrying this shop's wording
+        "ActionDeclined",  # the loop catches it and returns Failed, typed `declined` (T-095)
         "_Retry",  # inside the retry wrapper, never leaves it
         "_NotYours",  # the HTTP edge turns it into a 404, never a 5xx
     }

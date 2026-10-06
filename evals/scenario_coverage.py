@@ -73,12 +73,6 @@ UNREACHABLE = {
         "an excuse for the first half: this agent does not itemise concerns at "
         "all (F-086), and the scenario lands with that fix, T-093."
     ),
-    "P-REFUND-DECLINED": (
-        "A refund the original payment method can no longer receive. Reaching it "
-        "needs a write that is refused the same way however often it is asked — "
-        "a `decline` perturbation, which the format does not yet have. The "
-        "scenario lands with T-095, which adds it."
-    ),
     "Q-AUTO-LIMIT": (
         "The automatic refund limit set from reviewers' agreement on refund "
         "decisions, by stratum. A measurement made by people on sampled "

@@ -143,6 +143,13 @@ TERMINATED_BADLY = (
 
 DEFAULT_RULES: tuple[Tier2Rule, ...] = (
     Tier2Rule(
+        id="declined",
+        when=(Condition(field="termination", equals=("declined",)),),
+        reason="a refund the original payment method can no longer receive",
+        priority=1,
+        ttl_s=30 * 60,
+    ),
+    Tier2Rule(
         id="loop-exhausted",
         when=(Condition(field="termination", equals=TERMINATED_BADLY),),
         reason="the agent could not complete this and stopped",

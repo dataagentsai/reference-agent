@@ -1,0 +1,46 @@
+# AHC-0043, AHC-0024 — a fault that may clear is retried, inside the tool, under
+# the same key, and the customer never sees it (T-095).
+#
+# The other half of the CCA-F case behind a-closed-card-is-not-retried: on busy
+# afternoons the payment provider times out in bursts, and most of those calls
+# succeed on a second attempt. Here two attempts time out (`kind: transient`)
+# and the third lands. Exactly one refund, no person, nothing said about it.
+#
+# Found while writing this: the tool client recorded the timeout as the call's
+# answer and replayed it to every retry, so the refund never left — and before
+# that, every far-end refusal counted as success (F-089).
+apiVersion: awd-scenario/v0
+scenario: a refund that times out twice is retried and lands once
+world: ../worlds/clothing-owed.yaml
+as: C-1042
+objective: >-
+  An owed refund is granted and the provider times out twice before answering.
+  It is retried under the same key, lands exactly once, and nobody is fetched.
+concern: reliability
+discharges: [AHC-0043, AHC-0024, AAC-0047, op:issue_refund, ext:order_system]
+max_turns: 1
+
+actor:
+  says:
+    - please refund my order AB-10006
+
+perturbations:
+  - kind: channel_error
+    tool: issue_refund
+    at_call: 1
+  - kind: channel_error
+    tool: issue_refund
+    at_call: 2
+
+expect:
+  - {called: issue_refund, times: 3}
+  - {effect: issue_refund, key: AB-10006, times: 1}
+  - {row: order, id: AB-10006, field: status, equals: refunded}
+  - {handed_off: 0}
+  - {truthful: order, id: AB-10006}
+
+# The model's side, when the run is scripted. It asks once and reports what the
+# request tool returned.
+model:
+  - calls: [{request_refund: {id: "AB-10006"}}]
+  - says: "Your refund for order AB-10006 has been issued to your original payment method."

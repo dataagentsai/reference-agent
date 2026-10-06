@@ -200,7 +200,10 @@ class GatedTools:
                 # unset abandons the name, so a retry goes out under *the same*
                 # one — which is the only thing that lets the far end recognise
                 # it. Storing a guess here is how one refund becomes two.
-                if claim is not None and not result.is_error:
+                # So is a refusal the far end calls `transient` (T-095): stored,
+                # it was replayed to every retry, and a timeout a second attempt
+                # would have cleared became the refund's final answer.
+                if claim is not None and not result.is_error and not _transient(result):
                     claim.outcome = json.loads(result.model_dump_json())
                 return result, _outcome(result)
         except req.AlreadyAnswered as answered:
@@ -239,6 +242,12 @@ class GatedTools:
         mark = TRUNCATION_MARK.format(total=len(rendered))
         bounded = rendered[: max(0, limit - len(mark))] + mark
         return result.model_copy(update={"text": bounded[:limit], "truncated": True})
+
+
+def _transient(result: ToolResult) -> bool:
+    """The far end said this may clear if asked again (`kind: transient`)."""
+    said = result.structured
+    return isinstance(said, dict) and said.get("kind") == "transient"
 
 
 def _outcome(result: ToolResult) -> str:

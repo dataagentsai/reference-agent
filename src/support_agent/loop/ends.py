@@ -14,8 +14,11 @@ from opentelemetry.trace import Span
 
 from support_agent import telemetry as tel
 from support_agent.contracts import (
+    ActionDeclined,
+    ApprovalRequested,
     Completed,
     Failed,
+    NeedsApproval,
     Refused,
     TerminationReason,
     TurnResult,
@@ -93,6 +96,32 @@ def stopped(
     return Completed(reply=message, termination=reason), trace
 
 
+def handed_on(span: Span, trace: Trace, raised: ApprovalRequested | ActionDeclined) -> Ended:
+    """A tool stopped the run for someone else to act: a person deciding an
+    approval, or — T-095 — a far end that refused for good, typed `declined` so
+    the Tier 2 rule of that name fetches a person instead of the model choosing
+    words like "try again later"."""
+    if isinstance(raised, ApprovalRequested):
+        trace.termination = TerminationReason.AWAITING_APPROVAL
+        span.set_attribute(tel.TERMINATION, trace.termination.value)
+        approval = raised.approval
+        return (
+            NeedsApproval(
+                approval_id=approval.id,
+                action=approval.action,
+                reason=approval.reason,
+                reply=raised.reply,
+            ),
+            trace,
+        )
+    trace.termination = TerminationReason.DECLINED
+    span.set_attribute(tel.TERMINATION, trace.termination.value)
+    declined = Failed(
+        customer_message=raised.reply, detail=raised.detail, termination=trace.termination
+    )
+    return declined, trace
+
+
 def failed(span: Span, trace: Trace, customer_message: str, detail: str) -> Ended:
     trace.termination = TerminationReason.UNRECOVERABLE_ERROR
     span.set_attribute(tel.TERMINATION, trace.termination.value)
@@ -108,6 +137,7 @@ __all__ = [
     "Ended",
     "Trace",
     "completed",
+    "handed_on",
     "failed",
     "stopped",
 ]

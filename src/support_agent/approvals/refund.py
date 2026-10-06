@@ -26,6 +26,7 @@ from support_agent.approvals.policy import (
 )
 from support_agent.approvals.workflow import ApprovalError, carry_out, moved, stored_key
 from support_agent.contracts import (
+    ActionDeclined,
     Approval,
     ApprovalRequested,
     Approvals,
@@ -130,9 +131,42 @@ def refund_tool(
         if approval.state is ApprovalState.DONE:
             done = {"status": "refunded", "approval_id": approval.id}
             return ToolResult(name=REFUND_ACTION, text=approval.result or "", structured=done)
+        if approval.declined:
+            raise ActionDeclined(DECLINED_REPLY.format(order_id=order_id), approval.result or "")
         return _error(REQUEST_REFUND, approval.result or f"the refund is {approval.state.value}")
 
     return LocalTool(spec=REQUEST_REFUND_SPEC, handler=handle)
+
+
+DECLINED_REPLY = (
+    "The refund for order {order_id} could not go back to your original payment method, "
+    "which can no longer receive it."
+)
+"""P-REFUND-DECLINED: said first, before the handoff names who takes it on."""
+
+
+def _outcome_of(result: ToolResult) -> CarriedOut:
+    """What the far end's answer to a refund means, read from its kind.
+
+    T-095 and F-089. An `allowed: false` answer is not an error on the wire, so
+    it was counted a success: the approval was recorded done and the customer
+    told the refund was on its way while nothing had moved. And a timeout and a
+    closed card looked alike, so neither was handled as what it was.
+
+    So: a fault that may clear — a protocol error, or `kind: transient` — is
+    raised, and the workflow's retry policy tries again under the same key
+    (AHC-0043, AHC-0024's bound). `kind: declined` is the payment rail refusing
+    for good: never retried, and named, so a person arranges another way
+    (P-REFUND-DECLINED). Any other refusal is the far end's own reason.
+    """
+    said = result.structured if isinstance(result.structured, dict) else {}
+    kind = said.get("kind")
+    if (result.is_error and result.error_channel == "protocol") or kind == "transient":
+        raise ToolUnavailable(result.text or str(said.get("reason", "")))
+    if result.is_error or said.get("allowed") is False:
+        reason = str(said.get("reason") or result.text)
+        return CarriedOut(ok=False, declined=kind == "declined", text=reason)
+    return CarriedOut(ok=True, text=result.text)
 
 
 def _error(name: str, text: str) -> ToolResult:
@@ -189,7 +223,7 @@ class RefundWork:
                 result = await carry_out(approval, who, self.tools, policy=self.policy, now=now)
             except ApprovalError as exc:
                 return CarriedOut(ok=False, text=str(exc))
-        return CarriedOut(ok=not result.is_error, text=result.text)
+        return _outcome_of(result)
 
     async def _changed(self, approval: Approval, who: Identity) -> str | None:
         """Re-read the order and say what has moved since it was assessed, if

@@ -2789,3 +2789,28 @@ part.
 
 **Open** — the AOAS governs; the composition root refuses to start when the
 profile's number differs from it, or the threshold is read from the AOAS.
+
+## F-089 · A refund the far end refused was recorded as done
+
+**Found** 2026-10-06, building T-095's scenarios. An `allowed: false` answer is
+a result on the wire, not an error, and the refund activity judged success by
+`is_error` alone — so any refusal of `issue_refund` (a precondition, a closed
+card) settled the approval `DONE`, and the request tool told the model
+`status: refunded` while nothing had moved. A closed-card scenario passed only
+because the scripted model happened to say "let me look into that". Found with
+it: the tool client recorded a `transient` answer as the call's outcome and
+replayed it to every retry, so a timeout a second attempt would have cleared
+became the refund's final answer.
+
+**Severity** High. The customer could be told a refund was on its way that
+never left.
+
+**Fixed** 2026-10-06 (T-095): `approvals.refund._outcome_of` reads the answer
+by its `kind` — `transient` and protocol errors are raised so the workflow
+retries under the same key, `declined` settles `FAILED` with `declined` set and
+ends the turn typed `declined` (the Tier 2 rule of that name fetches a person,
+and the customer hears why first), any other refusal is a failure with the far
+end's reason. The ledger no longer records a transient answer.
+`tests/test_refund_outcomes.py`; scenarios `a-closed-card-is-not-retried` and
+`a-refund-timeout-is-retried`.
+

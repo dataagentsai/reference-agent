@@ -181,6 +181,21 @@ class MissingIdempotencyKey(AgentFailure):
     fault = Fault.MISCONFIGURED
 
 
+class ActionDeclined(Exception):  # noqa: N818 — control flow, not a failure
+    """A harness-local tool learned the far end refused an action for good.
+
+    T-095. Returned to the model as an error, a closed card left the model to
+    choose what to say — and "try again later" is the likeliest wrong answer.
+    So the turn stops here, typed `declined`, and the Tier 2 rule of that name
+    hands it to a person. `reply` is what the customer is told first.
+    """
+
+    def __init__(self, reply: str, detail: str) -> None:
+        super().__init__(detail)
+        self.reply = reply
+        self.detail = detail
+
+
 class ApprovalRequested(Exception):  # noqa: N818 — control flow, not a failure
     """A harness-local tool handed a decision to a person, and the loop must stop.
 
@@ -277,6 +292,9 @@ class Approval(BaseModel):
     state: ApprovalState = ApprovalState.WAITING
     result: str | None = None
     """What carrying it out produced, or why it could not be assessed."""
+    declined: bool = False
+    """Granted and refused for good by the far end — a payment method that can
+    no longer receive (P-REFUND-DECLINED). `FAILED`, and never retried."""
     supersedes: str | None = None
     """The stale grant this approval asks again, when it is one (P-APPROVAL-STALE)."""
     superseded_by: str | None = None
