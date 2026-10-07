@@ -478,6 +478,29 @@ and about sixty places where a capability is met in part.
 | Answered by the catalog, 1 Oct | AHC-0015 and AHC-0092 now state their condition (`applies_when`, AHC f21d662) and sit under the profile's `not_applicable`, with AHC-0109 (nothing summarises) and AHC-0097 (no parallel model calls; its tests were about tool fan-out and are now tagged AHC-0104 and AHC-0020). Two concerns lost their home on the way and go back to the catalog: a turn that keeps running and paying after the customer has gone, which only 0015's cancellation clause named, and only for a stream; and the number of tool calls one step may plan, which is unbounded and is not 0097's |
 | Answered by the catalog, 1 Oct (AHC 8703070), and built | Both concerns above. AHC-0096 now treats a caller that has gone as cancellation down the deadline's path: `/chat` hands the turn `request.is_disconnected`, the loop asks it where it checks the clock and again before a step's tools run, and the turn ends as `caller_gone` with no further call started; the Chatwoot webhook has no caller to lose (its turn runs after the 202, into a conversation that keeps the reply). AHC-0097 now covers a step's tool calls: `max_tool_calls_per_step` (8) and `max_tool_calls_per_turn` (24), a plan past either refused whole as `tool_call_budget_exhausted`. 0097 leaves `not_applicable` for `x_shortfalls`, its four fan-out tests name it again, and both say there what still does not hold |
 
+## R-021 · "Is the request we send to LLMClient generic enough to become a Claude request?"
+
+*Asked 2026-10-07, while deciding the Azure binding (Pydantic AI as the model layer).*
+
+**Exposed:** the contract is domain-agnostic, and its five typed failures are
+right, but it is not as vendor-neutral as its own docstring says. Two OpenAI
+shapes cross the seam: `context.model_tools` emits tool definitions as
+`{"type": "function", "function": {...}}`, and `ModelResponse.stop_reason` is
+the provider's raw `finish_reason`. A Claude adapter can translate both, but a
+contract that needs translating on one side is not neutral. It also cannot
+express what both providers now offer: tool choice, a cache breakpoint, image
+and document content, reasoning settings with thinking blocks, structured
+output, cache-write and reasoning tokens. And two failures have no type: the
+model declining the content (Claude `refusal`, Azure `content_filter`) and a
+prompt that exceeds the window.
+
+| Where it went | Items |
+|---|---|
+| Open, for the contract's v2 | a typed `ToolSpec` replacing the OpenAI-shaped dict · `tool_choice` · a cache-breakpoint marker · content parts (text, image, document) with provenance · reasoning settings and thinking blocks kept in the transcript · a JSON-schema output · a normalised stop reason (completed, tool_use, max_tokens, content_refused, other) · `Usage` gains cache-write and reasoning tokens and the served model |
+| Open, failures | a typed *content refused* outcome (honest reply or handoff, never retried) · a typed *context too long* outcome (trim and retry once) |
+| Constraint on all of it | every addition optional with a safe default, so existing callers keep working |
+| Recorded in | the Agent Harness Architecture deck, Part 4, "The model contract" |
+
 ---
 
 ## The pattern
