@@ -85,6 +85,8 @@ class Budgets(BaseModel):
     """How many tool calls one turn may plan across all its steps (AHC-0097).
     Reaching either bound stops the turn before the step's calls run, as
     `tool_call_budget_exhausted` — never a silent cut to the first N (AHC-0059)."""
+    max_retries_per_unit: int = 4
+    """AHC-0024: retries across the whole turn, every call's together (F-087)."""
 
 
 class Settings(BaseSettings):
@@ -138,6 +140,7 @@ class Settings(BaseSettings):
     max_cost_usd: float = 0.50
     max_tool_calls_per_step: int = 8
     max_tool_calls_per_turn: int = 24
+    max_retries_per_unit: int = 4
 
     issuer_url: str = ""
     """Whose sessions are accepted (T-002): the realm's URL, whose discovery
@@ -284,6 +287,7 @@ def resolve(settings: Settings) -> RunConfig:
             max_cost_usd=settings.max_cost_usd,
             max_tool_calls_per_step=settings.max_tool_calls_per_step,
             max_tool_calls_per_turn=settings.max_tool_calls_per_turn,
+            max_retries_per_unit=settings.max_retries_per_unit,
         ),
     )
 

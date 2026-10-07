@@ -196,3 +196,50 @@ async def test_two_conversations_on_one_client_number_their_own_retries() -> Non
         if s.name == "agent.llm.retry"
     ]
     assert sorted(numbered) == [1, 1, 2, 2], f"each conversation numbers its own: {numbered}"
+
+
+async def _no_wait(_: float) -> None:
+    return None
+
+
+# F-087, AHC-0024: retries are counted per unit of work, not per call.
+# [name, the unit's retry allowance (None: no unit), each call's script, provider calls in all]
+UNIT = [
+    (
+        "no unit: each call keeps its own attempts",
+        None,
+        [[down(), down(), OK], [down(), down(), OK]],
+        6,
+    ),
+    (
+        "a unit of four covers both calls' retries",
+        4,
+        [[down(), down(), OK], [down(), down(), OK]],
+        6,
+    ),
+    ("a unit of two is spent by the first call", 2, [[down(), down(), OK], [down(), OK]], 4),
+    ("a unit of zero retries nothing", 0, [[down(), OK]], 1),
+]
+
+
+@pytest.mark.discharges("AHC-0024")
+@pytest.mark.parametrize(("name", "allowance", "scripts", "calls"), UNIT, ids=[u[0] for u in UNIT])
+async def test_retries_are_bounded_per_unit_not_per_call(
+    name: str, allowance: int | None, scripts: list[list], calls: int
+) -> None:
+    from contextlib import nullcontext, suppress
+
+    from support_agent.resilience import unit_retries
+
+    provider = Provider([outcome for script in scripts for outcome in script])
+    llm = ResilientLLM(
+        provider,
+        backoff=Backoff(base_s=0.0, jitter=0.0),
+        breaker=CircuitBreaker(threshold=99),
+        sleep=_no_wait,
+    )
+    with unit_retries(allowance) if allowance is not None else nullcontext():
+        for _ in scripts:
+            with suppress(ModelUnavailable):
+                await llm.complete(REQUEST)
+    assert provider.calls == calls

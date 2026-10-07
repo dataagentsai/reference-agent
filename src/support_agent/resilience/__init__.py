@@ -35,7 +35,9 @@ from __future__ import annotations
 import asyncio
 import random
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import partial
@@ -78,6 +80,37 @@ class Backoff:
         spread = raw * self.jitter
         draw = (rand or random.random)()
         return max(0.0, raw - spread + 2 * spread * draw)
+
+
+_UNIT: ContextVar[list[int] | None] = ContextVar("unit_retries", default=None)
+
+
+@contextmanager
+def unit_retries(limit: int) -> Iterator[None]:
+    """One unit of work's retry allowance, shared by every call inside it.
+
+    AHC-0024 and F-087: "a retry count exists per unit of work, not per call
+    site". Each call kept its own few attempts, so a twelve-step turn could
+    retry twenty-four times. Inside this scope every retry spends from one
+    budget; when it is gone a failure is raised instead of retried. Outside any
+    scope only the per-call bound applies.
+    """
+    token = _UNIT.set([limit])
+    try:
+        yield
+    finally:
+        _UNIT.reset(token)
+
+
+def _may_retry() -> bool:
+    """Spend one retry from the unit's allowance, if there is a unit and any left."""
+    left = _UNIT.get()
+    if left is None:
+        return True
+    if left[0] <= 0:
+        return False
+    left[0] -= 1
+    return True
 
 
 async def with_retry[T](
@@ -284,10 +317,14 @@ class ResilientLLM:
         except ModelThrottled as exc:
             if exc.retry_after is not None:
                 self.throttle.note_retry_after(exc.retry_after)
+            if not _may_retry():
+                raise
             self._visible_retry("throttled", tries[0])
             raise _Retry(exc) from exc
         except ModelUnavailable as exc:
             self.breaker.record_failure()
+            if not _may_retry():
+                raise
             self._visible_retry("unavailable", tries[0])
             raise _Retry(exc) from exc
         self.breaker.record_success()
@@ -363,6 +400,7 @@ def is_compensable(action: str) -> bool:
 
 
 __all__ = [
+    "unit_retries",
     "ResilientLLM",
     "Throttle",
     "COMPENSATIONS",

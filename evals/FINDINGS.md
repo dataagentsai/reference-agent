@@ -2783,8 +2783,10 @@ layer applies it to each call.
 twelve steps may retry twenty-four times, which is the stacking AHC-0024
 exists to forbid.
 
-**Open** — a per-unit retry budget beside the per-call one, and the stack's
-threshold renamed to say which it is.
+**Fixed** 2026-10-08: `resilience.unit_retries` gives each run one retry
+allowance shared by every call in it (`Budgets.max_retries_per_unit`, 4; the
+stack's `max_retries_per_unit`); when it is spent a failure is raised instead
+of retried. The per-call bound stays. `tests/test_resilient_llm.py`.
 
 ## F-088 · The automatic refund limit is stated twice
 
@@ -2795,8 +2797,9 @@ part.
 
 **Severity** Low. They agree today.
 
-**Open** — the AOAS governs; the composition root refuses to start when the
-profile's number differs from it, or the threshold is read from the AOAS.
+**Fixed** 2026-10-08: it was three copies, not two — the approval policy's
+default is the one enforced. `tests/test_refund_limit.py` holds every copy to
+the AOAS, which governs; the build fails if one parts from it.
 
 ## F-089 · A refund the far end refused was recorded as done
 

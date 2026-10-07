@@ -1,7 +1,7 @@
 {
   "generated_from": "the test suite's discharges markers \u2014 do not edit",
-  "functions": 672,
-  "tagged": 545,
+  "functions": 674,
+  "tagged": 547,
   "tooling": [
     "tests/test_aac_report.py::test_the_aac_property_is_the_aac_subset_of_what_a_test_claims",
     "tests/test_aac_report.py::test_the_config_handed_to_build_report_is_absolute_and_stamped",
@@ -144,7 +144,7 @@
   "families": {
     "AOAS": {
       "owed": 67,
-      "exercised": 60,
+      "exercised": 61,
       "failing": [],
       "not_exercised": [
         {
@@ -158,10 +158,6 @@
         {
           "id": "Q-OUTPUT",
           "title": "at most 4096 output tokens per model call"
-        },
-        {
-          "id": "Q-AUTO-LIMIT",
-          "title": "the automatic refund limit is set from reviewers' agreement with the agent on refund decisions alone, sampled by stratum \u2014 ambiguous order or amount, and within 10% of the limit \u2014 with each stratum's sample size stated; until measured, the limit is an assertion"
         },
         {
           "id": "esc:outside-scope",
@@ -282,9 +278,7 @@
     "Baseline": {
       "owed": 13,
       "exercised": 8,
-      "failing": [
-        "B7"
-      ],
+      "failing": [],
       "not_exercised": [
         {
           "id": "B1",
@@ -1148,7 +1142,8 @@
         "tests/test_flow_resilience.py::test_backoff_grows_and_is_capped",
         "tests/test_resilient_llm.py::test_each_provider_condition_gets_its_own_answer",
         "tests/test_resilient_llm.py::test_a_provider_blip_does_not_reach_the_customer",
-        "tests/test_resilient_llm.py::test_two_conversations_on_one_client_number_their_own_retries"
+        "tests/test_resilient_llm.py::test_two_conversations_on_one_client_number_their_own_retries",
+        "tests/test_resilient_llm.py::test_retries_are_bounded_per_unit_not_per_call"
       ],
       "failed": []
     },
@@ -1750,14 +1745,13 @@
     "B7": {
       "passed": [
         "tests/test_harness_profile.py::test_the_profile_validates_against_the_published_schema",
+        "tests/test_harness_profile.py::test_every_capability_this_shape_owes_is_accounted_for",
         "tests/test_harness_profile.py::test_not_applicable_is_only_for_a_capability_whose_condition_is_stated",
         "tests/test_harness_profile.py::test_the_profile_names_the_stack_it_runs_on",
         "tests/test_harness_profile.py::test_no_product_is_named_twice",
         "tests/test_harness_profile.py::test_resolving_actually_supplies_the_stack"
       ],
-      "failed": [
-        "tests/test_harness_profile.py::test_every_capability_this_shape_owes_is_accounted_for"
-      ]
+      "failed": []
     },
     "B8": {
       "passed": [
@@ -1985,6 +1979,7 @@
         "tests/test_approver.py::test_the_four_reviewers",
         "tests/test_break_it.py::test_a_planted_instruction_to_refund_reaches_nobody",
         "tests/test_far_end_idempotency.py::test_a_second_refund_under_a_fresh_key_is_refused_by_the_order_system",
+        "tests/test_refund_limit.py::test_every_copy_of_the_refund_limit_is_the_aoas",
         "tests/test_refusals.py::test_asking_for_a_refund_is_not_asking_after_one"
       ],
       "failed": []
@@ -2014,6 +2009,12 @@
       "passed": [
         "tests/test_agenttwin.py::test_the_projection_agrees_with_the_hand_written_world",
         "tests/test_golden.py::test_the_golden_set"
+      ],
+      "failed": []
+    },
+    "Q-AUTO-LIMIT": {
+      "passed": [
+        "tests/test_refund_limit.py::test_every_copy_of_the_refund_limit_is_the_aoas"
       ],
       "failed": []
     },

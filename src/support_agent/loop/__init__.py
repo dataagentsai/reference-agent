@@ -86,6 +86,7 @@ from support_agent.loop.ends import (
     stopped,
 )
 from support_agent.loop.screen import Screen
+from support_agent.resilience import unit_retries
 
 Gone = Callable[[], Awaitable[bool]]
 """Whether the caller has left: `/chat`'s `request.is_disconnected` (AHC-0096)."""
@@ -121,9 +122,8 @@ async def run(
     budgets = budgets or Budgets()
     run_id = run_id or new_run_id()
     trace = Trace()
-    with tel.span(
-        "agent.run", **{tel.RUN_ID: run_id, tel.TENANT: identity.customer_id}
-    ) as run_span:
+    run = {tel.RUN_ID: run_id, tel.TENANT: identity.customer_id}
+    with tel.span("agent.run", **run) as run_span, unit_retries(budgets.max_retries_per_unit):
         try:
             registry = await tools.list_tools(identity)
         except ToolUnavailable as exc:
@@ -165,12 +165,8 @@ async def run(
 
 @dataclass
 class _Run:
-    """One run's state, and the phases of a step as methods.
-
-    A method object rather than one long function: each phase is readable on its
-    own, and the state they share is named once, here, instead of being threaded
-    through a dozen locals.
-    """
+    """One run's state, and the phases of a step as methods: each readable on its
+    own, the state they share named once here rather than threaded through locals."""
 
     span: Span
     trace: Trace
