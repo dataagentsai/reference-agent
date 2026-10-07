@@ -104,8 +104,9 @@ def commits(reply: str) -> str:
     return ""
 
 
-UNBACKED_PROMISE = "R-UNBACKED-PROMISE"
-"""The rule id an unbacked promise is escalated under, so the desk's records
+UNBACKED_PROMISE = "unbacked-commitment"
+"""The AOAS's `on_reply` rule an unbacked promise is escalated under (it was
+an undeclared, refusal-shaped id until generation run 5), so the desk's records
 group by it. The number worth watching is how often the model writes a cheque
 this agent cannot cash."""
 

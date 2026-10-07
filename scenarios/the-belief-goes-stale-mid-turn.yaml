@@ -64,7 +64,9 @@ expect:
   # Three: the two the customer asked about, and one more because the run would
   # otherwise have cancelled against a belief older than its window. Delete the
   # freshness check and this is 2.
-  - {called: get_order, times: 3}
+  # At least: generation run 5 also re-read at the start of the turn (AHC-0117),
+  # which is allowed. The freshness check is what makes it more than 2.
+  - {called: get_order, at_least: 3}
   # And the cancellation still happens — the point is that it happens against a
   # row that was looked at, not that caution costs the customer their request.
   - {effect: cancel_order, times: 1}

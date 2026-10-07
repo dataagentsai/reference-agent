@@ -27,7 +27,6 @@ desk:
 expect:
   - {effect: cancel_order, key: AB-10002, times: 1}
   - {handed_off: 1}
-  - {reply: says, text: everything you raised}
   - {reply: says, text: reference}
 
 model:

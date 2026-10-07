@@ -34,7 +34,7 @@ behind the specs, because it is made of them.
 - `P-ADDRESS` the delivery address may be changed only while the order is pending
 - `P-REFUND-STATUS` refund status is answered from the order's status, deterministically, and never promises a date or an amount
 - `P-REFUND-OWED` an owed refund is issued when the customer asks for a refund on that order, through request_refund; a question about refund status states the status and issues nothing
-- `P-CONCERNS` every concern a customer raises is its own item and ends in one of answered, handed to a person with a reference, waiting on a decision, or declined with a reason; a turn that leaves a concern with none of these is not complete, and a concern outside `intents` is handed to a person, never left unmentioned
+- `P-CONCERNS` every concern a customer raises is its own item and ends in one of answered, handed to a person with a reference, waiting on a decision, asked back (a question the customer must answer first, such as which order), or declined with a reason; a turn that leaves a concern with none of these is not complete, and a concern outside `intents` is handed to a person, never left unmentioned
 - `P-APPROVAL-WAIT` while a decision is pending the conversation continues, and the customer is told a request exists and nothing more
 - `P-ESC-TOLD` the customer is told a reference number, and a wait only when one is measured from queue depth and observed throughput
 - `R-DELIVERY-DATE` refuses a delivery date the carrier record does not state — and no carrier date is held on the order
@@ -196,7 +196,7 @@ behind the specs, because it is made of them.
 - `P-ESC-MODEL` where the model is offered the escalate operation, an escalation it raises records the rule model-requested, is not limited by P-ESC-ONCE, and counts towards P-ESC-CAP
 - `P-ESC-TTL` a queued escalation nobody comes to lapses after its rule's own ttl, or after this one where the rule declares none
 - `P-ESC-LAPSE` on lapse the conversation returns to the agent, and the customer is told nobody came
-- `P-ESC-TIER1` a rule never replaces a handoff the conversation already has: neither an escalation raised from the turn's own words, nor a decision a person is in the middle of making
+- `P-ESC-TIER1` a rule never replaces a handoff the conversation already has: neither an escalation raised from the turn's own words, nor a decision a person is in the middle of making — a pending approval is not withdrawn or decided by an escalation, but a rule about the conversation failing (tool-unavailable, loop-exhausted, turns-exceeded) still fires while one is pending, and the escalation names it
 - `P-ESC-QUEUE` the queue a reviewer reads holds the open escalations, oldest first, and a closed one leaves it; a rule's priority is shown to the desk and does not reorder the queue
 
 **AHC**
