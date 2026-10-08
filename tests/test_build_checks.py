@@ -76,7 +76,7 @@ def test_the_ratchet_holds(what: str, measure, ceiling: int) -> None:
 
 REALISATION = re.compile(
     r"(InMemory|Postgres|File)\w+|GroqClient|PydanticAIClient|ScriptedClient|MCPToolClient"
-    r"|MCPTransport"
+    r"|MCPTransport|EntraOnBehalfOf|DBOS(Approvals|ApprovalDesk|Escalations|EscalationDesk)"
     r"|Recorder|Player"
 )
 

@@ -34,6 +34,7 @@ library's module under its old name, so it is not counted as either side."""
 MECHANISM = {
     "__init__.py",
     "approvals/__init__.py",
+    "approvals/dbos.py",  # an adapter: the Azure stack's approval binding (T-099)
     "approvals/desk.py",
     "approvals/durable.py",
     "approvals/notify.py",
@@ -64,6 +65,7 @@ MECHANISM = {
     "erasure/retention.py",
     "escalation/__init__.py",
     "escalation/capacity.py",
+    "escalation/dbos.py",  # an adapter: the Azure stack's escalation wait (T-099)
     "escalation/desk.py",
     "escalation/durable.py",
     "escalation/rules.py",
@@ -96,6 +98,7 @@ MECHANISM = {
     "serve/__init__.py",
     "serve/feedback.py",
     "state/__init__.py",
+    "state/dbos.py",  # an adapter: DBOS on PostgreSQL, under both waits (T-099)
     "state/facts.py",
     "state/file.py",
     "state/postgres.py",

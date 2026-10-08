@@ -25,12 +25,15 @@ dependencies = [
 
 [project.optional-dependencies]
 # The Azure stack (T-099): Pydantic AI as the model layer under the `llm` port,
-# and the Azure Monitor OpenTelemetry distro under `telemetry`. Optional, because
-# a deployment on the Open Stack imports neither; each is imported lazily, in the
-# one branch that needs it.
+# the Azure Monitor OpenTelemetry distro under `telemetry`, and DBOS under the
+# approval and escalation waits. Optional, because a deployment on the Open
+# Stack imports none of them; each is imported only by the adapter that needs it.
 azure = [
     "pydantic-ai-slim[openai]>=1.0",
     "azure-monitor-opentelemetry>=1.6",
+    # Durable waits on the PostgreSQL the stack already runs: approvals and
+    # escalations as DBOS workflows (`approvals/dbos.py`, `escalation/dbos.py`).
+    "dbos>=1.0",
 ]
 
 [build-system]

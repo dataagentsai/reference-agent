@@ -353,3 +353,21 @@ ignore_imports = [
     "agent_harness.llm.pydantic_ai -> pydantic_ai.*",
 ]
 unmatched_ignore_imports_alerting = "none"
+
+[[tool.importlinter.contracts]]
+# T-099. DBOS is the Azure stack's engine for the approval and escalation waits:
+# the two wait adapters and the runtime they share know it, and the Temporal
+# waits, the agent and every other module do not.
+name = "Only the DBOS waits know DBOS"
+type = "forbidden"
+source_modules = ["support_agent", "agent_harness"]
+forbidden_modules = ["dbos"]
+ignore_imports = [
+    "agent_harness.state.dbos -> dbos",
+    "agent_harness.state.dbos -> dbos.*",
+    "agent_harness.approvals.dbos -> dbos",
+    "agent_harness.approvals.dbos -> dbos.*",
+    "agent_harness.escalation.dbos -> dbos",
+    "agent_harness.escalation.dbos -> dbos.*",
+]
+unmatched_ignore_imports_alerting = "none"
