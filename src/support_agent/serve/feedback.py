@@ -1,53 +1,10 @@
-"""POST /feedback — the customer's own verdict on a conversation (AHC-0112).
+"""Re-export stub: moved to `agent_harness.serve.feedback` (T-019).
 
-    {"conversation_id": "cnv_…", "value": "up" | "down"}
-
-The one outcome that is stated rather than inferred. It is recorded as a span on
-the conversation and nothing else: the watch attaches it to the last turn before
-it and counts it, so there is one place outcomes are counted, not two.
-
-The conversation must be the caller's own, and a conversation that is not is
-answered as not found, exactly as `/chat` answers it.
+The old name is the same module object, so every import, private name and patch
+made through it reaches the library's code.
 """
 
-from __future__ import annotations
+import importlib
+import sys
 
-import json
-from typing import Any
-
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
-
-from agent_harness import telemetry as tel
-from agent_harness.state import Conversation
-from support_agent.contracts import ConversationId
-
-VALUES = frozenset({"up", "down"})
-
-
-async def feedback(request: Request) -> Response:
-    from support_agent.serve import BadRequest, _customer
-
-    state = request.app.state
-    try:
-        who = _customer(request, state.issuer)
-        body: Any = json.loads(await request.body() or b"{}")
-    except BadRequest as exc:
-        return JSONResponse({"error": exc.detail}, status_code=exc.status)
-    except ValueError:
-        return JSONResponse({"error": "body is not JSON"}, status_code=400)
-    if not isinstance(body, dict) or body.get("value") not in VALUES:
-        return JSONResponse({"error": "value must be 'up' or 'down'"}, status_code=400)
-    cid = body.get("conversation_id")
-    if not isinstance(cid, str) or not cid:
-        return JSONResponse({"error": "conversation_id is required"}, status_code=400)
-    previous = await state.store.latest(ConversationId(cid))
-    if previous is None or Conversation.decode(previous).customer_id != who.customer_id:
-        return JSONResponse({"error": "no such conversation"}, status_code=404)
-    attributes = {tel.SESSION_ID: cid, tel.USER_ID: who.customer_id, tel.FEEDBACK: body["value"]}
-    with tel.span("agent.feedback", **attributes):
-        pass
-    return JSONResponse({"recorded": body["value"]}, status_code=202)
-
-
-__all__ = ["VALUES", "feedback"]
+sys.modules[__name__] = importlib.import_module("agent_harness.serve.feedback")

@@ -52,7 +52,7 @@ from agent_harness.requests import InMemoryRequests
 from agent_harness.resilience import ResilientLLM
 from agent_harness.state import InMemoryCheckpointStore, InMemorySessionStore
 from support_agent import approvals as ap
-from support_agent import channel as ch
+from agent_harness import channel as ch
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
 from support_agent import portal as ptl
