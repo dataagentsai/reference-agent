@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from agent_harness import telemetry as tel
 from support_agent import context as ctx
-from support_agent import telemetry as tel
 from support_agent.contracts import CheckpointStore, RunId
 from support_agent.state import Conversation
 

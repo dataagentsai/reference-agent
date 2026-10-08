@@ -22,7 +22,7 @@ from temporalio.service import RPCError, RPCStatusCode
 from temporalio.worker import Worker
 from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.contracts import Escalation, EscalationOutcome
 from support_agent.escalation.durable import (
     EscalationQueue,

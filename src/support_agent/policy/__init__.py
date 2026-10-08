@@ -27,7 +27,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Sequence
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.contracts import ToolResult
 from support_agent.policy.states import no_superseded_state
 from support_agent.policy.verdicts import ALLOW, Context, Position, Verdict, block

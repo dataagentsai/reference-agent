@@ -24,7 +24,7 @@ from urllib.parse import urlparse
 
 from openai import APIConnectionError, APIError, APIStatusError, AsyncOpenAI, RateLimitError
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.config import RunConfig
 from support_agent.contracts import (
     Message,

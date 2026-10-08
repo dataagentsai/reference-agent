@@ -32,8 +32,8 @@ import jsonschema
 from mcp.client import Client
 from opentelemetry.trace import Span
 
+from agent_harness import telemetry as tel
 from support_agent import requests as req
-from support_agent import telemetry as tel
 from support_agent.contracts import (
     IdempotencyKey,
     Identity,

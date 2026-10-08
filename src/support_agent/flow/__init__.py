@@ -37,7 +37,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 
 DEFAULT_FAN_OUT = 4
 """Deliberately small. The limit exists to bound *our* pressure on a provider

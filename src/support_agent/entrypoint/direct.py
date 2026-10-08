@@ -11,8 +11,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Protocol
 
+from agent_harness import telemetry as tel
 from support_agent import context as ctx
-from support_agent import telemetry as tel
 from support_agent.contracts import (
     Completed,
     Direct,

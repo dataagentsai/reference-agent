@@ -30,7 +30,7 @@ from typing import Protocol
 
 from opentelemetry.trace import Span
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.context import tool_message
 from support_agent.contracts import (
     IdempotencyKey,

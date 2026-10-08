@@ -37,7 +37,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.watch.checks import plain
 from support_agent.watch.rules import CLAIMS
 

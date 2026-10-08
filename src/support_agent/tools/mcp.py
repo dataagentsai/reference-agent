@@ -18,6 +18,7 @@ from mcp.client import Client
 from mcp_types import RequestParamsMeta
 
 from agent_harness.contracts.failures import AgentFailure, Fault
+from agent_harness.telemetry.redaction import redact
 from support_agent.contracts import (
     IdempotencyKey,
     Identity,
@@ -27,7 +28,6 @@ from support_agent.contracts import (
     ToolUnavailable,
 )
 from support_agent.identity import Exchange
-from support_agent.telemetry.redaction import redact
 
 SESSION_META = "aoas/session"
 """Where the caller's verified session travels in a call's `_meta`, so the

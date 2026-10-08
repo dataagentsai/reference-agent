@@ -16,12 +16,12 @@ from collections.abc import Mapping
 
 from opentelemetry.trace import Span
 
+from agent_harness import telemetry as tel
+from agent_harness.telemetry import counters
 from support_agent import policy as pol
-from support_agent import telemetry as tel
 from support_agent.config import RunConfig
 from support_agent.contracts import Completed, Failed, Identity, Refused, Route, RunId, TurnResult
 from support_agent.state import Conversation
-from support_agent.telemetry import counters
 
 
 def opened(

@@ -51,7 +51,7 @@ from support_agent import escalation as esc
 from support_agent import identity as ident
 from support_agent import portal as ptl
 from support_agent import serve
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.config import RunConfig, Settings, resolve
 from support_agent.contracts import Approvals, Identity, LLMClient, ModelResponse, ToolClient
 from support_agent.identity import APPROVER_SCOPES, REVIEWER_SCOPES, Exchange, sessions

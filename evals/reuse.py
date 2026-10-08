@@ -129,6 +129,7 @@ PER_AGENT = {
     "escalation/wording.py",  # what this shop says to its customers
     "ui/__init__.py",  # a support chat page
     "reviewer/page.py",  # a desk page, in this shop's words
+    "telemetry/spans.py",  # the spans this shop's own modules open, declared to the harness
 }
 """Written afresh by a second agent, from its own specification."""
 

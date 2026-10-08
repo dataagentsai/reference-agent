@@ -15,7 +15,7 @@ from typing import Literal
 
 from temporalio import activity
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.approvals.durable import ASSESS, CARRY_OUT, Ask, Assessment, CarriedOut
 from support_agent.approvals.policy import (
     REFUND_ACTION,

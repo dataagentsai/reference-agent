@@ -22,9 +22,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from agent_harness import telemetry as tel
 from support_agent import approvals as ap
 from support_agent import identity as ident
-from support_agent import telemetry as tel
 from support_agent.contracts import Approval
 from support_agent.reviewer.guard import (
     _Desk,

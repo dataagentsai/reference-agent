@@ -20,8 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from agent_harness import telemetry as tel
 from support_agent import approvals as ap
-from support_agent import telemetry as tel
 from support_agent.contracts import (
     Approvals,
     ApprovalState,

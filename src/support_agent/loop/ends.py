@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 from opentelemetry.trace import Span
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.contracts import (
     ActionDeclined,
     ApprovalRequested,

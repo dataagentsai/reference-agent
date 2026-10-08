@@ -26,7 +26,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.watch import outcomes as oc
 from support_agent.watch import record
 from support_agent.watch.outcomes import Outcome

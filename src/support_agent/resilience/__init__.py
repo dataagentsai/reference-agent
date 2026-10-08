@@ -42,8 +42,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from functools import partial
 
+from agent_harness import telemetry as tel
 from agent_harness.contracts.failures import AgentFailure, Fault
-from support_agent import telemetry as tel
 from support_agent.contracts import (
     LLMClient,
     ModelBudgetExhausted,

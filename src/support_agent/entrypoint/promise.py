@@ -33,7 +33,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.contracts import (
     Completed,
     Escalate,

@@ -38,8 +38,8 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from starlette.routing import Route
 
+from agent_harness import telemetry as tel
 from support_agent import identity as ident
-from support_agent import telemetry as tel
 from support_agent.contracts import SessionStore, StoredSession
 from support_agent.ui import portal_page
 

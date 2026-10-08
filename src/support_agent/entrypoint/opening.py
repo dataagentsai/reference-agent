@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.contracts import (
     Approvals,
     Escalations,

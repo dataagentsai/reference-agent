@@ -23,7 +23,7 @@ import re
 from dataclasses import dataclass, field
 from typing import assert_never
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 from support_agent.contracts import Agentic, Direct, Escalate, Intent, Refuse, Route
 from support_agent.contracts.reading import ORDER_ID, order_ids
 

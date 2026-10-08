@@ -22,7 +22,7 @@ from typing import Any
 
 from opentelemetry.sdk.trace import ReadableSpan
 
-from support_agent import telemetry as tel
+from agent_harness import telemetry as tel
 
 
 @dataclass(frozen=True)

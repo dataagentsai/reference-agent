@@ -50,9 +50,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from agent_harness import telemetry as tel
 from support_agent import identity as ident
 from support_agent import requests as req
-from support_agent import telemetry as tel
 from support_agent.approvals import notify as ap_notify
 from support_agent.contracts import (
     Approval,

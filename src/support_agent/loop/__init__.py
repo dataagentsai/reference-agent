@@ -42,10 +42,10 @@ from dataclasses import dataclass, field
 
 from opentelemetry.trace import Span
 
+from agent_harness import telemetry as tel
 from support_agent import context as ctx
 from support_agent import flow as flw
 from support_agent import policy as pol
-from support_agent import telemetry as tel
 from support_agent.config import Budgets
 from support_agent.contracts import (
     ActionDeclined,
