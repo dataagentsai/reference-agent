@@ -26,6 +26,15 @@ pytestmark = pytest.mark.tooling
 ROOT = Path(__file__).resolve().parents[1]
 BIN = Path(sys.executable).parent
 SRC = ROOT / "src" / "support_agent"
+LIB = ROOT / "packages" / "agent-harness" / "src" / "agent_harness"
+"""The harness, extracted (T-019). Every check below that reads the package
+reads both trees: a ceiling the library escaped by moving would be a ceiling
+that stopped holding the code it was written for."""
+
+
+def sources() -> list[Path]:
+    return [*SRC.rglob("*.py"), *LIB.rglob("*.py")]
+
 
 CHECKS = [
     ("strict types", [str(BIN / "mypy")]),
@@ -48,12 +57,12 @@ RATCHETS = [
     # (what, measured, ceiling) — lower the ceiling when the value falls; never raise it.
     (
         "type: ignore comments in the package",
-        lambda: sum(p.read_text().count("type: ignore") for p in SRC.rglob("*.py")),
+        lambda: sum(p.read_text().count("type: ignore") for p in sources()),
         2,
     ),
     (
         "lines in the longest module",
-        lambda: max(len(p.read_text().splitlines()) for p in SRC.rglob("*.py")),
+        lambda: max(len(p.read_text().splitlines()) for p in sources()),
         416,  # loop — was 744 (the entrypoint) before G0.4
     ),
 ]
@@ -82,13 +91,13 @@ def test_only_the_composition_root_constructs_a_realisation() -> None:
     realisation set above, so a second construction site fails this.
     """
     defined: dict[str, Path] = {}
-    for path in SRC.rglob("*.py"):
+    for path in sources():
         for node in ast.parse(path.read_text()).body:
             if isinstance(node, ast.ClassDef) and REALISATION.fullmatch(node.name):
                 defined[node.name] = path
 
     offences = []
-    for path in SRC.rglob("*.py"):
+    for path in sources():
         for node in ast.walk(ast.parse(path.read_text())):
             if not isinstance(node, ast.Call):
                 continue
@@ -177,6 +186,7 @@ def test_every_failure_this_package_declares_says_what_kind_it_is() -> None:
     import inspect
     import pkgutil
 
+    import agent_harness
     import support_agent
     from support_agent.contracts.failures import AgentFailure
 
@@ -193,7 +203,11 @@ def test_every_failure_this_package_declares_says_what_kind_it_is() -> None:
         "_NotYours",  # the HTTP edge turns it into a 404, never a 5xx
     }
     undeclared: list[str] = []
-    for module in pkgutil.walk_packages(support_agent.__path__, "support_agent."):
+    walked = [
+        *pkgutil.walk_packages(support_agent.__path__, "support_agent."),
+        *pkgutil.walk_packages(agent_harness.__path__, "agent_harness."),
+    ]
+    for module in walked:
         imported = importlib.import_module(module.name)
         for name, obj in vars(imported).items():
             if not inspect.isclass(obj) or not issubclass(obj, BaseException):
@@ -224,8 +238,7 @@ def test_every_counter_declared_is_incremented_somewhere() -> None:
     """
     from support_agent.telemetry import counters as declared
 
-    root = Path(__file__).resolve().parents[1] / "src" / "support_agent"
-    source = "\n".join(p.read_text() for p in root.rglob("*.py") if p.name != "counters.py")
+    source = "\n".join(p.read_text() for p in sources() if p.name != "counters.py")
     # Functions — `record_turn`, `bind`, the configuration label's two — are
     # not instruments.
     names = [n for n in declared.__all__ if n.islower() and not callable(getattr(declared, n))]

@@ -54,6 +54,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import BaseRoute, Mount, Route
 
+from agent_harness.contracts.failures import AgentFailure, Fault
 from support_agent import approvals as ap
 from support_agent import escalation as esc
 from support_agent import identity as ident
@@ -71,7 +72,6 @@ from support_agent.contracts import (
     NeedsApproval,
     Refused,
 )
-from support_agent.contracts.failures import AgentFailure, Fault
 from support_agent.entrypoint import Agent
 from support_agent.serve.feedback import feedback
 from support_agent.state import Conversation

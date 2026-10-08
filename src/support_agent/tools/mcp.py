@@ -17,6 +17,7 @@ from typing import Any, cast
 from mcp.client import Client
 from mcp_types import RequestParamsMeta
 
+from agent_harness.contracts.failures import AgentFailure, Fault
 from support_agent.contracts import (
     IdempotencyKey,
     Identity,
@@ -25,7 +26,6 @@ from support_agent.contracts import (
     ToolSpec,
     ToolUnavailable,
 )
-from support_agent.contracts.failures import AgentFailure, Fault
 from support_agent.identity import Exchange
 from support_agent.telemetry.redaction import redact
 

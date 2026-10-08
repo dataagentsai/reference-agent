@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from functools import partial
 
+from agent_harness.contracts.failures import AgentFailure, Fault
 from support_agent import telemetry as tel
 from support_agent.contracts import (
     LLMClient,
@@ -52,7 +53,6 @@ from support_agent.contracts import (
     ModelThrottled,
     ModelUnavailable,
 )
-from support_agent.contracts.failures import AgentFailure, Fault
 
 
 class Retryable(AgentFailure):

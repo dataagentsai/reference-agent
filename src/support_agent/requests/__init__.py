@@ -43,8 +43,8 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from support_agent.contracts.protocols import Requests
-from support_agent.contracts.requests import (
+from agent_harness.contracts.protocols import Requests
+from agent_harness.contracts.requests import (
     CLAIM_TTL_S,
     AlreadyAnswered,
     Claim,

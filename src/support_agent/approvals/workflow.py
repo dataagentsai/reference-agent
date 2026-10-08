@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from agent_harness.contracts.failures import AgentFailure, Fault
 from support_agent.approvals.policy import Policy
 from support_agent.contracts import (
     Approval,
@@ -26,7 +27,6 @@ from support_agent.contracts import (
     Unbindable,
     bind_arguments,
 )
-from support_agent.contracts.failures import AgentFailure, Fault
 
 
 class ApprovalError(AgentFailure):

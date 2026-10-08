@@ -89,9 +89,9 @@ class TurnNote(BaseModel):
 def _classified(decision: Route) -> str | None:
     """The intent the router settled on, or `None` when it settled on none."""
     if isinstance(decision, Direct):
-        return decision.intent.value
+        return str(decision.intent)
     if isinstance(decision, Agentic) and len(decision.candidate_intents) == 1:
-        return decision.candidate_intents[0].value
+        return str(decision.candidate_intents[0])
     return None
 
 

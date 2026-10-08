@@ -29,8 +29,8 @@ from typing import Any, Protocol
 import jwt
 from pydantic import BaseModel, ConfigDict, Field
 
+from agent_harness.contracts.failures import AgentFailure, Fault
 from support_agent.contracts import Identity
-from support_agent.contracts.failures import AgentFailure, Fault
 
 ALGORITHMS = ("RS256",)
 """The only algorithm accepted. An allow-list, not a preference: a token whose

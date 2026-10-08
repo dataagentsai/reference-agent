@@ -20,7 +20,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from support_agent.contracts.failures import AgentFailure, Fault
+from agent_harness.contracts.failures import AgentFailure, Fault
 
 ResolutionMode = Literal["mock", "replay", "real", "shadow"]
 

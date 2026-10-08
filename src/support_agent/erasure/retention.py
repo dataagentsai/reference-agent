@@ -27,8 +27,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from agent_harness.contracts.failures import AgentFailure, Fault
 from support_agent.contracts import CheckpointStore, Requests, SessionStore
-from support_agent.contracts.failures import AgentFailure, Fault
 
 DAY_S = 24 * 60 * 60
 

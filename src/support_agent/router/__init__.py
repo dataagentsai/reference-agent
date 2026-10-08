@@ -331,7 +331,7 @@ def _reason_of(decision: Route) -> str:
         case Refuse() | Escalate():
             return decision.reason
         case Direct():
-            return f"unambiguous {decision.intent.value} with an order id"
+            return f"unambiguous {str(decision.intent)} with an order id"
         case Agentic():
             return "ambiguous, multi-intent or unmodelled"
         case _:

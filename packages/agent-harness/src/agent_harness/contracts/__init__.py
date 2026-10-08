@@ -1,0 +1,151 @@
+"""Typed boundaries — the bottom layer.
+
+Imports nothing from this package and depends only on the standard library and
+pydantic. Everything else may depend on it; it may depend on nothing. That is
+the whole of its job.
+
+No agent's vocabulary is here. What an agent can be asked is its own
+enumeration, declared with `use_intents`; a route carries it as `IntentName`.
+"""
+
+from agent_harness.contracts.human import (
+    Escalation,
+    EscalationOutcome,
+    EscalationState,
+)
+from agent_harness.contracts.ids import (
+    ConversationId,
+    IdempotencyKey,
+    Identity,
+    RunId,
+    StoredSession,
+    new_conversation_id,
+    new_run_id,
+)
+from agent_harness.contracts.intents import IntentName, use_intents
+from agent_harness.contracts.kinds import SideEffectClass, TerminationReason
+from agent_harness.contracts.model import (
+    Message,
+    ModelBudgetExhausted,
+    ModelMalformed,
+    ModelRefused,
+    ModelRequest,
+    ModelResponse,
+    ModelThrottled,
+    ModelUnavailable,
+    ToolCall,
+    Usage,
+)
+from agent_harness.contracts.protocols import (
+    ApprovalRecords,
+    Approvals,
+    CheckpointStore,
+    Clock,
+    Escalations,
+    LLMClient,
+    Requests,
+    SessionStore,
+    ToolClient,
+)
+from agent_harness.contracts.requests import (
+    CLAIM_TTL_S,
+    AlreadyAnswered,
+    Claim,
+    RequestRefused,
+    Scope,
+    StillRunning,
+)
+from agent_harness.contracts.results import (
+    Agentic,
+    Completed,
+    Direct,
+    Escalate,
+    Escalated,
+    Failed,
+    NeedsApproval,
+    Refuse,
+    Refused,
+    Route,
+    TurnResult,
+)
+from agent_harness.contracts.tools import (
+    ActionDeclined,
+    Approval,
+    ApprovalRequested,
+    ApprovalState,
+    LocalTool,
+    MissingIdempotencyKey,
+    ToolRegistry,
+    ToolResult,
+    ToolSpec,
+    ToolUnavailable,
+    Unbindable,
+    UnknownTool,
+    bind_arguments,
+)
+
+__all__ = [
+    "RequestRefused",
+    "StillRunning",
+    "Scope",
+    "Requests",
+    "Claim",
+    "AlreadyAnswered",
+    "CLAIM_TTL_S",
+    "SessionStore",
+    "StoredSession",
+    "ModelBudgetExhausted",
+    "ModelRefused",
+    "ModelThrottled",
+    "ActionDeclined",
+    "ApprovalRequested",
+    "Unbindable",
+    "bind_arguments",
+    "Agentic",
+    "Approval",
+    "ApprovalRecords",
+    "Approvals",
+    "ApprovalState",
+    "CheckpointStore",
+    "Clock",
+    "Completed",
+    "ConversationId",
+    "Direct",
+    "Escalate",
+    "Escalated",
+    "Escalation",
+    "EscalationOutcome",
+    "EscalationState",
+    "Escalations",
+    "Failed",
+    "IdempotencyKey",
+    "Identity",
+    "IntentName",
+    "LLMClient",
+    "LocalTool",
+    "Message",
+    "MissingIdempotencyKey",
+    "ModelRequest",
+    "ModelResponse",
+    "ModelMalformed",
+    "ModelUnavailable",
+    "NeedsApproval",
+    "use_intents",
+    "Refuse",
+    "Refused",
+    "Route",
+    "RunId",
+    "SideEffectClass",
+    "TerminationReason",
+    "ToolCall",
+    "ToolClient",
+    "ToolRegistry",
+    "ToolResult",
+    "ToolSpec",
+    "ToolUnavailable",
+    "TurnResult",
+    "UnknownTool",
+    "Usage",
+    "new_conversation_id",
+    "new_run_id",
+]

@@ -40,9 +40,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from agent_harness.contracts.failures import AgentFailure, Fault
 from support_agent import telemetry as tel
 from support_agent.contracts import LLMClient, ModelRequest, ModelResponse, ModelUnavailable
-from support_agent.contracts.failures import AgentFailure, Fault
 
 FORMAT_VERSION = 2
 

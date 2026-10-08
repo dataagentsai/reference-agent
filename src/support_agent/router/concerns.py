@@ -39,7 +39,7 @@ def concerns(text: str) -> tuple[str, ...]:
     return tuple(part for part in parts if ORDER_ID.search(part) or len(part.split()) >= 3)
 
 
-VIA: dict[Intent, tuple[str, ...]] = {
+VIA: dict[str, tuple[str, ...]] = {
     Intent.ORDER_STATUS: ("get_order", "list_orders"),
     Intent.REFUND_STATUS: ("get_order", "list_orders"),
     Intent.CANCEL_ORDER: ("cancel_order",),
@@ -74,7 +74,7 @@ def owed(text: str) -> tuple[Owed, ...]:
     for clause in clauses:
         decision = route(clause)
         if isinstance(decision, Direct):
-            intents: tuple[Intent, ...] = (decision.intent,)
+            intents: tuple[str, ...] = (decision.intent,)
         elif isinstance(decision, Agentic):
             intents = decision.candidate_intents
         else:

@@ -21,8 +21,8 @@ from cryptography.fernet import Fernet, InvalidToken
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
+from agent_harness.contracts.failures import AgentFailure, Fault
 from support_agent.contracts import ConversationId, RunId, StoredSession
-from support_agent.contracts.failures import AgentFailure, Fault
 
 
 class PostgresCheckpointStore:

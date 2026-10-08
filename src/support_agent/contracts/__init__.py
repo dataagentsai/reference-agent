@@ -1,32 +1,43 @@
-"""Typed boundaries — the bottom layer.
+"""Typed boundaries — the bottom layer, as this agent sees it.
 
-Imports nothing from this package and depends only on the standard library and
-pydantic. Everything else may depend on it; it may depend on nothing. That is
-the whole of its job.
+The harness's contracts (`agent_harness.contracts`), re-exported, beside this
+shop's own vocabulary: what a customer can ask for (`Intent`) and the states an
+order passes through (`OrderStatus`). Importing this package declares both to
+the harness — `Intent` as the intents every route validates against, and the
+order-id shape and status grammar of `contracts.reading` as the vocabulary the
+harness's checks read — so no route or check runs before they are known.
 """
 
-from support_agent.contracts.domain import (
-    Intent,
-    OrderStatus,
-    SideEffectClass,
-    TerminationReason,
-)
-from support_agent.contracts.human import (
+from agent_harness.contracts import (
+    CLAIM_TTL_S,
+    ActionDeclined,
+    Agentic,
+    AlreadyAnswered,
+    Approval,
+    ApprovalRecords,
+    ApprovalRequested,
+    Approvals,
+    ApprovalState,
+    CheckpointStore,
+    Claim,
+    Clock,
+    Completed,
+    ConversationId,
+    Direct,
+    Escalate,
+    Escalated,
     Escalation,
     EscalationOutcome,
+    Escalations,
     EscalationState,
-)
-from support_agent.contracts.ids import (
-    ConversationId,
+    Failed,
     IdempotencyKey,
     Identity,
-    RunId,
-    StoredSession,
-    new_conversation_id,
-    new_run_id,
-)
-from support_agent.contracts.model import (
+    IntentName,
+    LLMClient,
+    LocalTool,
     Message,
+    MissingIdempotencyKey,
     ModelBudgetExhausted,
     ModelMalformed,
     ModelRefused,
@@ -34,80 +45,54 @@ from support_agent.contracts.model import (
     ModelResponse,
     ModelThrottled,
     ModelUnavailable,
-    ToolCall,
-    Usage,
-)
-from support_agent.contracts.protocols import (
-    ApprovalRecords,
-    Approvals,
-    CheckpointStore,
-    Clock,
-    Escalations,
-    LLMClient,
-    Requests,
-    SessionStore,
-    ToolClient,
-)
-from support_agent.contracts.requests import (
-    CLAIM_TTL_S,
-    AlreadyAnswered,
-    Claim,
-    RequestRefused,
-    Scope,
-    StillRunning,
-)
-from support_agent.contracts.results import (
-    Agentic,
-    Completed,
-    Direct,
-    Escalate,
-    Escalated,
-    Failed,
     NeedsApproval,
     Refuse,
     Refused,
+    RequestRefused,
+    Requests,
     Route,
-    TurnResult,
-)
-from support_agent.contracts.tools import (
-    ActionDeclined,
-    Approval,
-    ApprovalRequested,
-    ApprovalState,
-    LocalTool,
-    MissingIdempotencyKey,
+    RunId,
+    Scope,
+    SessionStore,
+    SideEffectClass,
+    StillRunning,
+    StoredSession,
+    TerminationReason,
+    ToolCall,
+    ToolClient,
     ToolRegistry,
     ToolResult,
     ToolSpec,
     ToolUnavailable,
+    TurnResult,
     Unbindable,
     UnknownTool,
+    Usage,
     bind_arguments,
+    new_conversation_id,
+    new_run_id,
+    use_intents,
 )
+from agent_harness.contracts.reading import use_vocabulary
+from support_agent.contracts import reading
+from support_agent.contracts.domain import Intent, OrderStatus
+
+use_intents(Intent)
+use_vocabulary(reading.VOCABULARY)
 
 __all__ = [
-    "RequestRefused",
-    "StillRunning",
-    "Scope",
-    "Requests",
-    "Claim",
-    "AlreadyAnswered",
-    "CLAIM_TTL_S",
-    "SessionStore",
-    "StoredSession",
-    "ModelBudgetExhausted",
-    "ModelRefused",
-    "ModelThrottled",
     "ActionDeclined",
-    "ApprovalRequested",
-    "Unbindable",
-    "bind_arguments",
     "Agentic",
+    "AlreadyAnswered",
     "Approval",
     "ApprovalRecords",
+    "ApprovalRequested",
     "Approvals",
     "ApprovalState",
+    "bind_arguments",
     "CheckpointStore",
+    "Claim",
+    "CLAIM_TTL_S",
     "Clock",
     "Completed",
     "ConversationId",
@@ -116,27 +101,39 @@ __all__ = [
     "Escalated",
     "Escalation",
     "EscalationOutcome",
-    "EscalationState",
     "Escalations",
+    "EscalationState",
     "Failed",
     "IdempotencyKey",
     "Identity",
     "Intent",
+    "IntentName",
     "LLMClient",
     "LocalTool",
     "Message",
     "MissingIdempotencyKey",
+    "ModelBudgetExhausted",
+    "ModelMalformed",
+    "ModelRefused",
     "ModelRequest",
     "ModelResponse",
-    "ModelMalformed",
+    "ModelThrottled",
     "ModelUnavailable",
     "NeedsApproval",
+    "new_conversation_id",
+    "new_run_id",
     "OrderStatus",
     "Refuse",
     "Refused",
+    "RequestRefused",
+    "Requests",
     "Route",
     "RunId",
+    "Scope",
+    "SessionStore",
     "SideEffectClass",
+    "StillRunning",
+    "StoredSession",
     "TerminationReason",
     "ToolCall",
     "ToolClient",
@@ -145,8 +142,7 @@ __all__ = [
     "ToolSpec",
     "ToolUnavailable",
     "TurnResult",
+    "Unbindable",
     "UnknownTool",
     "Usage",
-    "new_conversation_id",
-    "new_run_id",
 ]

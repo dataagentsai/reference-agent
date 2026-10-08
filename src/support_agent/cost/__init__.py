@@ -24,8 +24,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
+from agent_harness.contracts.failures import AgentFailure, Fault
 from support_agent.contracts import Usage
-from support_agent.contracts.failures import AgentFailure, Fault
 
 MTOK = Decimal(1_000_000)
 

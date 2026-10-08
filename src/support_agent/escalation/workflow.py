@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import uuid
 
+from agent_harness.contracts.failures import AgentFailure, Fault
 from support_agent.contracts import Escalation, EscalationOutcome
-from support_agent.contracts.failures import AgentFailure, Fault
 
 DEFAULT_TTL_S = 30 * 60
 """How long a queued escalation waits before it lapses.
