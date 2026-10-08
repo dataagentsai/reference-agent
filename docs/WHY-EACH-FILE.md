@@ -292,4 +292,6 @@ the layer, and the stack file says which service realises it.
 
 | File | Why |
 |---|---|
+| `llm/pydantic_ai.py` | The `model` binding's model layer (`x_model_layer: pydantic-ai-direct`): Pydantic AI's direct model requests behind `LLMClient` (**AHC-0022**), to Groq directly, APIM in front of Groq, or Azure OpenAI behind APIM. The port's messages, tools, calls and usage translated at the edge; the typed boundary (**AHC-0001**) and the failure kinds (**AHC-0110**) the same as `GroqClient`'s, so `ResilientLLM` retries what is transient and nothing else. The only module that may import `pydantic_ai`. |
+| `llm/served.py` | **T-018** — who serves the model behind a route, as the route can say. Split from `llm/__init__.py` when a second provider client needed the same answers; unchanged in purpose. |
 | `telemetry/azure.py` | The `telemetry` binding (`azure-monitor-otel`): when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, the Azure Monitor distro builds the providers with this harness's processors inside them, so the `agent.*` spans, the span contract (**AAC-0011**) and the in-memory exporter the evals assert against are unchanged. Unset, nothing differs. |

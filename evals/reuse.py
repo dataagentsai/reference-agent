@@ -72,6 +72,8 @@ MECHANISM = {
     "identity/__init__.py",
     "identity/sessions.py",
     "llm/__init__.py",
+    "llm/pydantic_ai.py",  # an adapter: the Azure stack's model layer (T-099)
+    "llm/served.py",
     "loop/__init__.py",
     "loop/dispatch.py",
     "loop/ends.py",

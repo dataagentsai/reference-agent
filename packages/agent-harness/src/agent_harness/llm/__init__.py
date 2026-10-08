@@ -11,7 +11,8 @@ having it.
 
 The resolution modes from AgentTwin are adapters here, not special cases:
 `GroqClient` is `real`, `ScriptedClient` is `mock`. `replay` arrives later as the
-cassette, wrapping whichever of these it was recorded from.
+cassette, wrapping whichever of these it was recorded from. `PydanticAIClient`
+(`llm.pydantic_ai`) is `real` too, on the Azure stack's model layer (T-099).
 """
 
 from __future__ import annotations
@@ -21,12 +22,12 @@ import time
 from collections import deque
 from collections.abc import Iterable
 from typing import Protocol
-from urllib.parse import urlparse
 
 from openai import APIConnectionError, APIError, APIStatusError, AsyncOpenAI, RateLimitError
 
 from agent_harness import telemetry as tel
 from agent_harness.contracts import (
+    LLMClient,
     Message,
     ModelBudgetExhausted,
     ModelMalformed,
@@ -38,6 +39,7 @@ from agent_harness.contracts import (
     ToolCall,
     Usage,
 )
+from agent_harness.llm.served import PROVIDER_HOSTS, provider_from_host, provider_from_model_info
 
 
 def _to_wire(messages: Iterable[Message]) -> list[dict[str, object]]:
@@ -103,36 +105,6 @@ def retry_after_of(error: object) -> float | None:
         return float(raw)
     except (TypeError, ValueError):
         return None
-
-
-PROVIDER_HOSTS = {
-    "api.groq.com": "groq",
-    "api.together.xyz": "together",
-    "api.cerebras.ai": "cerebras",
-}
-"""Providers recognisable by their own endpoint. A gateway is not listed: it says
-where it routes through `/model/info`, and its host says nothing about that."""
-
-
-def provider_from_host(base_url: str) -> str | None:
-    """The provider a direct endpoint belongs to, or `None` if it is not one we
-    recognise. Never a guess from a substring: `groq.example.com` is not Groq."""
-    return PROVIDER_HOSTS.get(urlparse(base_url).hostname or "")
-
-
-def provider_from_model_info(payload: object, model: str) -> str | None:
-    """The provider a LiteLLM-style gateway routes `model` to, read from its
-    `/model/info`. `None` when the payload does not name the model, which is
-    unverified, not a match."""
-    data = payload.get("data") if isinstance(payload, dict) else None
-    for entry in data if isinstance(data, list) else []:
-        if not isinstance(entry, dict) or entry.get("model_name") != model:
-            continue
-        info = entry.get("model_info")
-        provider = info.get("litellm_provider") if isinstance(info, dict) else None
-        if isinstance(provider, str) and provider:
-            return provider
-    return None
 
 
 class GroqClient:
@@ -264,14 +236,22 @@ class ModelChoice(Protocol):
     def check_served_by(self, served: str | None) -> bool: ...
 
 
-async def connect_model(config: ModelChoice, *, api_key: str) -> tuple[GroqClient, bool]:
+async def connect_model(
+    config: ModelChoice, *, api_key: str, layer: str = "openai", key_header: str | None = None
+) -> tuple[LLMClient, bool]:
     """The `real` client for a resolved configuration, with its provider checked.
 
     The one place a composition root gets a provider client from, so the check
     cannot be skipped by a script that builds its own. Returns the client and
     whether the declared provider was verified; a declaration the endpoint
     contradicts raises `ProviderMismatch` before any turn runs (T-018).
+    `layer="pydantic-ai"`: the Azure stack's model layer, imported only when
+    chosen (T-099); `key_header` is where an APIM gateway reads the key.
     """
+    if layer == "pydantic-ai":
+        from agent_harness.llm.pydantic_ai import connect
+
+        return await connect(config, api_key=api_key, key_header=key_header)
     client = GroqClient(
         api_key=api_key,
         base_url=config.provider_base_url,

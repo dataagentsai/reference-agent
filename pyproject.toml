@@ -339,3 +339,17 @@ ignore_imports = [
     "agent_harness.telemetry.azure -> azure",
 ]
 unmatched_ignore_imports_alerting = "none"
+
+[[tool.importlinter.contracts]]
+# T-099. The same fail-closed ban as the provider SDK's, one module narrower:
+# Pydantic AI is the Azure stack's model layer underneath `LLMClient`, never the
+# loop, so exactly one adapter knows it and a new module inherits the ban.
+name = "Only the harness's Pydantic AI adapter knows Pydantic AI"
+type = "forbidden"
+source_modules = ["support_agent", "agent_harness"]
+forbidden_modules = ["pydantic_ai"]
+ignore_imports = [
+    "agent_harness.llm.pydantic_ai -> pydantic_ai",
+    "agent_harness.llm.pydantic_ai -> pydantic_ai.*",
+]
+unmatched_ignore_imports_alerting = "none"
