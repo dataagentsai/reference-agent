@@ -21,10 +21,10 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agent_harness import telemetry as tel
+from agent_harness import telemetry as tel  # noqa: E402
+from agent_harness.watch.langfuse import Langfuse  # noqa: E402
 from support_agent.config import Settings  # noqa: E402
 from support_agent.watch import Watch  # noqa: E402
-from support_agent.watch.langfuse import Langfuse  # noqa: E402
 
 
 def main(every: float, once: bool, lookback: float, settle: float) -> None:

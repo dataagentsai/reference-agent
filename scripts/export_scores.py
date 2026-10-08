@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from support_agent.watch.langfuse import Langfuse  # noqa: E402
+from agent_harness.watch.langfuse import Langfuse  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "reports" / "aac" / "langfuse-scores.json"

@@ -28,10 +28,11 @@ this week; `trend` matters only as a rate, and Prometheus alerts on the rate.
 
 from __future__ import annotations
 
-from collections import defaultdict
-from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable
 
+from agent_harness.watch import engine
+from agent_harness.watch.engine import ConversationRule, Rule
+from agent_harness.watch.record import Turn
 from support_agent.watch import checks as c
 from support_agent.watch.checks import CLAIMS, STATUSES, Thresholds
 from support_agent.watch.evidence import (
@@ -39,32 +40,8 @@ from support_agent.watch.evidence import (
     EVIDENCE,
     Evidence,
     Finding,
-    Severity,
     Verdict,
 )
-from support_agent.watch.record import Turn
-
-
-@dataclass(frozen=True)
-class Rule:
-    id: str
-    version: str
-    pattern: str
-    title: str
-    severity: Severity
-    needs_words: bool
-    check: Callable[[Turn, Thresholds], str | None]
-
-
-@dataclass(frozen=True)
-class ConversationRule:
-    id: str
-    version: str
-    pattern: str
-    title: str
-    severity: Severity
-    check: Callable[[Sequence[Turn], Thresholds], str | None]
-
 
 RULES: tuple[Rule, ...] = (
     Rule(
@@ -237,9 +214,8 @@ def evaluate(
     thresholds: Thresholds | None = None,
     conversation_rules: Iterable[ConversationRule] = CONVERSATION_RULES,
 ) -> tuple[list[Finding], list[Turn]]:
-    """Every finding in `turns`, and the turns evaluated."""
-    verdicts, evaluated = judge(turns, rules, thresholds, conversation_rules)
-    return [v.finding() for v in verdicts if not v.passed], evaluated
+    """Every finding in `turns`, and the turns evaluated — by this shop's rules."""
+    return engine.evaluate(turns, rules, thresholds or Thresholds(), conversation_rules, EVIDENCE)
 
 
 def judge(
@@ -248,54 +224,9 @@ def judge(
     thresholds: Thresholds | None = None,
     conversation_rules: Iterable[ConversationRule] = CONVERSATION_RULES,
 ) -> tuple[list[Verdict], list[Turn]]:
-    """Every rule's verdict on `turns`, passes included, and the turns evaluated.
-    Synthetic turns are the canary's and are left to it (AHC-0113).
-
-    A rule that needs the words gives no verdict on a turn without them — not a
-    pass, and not a `skipped` score either: nothing is written, so the report
-    reads that obligation from the turns that were captured. A conversation
-    rule reads the captured turns of each conversation in the batch and its
-    verdict lands on the last of them.
-    """
-    limits = thresholds or Thresholds()
-    evaluated = [t for t in turns if not t.synthetic]
-    verdicts = [v for turn in evaluated for v in _of_turn(turn, tuple(rules), limits)]
-    sessions: dict[str, list[Turn]] = defaultdict(list)
-    for turn in (t for t in evaluated if t.captured):
-        sessions[turn.session_id].append(turn)
-    for session in sessions.values():
-        verdicts += _of_conversation(
-            sorted(session, key=lambda t: t.started), conversation_rules, limits
-        )
-    return verdicts, evaluated
-
-
-def _of_turn(turn: Turn, rules: tuple[Rule, ...], limits: Thresholds) -> list[Verdict]:
-    return [
-        _verdict(rule, turn, rule.check(turn, limits))
-        for rule in rules
-        if turn.captured or not rule.needs_words
-    ]
-
-
-def _of_conversation(
-    ordered: list[Turn], rules: Iterable[ConversationRule], limits: Thresholds
-) -> list[Verdict]:
-    return [_verdict(rule, ordered[-1], rule.check(ordered, limits)) for rule in rules]
-
-
-def _verdict(rule: Rule | ConversationRule, turn: Turn, detail: str | None) -> Verdict:
-    evidence = EVIDENCE.get(rule.id, Evidence((), "M5"))
-    return Verdict(
-        rule.id,
-        rule.version,
-        rule.severity,
-        turn.trace_id,
-        turn.session_id,
-        detail,
-        evidence.aac,
-        evidence.mechanism,
-    )
+    """Every rule's verdict on `turns`, passes included — by this shop's rules
+    (`agent_harness.watch.engine.judge` says how a rule is run)."""
+    return engine.judge(turns, rules, thresholds or Thresholds(), conversation_rules, EVIDENCE)
 
 
 __all__ = [

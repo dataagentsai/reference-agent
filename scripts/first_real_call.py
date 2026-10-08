@@ -29,13 +29,13 @@ from agent_harness import identity as ident
 from agent_harness import telemetry as tel
 from agent_harness.cassette import Cassette, Context, Player, Recorder
 from agent_harness.cost import Meter
+from agent_harness.llm import connect_model
 from agent_harness.requests import InMemoryRequests
 from agent_harness.state import InMemoryCheckpointStore
+from agent_harness.tools import META_SIDE_EFFECT, connect
 from support_agent import entrypoint as ep
 from support_agent.config import Settings, resolve
 from support_agent.contracts import Identity, SideEffectClass
-from agent_harness.llm import connect_model
-from agent_harness.tools import META_SIDE_EFFECT, connect
 
 CASSETTE = Path(__file__).parent.parent / "cassettes" / "first_real_call.json"
 TOOLS = ("get_order",)

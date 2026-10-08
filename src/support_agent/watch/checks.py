@@ -17,9 +17,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from agent_harness.watch.record import Turn
 from support_agent.contracts.domain import OrderStatus
 from support_agent.contracts.reading import ORDER_ID, claimed_states, order_ids
-from support_agent.watch.record import Turn
 
 # --------------------------------------------------------------------------- #
 # This shop's vocabulary.
