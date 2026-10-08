@@ -21,8 +21,8 @@ from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel
 
 from agent_harness import identity as ident
+from agent_harness.tools import META_REQUIRED_SCOPE, META_SIDE_EFFECT
 from support_agent.contracts import OrderStatus, SideEffectClass
-from support_agent.tools import META_REQUIRED_SCOPE, META_SIDE_EFFECT
 
 RETURN_WINDOW_DAYS = 30
 DAMAGE_WINDOW_DAYS = 7

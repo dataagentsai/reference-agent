@@ -1,17 +1,10 @@
-"""What a rule reads: the model's text with look-alike characters folded.
+"""Re-export stub: moved to `agent_harness.policy.reading` (T-019).
 
-A model writes "AB‑10010" with a non-breaking hyphen as readily as with an ASCII
-one, and every rule matching an identifier was blind to it: a promised refund on
-that order passed the checks because the order it named did not look like one
-(generation run 2, AHC-0094). So every rule reads one spelling. Only the rules'
-copy is folded; what the customer is sent is never rewritten.
-
-The fold itself lives in `contracts.reading`, shared with the router, the
-consent list and the watch, so there is one definition of a look-alike (F-063).
+The old name is the same module object, so every import, private name and patch
+made through it reaches the library's code.
 """
 
-from __future__ import annotations
+import importlib
+import sys
 
-from support_agent.contracts.reading import normalised
-
-__all__ = ["normalised"]
+sys.modules[__name__] = importlib.import_module("agent_harness.policy.reading")

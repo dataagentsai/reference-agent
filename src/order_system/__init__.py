@@ -28,9 +28,9 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from agent_harness.contracts.failures import AgentFailure, Fault
+from agent_harness.identity import InvalidSession, Issuer, verify
 from support_agent.contracts import ApprovalRecords
-from support_agent.contracts.failures import AgentFailure, Fault
-from support_agent.identity import InvalidSession, Issuer, verify
 
 SESSION_META = "aoas/session"
 APPROVAL_META = "aoas/approval"

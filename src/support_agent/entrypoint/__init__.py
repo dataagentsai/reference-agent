@@ -26,13 +26,15 @@ from functools import partial
 from typing import assert_never
 
 from agent_harness import context as ctx
+from agent_harness import loop as agent_loop
 from agent_harness import requests as req
 from agent_harness import telemetry as tel
 from agent_harness.cost import Meter
+from agent_harness.loop import freshness
+from agent_harness.loop.ends import CALLER_LEFT
 from agent_harness.state import Conversation, TurnNote, facts
 from support_agent import binding, router
 from support_agent import escalation as esc
-from support_agent import loop as agent_loop
 from support_agent import policy as pol
 from support_agent.config import Budgets, RulesMismatch, RunConfig
 from support_agent.contracts import (
@@ -63,8 +65,6 @@ from support_agent.entrypoint.opening import opening
 from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
 from support_agent.entrypoint.persist import TurnPersister, agree_on_durability
 from support_agent.escalation import rules as t2
-from support_agent.loop import freshness
-from support_agent.loop.ends import CALLER_LEFT
 
 Pairs = tuple[tuple[str, str], ...]  # (operation or tool, record): landed, tried or read
 

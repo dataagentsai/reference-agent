@@ -30,10 +30,10 @@ from typing import Any
 
 from mcp.server.mcpserver import Context, MCPServer
 
+from agent_harness.identity import Issuer
 from order_system import APPROVAL_META, IDEMPOTENCY_META, SESSION_META, authoriser
 from order_system.store import Store
 from support_agent.contracts import ApprovalRecords
-from support_agent.identity import Issuer
 
 META_SIDE_EFFECT = "side_effect"
 META_ENTITY = "entity"

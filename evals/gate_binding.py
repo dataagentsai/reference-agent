@@ -23,8 +23,8 @@ from typing import Any
 
 from agenttwin import Clock, Live, ModelEndpoint, Subject
 
+from agent_harness.llm import GroqClient
 from evals.simulation import subject_for
-from support_agent.llm import GroqClient
 
 
 @asynccontextmanager

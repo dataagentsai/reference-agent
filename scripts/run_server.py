@@ -59,8 +59,8 @@ from support_agent import portal as ptl
 from support_agent import serve
 from support_agent.config import RunConfig, Settings, resolve
 from support_agent.contracts import Approvals, Identity, LLMClient, ModelResponse, ToolClient
-from support_agent.llm import ScriptedClient, connect_model
-from support_agent.tools import connect
+from agent_harness.llm import ScriptedClient, connect_model
+from agent_harness.tools import connect
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORLD = os.path.join(HERE, "worlds", "clothing.yaml")

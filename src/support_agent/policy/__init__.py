@@ -1,36 +1,37 @@
-"""Where a rule becomes real.
+"""This shop's rules, at the harness's positions.
 
-L7 · P3 and P5. Four enforcement points, and the position matters as much as the
-rule: the same check applied before a tool call and after a model reply catches
-different failures and misses different ones.
+L7 · P3 and P5. The positions, the enforcement and the fail-closed rule are the
+harness's (`agent_harness.policy`), re-exported here. What is checked at each
+position is this agent's: the claims its replies may not make, the entities they
+must ground, the actions a customer's own words must have asked for. Registered
+as the default for every position at import (`use_default_rules`, at the
+bottom), so a loop or a screen given no rules runs these.
 
-    PRE_MODEL   what we are about to ask
-    POST_MODEL  what the model said           ← the one nothing else covers
-    PRE_TOOL    an action about to be taken
-    POST_TOOL   what came back
-
-Until this module existed the only controls were the router, on input, and the
-tool boundary, on action. **Nothing checked what the model said** — which is most
-of test family F6, and the difference between an agent that cannot issue an
+Until the policy module existed the only controls were the router, on input, and
+the tool boundary, on action. **Nothing checked what the model said** — which is
+most of test family F6, and the difference between an agent that cannot issue an
 unauthorised refund and one that cannot *claim* it did.
-
-### Fails closed
-
-AAC-0091. A rule that raises blocks the traffic it was inspecting. The
-alternative — logging the error and passing the content through — produces a
-guardrail that is believed and absent at the same time, which is worse than
-having none, because nobody goes looking for the control they think they have.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Sequence
 
-from agent_harness import telemetry as tel
-from support_agent.contracts import ToolResult
-from support_agent.policy.states import no_superseded_state
-from support_agent.policy.verdicts import ALLOW, Context, Position, Verdict, block
+from agent_harness.contracts import ToolResult
+from agent_harness.policy import (
+    ALLOW,
+    BLOCKED_CALL,
+    BLOCKED_RESULT,
+    SAFE_REPLY,
+    Context,
+    Position,
+    Rule,
+    Verdict,
+    block,
+    enforce,
+    no_superseded_state,
+    use_default_rules,
+)
 
 # --------------------------------------------------------------------------- #
 # Rules. Each is a plain callable returning a Verdict.
@@ -241,10 +242,6 @@ path that only says it after the refund succeeded. The deterministic routes are
 grounded by construction: they render from tool data. What they are *not*
 protected against, until now, is the next edit to one of their templates."""
 
-Rule = Callable[[Context], Verdict]
-"""A rule is a pure function of what is being inspected. Typed, so a rule that
-returns something other than a verdict fails the build rather than the call."""
-
 CONSENTED_TOOLS = frozenset(
     {"cancel_order", "open_return_request", "change_address", "request_refund"}
 )
@@ -283,49 +280,7 @@ DEFAULT_RULES: dict[Position, tuple[Rule, ...]] = {
     Position.REPLY: REPLY_RULES,
 }
 
-
-# --------------------------------------------------------------------------- #
-# Enforcement.
-# --------------------------------------------------------------------------- #
-
-
-def enforce(ctx: Context, rules: Sequence[Rule] | None = None) -> Verdict:
-    """Run the rules for this position. First block wins.
-
-    A rule that raises **blocks**. That is the whole of AAC-0091: a guardrail
-    that errors open is believed and absent at once, and nobody goes looking for
-    a control they think they have.
-    """
-    applicable = DEFAULT_RULES.get(ctx.position, ()) if rules is None else rules
-    with tel.span("agent.policy", **{"agent.policy.position": ctx.position.value}) as span:
-        for rule in applicable:
-            name = getattr(rule, "__name__", repr(rule))
-            try:
-                verdict = rule(ctx)
-            except Exception as exc:  # noqa: BLE001 — deliberate: fail closed
-                span.set_attribute("agent.policy.blocked_by", name)
-                span.set_attribute("agent.policy.errored", True)
-                return block(name, f"rule failed and traffic was blocked: {exc}")
-            if verdict.blocked:
-                span.set_attribute("agent.policy.blocked_by", verdict.rule or name)
-                return verdict
-        return ALLOW
-
-
-BLOCKED_CALL = "blocked before it ran: {reason}"
-"""What the model is told when a `PRE_TOOL` rule stops a call. It names the
-reason, because a model that cannot tell a refusal from an outage retries."""
-
-BLOCKED_RESULT = "withheld by {rule}"
-"""What replaces a result a `POST_TOOL` rule refuses to let into context."""
-
-
-SAFE_REPLY = "I am not able to confirm that. Let me pass you to a colleague who can help."
-"""What the customer sees when a reply is blocked.
-
-Deliberately not an apology for a technical fault and deliberately not silence:
-it says nothing false, and it moves the person forward.
-"""
+use_default_rules(DEFAULT_RULES)
 
 
 __all__ = [
@@ -333,6 +288,7 @@ __all__ = [
     "BLOCKED_RESULT",
     "Rule",
     "ALLOW",
+    "CONSENTED_TOOLS",
     "DEFAULT_RULES",
     "CLAIM_PATTERNS",
     "no_superseded_state",
@@ -343,6 +299,7 @@ __all__ = [
     "Position",
     "Verdict",
     "block",
+    "customer_asked",
     "enforce",
     "no_discount_offer",
     "no_invented_delivery_date",

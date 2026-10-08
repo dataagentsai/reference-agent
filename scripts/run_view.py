@@ -66,8 +66,8 @@ from support_agent import router  # noqa: E402
 from support_agent.binding import SCOPES  # noqa: E402
 from support_agent.config import Settings, resolve  # noqa: E402
 from support_agent.contracts import Identity  # noqa: E402
-from support_agent.llm import connect_model  # noqa: E402
-from support_agent.tools import connect  # noqa: E402
+from agent_harness.llm import connect_model
+from agent_harness.tools import connect
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEST = ROOT / "docs" / ".preview" / "RUN-VIEW.html"

@@ -54,22 +54,22 @@ PATH = [
     (
         "PHASE 4 — LOOP: the only path that reaches the model",
         [
-            ("src/support_agent/loop/__init__.py", "run"),
-            ("src/support_agent/loop/plan.py", "signature"),
+            ("packages/agent-harness/src/agent_harness/loop/__init__.py", "run"),
+            ("packages/agent-harness/src/agent_harness/loop/plan.py", "signature"),
         ],
     ),
     (
         "PHASE 4a — THE TYPED BOUNDARY",
         [
-            ("src/support_agent/llm/__init__.py", "GroqClient.complete"),
-            ("src/support_agent/llm/__init__.py", "_from_wire"),
+            ("packages/agent-harness/src/agent_harness/llm/__init__.py", "GroqClient.complete"),
+            ("packages/agent-harness/src/agent_harness/llm/__init__.py", "_from_wire"),
         ],
     ),
     (
         "PHASE 4b — THE TOOL BOUNDARY",
         [
-            ("src/support_agent/tools/__init__.py", "GatedTools.call"),
-            ("src/support_agent/tools/mcp.py", "MCPTransport.invoke"),
+            ("packages/agent-harness/src/agent_harness/tools/__init__.py", "GatedTools.call"),
+            ("packages/agent-harness/src/agent_harness/tools/mcp.py", "MCPTransport.invoke"),
         ],
     ),
     (
@@ -83,7 +83,7 @@ PATH = [
     (
         "PHASE 4d — POLICY: the complete reply, screened",
         [
-            ("src/support_agent/policy/__init__.py", "enforce"),
+            ("packages/agent-harness/src/agent_harness/policy/__init__.py", "enforce"),
             ("src/support_agent/policy/__init__.py", "no_unclaimed_effect"),
         ],
     ),

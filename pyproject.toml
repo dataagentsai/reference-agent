@@ -223,6 +223,14 @@ ignore_imports = [
     "support_agent.llm.* -> anthropic",
     "support_agent.llm -> groq",
     "support_agent.llm.* -> groq",
+    # The module is the harness's now (T-019); the agent reaches the SDK only
+    # through it, and the harness's own contract holds the same line inside.
+    "agent_harness.llm -> openai",
+    "agent_harness.llm.* -> openai",
+    "agent_harness.llm -> anthropic",
+    "agent_harness.llm.* -> anthropic",
+    "agent_harness.llm -> groq",
+    "agent_harness.llm.* -> groq",
 ]
 unmatched_ignore_imports_alerting = "none"
 
@@ -236,9 +244,15 @@ forbidden_modules = ["agenttwin"]
 [[tool.importlinter.contracts]]
 name = "Only the tools module speaks MCP"
 type = "forbidden"
-source_modules = ["support_agent"]
+# Both packages: the MCP client is the harness's now (T-019).
+source_modules = ["support_agent", "agent_harness"]
 forbidden_modules = ["mcp"]
-ignore_imports = ["support_agent.tools -> mcp", "support_agent.tools.* -> mcp"]
+ignore_imports = [
+    "support_agent.tools -> mcp",
+    "support_agent.tools.* -> mcp",
+    "agent_harness.tools -> mcp",
+    "agent_harness.tools.* -> mcp",
+]
 unmatched_ignore_imports_alerting = "none"
 
 [[tool.importlinter.contracts]]

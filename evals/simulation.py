@@ -32,6 +32,7 @@ from agent_harness.cost import Meter
 from agent_harness.requests import InMemoryRequests
 from agent_harness.resilience import ResilientLLM
 from agent_harness.state import Conversation, InMemoryCheckpointStore
+from agent_harness.tools import connect
 from evals import durable
 from support_agent import entrypoint as ep
 from support_agent.binding import SCOPES
@@ -48,7 +49,6 @@ from support_agent.contracts import (
     ModelUnavailable,
     ToolClient,
 )
-from support_agent.tools import connect
 
 DECISIONS = {
     "grant": Approver.grants,

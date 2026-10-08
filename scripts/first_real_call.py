@@ -34,8 +34,8 @@ from agent_harness.state import InMemoryCheckpointStore
 from support_agent import entrypoint as ep
 from support_agent.config import Settings, resolve
 from support_agent.contracts import Identity, SideEffectClass
-from support_agent.llm import connect_model
-from support_agent.tools import META_SIDE_EFFECT, connect
+from agent_harness.llm import connect_model
+from agent_harness.tools import META_SIDE_EFFECT, connect
 
 CASSETTE = Path(__file__).parent.parent / "cassettes" / "first_real_call.json"
 TOOLS = ("get_order",)

@@ -14,8 +14,8 @@ from pathlib import Path
 
 from agenttwin import ScenarioFile, load_scenario
 
+from agent_harness.llm import ScriptedClient
 from support_agent.contracts import ModelResponse, ToolCall, Usage
-from support_agent.llm import ScriptedClient
 
 SCENARIOS = Path(__file__).parent.parent / "scenarios"
 

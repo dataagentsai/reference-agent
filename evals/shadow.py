@@ -36,12 +36,12 @@ from deploy.saleor import seed as seeding
 
 from agent_harness import identity as ident
 from agent_harness.requests import InMemoryRequests
+from agent_harness.tools import connect
 from evals import issuer as issuing
 from evals.simulation import subject_for
 from order_system import server as store_server
 from order_system.store import ORDER_FIELDS, Saleor, Store, StoreUnavailable, _expired, as_order
 from support_agent.contracts import Identity, LLMClient
-from support_agent.tools import connect
 
 URL = os.environ.get("SALEOR_URL", "http://localhost:8100/graphql/")
 EMAIL = os.environ.get("SALEOR_ADMIN_EMAIL", "admin@example.com")

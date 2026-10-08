@@ -39,7 +39,7 @@ from evals.simulation import subject_for, voice_of
 
 from agent_harness.cost import Meter
 from support_agent.config import Settings, resolve
-from support_agent.llm import connect_model
+from agent_harness.llm import connect_model
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCENARIOS = sorted((ROOT / "scenarios").glob("*.yaml"))

@@ -46,16 +46,16 @@ from agent_harness import telemetry as tel
 from agent_harness.requests import InMemoryRequests
 from agent_harness.state import InMemoryCheckpointStore
 from support_agent import entrypoint as ep
-from support_agent import loop as agent_loop
+from agent_harness import loop as agent_loop
 from support_agent import policy as pol
 from support_agent import router
-from support_agent import tools as toolmod
+from agent_harness import tools as toolmod
 from support_agent.approvals import refund as refund_mod
 from support_agent.approvals import workflow as approval_workflow
 from support_agent.contracts import Identity, ModelResponse, ToolCall
 from support_agent.entrypoint import direct
 from support_agent.entrypoint import pending as pending_mod
-from support_agent.llm import ScriptedClient
+from agent_harness.llm import ScriptedClient
 
 WORLD = "worlds/clothing.yaml"
 TRACE: list[str] = []

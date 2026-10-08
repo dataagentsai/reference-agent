@@ -7,4 +7,5 @@ known, whichever module a caller happens to import first.
 """
 
 from support_agent import contracts as contracts
+from support_agent import policy as policy
 from support_agent.telemetry import spans as spans
