@@ -260,13 +260,19 @@ unmatched_ignore_imports_alerting = "none"
 # the agent's turn sees `Approvals` and `Escalations`, protocols, never a workflow.
 name = "Only the waits know Temporal"
 type = "forbidden"
-source_modules = ["support_agent"]
+# Both packages: the waits are the harness's now (T-019), and this shop's refund
+# activities are the one agent-side module that still speaks Temporal.
+source_modules = ["support_agent", "agent_harness"]
 forbidden_modules = ["temporalio"]
 ignore_imports = [
     "support_agent.approvals.* -> temporalio.*",
     "support_agent.approvals.* -> temporalio",
     "support_agent.escalation.* -> temporalio.*",
     "support_agent.escalation.* -> temporalio",
+    "agent_harness.approvals.* -> temporalio.*",
+    "agent_harness.approvals.* -> temporalio",
+    "agent_harness.escalation.* -> temporalio.*",
+    "agent_harness.escalation.* -> temporalio",
 ]
 unmatched_ignore_imports_alerting = "none"
 

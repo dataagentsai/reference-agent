@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 
-from agent_harness import identity as ident
+from agent_harness.approvals.workflow import Terms
 
 REFUND_ACTION = "issue_refund"
 
@@ -18,18 +18,18 @@ class Policy:
     refund_threshold: Decimal = Decimal("10000")
     """₹10,000, from the functional spec's P-ESCALATE."""
 
-    remind_before_s: int = 60 * 60
+    remind_before_s: int = Terms.remind_before_s
     """How long before an approval expires to say it is still waiting (T-059).
     An hour: long enough for somebody to act on the reminder, short enough that
     it is about *this* approval rather than a digest of the day's. Zero turns
     reminders off, which is what a deployment with nowhere to send one wants."""
 
-    ttl_s: int = 24 * 60 * 60
+    ttl_s: int = Terms.ttl_s
     """An approval expires. A refund authorised three days ago and executed
     today is a decision nobody actually made about today's situation — so a
     stale grant fails closed rather than falling through."""
 
-    elevated_scope: str = ident.SCOPE_REFUNDS_WRITE
+    elevated_scope: str = Terms.elevated_scope
 
     owed_statuses: frozenset[str] = frozenset({"returned"})
     """The states in which a refund is owed, and so the agent's to issue alone.

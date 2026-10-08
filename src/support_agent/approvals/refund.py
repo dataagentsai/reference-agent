@@ -16,7 +16,8 @@ from typing import Literal
 from temporalio import activity
 
 from agent_harness import telemetry as tel
-from support_agent.approvals.durable import ASSESS, CARRY_OUT, Ask, Assessment, CarriedOut
+from agent_harness.approvals.durable import ASSESS, CARRY_OUT, Ask, Assessment, CarriedOut
+from agent_harness.approvals.workflow import ApprovalError, carry_out, moved, stored_key
 from support_agent.approvals.policy import (
     REFUND_ACTION,
     Policy,
@@ -24,7 +25,6 @@ from support_agent.approvals.policy import (
     not_requestable,
     requires_approval,
 )
-from support_agent.approvals.workflow import ApprovalError, carry_out, moved, stored_key
 from support_agent.contracts import (
     ActionDeclined,
     Approval,

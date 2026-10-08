@@ -51,7 +51,7 @@ from support_agent import policy as pol
 from support_agent import router
 from agent_harness import tools as toolmod
 from support_agent.approvals import refund as refund_mod
-from support_agent.approvals import workflow as approval_workflow
+from agent_harness.approvals import workflow as approval_workflow
 from support_agent.contracts import Identity, ModelResponse, ToolCall
 from support_agent.entrypoint import direct
 from support_agent.entrypoint import pending as pending_mod

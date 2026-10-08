@@ -53,8 +53,8 @@ from starlette.routing import Route
 from agent_harness import identity as ident
 from agent_harness import requests as req
 from agent_harness import telemetry as tel
+from agent_harness.approvals import notify as ap_notify
 from agent_harness.state import Conversation
-from support_agent.approvals import notify as ap_notify
 from support_agent.contracts import (
     Approval,
     CheckpointStore,

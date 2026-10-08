@@ -40,7 +40,7 @@ PATH = [
             ("src/support_agent/entrypoint/__init__.py", "Agent._turn"),
             ("src/support_agent/entrypoint/__init__.py", "Agent._gates"),
             ("src/support_agent/entrypoint/pending.py", "ApprovalFlow.resume"),
-            ("src/support_agent/approvals/workflow.py", "carry_out"),
+            ("packages/agent-harness/src/agent_harness/approvals/workflow.py", "carry_out"),
             ("src/support_agent/entrypoint/__init__.py", "Agent._dispatch"),
         ],
     ),

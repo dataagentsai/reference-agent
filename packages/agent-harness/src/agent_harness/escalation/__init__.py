@@ -10,6 +10,12 @@ rules — P-ESC-ONCE, P-ESC-FRESH, P-ESC-CAP, P-ESC-TTL, P-ESC-LAPSE, P-ESC-TOLD
 and P-ESC-OUTCOME. This package is that block, executable. Nothing here decides
 what an escalation means; it decides when the spec's answer applies.
 
+## What is not here
+
+What the customer is told — every reply about the desk — is the agent's own
+wording, and so are the Tier 2 rules an agent fires on. The handoff
+(`agent_harness.entrypoint.handoff`) is handed both.
+
 ## What this fixes
 
 Before it, `Escalate` produced a sentence and nothing else. The agent told a
@@ -31,58 +37,36 @@ The lapse is therefore a designed path, not a failure: the conversation returns
 to the agent, the customer is told the truth, and the record survives as
 evidence that nobody answered. That last part is the point. *Failing to act is
 the failure mode with no evidence*, and this is the one place we can leave some.
-
-## Where the line is (T-019)
-
-The waits — the workflow, its Temporal realisation, the desk, capacity — are the
-harness's (`agent_harness.escalation`), re-exported here. What the customer is
-told (`wording`) and the Tier 2 rules (`rules.DEFAULT_RULES`) are this shop's.
-This module is the wording the handoff is handed: it reads each reply from here
-at the moment it speaks.
 """
 
 from __future__ import annotations
 
-from agent_harness.escalation import (
-    DEFAULT_TTL_S,
+from agent_harness.escalation.capacity import (
+    Capacity,
+)
+from agent_harness.escalation.desk import (
     TASK_QUEUE,
     WORKFLOWS,
-    Capacity,
     EscalationDesk,
-    EscalationError,
     TemporalEscalations,
+    worker,
+)
+from agent_harness.escalation.workflow import (
+    DEFAULT_TTL_S,
+    EscalationError,
     new_escalation_id,
     outcome_of,
     refusal,
-    worker,
-)
-from support_agent.escalation.wording import (
-    CAPPED_REPLY,
-    CLOSED_REPLY,
-    LAPSED_REPLY,
-    NO_DESK_REPLY,
-    QUEUED_REPLY,
-    RAISED_REPLY,
-    WAITING_REPLY,
-    humanise,
 )
 
 __all__ = [
-    "CAPPED_REPLY",
-    "CLOSED_REPLY",
     "DEFAULT_TTL_S",
-    "LAPSED_REPLY",
-    "NO_DESK_REPLY",
-    "QUEUED_REPLY",
-    "RAISED_REPLY",
     "TASK_QUEUE",
     "WORKFLOWS",
-    "WAITING_REPLY",
     "Capacity",
     "EscalationDesk",
     "EscalationError",
     "TemporalEscalations",
-    "humanise",
     "new_escalation_id",
     "outcome_of",
     "refusal",

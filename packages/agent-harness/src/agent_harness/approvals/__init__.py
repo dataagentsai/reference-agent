@@ -36,67 +36,36 @@ without a granted, unexpired approval, and only the approvals worker calls it.
 The agent is handed `TemporalApprovals`, which can ask and read; a reviewer is
 handed `ApprovalDesk`, which can decide. The gate is not the only control; it is
 the second one, and this is the first.
-
-### Where the line is (T-019)
-
-The waits — the workflow, its Temporal realisation, the desk and the reminders —
-are the harness's (`agent_harness.approvals`), re-exported here. What needs a
-person (`Policy`) and the refund tool built on the wait (`refund`) are this
-shop's, and stay beside it.
 """
 
 from __future__ import annotations
 
-from agent_harness.approvals import (
-    REMIND,
+from agent_harness.approvals.desk import (
     TASK_QUEUE,
     WORKFLOWS,
     ApprovalDesk,
+    TemporalApprovals,
+    approval_id,
+    connect_temporal,
+    metrics_runtime,
+    worker,
+)
+from agent_harness.approvals.durable import REMIND
+from agent_harness.approvals.notify import Nobody, Notifier, Reminders, message
+from agent_harness.approvals.workflow import (
     ApprovalError,
     ApprovalTerms,
-    Nobody,
-    Notifier,
-    Reminders,
-    TemporalApprovals,
     Terms,
-    approval_id,
     carry_out,
-    connect_temporal,
     granted_identity,
     is_executable,
-    message,
-    metrics_runtime,
     moved,
     refusal,
     stored_key,
-    worker,
 )
-from support_agent.approvals.policy import (
-    REFUND_ACTION,
-    Policy,
-    judged,
-    not_requestable,
-    requires_approval,
-)
-from support_agent.approvals.refund import (
-    ORDER_LOOKUP,
-    POLICY_APPROVER,
-    REFUND_WAIT_REPLY,
-    REQUEST_REFUND,
-    REQUEST_REFUND_SPEC,
-    RefundRequested,
-    RefundWork,
-    refund_tool,
-)
-from support_agent.contracts import Approval, ApprovalState
+from agent_harness.contracts import Approval, ApprovalState
 
 __all__ = [
-    "ORDER_LOOKUP",
-    "POLICY_APPROVER",
-    "REFUND_ACTION",
-    "REFUND_WAIT_REPLY",
-    "REQUEST_REFUND",
-    "REQUEST_REFUND_SPEC",
     "TASK_QUEUE",
     "WORKFLOWS",
     "Approval",
@@ -109,23 +78,16 @@ __all__ = [
     "ApprovalError",
     "ApprovalState",
     "ApprovalTerms",
-    "Terms",
-    "Policy",
-    "RefundRequested",
-    "RefundWork",
     "TemporalApprovals",
+    "Terms",
     "approval_id",
     "carry_out",
     "connect_temporal",
     "metrics_runtime",
     "granted_identity",
     "is_executable",
-    "judged",
     "moved",
     "refusal",
-    "refund_tool",
-    "not_requestable",
-    "requires_approval",
     "stored_key",
     "worker",
 ]

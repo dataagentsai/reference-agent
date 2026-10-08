@@ -1,145 +1,24 @@
-"""Tier 2 — the escalations nobody asked for.
+"""Tier 2 — this shop's escalations nobody asked for.
 
-Tier 1 reads the turn's text: the customer said *"get me a manager"*, or named a
-case class the agent may not settle. It runs before any work and costs nothing.
-
-This tier reads what the **conversation has become**. A customer who has asked
-the same thing four times, a trajectory that exhausted its step budget, two tool
-failures in a row — none of them contain a request for a person, and every one
-of them has earned one. That is the whole difference: Tier 1 answers *what did
-they say*, Tier 2 answers *how is this going*.
-
-It is also what closes **R-011 / L2×P4**. Until now escalation existed only
-ahead of the loop, so a trajectory that had failed twice had no way to say *hand
-this to a person* — the grid cell for control-loop escalation was empty. A rule
-over `termination` fills it without the loop knowing this module exists.
-
-## Same predicate vocabulary as the world
-
-`Condition` is deliberately the shape `worlds/*.yaml` already uses for
-`allowed_when` and `required_when` — a field, a membership list, a bound. Not
-because a richer expression language would be hard, but because the omission
-oracle reads that vocabulary, and a second syntax here would mean the detector
-for *missed* escalations could not read the rules for *raised* ones. One
-vocabulary across world invariants, omission obligations and escalation rules is
-worth more than richer operators.
-
-When a rule genuinely needs arithmetic across fields, an OR, or a quantifier
-over a list, that is the signal to adopt a real expression language for all
-three at once — not to bolt a second syntax onto this one.
-
-## Why the cooldown is not optional
-
-A Tier 1 rule fires because somebody asked, so firing again when they ask again
-is correct. A Tier 2 rule fires because a *condition holds* — and lapsing an
-escalation does not stop it holding. Without a cooldown, `loop-exhausted` would
-raise on every subsequent failing turn, lapse, and raise again: a customer
-receiving a new reference number every few minutes, and a queue filling with
-duplicates of one problem.
-
-So a rule fires at most once while the agent holds the conversation, and a
-conversation raises at most `MAX_PER_CONVERSATION` escalations in total. Past
-the cap the agent stops promising and says something true instead — which is the
-honest end of a bad run, not a failure to handle.
-
-## A handback starts the count again
-
-`P-ESC-ONCE` and `P-ESC-FRESH` (T-076c, decided 2026-10-01). When the
-conversation comes back to the agent — a colleague closed it, or it lapsed —
-what happens next is new evidence. The facts the rules read count only turns
-since the return, and each rule may fire once more: two failures after a
-handback fetch a person again, and the two before it do not count towards that.
-The cap is what stops a loop, and it is never reset.
+The engine — the condition vocabulary, the cooldown, the cap, the facts a rule
+reads, and `evaluate` — is the harness's (`agent_harness.escalation.rules`),
+re-exported here. The rules are this agent's: which conditions have earned a
+customer a person, in what order, and how long each waits. `RuleSet()` here
+carries them, and `evaluate` with no rule set reads them.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
-from agent_harness.state import Conversation
-
-MAX_PER_CONVERSATION = 2
-"""After this, stop raising. A third reference number for one unresolved problem
-helps nobody and makes the queue read as three customers."""
-
-
-@dataclass(frozen=True)
-class Facts:
-    """What the conversation has become, as numbers.
-
-    Assembled once per evaluation and then only read. Rules are pure functions of
-    this snapshot — no store, no clock, no tool — which is what makes an
-    escalation reproducible from its trace: record the facts and the rule, and
-    the decision replays exactly.
-    """
-
-    turn_count: int = 0
-    termination: str | None = None
-    """Why the loop stopped, when it ran. `None` on a route that never reached
-    it, which is most of them."""
-    consecutive_failed: int = 0
-    refusals: int = 0
-    repeated_intent: int = 0
-    """Turns carrying the latest turn's intent, counting back from it until the
-    intent changes — AOAS `facts.repeated_intent`."""
-    escalations: int = 0
-    already_fired: frozenset[str] = frozenset()
-
-    def get(self, name: str) -> Any:
-        return getattr(self, name, None)
-
-
-@dataclass(frozen=True)
-class Condition:
-    """One clause. Deliberately the world file's shape.
-
-    `equals` is a membership list rather than a scalar, matching
-    `{field: status, equals: [pending, confirmed]}` — one form for "is one of"
-    reads better than two forms that differ only in cardinality.
-    """
-
-    field: str
-    equals: tuple[Any, ...] | None = None
-    at_least: int | None = None
-    at_most: int | None = None
-
-    def holds(self, facts: Facts) -> bool:
-        value = facts.get(self.field)
-        if self.equals is not None and value not in self.equals:
-            return False
-        if self.at_least is not None and (value is None or value < self.at_least):
-            return False
-        return not (self.at_most is not None and (value is None or value > self.at_most))
-
-
-@dataclass(frozen=True)
-class Tier2Rule:
-    """A rule, and what acting on it costs.
-
-    `ttl_s` and `priority` live here rather than on the raise, because *"the
-    refund is large"* and *"they asked twice"* are not the same event and should
-    not wait the same length of time in the same position in the queue.
-    """
-
-    id: str
-    when: tuple[Condition, ...]
-    reason: str
-    priority: int = 5
-    ttl_s: int = 30 * 60
-
-    def holds(self, facts: Facts) -> bool:
-        return all(c.holds(facts) for c in self.when)
-
-
-TERMINATED_BADLY = (
-    "concerns_unanswered",
-    "step_budget_exhausted",
-    "cost_ceiling_reached",
-    "deadline_reached",
-    "output_length_reached",
-    "oscillation_detected",
-    "tool_call_budget_exhausted",
+from agent_harness.escalation import rules as _engine
+from agent_harness.escalation.rules import (
+    MAX_PER_CONVERSATION,
+    TERMINATED_BADLY,
+    Condition,
+    Facts,
+    Tier2Rule,
+    facts_of,
 )
 
 DEFAULT_RULES: tuple[Tier2Rule, ...] = (
@@ -194,78 +73,16 @@ turns-to-resolution budget has somewhere to be enforced.
 
 
 @dataclass(frozen=True)
-class RuleSet:
+class RuleSet(_engine.RuleSet):
     """Versioned configuration, like `router.Rules` — AAC-0101 gates changing
     these the way it gates a model change."""
 
-    version: str = "t2-v1"
     rules: tuple[Tier2Rule, ...] = field(default_factory=lambda: DEFAULT_RULES)
-    cap: int = MAX_PER_CONVERSATION
 
 
-def evaluate(facts: Facts, rules: RuleSet | None = None) -> Tier2Rule | None:
-    """The first rule that holds, or nothing.
-
-    First match wins, so order in the rule set is part of the versioned
-    configuration rather than an accident of iteration. Ordered by how
-    diagnostic the signal is: a loop that exhausted its budget is a far better
-    reason to fetch a person than a conversation that has merely gone on a while.
-
-    Returns `None` — never raises, never escalates. The caller decides what to do
-    with a match, exactly as `router.route` returns a decision and never calls
-    the loop.
-    """
-    rules = rules or RuleSet()
-    if facts.escalations >= rules.cap:
-        return None
-    for rule in rules.rules:
-        if rule.id in facts.already_fired:
-            # The cooldown. A Tier 2 condition does not stop holding because an
-            # escalation lapsed, so without this the same rule raises, lapses and
-            # raises again for as long as the conversation continues.
-            continue
-        if rule.holds(facts):
-            return rule
-    return None
-
-
-def facts_of(conversation: Conversation) -> Facts:
-    """Turn the remembered outcomes into the numbers rules read.
-
-    Computed rather than stored, so a rule change never needs a migration and a
-    conversation written last week answers today's rules.
-
-    Counted over the turns since the conversation last came back to the agent
-    (`P-ESC-FRESH`): a failure, a refusal or a turn before a colleague handed it
-    back is evidence that colleague has already seen. `Conversation.turn_count`
-    and `recent` keep the whole history for every other reader.
-    """
-    recent = conversation.since_return
-    failed = 0
-    for note in reversed(recent):
-        if note.result != "failed":
-            break
-        failed += 1
-
-    # However each turn was answered. A customer asking a third time has not
-    # been resolved, whatever the turns that answered them recorded — counting
-    # only unanswered turns put the threshold out of reach, so the rule never
-    # fired (F-025). AOAS `facts.repeated_intent` now says which it is.
-    repeated = 0
-    for note in reversed(recent):
-        if note.intent is None or note.intent != recent[-1].intent:
-            break
-        repeated += 1
-
-    return Facts(
-        turn_count=conversation.turn_count - conversation.returned_at_turn,
-        termination=recent[-1].termination if recent else None,
-        consecutive_failed=failed,
-        refusals=sum(1 for n in recent if n.result == "refused"),
-        repeated_intent=repeated,
-        escalations=conversation.escalations_raised,
-        already_fired=frozenset(conversation.escalated_rules),
-    )
+def evaluate(facts: Facts, rules: _engine.RuleSet | None = None) -> Tier2Rule | None:
+    """The first rule that holds, or nothing — this shop's rules unless told otherwise."""
+    return _engine.evaluate(facts, rules or RuleSet())
 
 
 __all__ = [

@@ -5,8 +5,7 @@ and it is the top of the dependency graph, so it is also the composition root:
 the only place that knows about every module and wires concrete implementations
 into the protocols the layers below depend on.
 
-Nothing below reaches back up. That is what makes the whole thing drivable from a
-test without the test having to reconstruct the system.
+Nothing below reaches back up, so a test drives the whole of it without rebuilding it.
 
 The dispatch is the deterministic-first thesis made structural. Four routes,
 and **only one of them reaches the model**:
@@ -30,6 +29,8 @@ from agent_harness import loop as agent_loop
 from agent_harness import requests as req
 from agent_harness import telemetry as tel
 from agent_harness.cost import Meter
+from agent_harness.entrypoint import ending
+from agent_harness.entrypoint.persist import TurnPersister, agree_on_durability
 from agent_harness.loop import freshness
 from agent_harness.loop.ends import CALLER_LEFT
 from agent_harness.state import Conversation, TurnNote, facts
@@ -59,11 +60,10 @@ from support_agent.contracts import (
     new_conversation_id,
     new_run_id,
 )
-from support_agent.entrypoint import consent, direct, ending, promise
+from support_agent.entrypoint import consent, direct, promise
 from support_agent.entrypoint.handoff import Handoff, HandoffDesk, NoDesk
 from support_agent.entrypoint.opening import opening
 from support_agent.entrypoint.pending import ApprovalFlow, NoApprovals, PendingWork
-from support_agent.entrypoint.persist import TurnPersister, agree_on_durability
 from support_agent.escalation import rules as t2
 
 Pairs = tuple[tuple[str, str], ...]  # (operation or tool, record): landed, tried or read
@@ -342,7 +342,7 @@ class Agent:
             now=self._now,
             rules_version=self.rules.version,
             capacity=self.capacity,
-            tier_2=self.tier_2,
+            tier_2=self.tier_2 or t2.RuleSet(),
         )
 
     async def _persist(self, run_id: RunId, conversation: Conversation) -> Conversation:
