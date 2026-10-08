@@ -70,6 +70,7 @@ MECHANISM = {
     "escalation/workflow.py",
     "flow/__init__.py",
     "identity/__init__.py",
+    "identity/entra.py",  # an adapter: the Azure stack's identity binding (T-099)
     "identity/sessions.py",
     "llm/__init__.py",
     "llm/pydantic_ai.py",  # an adapter: the Azure stack's model layer (T-099)

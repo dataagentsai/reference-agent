@@ -217,17 +217,35 @@ def verify(token: str, *, issuer: Issuer, now: int | None = None) -> Principal:
     token that does not verify produces no principal at all, so there is no
     partially-trusted path for a caller to take by accident.
     """
+    claims = decode(token, issuer=issuer, now=now, require=("jti",))
+    customer = claims.get(CLAIM_CUSTOMER)
+    return Principal(
+        subject=str(claims["sub"]),
+        customer_id=customer if isinstance(customer, str) and customer else None,
+        scopes=frozenset(_scopes(claims)),
+        session=str(claims["jti"]),
+        party=claims.get("azp") if isinstance(claims.get("azp"), str) else None,
+        token=token,
+    )
+
+
+def decode(
+    token: str, *, issuer: Issuer, require: tuple[str, ...], now: int | None = None
+) -> dict[str, Any]:
+    """The verified claims, or `InvalidSession`: the one place a signature is
+    checked. `require` is what this issuer's tokens must carry beyond `exp`,
+    `iat`, `sub`, `iss` and `aud` — a session id, whose name differs by issuer."""
     try:
         if jwt.get_unverified_header(token).get("alg") not in ALGORITHMS:
             raise InvalidSession("algorithm not accepted")
-        claims = jwt.decode(
+        claims: dict[str, Any] = jwt.decode(
             token,
             issuer.keys.key_for(token),
             algorithms=list(ALGORITHMS),
             issuer=issuer.url,
             audience=issuer.audience,
             options={
-                "require": ["exp", "iat", "sub", "iss", "aud", "jti"],
+                "require": ["exp", "iat", "sub", "iss", "aud", *require],
                 # With an injected clock we check expiry ourselves below, so the
                 # library must not compare against the wall clock as well.
                 "verify_exp": now is None,
@@ -239,16 +257,7 @@ def verify(token: str, *, issuer: Issuer, now: int | None = None) -> Principal:
             raise jwt.ExpiredSignatureError("expired")
     except jwt.PyJWTError as exc:
         raise InvalidSession(str(exc)) from exc
-
-    customer = claims.get(CLAIM_CUSTOMER)
-    return Principal(
-        subject=str(claims["sub"]),
-        customer_id=customer if isinstance(customer, str) and customer else None,
-        scopes=frozenset(_scopes(claims)),
-        session=str(claims["jti"]),
-        party=claims.get("azp") if isinstance(claims.get("azp"), str) else None,
-        token=token,
-    )
+    return claims
 
 
 def _scopes(claims: dict[str, Any]) -> list[str]:
@@ -325,6 +334,7 @@ __all__ = [
     "KeySource",
     "NotACustomer",
     "Principal",
+    "decode",
     "RefreshGrant",
     "SessionEnded",
     "RemoteJWKS",

@@ -19,6 +19,8 @@ dependencies = [
     "starlette>=1.6",
     "fastapi>=0.115",
     "temporalio>=1.18",
+    # The Entra on-behalf-of exchange (T-099): one form post, asynchronously.
+    "httpx2>=2.0",
 ]
 
 [project.optional-dependencies]

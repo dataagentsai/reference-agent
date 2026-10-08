@@ -19,6 +19,7 @@ version = "0.1.0"
 source = { editable = "packages/agent-harness" }
 dependencies = [
     { name = "fastapi" },
+    { name = "httpx2" },
     { name = "jsonschema" },
     { name = "mcp" },
     { name = "openai" },
@@ -42,6 +43,7 @@ azure = [
 requires-dist = [
     { name = "azure-monitor-opentelemetry", marker = "extra == 'azure'", specifier = ">=1.6" },
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "httpx2", specifier = ">=2.0" },
     { name = "jsonschema", specifier = ">=4.23" },
     { name = "mcp", specifier = ">=1.9" },
     { name = "openai", specifier = ">=1.50" },
