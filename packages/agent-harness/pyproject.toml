@@ -1,0 +1,29 @@
+[project]
+name = "agent-harness"
+version = "0.1.0"
+description = "The harness a support-style agent keeps whatever its domain: typed contracts, the loop, policy positions, approvals and escalation waits, telemetry, state. No agent's domain reaches it."
+requires-python = ">=3.12"
+# Exactly what the package imports. A provider SDK is here because the `llm`
+# module realises one; the import contract in the workspace root keeps every
+# other module from knowing it exists.
+dependencies = [
+    "pydantic>=2.9",
+    "opentelemetry-api>=1.27",
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp-proto-http>=1.27",
+    "openai>=1.50",
+    "pyjwt[crypto]>=2.9",
+    "mcp>=1.9",
+    "jsonschema>=4.23",
+    "psycopg[binary,pool]>=3.2",
+    "starlette>=1.6",
+    "fastapi>=0.115",
+    "temporalio>=1.18",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_harness"]

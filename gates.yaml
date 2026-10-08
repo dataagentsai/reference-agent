@@ -21,7 +21,7 @@ structure:
   checks:
     types: uv run mypy
     imports: uv run lint-imports
-    complexity: uv run ruff check src tests evals
+    complexity: uv run ruff check src tests evals packages
   # One module per harness layer (AHC taxonomy/layers.yaml).
   layers:
     L1: src/support_agent/context

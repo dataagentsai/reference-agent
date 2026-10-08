@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "Reference agent for Clean AI Engineering — customer support, built to the AI Harness Catalog's sixteen layers, with no framework."
 requires-python = ">=3.12"
 dependencies = [
+    # The harness, extracted (T-019). A workspace member while both move together;
+    # a second agent installs it and writes only its own domain.
+    "agent-harness",
     "pydantic>=2.9",
     "pydantic-settings>=2.5",
     "opentelemetry-api>=1.27",
@@ -51,7 +54,11 @@ dev = [
     "types-jsonschema>=4.26.0.20260518",
 ]
 
+[tool.uv.workspace]
+members = ["packages/agent-harness"]
+
 [tool.uv.sources]
+agent-harness = { workspace = true }
 # A local path while both repositories move together. Switch to a git reference
 # once AgentTwin tags a release and CI needs to resolve it without this checkout.
 agenttwin = { path = "../agenttwin", editable = true }
@@ -75,11 +82,11 @@ warn_unused_ignores = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined", "exhaustive-match"]
 # The deployment script is a composition root too: a required argument it misses
 # is the same defect as one `src` misses, and only mypy sees it before a run.
-files = ["src/support_agent", "scripts/run_server.py"]
+files = ["src/support_agent", "packages/agent-harness/src/agent_harness", "scripts/run_server.py"]
 
 [tool.ruff]
 line-length = 100
-src = ["src"]
+src = ["src", "packages/agent-harness/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "TID", "C901", "PLR0912", "PLR0915"]
@@ -126,7 +133,7 @@ asyncio_mode = "auto"
 # the architecture. That is "no folder without a score", applied to code.
 # ---------------------------------------------------------------------------
 [tool.importlinter]
-root_packages = ["support_agent", "order_system"]
+root_packages = ["support_agent", "order_system", "agent_harness"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -152,6 +159,38 @@ forbidden_modules = [
     "support_agent.serve",
     "support_agent.tools",
 ]
+
+[[tool.importlinter.contracts]]
+# T-019. The harness is a library a second agent installs; an import of the agent
+# from inside it would make every second agent install this one too. Nothing
+# below may be ignored: a cut that needs an exception here is a cut not made.
+name = "The harness never imports an agent"
+type = "forbidden"
+source_modules = ["agent_harness"]
+forbidden_modules = ["support_agent", "order_system"]
+
+[[tool.importlinter.contracts]]
+# The same fail-closed ban as the agent's, held inside the library: one module
+# realises the provider, and a new one inherits the ban.
+name = "Only the harness's llm module knows a provider SDK"
+type = "forbidden"
+source_modules = ["agent_harness"]
+forbidden_modules = ["openai", "anthropic", "groq"]
+ignore_imports = [
+    "agent_harness.llm -> openai",
+    "agent_harness.llm.* -> openai",
+    "agent_harness.llm -> anthropic",
+    "agent_harness.llm.* -> anthropic",
+    "agent_harness.llm -> groq",
+    "agent_harness.llm.* -> groq",
+]
+unmatched_ignore_imports_alerting = "none"
+
+[[tool.importlinter.contracts]]
+name = "The harness cannot see a simulator"
+type = "forbidden"
+source_modules = ["agent_harness"]
+forbidden_modules = ["agenttwin"]
 
 [[tool.importlinter.contracts]]
 name = "Arrows point down"

@@ -30,8 +30,11 @@ SRC = ROOT / "src" / "support_agent"
 CHECKS = [
     ("strict types", [str(BIN / "mypy")]),
     ("import contract", [str(BIN / "lint-imports")]),
-    ("lint, complexity and size ceilings", [str(BIN / "ruff"), "check", "src", "tests", "evals"]),
-    ("format", [str(BIN / "ruff"), "format", "--check", "src", "tests", "evals"]),
+    (
+        "lint, complexity and size ceilings",
+        [str(BIN / "ruff"), "check", "src", "tests", "evals", "packages"],
+    ),
+    ("format", [str(BIN / "ruff"), "format", "--check", "src", "tests", "evals", "packages"]),
 ]
 
 

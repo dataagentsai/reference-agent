@@ -7,9 +7,50 @@ resolution-markers = [
     "python_full_version < '3.14'",
 ]
 
+[manifest]
+members = [
+    "agent-harness",
+    "support-agent",
+]
+
+[[package]]
+name = "agent-harness"
+version = "0.1.0"
+source = { editable = "packages/agent-harness" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "jsonschema" },
+    { name = "mcp" },
+    { name = "openai" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
+    { name = "psycopg", extra = ["binary", "pool"] },
+    { name = "pydantic" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "starlette" },
+    { name = "temporalio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "jsonschema", specifier = ">=4.23" },
+    { name = "mcp", specifier = ">=1.9" },
+    { name = "openai", specifier = ">=1.50" },
+    { name = "opentelemetry-api", specifier = ">=1.27" },
+    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.27" },
+    { name = "opentelemetry-sdk", specifier = ">=1.27" },
+    { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2" },
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.9" },
+    { name = "starlette", specifier = ">=1.6" },
+    { name = "temporalio", specifier = ">=1.18" },
+]
+
 [[package]]
 name = "agenttwin"
-version = "0.4.0"
+version = "0.7.0"
 source = { editable = "../agenttwin" }
 dependencies = [
     { name = "httpx2" },
@@ -1781,6 +1822,7 @@ name = "support-agent"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "agent-harness" },
     { name = "fastapi" },
     { name = "jinja2" },
     { name = "jsonschema" },
@@ -1814,6 +1856,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "agent-harness", editable = "packages/agent-harness" },
     { name = "agenttwin", marker = "extra == 'dev'", editable = "../agenttwin" },
     { name = "allpairspy", marker = "extra == 'dev'", specifier = ">=2.5" },
     { name = "fastapi", specifier = ">=0.115" },
