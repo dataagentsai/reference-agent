@@ -44,6 +44,9 @@ dev = [
     # importing it at all, and a system that can see its own simulator is a
     # system whose results mean nothing.
     "agenttwin",
+    # The harness's Azure adapters (T-099), so their tests run; no runtime
+    # dependency of this agent, whose default provider stays as it was.
+    "agent-harness[azure]",
     "import-linter>=2.0",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
@@ -320,5 +323,19 @@ ignore_imports = [
     "agent_harness.state.* -> psycopg",
     "agent_harness.requests -> psycopg",
     "agent_harness.requests.* -> psycopg",
+]
+unmatched_ignore_imports_alerting = "none"
+
+[[tool.importlinter.contracts]]
+# T-099. The Azure Monitor distro is one adapter's: the telemetry binding on the
+# Azure stack. Everything else emits through OpenTelemetry's API and never knows
+# which backend receives it.
+name = "Only the telemetry adapter knows Azure Monitor"
+type = "forbidden"
+source_modules = ["support_agent", "agent_harness"]
+forbidden_modules = ["azure"]
+ignore_imports = [
+    "agent_harness.telemetry.azure -> azure.*",
+    "agent_harness.telemetry.azure -> azure",
 ]
 unmatched_ignore_imports_alerting = "none"

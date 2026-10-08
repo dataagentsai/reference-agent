@@ -21,6 +21,16 @@ dependencies = [
     "temporalio>=1.18",
 ]
 
+[project.optional-dependencies]
+# The Azure stack (T-099): Pydantic AI as the model layer under the `llm` port,
+# and the Azure Monitor OpenTelemetry distro under `telemetry`. Optional, because
+# a deployment on the Open Stack imports neither; each is imported lazily, in the
+# one branch that needs it.
+azure = [
+    "pydantic-ai-slim[openai]>=1.0",
+    "azure-monitor-opentelemetry>=1.6",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

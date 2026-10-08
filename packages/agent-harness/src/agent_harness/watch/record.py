@@ -93,7 +93,7 @@ def from_spans(spans: Iterable[ReadableSpan]) -> list[Node]:
     out = []
     for span in spans:
         scope = span.instrumentation_scope
-        if scope is not None and scope.name != tel.TRACER_NAME:
+        if scope is not None and scope.name != tel.scope_name():
             continue
         context = span.context
         out.append(
@@ -113,7 +113,7 @@ def from_observations(observations: Iterable[Mapping[str, Any]]) -> list[Node]:
     prefix = "attributes."
     for found in observations:
         metadata = found.get("metadata") or {}
-        if metadata.get("scope.name") not in (None, tel.TRACER_NAME):
+        if metadata.get("scope.name") not in (None, tel.scope_name()):
             continue
         attributes = {k[len(prefix) :]: v for k, v in metadata.items() if k.startswith(prefix)}
         out.append(

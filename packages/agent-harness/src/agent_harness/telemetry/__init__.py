@@ -28,13 +28,14 @@ from contextvars import ContextVar
 from typing import Any
 
 from opentelemetry import trace
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import Span, StatusCode
 
-from agent_harness.telemetry import counters, meters
+from agent_harness.telemetry import azure, counters, meters, names
 from agent_harness.telemetry.contract import (
     CONTRACT,
     SpanSpec,
@@ -85,17 +86,29 @@ from agent_harness.telemetry.names import (
     TOOL_CALL_BOUND,
     TOOL_OUTCOME,
     TOOL_RESULT,
-    TRACER_NAME,
     TURN_RESULT,
     TURN_RULE,
     USER_ID,
+    scope_name,
+    service_name,
+    set_identity,
 )
 from agent_harness.telemetry.redaction import (
     _REDACTIONS,
     redact,
 )
 
-_TRACER_NAME = TRACER_NAME
+
+def identify(*, scope: str, service: str) -> None:
+    """Name the agent this telemetry is for: its instrumentation scope, which
+    its spans and numbers carry and the span contract holds to account, and the
+    `service.name` a provider is built with when `configure` is not told one.
+
+    The agent's to say, once, before its first span — the library has no agent
+    name of its own to fall back on, only a neutral one (`DEFAULT_SCOPE`).
+    """
+    set_identity(scope, service)
+    meters.rebind()
 
 
 def set_current_attribute(name: str, value: Any) -> None:
@@ -126,7 +139,7 @@ def configure(
     *,
     capture_payloads: bool = False,
     capture_sample: float = 1.0,
-    service_name: str = "support-agent",
+    service_name: str | None = None,
     service_version: str | None = None,
     environment: str | None = None,
     metrics_endpoint: str | None = None,
@@ -150,30 +163,55 @@ def configure(
     In production the composition root adds an OTLP processor alongside. The
     in-memory exporter stays regardless: it costs nothing, and it is what the
     eval harness asserts against.
+
+    On the Azure stack — `APPLICATIONINSIGHTS_CONNECTION_STRING` set — the Azure
+    Monitor distro builds both providers instead, with the same resource and the
+    same processors inside them (`telemetry.azure`). Unset, nothing differs.
     """
-    global _CAPTURE_PAYLOADS, _CAPTURE_SAMPLE, _PROVIDER
+    global _CAPTURE_PAYLOADS, _CAPTURE_SAMPLE, _PROVIDER, _LAST_EXPORTER
     _CAPTURE_PAYLOADS = capture_payloads
     _CAPTURE_SAMPLE = capture_sample
     exporter = InMemorySpanExporter()
     # `deployment.environment.name` is the current spelling; the older
     # `deployment.environment` is deprecated. Attributes are dropped when unset
     # rather than filled with "unknown", so an absent value stays absent.
-    attributes = {"service.name": service_name}
+    attributes = {"service.name": service_name or names.service_name()}
     if service_version is not None:
         attributes["service.version"] = service_version
     if environment is not None:
         attributes["deployment.environment.name"] = environment
-    provider = TracerProvider(resource=Resource.create(attributes))
-    provider.add_span_processor(SimpleSpanProcessor(exporter))
-    provider.add_span_processor(meters.RunNumbers())
-    _PROVIDER = provider
-    global _LAST_EXPORTER
-    _LAST_EXPORTER = exporter
-    trace.set_tracer_provider(provider)  # no-op after the first call; harmless
-    meters.configure(
-        Resource.create(attributes), metrics_endpoint, metrics_headers, metrics_interval_s
+    _PROVIDER = _install(
+        Resource.create(attributes),
+        (SimpleSpanProcessor(exporter), meters.RunNumbers()),
+        metrics_endpoint,
+        metrics_headers,
+        metrics_interval_s,
     )
+    _LAST_EXPORTER = exporter
     return exporter
+
+
+def _install(
+    resource: Resource,
+    processors: tuple[SpanProcessor, ...],
+    metrics_endpoint: str | None,
+    metrics_headers: Mapping[str, str] | None,
+    metrics_interval_s: float,
+) -> TracerProvider:
+    connection = azure.connection_string()
+    if connection is not None:
+        # The Azure stack: the distro builds both providers, exporting to
+        # Application Insights, with ours inside them (`telemetry.azure`).
+        reader = InMemoryMetricReader()
+        provider, meter_provider = azure.install(connection, resource, processors, reader)
+        meters.adopt(meter_provider, reader)
+        return provider
+    provider = TracerProvider(resource=resource)
+    for processor in processors:
+        provider.add_span_processor(processor)
+    trace.set_tracer_provider(provider)  # no-op after the first call; harmless
+    meters.configure(resource, metrics_endpoint, metrics_headers, metrics_interval_s)
+    return provider
 
 
 def capture_decision(run_id: str) -> bool:
@@ -257,8 +295,8 @@ def export_to(endpoint: str, *, headers: Mapping[str, str] | None = None) -> boo
 
 def _tracer() -> trace.Tracer:
     if _PROVIDER is not None:
-        return _PROVIDER.get_tracer(_TRACER_NAME)
-    return trace.get_tracer(_TRACER_NAME)
+        return _PROVIDER.get_tracer(scope_name())
+    return trace.get_tracer(scope_name())
 
 
 @contextmanager
@@ -299,7 +337,6 @@ def set_usage(current: Span, *, input_tokens: int, output_tokens: int) -> None:
 
 __all__ = [
     "CAPTURED",
-    "TRACER_NAME",
     "FEEDBACK",
     "INPUT",
     "REPLY",
@@ -350,6 +387,9 @@ __all__ = [
     "_REDACTIONS",
     "attributes_of",
     "configure",
+    "identify",
+    "scope_name",
+    "service_name",
     "redact",
     "set_current_attribute",
     "capture_decision",

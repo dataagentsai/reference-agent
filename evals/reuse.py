@@ -97,6 +97,7 @@ MECHANISM = {
     "state/file.py",
     "state/postgres.py",
     "telemetry/__init__.py",
+    "telemetry/azure.py",  # an adapter: the Azure stack's telemetry binding (T-099)
     "telemetry/contract.py",
     "telemetry/counters.py",
     "telemetry/meters.py",

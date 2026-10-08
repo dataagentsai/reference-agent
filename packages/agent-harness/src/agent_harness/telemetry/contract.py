@@ -53,10 +53,10 @@ from agent_harness.telemetry.names import (
     TOOL_CALL_BOUND,
     TOOL_OUTCOME,
     TOOL_RESULT,
-    TRACER_NAME,
     TURN_RESULT,
     TURN_RULE,
     USER_ID,
+    scope_name,
 )
 
 # --------------------------------------------------------------------------- #
@@ -295,7 +295,7 @@ def validate(spans: Iterable[ReadableSpan]) -> list[str]:
         # The contract governs this agent's spans. A library that instruments
         # itself (the MCP SDK emits `tools/list`) is not ours to hold to it.
         scope = span.instrumentation_scope
-        if scope is not None and scope.name != TRACER_NAME:
+        if scope is not None and scope.name != scope_name():
             continue
         spec = CONTRACT.get(span.name)
         if spec is None:

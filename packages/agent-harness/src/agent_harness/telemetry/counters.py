@@ -80,8 +80,7 @@ from opentelemetry import metrics
 from opentelemetry.metrics import Counter, Histogram, Meter
 
 from agent_harness.contracts import Escalated, Refused, Route, TurnResult
-
-METER_NAME = "support_agent"
+from agent_harness.telemetry.names import scope_name
 
 _SECONDS = (0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 15, 30, 60, 120)
 """Bucket edges for every duration here. A turn with a model in it lives between
@@ -231,7 +230,7 @@ def _bind_tool_surface(meter: Meter) -> None:
     )
 
 
-bind(metrics.get_meter(METER_NAME))
+bind(metrics.get_meter(scope_name()))
 
 
 def _flag(value: bool) -> str:
@@ -275,7 +274,6 @@ def record_turn(
 
 
 __all__ = [
-    "METER_NAME",
     "UNCONFIGURED",
     "approvals",
     "bind",

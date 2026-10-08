@@ -278,3 +278,18 @@ policy object three numbers were read off. Each became an input — a protocol, 
 registration at import, or an argument with the agent's value as its default on
 the agent's side. None needed inheritance in the library or a plugin system,
 which is the same answer `evals/reuse.py`'s seam map gave from reading.
+
+---
+
+## Azure stack adapters (T-099)
+
+Each binds one AHC layer to the service `stacks/azure.yaml` (clean-ai-engineering)
+decided for it. An adapter is mechanism: a second agent on the Azure stack keeps
+it whole, and an agent on the Open Stack never imports it — each takes the
+optional `agent-harness[azure]` dependency, imported lazily in the one branch
+that needs it. No statement names an adapter, correctly: the statement requires
+the layer, and the stack file says which service realises it.
+
+| File | Why |
+|---|---|
+| `telemetry/azure.py` | The `telemetry` binding (`azure-monitor-otel`): when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, the Azure Monitor distro builds the providers with this harness's processors inside them, so the `agent.*` spans, the span contract (**AAC-0011**) and the in-memory exporter the evals assert against are unchanged. Unset, nothing differs. |

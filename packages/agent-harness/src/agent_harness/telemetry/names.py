@@ -196,6 +196,33 @@ FEEDBACK = "agent.feedback"
 """up · down, from the customer, against a conversation (AHC-0112)."""
 
 
-TRACER_NAME = "support_agent"
-"""The instrumentation scope this agent's spans carry — and the only one the
-span contract holds to account."""
+# --------------------------------------------------------------------------- #
+# Who is emitting. An agent's names, not the library's: the agent sets them once
+# (`telemetry.identify`), before its first span, and every check that holds
+# "this agent's spans" to account reads them back from here.
+# --------------------------------------------------------------------------- #
+
+DEFAULT_SCOPE = "agent_harness"
+"""The instrumentation scope until an agent names its own."""
+
+DEFAULT_SERVICE = "agent"
+"""`service.name` until an agent names its own. Never `unknown_service`."""
+
+_IDENTITY = {"scope": DEFAULT_SCOPE, "service": DEFAULT_SERVICE}
+
+
+def scope_name() -> str:
+    """The instrumentation scope this agent's spans and numbers carry — and the
+    only one the span contract holds to account."""
+    return _IDENTITY["scope"]
+
+
+def service_name() -> str:
+    """The `service.name` a provider is built with when none is passed."""
+    return _IDENTITY["service"]
+
+
+def set_identity(scope: str, service: str) -> None:
+    if not scope or not service:
+        raise ValueError("an agent's telemetry needs both a scope and a service name")
+    _IDENTITY.update(scope=scope, service=service)

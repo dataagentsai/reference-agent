@@ -18,7 +18,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor
 
 from agent_harness.telemetry import counters
-from agent_harness.telemetry.names import COST_USD, TERMINATION, TRACER_NAME
+from agent_harness.telemetry.names import COST_USD, TERMINATION, scope_name
 
 _METERS: MeterProvider | None = None
 _METRIC_READER: InMemoryMetricReader | None = None
@@ -40,7 +40,7 @@ class RunNumbers(SpanProcessor):
 
     def on_end(self, span: ReadableSpan) -> None:
         scope = span.instrumentation_scope
-        if span.name != "agent.run" or (scope is not None and scope.name != TRACER_NAME):
+        if span.name != "agent.run" or (scope is not None and scope.name != scope_name()):
             return
         attributes = span.attributes or {}
         reason = attributes.get(TERMINATION)
@@ -83,7 +83,22 @@ def configure(
     _METERS = MeterProvider(resource=resource, metric_readers=readers)
     _METRIC_READER = reader
     metrics.set_meter_provider(_METERS)  # no-op after the first call; harmless
-    counters.bind(_METERS.get_meter(counters.METER_NAME))
+    rebind()
+
+
+def adopt(provider: MeterProvider, reader: InMemoryMetricReader) -> None:
+    """A meter provider somebody else built — the Azure Monitor distro's, which
+    exports by itself — holding our in-memory reader, made ours."""
+    global _METERS, _METRIC_READER, _EXPORTING_METRICS
+    if _METERS is not None and _METERS is not provider:
+        _METERS.shutdown()
+    _METERS, _METRIC_READER, _EXPORTING_METRICS = provider, reader, True
+    rebind()
+
+
+def rebind() -> None:
+    """Every instrument in `counters`, under the scope the agent named."""
+    counters.bind((_METERS or metrics.get_meter_provider()).get_meter(scope_name()))
 
 
 def exporting_metrics() -> bool:
@@ -111,4 +126,12 @@ def flush_metrics() -> None:
         _METERS.force_flush()
 
 
-__all__ = ["RunNumbers", "configure", "exporting_metrics", "flush_metrics", "metric_points"]
+__all__ = [
+    "RunNumbers",
+    "adopt",
+    "configure",
+    "rebind",
+    "exporting_metrics",
+    "flush_metrics",
+    "metric_points",
+]
