@@ -158,6 +158,15 @@ forbidden_modules = [
     "support_agent.loop",
     "support_agent.serve",
     "support_agent.tools",
+    # The same modules where they live now (T-019): the identity verifier and the
+    # contracts are the library it may use, and nothing else.
+    "agent_harness.approvals",
+    "agent_harness.entrypoint",
+    "agent_harness.escalation",
+    "agent_harness.llm",
+    "agent_harness.loop",
+    "agent_harness.serve",
+    "agent_harness.tools",
 ]
 
 [[tool.importlinter.contracts]]
@@ -185,6 +194,25 @@ ignore_imports = [
     "agent_harness.llm.* -> groq",
 ]
 unmatched_ignore_imports_alerting = "none"
+
+[[tool.importlinter.contracts]]
+# The agent's layering, held inside the library too: the same ranks, less the
+# modules that are only an agent's (router, binding, ui). Exhaustive, so a new
+# harness module has to be placed before it can be imported.
+name = "Arrows point down inside the harness"
+type = "layers"
+containers = ["agent_harness"]
+layers = [
+    "serve | portal | channel | watch",
+    "reviewer",
+    "entrypoint",
+    "loop",
+    "context | tools | approvals | escalation",
+    "llm | state | policy | cost | requests | erasure | resilience | flow | identity | cassette",
+    "config | telemetry",
+    "conformance | contracts",
+]
+exhaustive = true
 
 [[tool.importlinter.contracts]]
 name = "The harness cannot see a simulator"
