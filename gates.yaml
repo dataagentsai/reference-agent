@@ -22,21 +22,35 @@ structure:
     types: uv run mypy
     imports: uv run lint-imports
     complexity: uv run ruff check src tests evals packages
-  # One module per harness layer (AHC taxonomy/layers.yaml).
+  # One module per harness layer (AHC taxonomy/layers.yaml). Since T-019 the
+  # harness is its own package; a layer whose engine is there and whose values
+  # are this agent's names both.
   layers:
-    L1: src/support_agent/context
-    L2: src/support_agent/llm
-    L3: src/support_agent/tools
-    L4: src/support_agent/loop
-    L5: src/support_agent/state
-    L6: src/support_agent/contracts
-    L7: src/support_agent/policy
-    L8: src/support_agent/flow
-    L9: src/support_agent/cassette
-    L10: src/support_agent/resilience
-    L11: src/support_agent/telemetry
-    L12: src/support_agent/entrypoint
-    L13: src/support_agent/cost
-    L14: src/support_agent/approvals
-    L15: src/support_agent/config
-    L16: src/support_agent/identity
+    L1: packages/agent-harness/src/agent_harness/context
+    L2: packages/agent-harness/src/agent_harness/llm
+    L3: packages/agent-harness/src/agent_harness/tools
+    L4: packages/agent-harness/src/agent_harness/loop
+    L5: packages/agent-harness/src/agent_harness/state
+    L6:
+      - packages/agent-harness/src/agent_harness/contracts
+      - src/support_agent/contracts
+    L7:
+      - packages/agent-harness/src/agent_harness/policy
+      - src/support_agent/policy
+    L8: packages/agent-harness/src/agent_harness/flow
+    L9: packages/agent-harness/src/agent_harness/cassette
+    L10: packages/agent-harness/src/agent_harness/resilience
+    L11:
+      - packages/agent-harness/src/agent_harness/telemetry
+      - src/support_agent/telemetry
+    L12:
+      - packages/agent-harness/src/agent_harness/entrypoint
+      - src/support_agent/entrypoint
+    L13: packages/agent-harness/src/agent_harness/cost
+    L14:
+      - packages/agent-harness/src/agent_harness/approvals
+      - src/support_agent/approvals
+    L15:
+      - packages/agent-harness/src/agent_harness/config
+      - src/support_agent/config
+    L16: packages/agent-harness/src/agent_harness/identity

@@ -72,6 +72,7 @@ from support_agent.contracts import Identity  # noqa: E402
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEST = ROOT / "docs" / ".preview" / "RUN-VIEW.html"
 SRC = ROOT / "src" / "support_agent"
+LIB = ROOT / "packages" / "agent-harness" / "src" / "agent_harness"  # the harness (T-019)
 
 
 @dataclass
@@ -126,8 +127,8 @@ def authored() -> dict[str, str]:
     constants goes stale and a parse cannot.
     """
     found: dict[str, str] = {}
-    for path in sorted(SRC.rglob("*.py")):
-        module = path.relative_to(SRC).as_posix()
+    paths = [(p.relative_to(base).as_posix(), p) for base in (SRC, LIB) for p in base.rglob("*.py")]
+    for module, path in sorted(paths):
         for node in ast.parse(path.read_text()).body:
             targets = (
                 [node.target] if isinstance(node, ast.AnnAssign) else getattr(node, "targets", [])

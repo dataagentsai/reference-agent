@@ -15,6 +15,19 @@ added — the same guard `reuse.py` uses for its own classification. It earned i
 place on the first run by catching `flow/__init__.py`, which this document had
 missed and which turned out to be the sharpest entry in it.*
 
+
+**T-019, 8 October 2026: these files are a package now.** Every mechanism file
+named below lives in `packages/agent-harness/src/agent_harness/` at the path it
+is listed under, and the agent imports it from there; the import contract
+forbids any of it to import the agent. The old paths in `src/support_agent/`
+hold a re-export stub where a module moved whole. The reasons below were
+written before the move and still hold — the move changed where a file is, not
+why it exists. What the move *added* is in **Extracted** at the end: the engines
+split out of the agent's parameterised modules, each with the statement it
+answers. `entrypoint/__init__.py` below now names the library's — what an edge
+drives — and the turn the reason was written for is this agent's, classified
+parameterised.
+
 ---
 
 ## Summary
@@ -53,7 +66,7 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `contracts/requests.py` | AAC-0076, AHC-0053, AHC-0074 |
 | `contracts/tools.py` | AAC-0051, AAC-0105, AHC-0074, AHC-0107 |
 | `cost/__init__.py` | AAC-0008, AAC-0104 |
-| `entrypoint/__init__.py` | AAC-0076, AHC-0010, AHC-0017, AHC-0107, AHC-0108, P-DIRECT-READS |
+| `entrypoint/__init__.py` | AHC-0010 — since T-019 the surface an edge drives (`TurnAgent`); the turn itself, which cited AAC-0076, AHC-0017, AHC-0107, AHC-0108 and P-DIRECT-READS, is the agent's |
 | `entrypoint/handoff.py` | AAC-0110, AHC-0070, AHC-0108, P-ESC-CAP |
 | `identity/__init__.py` | AAC-0057, AAC-0106 |
 | `identity/sessions.py` | AAC-0057, AHC-0099 |
@@ -201,9 +214,10 @@ light: a shape specification would govern *boundaries*, not *existence*.
 
 ## Empty package marker — 1 file
 
-`__init__.py` at the package root is zero lines and exports nothing. Listed so
-the count reaches 46 and the coverage test passes honestly rather than by an
-exemption.
+`__init__.py` at the package root exports nothing — since T-019 it is the
+library's, and carries only a docstring saying what the package is and what it
+may not import. Listed so the count is complete and the coverage test passes
+honestly rather than by an exemption.
 
 ---
 
@@ -235,3 +249,32 @@ Every file has a reason, and 29 of 46 already say so in their own text.
 3. **Re-read T-010.** Its premise was that structure is unspecified and large. It
    is unspecified and *small* — two files. The real subject is boundaries: the
    ratchets that turned one module into four, not the existence of modules.
+
+---
+
+## Extracted — 10 files, 1,219 lines (T-019)
+
+Each is an engine split out of a module that mixed it with this shop's values.
+The values stayed in `support_agent`; each row says which statement the engine
+answers and what it is handed.
+
+| File | Lines | Why |
+|---|---:|---|
+| `contracts/kinds.py` | 80 | **AAC-0055** (`TerminationReason`: why a loop stopped, never absent) and L6's side-effect classes. Split from `support_agent/contracts/domain.py`, whose intents and order statuses are this shop's. |
+| `contracts/intents.py` | 45 | **AHC-0010**'s route carries an intent, and what can be asked is an agent's: `IntentName` is a string the agent's enumeration validates once it declares it (`use_intents`). |
+| `contracts/reading.py` | 94 | **AHC-0089** — input shape normalised by deterministic code. The fold, and a `Vocabulary` port for what an identifier looks like and which states a sentence asserts, which the agent registers. |
+| `config/__init__.py` | 44 | **AAC-0093, AAC-0008** — the ceilings that can stop a call (`Budgets`). Settings, approved models and the fingerprint are the agent's. |
+| `policy/__init__.py` | 116 | **AAC-0091** — a rule that raises blocks. The positions' enforcement and its replies; the rules are the agent's, registered as each position's default (`use_default_rules`). |
+| `escalation/rules.py` | 235 | **P-ESC-ONCE, P-ESC-FRESH, P-ESC-CAP** — the cooldown, the fresh count after a handback, the cap — over the world file's condition vocabulary. Its `RuleSet` has no rules; the agent's has five. |
+| `approvals/__init__.py` | 93 | The waits' surface: the desk, the workflow, the reminders and the terms a wait reads (`ApprovalTerms`) — the AOAS `human_approval` wait without the refund it was first written for. |
+| `telemetry/contract.py` | 311 | **AAC-0011** — complete against a declaration. The harness's spans, and `declare` for an agent's own; unchanged in purpose, split so a second agent's spans are not violations. |
+| `watch/engine.py` | 120 | **AAC-0014, AHC-0028** — rules run over turns, words-needing rules skip uncaptured turns, every verdict is written. The rules, thresholds and evidence table are handed in. |
+| `watch/verdicts.py` | 81 | AAC's adapter contract for a score: a verdict, the finding a failing one makes, and the obligations it evidences. The evidence *table* is the agent's. |
+
+**What the extraction found.** Every edge the library had into the agent was a
+value or a vocabulary, never control: an enum a field was typed with, a regex a
+check read, a page a route served, a wording module a reply was read from, a
+policy object three numbers were read off. Each became an input — a protocol, a
+registration at import, or an argument with the agent's value as its default on
+the agent's side. None needed inheritance in the library or a plugin system,
+which is the same answer `evals/reuse.py`'s seam map gave from reading.

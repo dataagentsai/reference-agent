@@ -41,6 +41,7 @@ from scripts.review_html import render  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "support_agent"
+LIB = ROOT / "packages" / "agent-harness" / "src" / "agent_harness"  # the harness (T-019)
 DEST = ROOT / "docs" / ".preview" / "ARCHITECTURE-REVIEW.html"
 
 e = html.escape
@@ -48,7 +49,7 @@ e = html.escape
 
 def modules() -> list[dict]:
     """Every module, with its size, its layer, and how reusable it is."""
-    from evals.reuse import classify
+    from evals.reuse import AGENT, classify, files
 
     placed = classify()
     contract = tomllib.loads((ROOT / "pyproject.toml").read_text())
@@ -63,20 +64,18 @@ def modules() -> list[dict]:
             rank[name] = (depth, row)
 
     out = []
-    for path in sorted(SRC.rglob("*.py")):
-        if "__pycache__" in path.parts:
-            continue
-        rel = path.relative_to(SRC).as_posix()
+    for name, path in sorted(files().items()):
+        rel = name.removeprefix(AGENT)
         top = rel.split("/")[0].removesuffix(".py")
         depth, row = rank.get(top, (99, "—"))
         out.append(
             {
-                "path": f"src/support_agent/{rel}",
+                "path": path.relative_to(ROOT).as_posix(),
                 "full": str(path),
                 "lines": len(path.read_text().splitlines()),
                 "layer": row,
                 "depth": depth,
-                "reuse": placed.get(rel, ""),
+                "reuse": placed.get(name, ""),
                 "doc": _summary(path),
             }
         )
@@ -94,7 +93,7 @@ def _summary(path: pathlib.Path) -> str:
 
 def protocols() -> list[dict]:
     """The ports. Each one is a seam a deployment fills without editing code."""
-    source = (SRC / "contracts" / "protocols.py").read_text()
+    source = (LIB / "contracts" / "protocols.py").read_text()
     tree = ast.parse(source)
     out = []
     for node in tree.body:
@@ -179,6 +178,17 @@ block differs at each, and that difference is the design rather than an accident
 of where the call sites happen to be."""
 
 
+def _located(rel: str) -> str:
+    """Where a module is now: the agent's file, or the harness's when the agent's
+    path holds only a re-export stub (T-019)."""
+    from evals.reuse import is_stub
+
+    mine = SRC / rel
+    if (not mine.exists() or is_stub(mine)) and (LIB / rel).exists():
+        return (LIB / rel).relative_to(ROOT).as_posix()
+    return f"src/support_agent/{rel}"
+
+
 def rules_at_each_position() -> list[dict]:
     """Which rules the default configuration fires at each point.
 
@@ -197,7 +207,7 @@ def rules_at_each_position() -> list[dict]:
         out.append(
             {
                 "name": name,
-                "where": f"src/support_agent/{where}",
+                "where": _located(where),
                 "when": when,
                 "meaning": meaning,
                 "rules": [getattr(r, "__name__", repr(r)) for r in rules],
@@ -276,7 +286,8 @@ HANDLERS = [
 
 
 def handlers() -> list[dict]:
-    source = "\n".join(p.read_text() for p in SRC.rglob("*.py") if "__pycache__" not in p.parts)
+    trees = [*SRC.rglob("*.py"), *LIB.rglob("*.py")]
+    source = "\n".join(p.read_text() for p in trees if "__pycache__" not in p.parts)
     out = []
     for name, where, symbol, why in HANDLERS:
         built = bool(symbol) and re.search(rf"\b{symbol}\b", source) is not None
@@ -345,7 +356,7 @@ CHECKS = [
     (
         "Every span matches its contract",
         "telemetry/contract.py",
-        "src/support_agent/telemetry/contract.py",
+        "packages/agent-harness/src/agent_harness/telemetry/contract.py",
         "A span emitted with attributes nobody declared, or missing ones somebody depends on. It "
         "caught the freshness span the day it was written.",
     ),

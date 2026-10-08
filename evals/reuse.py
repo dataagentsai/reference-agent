@@ -22,55 +22,74 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "support_agent"
+LIB = ROOT / "packages" / "agent-harness" / "src" / "agent_harness"
+"""T-019: the mechanism layer is a package of its own. Its files are named by
+their path inside `agent_harness`; this agent's are named `support_agent/...`."""
+
+AGENT = "support_agent/"
+STUB = '"""Re-export stub'
+"""A module left at its old path when it moved to the library. It is the
+library's module under its old name, so it is not counted as either side."""
 
 MECHANISM = {
     "__init__.py",
+    "approvals/__init__.py",
+    "approvals/desk.py",
+    "approvals/durable.py",
+    "approvals/notify.py",
+    "approvals/workflow.py",
     "cassette/__init__.py",
+    "channel/__init__.py",
+    "config/__init__.py",
     "conformance.py",
     "context/__init__.py",
     "contracts/__init__.py",
+    "contracts/failures.py",
     "contracts/human.py",
     "contracts/ids.py",
+    "contracts/intents.py",
+    "contracts/kinds.py",
     "contracts/model.py",
     "contracts/protocols.py",
+    "contracts/reading.py",
     "contracts/requests.py",
-    "contracts/failures.py",
     "contracts/results.py",
     "contracts/tools.py",
     "cost/__init__.py",
     "entrypoint/__init__.py",
+    "entrypoint/ending.py",
     "entrypoint/handoff.py",
     "entrypoint/persist.py",
-    "entrypoint/ending.py",
-    "escalation/__init__.py",
-    "escalation/capacity.py",
-    "escalation/durable.py",
-    "escalation/desk.py",
-    "escalation/workflow.py",
     "erasure/__init__.py",
     "erasure/retention.py",
+    "escalation/__init__.py",
+    "escalation/capacity.py",
+    "escalation/desk.py",
+    "escalation/durable.py",
+    "escalation/rules.py",
+    "escalation/workflow.py",
     "flow/__init__.py",
-    "requests/__init__.py",
-    "requests/postgres.py",
     "identity/__init__.py",
     "identity/sessions.py",
     "llm/__init__.py",
     "loop/__init__.py",
     "loop/dispatch.py",
+    "loop/ends.py",
     "loop/freshness.py",
     "loop/plan.py",
-    "loop/spend.py",
     "loop/screen.py",
-    "loop/ends.py",
-    "policy/reading.py",  # folds look-alike characters; no domain in it
-    "policy/verdicts.py",  # where a rule runs, what it sees, what it returns
-    "policy/states.py",  # a claim against the latest read; the states come from contracts.reading
+    "loop/spend.py",
+    "policy/__init__.py",
+    "policy/reading.py",
+    "policy/states.py",
+    "policy/verdicts.py",
+    "portal/__init__.py",
+    "requests/__init__.py",
+    "requests/postgres.py",
     "resilience/__init__.py",
     "reviewer/__init__.py",
-    "reviewer/guard.py",
     "reviewer/approvals.py",
-    "channel/__init__.py",
-    "portal/__init__.py",
+    "reviewer/guard.py",
     "serve/__init__.py",
     "serve/feedback.py",
     "state/__init__.py",
@@ -78,60 +97,79 @@ MECHANISM = {
     "state/file.py",
     "state/postgres.py",
     "telemetry/__init__.py",
+    "telemetry/contract.py",
     "telemetry/counters.py",
     "telemetry/meters.py",
     "telemetry/names.py",
     "telemetry/redaction.py",
     "tools/__init__.py",
     "tools/mcp.py",
-    "approvals/workflow.py",
-    "approvals/durable.py",
-    "approvals/notify.py",
-    "approvals/desk.py",
     "watch/__init__.py",
-    "watch/record.py",
-    "watch/outcomes.py",
+    "watch/engine.py",
     "watch/langfuse.py",
+    "watch/outcomes.py",
+    "watch/record.py",
+    "watch/verdicts.py",
 }
-"""Kept whole by a second agent. The escalation and approval *workflows* are here
-and their *policies* are not: how an approval expires is universal, what needs
-one is this shop's. `approvals/durable.py` is the same division inside Temporal:
-the workflow waits for any action, and `approvals/refund.py` says which."""
+"""Kept whole by a second agent — and since T-019, installed by it: every file
+here is in `agent_harness`, and the import contract forbids any of them to
+import an agent. The escalation and approval *workflows* are here and their
+*policies* are not: how an approval expires is universal, what needs one is this
+shop's. `approvals/durable.py` is the same division inside Temporal: the
+workflow waits for any action, and the agent's `approvals/refund.py` says which.
+Each engine split out of a parameterised module (policy, Tier 2, the watch's
+judging, the span contract, the vocabulary port) is here, and its values are
+not."""
 
 PARAMETERISED = {
-    "entrypoint/pending.py",  # universal approval flow; the refund replies are this shop's
-    "approvals/__init__.py",  # re-exports the universal workflow *and* this shop's refund tool
-    "binding.py",  # the shape is universal; the scope names are this deployment's
-    "approvals/policy.py",  # the threshold, the TTL, the states a refund is owed in
-    "config/__init__.py",  # this deployment's models, budgets, endpoints
-    "escalation/rules.py",  # the Tier 2 rule set and the facts it reads
-    "entrypoint/promise.py",  # the gate is universal; the phrase table is English and this voice
-    "policy/__init__.py",  # the engine is universal; the claim patterns are this domain's
-    "router/__init__.py",  # the engine is universal; the intents and refusals are not
-    "router/concerns.py",  # the split and the check are universal; VIA names this shop's intents
-    "telemetry/contract.py",  # the span contract: mechanism, with this agent's span names in it
-    "watch/rules.py",  # the engine is universal; statuses, claims, write tools are this shop's
-    "watch/checks.py",  # the checks are universal; the vocabulary they read is this shop's
-    "watch/canary.py",  # the probe is universal; its cases ask this shop's questions (F-062)
-    "watch/evidence.py",  # the verdict is universal; which rule evidences which AAC id is ours
-    "contracts/reading.py",  # the fold is universal; order ids and status words are ours
+    "support_agent/entrypoint/__init__.py",  # the turn: universal sequence, this shop's routes
+    "support_agent/entrypoint/pending.py",  # universal approval flow; the refund replies are ours
+    "support_agent/binding.py",  # the shape is universal; the scope names are this deployment's
+    "support_agent/config/__init__.py",  # resolve and fingerprint are universal; the values ours
+    "support_agent/entrypoint/promise.py",  # the gate is universal; the phrases are this voice
+    "support_agent/router/__init__.py",  # the engine is universal; the intents and refusals are not
+    "support_agent/router/concerns.py",  # the split is universal; VIA names this shop's intents
+    "support_agent/watch/checks.py",  # the checks are universal; the vocabulary they read is ours
+    "support_agent/watch/canary.py",  # the probe is universal; its cases ask this shop's questions
 }
-"""Code a second agent keeps and values it replaces. **The layer to watch:**
-these read as shared and are not, so the values carry a version and the code
-carries a test that the values are reached."""
+"""Code a second agent keeps and values it replaces, **not yet split**. The layer
+to watch: these read as shared and are not, so the values carry a version and
+the code carries a test that the values are reached. T-019 split seven of the
+sixteen (below, under per-agent, is what each left behind); these nine are the
+next splits, and `entrypoint/__init__.py` joined them — it was called mechanism,
+and it is the turn *this shop* runs: its router, its deterministic answers, its
+consent and promise gates. A generic turn runner is what a split would extract."""
 
 PER_AGENT = {
-    "approvals/refund.py",  # a refund tool, an order's total, a policy approver
-    "contracts/domain.py",  # this domain's entities
-    "entrypoint/direct.py",  # order status, refund status
-    "entrypoint/opening.py",  # a customer's orders and this shop's queues, on opening
-    "entrypoint/consent.py",  # which of this shop's actions a customer's words ask for
-    "escalation/wording.py",  # what this shop says to its customers
-    "ui/__init__.py",  # a support chat page
-    "reviewer/page.py",  # a desk page, in this shop's words
-    "telemetry/spans.py",  # the spans this shop's own modules open, declared to the harness
+    "support_agent/__init__.py",  # declares this shop's vocabulary, spans and rules
+    "support_agent/approvals/__init__.py",  # the harness's waits beside Policy and the refund
+    "support_agent/approvals/policy.py",  # the threshold and the states; the wait terms are Terms
+    "support_agent/approvals/refund.py",  # a refund tool, an order's total, a policy approver
+    "support_agent/conformance.py",  # names this repository's obligation manifest
+    "support_agent/contracts/__init__.py",  # the harness's contracts beside Intent and OrderStatus
+    "support_agent/contracts/domain.py",  # this domain's entities
+    "support_agent/contracts/reading.py",  # the order-id shape and status grammar; the fold moved
+    "support_agent/entrypoint/consent.py",  # which of this shop's actions a customer asks for
+    "support_agent/entrypoint/direct.py",  # order status, refund status
+    "support_agent/entrypoint/handoff.py",  # the harness's handoff, with this shop's words, rules
+    "support_agent/entrypoint/opening.py",  # a customer's orders and queues, on opening
+    "support_agent/escalation/__init__.py",  # the harness's waits beside this shop's wording
+    "support_agent/escalation/rules.py",  # the Tier 2 rule set; the engine moved
+    "support_agent/escalation/wording.py",  # what this shop says to its customers
+    "support_agent/policy/__init__.py",  # the claim patterns and rules; the engine moved
+    "support_agent/portal/__init__.py",  # the harness's portal, with this shop's page
+    "support_agent/reviewer/__init__.py",  # the harness's desk, with this shop's page
+    "support_agent/reviewer/page.py",  # a desk page, in this shop's words
+    "support_agent/serve/__init__.py",  # the harness's edge, with this shop's chat and desk pages
+    "support_agent/telemetry/spans.py",  # the spans this shop's own modules open
+    "support_agent/ui/__init__.py",  # a support chat page
+    "support_agent/watch/__init__.py",  # the harness's watch, with this shop's rules as defaults
+    "support_agent/watch/evidence.py",  # which rule evidences which AAC id; the verdict moved
+    "support_agent/watch/rules.py",  # the rule table; the judging moved
 }
-"""Written afresh by a second agent, from its own specification."""
+"""Written afresh by a second agent, from its own specification. Since T-019 this
+includes what each split left behind: the values an engine in `agent_harness`
+is handed, and the thin modules that hand them over."""
 
 LAYERS = {"mechanism": MECHANISM, "parameterised": PARAMETERISED, "per-agent": PER_AGENT}
 
@@ -161,16 +199,72 @@ belongs beside the domain, not inside the mechanism that serves it. The audit
 found it by making the reading and the measurement contradict each other, which
 is the argument for doing both."""
 
+MEASURED = """Measured 2026-10-08, by extraction (T-019), before a second agent exists.
+
+The mechanism layer is now a package, `agent_harness`, that the agent installs
+and that may not import it. By lines as the files stand (`measured()`):
+mechanism 14,339 of 19,320 — **74.2%** — parameterised 2,131 (11.0%), per-agent
+2,850 (14.8%). The reading predicted about three quarters of this package by
+line; extraction landed on it.
+
+What moved the number, in both directions. Seven parameterised modules were
+split, and each engine joined the library (the policy positions, Tier 2, the
+watch's judging, the span contract, the vocabulary a check reads, the approval
+wait's terms, the handoff with its wording handed in), so the mechanism share
+gained what the reading had filed as parameterised. One module the reading
+called mechanism was not: `entrypoint/__init__.py` is this shop's turn, its
+router and gates, and it is parameterised now. And every edge the library had
+into the agent became an input — a protocol, a registration at import, or a
+value handed to a builder — which added lines on both sides of the line.
+
+The prediction this does **not** test is the one that matters: how much of the
+library a second agent keeps unedited. That is G2.6's, and the claims agent is
+the first chance to measure it."""
+
 
 def classify() -> dict[str, str]:
     return {module: layer for layer, members in LAYERS.items() for module in members}
 
 
+def is_stub(path: Path) -> bool:
+    return path.read_text(encoding="utf-8").startswith(STUB)
+
+
+def files() -> dict[str, Path]:
+    """Every classified file by its name here: the library's by their path in
+    `agent_harness`, this agent's as `support_agent/...`, stubs left out."""
+    out = {str(p.relative_to(LIB)): p for p in LIB.rglob("*.py") if "__pycache__" not in str(p)}
+    for p in SRC.rglob("*.py"):
+        if "__pycache__" not in str(p) and not is_stub(p):
+            out[AGENT + str(p.relative_to(SRC))] = p
+    return out
+
+
 def modules() -> set[str]:
-    return {str(p.relative_to(SRC)) for p in SRC.rglob("*.py") if "__pycache__" not in str(p)}
+    return set(files())
 
 
-__all__ = ["LAYERS", "PREDICTION", "SEAMS", "classify", "modules", "seams"]
+def measured() -> dict[str, int]:
+    """Lines per layer, as the files stand."""
+    placed = classify()
+    out = dict.fromkeys(LAYERS, 0)
+    for name, path in files().items():
+        out[placed[name]] += len(path.read_text(encoding="utf-8").splitlines())
+    return out
+
+
+__all__ = [
+    "LAYERS",
+    "LIB",
+    "MEASURED",
+    "PREDICTION",
+    "SEAMS",
+    "classify",
+    "files",
+    "measured",
+    "modules",
+    "seams",
+]
 
 
 # seam -> (where the variation lives, the pattern holding it, what a second

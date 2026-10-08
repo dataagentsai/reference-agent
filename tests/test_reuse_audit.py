@@ -40,7 +40,7 @@ def test_the_domain_measurement_agrees_with_the_classification() -> None:
     import ast
     import re
 
-    from evals.reuse import SRC
+    from evals.reuse import files
 
     entity = re.compile(
         r"\b(order|orders|order_id|refund\w*|open_return\w*|returned|cancel\w*|"
@@ -52,7 +52,7 @@ def test_the_domain_measurement_agrees_with_the_classification() -> None:
     placed = classify()
 
     loud = []
-    for path in SRC.rglob("*.py"):
+    for name, path in files().items():
         source = path.read_text()
         tree = ast.parse(source)
         spans: set[int] = set()
@@ -67,7 +67,6 @@ def test_the_domain_measurement_agrees_with_the_classification() -> None:
             if n not in spans and line.strip() and not line.strip().startswith("#")
         ]
         hits = [line for line in code if entity.search(line) and not english.search(line)]
-        name = str(path.relative_to(SRC))
         if placed.get(name) == "mechanism" and len(hits) > 8:
             loud.append(f"{name}: {len(hits)} lines name an entity, and it is called mechanism")
 
@@ -87,9 +86,11 @@ def test_every_seam_names_something_that_exists() -> None:
     composition root and some are a protocol, and what matters is that the name
     appears where the map says the variation lives.
     """
-    from evals.reuse import SRC, seams
+    from evals.reuse import files, seams
 
-    source = "\n".join(p.read_text() for p in SRC.rglob("*.py"))
+    # Both trees: since T-019 a seam's engine is in `agent_harness` and its
+    # values are here, and either is where the variation is held.
+    source = "\n".join(p.read_text() for p in files().values())
     missing = []
     for seam, (where, _pattern, _changes) in seams().items():
         # The last segment is the symbol; the rest is where it lives.

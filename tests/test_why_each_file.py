@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from evals.reuse import classify
+from evals.reuse import AGENT, classify
 
 DOC = Path(__file__).parent.parent / "docs" / "WHY-EACH-FILE.md"
 
@@ -42,10 +42,16 @@ def test_the_document_names_no_file_that_is_not_mechanism() -> None:
     """
     text = DOC.read_text(encoding="utf-8")
     placed = classify()
+    # Since T-019 the agent's files are named `support_agent/...` and the
+    # document names library paths, so a file that left the library is looked
+    # for by the path it had there — unless the library has a file of that name.
     stale = [
         name
         for name, layer in placed.items()
-        if layer != "mechanism" and f"`{name}`" in text and name != "__init__.py"
+        if layer != "mechanism"
+        and f"`{name.removeprefix(AGENT)}`" in text
+        and placed.get(name.removeprefix(AGENT)) != "mechanism"
+        and name.removeprefix(AGENT) != "__init__.py"
     ]
     assert stale == [], (
         f"{DOC.name} records a reason for {', '.join(stale)}, which is no longer mechanism. "
