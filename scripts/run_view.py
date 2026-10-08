@@ -56,17 +56,17 @@ from evals import durable  # noqa: E402
 from evals.simulation import DECISIONS, RESOLUTIONS  # noqa: E402
 from scripts.run_view_html import render  # noqa: E402
 
+from agent_harness import identity as ident
+from agent_harness.requests import InMemoryRequests
+from agent_harness.resilience import ResilientLLM
+from agent_harness.state import InMemoryCheckpointStore
 from support_agent import approvals as ap  # noqa: E402
 from support_agent import entrypoint as ep  # noqa: E402
-from support_agent import identity as ident  # noqa: E402
 from support_agent import router  # noqa: E402
 from support_agent.binding import SCOPES  # noqa: E402
 from support_agent.config import Settings, resolve  # noqa: E402
 from support_agent.contracts import Identity  # noqa: E402
-from support_agent.requests import InMemoryRequests  # noqa: E402
 from support_agent.llm import connect_model  # noqa: E402
-from support_agent.resilience import ResilientLLM  # noqa: E402
-from support_agent.state import InMemoryCheckpointStore  # noqa: E402
 from support_agent.tools import connect  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]

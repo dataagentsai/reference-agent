@@ -44,22 +44,22 @@ from typing import Any
 
 from evals import issuer as local_issuer  # noqa: E402
 
+from agent_harness import identity as ident
+from agent_harness import telemetry as tel
+from agent_harness.identity import APPROVER_SCOPES, REVIEWER_SCOPES, Exchange, sessions
+from agent_harness.identity.sessions import KeycloakLogin, KeycloakRefresh, Resume
+from agent_harness.requests import InMemoryRequests
+from agent_harness.resilience import ResilientLLM
+from agent_harness.state import InMemoryCheckpointStore, InMemorySessionStore
 from support_agent import approvals as ap
 from support_agent import channel as ch
 from support_agent import entrypoint as ep
 from support_agent import escalation as esc
-from support_agent import identity as ident
 from support_agent import portal as ptl
 from support_agent import serve
-from agent_harness import telemetry as tel
 from support_agent.config import RunConfig, Settings, resolve
 from support_agent.contracts import Approvals, Identity, LLMClient, ModelResponse, ToolClient
-from support_agent.identity import APPROVER_SCOPES, REVIEWER_SCOPES, Exchange, sessions
-from support_agent.identity.sessions import KeycloakLogin, KeycloakRefresh, Resume
 from support_agent.llm import ScriptedClient, connect_model
-from support_agent.requests import InMemoryRequests
-from support_agent.resilience import ResilientLLM
-from support_agent.state import InMemoryCheckpointStore, InMemorySessionStore
 from support_agent.tools import connect
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

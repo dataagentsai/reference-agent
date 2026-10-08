@@ -40,10 +40,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from agent_harness import identity as ident
 from agent_harness import telemetry as tel
 from support_agent import approvals as ap
 from support_agent import escalation as esc
-from support_agent import identity as ident
 from support_agent.contracts import (
     Approvals,
     Clock,

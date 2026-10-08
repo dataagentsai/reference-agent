@@ -379,7 +379,7 @@ def profile_gaps() -> dict:
 
 
 def counted() -> list[dict]:
-    from support_agent.telemetry import counters
+    from agent_harness.telemetry import counters
 
     out = []
     for name in counters.__all__:

@@ -54,12 +54,13 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import BaseRoute, Mount, Route
 
+from agent_harness import identity as ident
+from agent_harness import requests as req
 from agent_harness import telemetry as tel
 from agent_harness.contracts.failures import AgentFailure, Fault
+from agent_harness.state import Conversation
 from support_agent import approvals as ap
 from support_agent import escalation as esc
-from support_agent import identity as ident
-from support_agent import requests as req
 from support_agent.contracts import (
     Approvals,
     CheckpointStore,
@@ -74,7 +75,6 @@ from support_agent.contracts import (
 )
 from support_agent.entrypoint import Agent
 from support_agent.serve.feedback import feedback
-from support_agent.state import Conversation
 from support_agent.ui import CHAT_PAGE
 
 AgentFactory = Callable[[], AbstractAsyncContextManager[Agent]]

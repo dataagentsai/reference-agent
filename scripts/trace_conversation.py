@@ -39,23 +39,23 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from agenttwin import Live, load, project
 from evals import durable
 
-from support_agent import context as ctx
+from agent_harness import context as ctx
+from agent_harness import identity as ident
+from agent_harness import requests as req
+from agent_harness import telemetry as tel
+from agent_harness.requests import InMemoryRequests
+from agent_harness.state import InMemoryCheckpointStore
 from support_agent import entrypoint as ep
-from support_agent import identity as ident
 from support_agent import loop as agent_loop
 from support_agent import policy as pol
 from support_agent import router
-from support_agent import telemetry as tel
 from support_agent import tools as toolmod
-from support_agent import requests as req
 from support_agent.approvals import refund as refund_mod
 from support_agent.approvals import workflow as approval_workflow
 from support_agent.contracts import Identity, ModelResponse, ToolCall
 from support_agent.entrypoint import direct
 from support_agent.entrypoint import pending as pending_mod
-from support_agent.requests import InMemoryRequests
 from support_agent.llm import ScriptedClient
-from support_agent.state import InMemoryCheckpointStore
 
 WORLD = "worlds/clothing.yaml"
 TRACE: list[str] = []

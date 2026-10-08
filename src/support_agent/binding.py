@@ -15,7 +15,7 @@ rule drift; one statement with a check does not.
 
 from __future__ import annotations
 
-from support_agent import identity as ident
+from agent_harness import identity as ident
 
 SYSTEM_PROMPT = (
     "You are a customer support agent for a clothing retailer. "

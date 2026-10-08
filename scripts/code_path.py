@@ -27,8 +27,11 @@ PATH = [
         "PHASE 1 — EDGE: before a run id exists",
         [
             ("src/support_agent/entrypoint/__init__.py", "Agent.handle"),
-            ("src/support_agent/requests/__init__.py", "once"),
-            ("src/support_agent/requests/__init__.py", "InMemoryRequests.claim"),
+            ("packages/agent-harness/src/agent_harness/requests/__init__.py", "once"),
+            (
+                "packages/agent-harness/src/agent_harness/requests/__init__.py",
+                "InMemoryRequests.claim",
+            ),
         ],
     ),
     (

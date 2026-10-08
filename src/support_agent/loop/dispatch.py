@@ -14,8 +14,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping
 from functools import partial
 
+from agent_harness import flow as flw
 from agent_harness import telemetry as tel
-from support_agent import flow as flw
 from support_agent.contracts import (
     IdempotencyKey,
     Identity,

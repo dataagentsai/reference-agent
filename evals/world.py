@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel
 
-from support_agent import identity as ident
+from agent_harness import identity as ident
 from support_agent.contracts import OrderStatus, SideEffectClass
 from support_agent.tools import META_REQUIRED_SCOPE, META_SIDE_EFFECT
 

@@ -19,8 +19,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from agent_harness import telemetry as tel
+from agent_harness.state import Conversation
 from support_agent.contracts import ConversationId
-from support_agent.state import Conversation
 
 VALUES = frozenset({"up", "down"})
 

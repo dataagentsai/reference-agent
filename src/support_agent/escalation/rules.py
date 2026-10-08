@@ -57,7 +57,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from support_agent.state import Conversation
+from agent_harness.state import Conversation
 
 MAX_PER_CONVERSATION = 2
 """After this, stop raising. A third reference number for one unresolved problem

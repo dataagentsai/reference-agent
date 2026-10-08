@@ -13,10 +13,10 @@ from dataclasses import dataclass
 
 from fastapi import Depends, Header, HTTPException, Request
 
+from agent_harness import identity as ident
 from agent_harness import telemetry as tel
 from support_agent import approvals as ap
 from support_agent import escalation as esc
-from support_agent import identity as ident
 from support_agent.contracts import Approvals, Clock, Escalations
 
 

@@ -32,8 +32,9 @@ import jsonschema
 from mcp.client import Client
 from opentelemetry.trace import Span
 
+from agent_harness import requests as req
 from agent_harness import telemetry as tel
-from support_agent import requests as req
+from agent_harness.identity import Exchange
 from support_agent.contracts import (
     IdempotencyKey,
     Identity,
@@ -43,7 +44,6 @@ from support_agent.contracts import (
     ToolSpec,
     UnknownTool,
 )
-from support_agent.identity import Exchange
 from support_agent.tools.mcp import (
     APPROVAL_META,
     IDEMPOTENCY_META,

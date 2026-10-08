@@ -20,9 +20,9 @@ from dataclasses import dataclass, field
 from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.testing import WorkflowEnvironment
 
+from agent_harness import identity as ident
 from support_agent import approvals as ap
 from support_agent import escalation as esc
-from support_agent import identity as ident
 from support_agent.contracts import (
     Approval,
     ApprovalState,

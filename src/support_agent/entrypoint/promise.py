@@ -45,8 +45,8 @@ from support_agent.contracts import (
 )
 
 if TYPE_CHECKING:
+    from agent_harness.state import Conversation
     from support_agent.entrypoint.handoff import Handoff
-    from support_agent.state import Conversation
 
 VERSION = "1"
 """Bumped when the table changes, so a run recorded against one reading of this

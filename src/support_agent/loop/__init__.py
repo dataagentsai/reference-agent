@@ -42,9 +42,11 @@ from dataclasses import dataclass, field
 
 from opentelemetry.trace import Span
 
+from agent_harness import context as ctx
+from agent_harness import flow as flw
 from agent_harness import telemetry as tel
-from support_agent import context as ctx
-from support_agent import flow as flw
+from agent_harness.cost import Meter
+from agent_harness.resilience import unit_retries
 from support_agent import policy as pol
 from support_agent.config import Budgets
 from support_agent.contracts import (
@@ -68,7 +70,6 @@ from support_agent.contracts import (
     ToolUnavailable,
     new_run_id,
 )
-from support_agent.cost import Meter
 from support_agent.loop import freshness, plan, spend
 from support_agent.loop.dispatch import dispatch
 from support_agent.loop.ends import (
@@ -86,7 +87,6 @@ from support_agent.loop.ends import (
     stopped,
 )
 from support_agent.loop.screen import Screen
-from support_agent.resilience import unit_retries
 
 Gone = Callable[[], Awaitable[bool]]
 """Whether the caller has left: `/chat`'s `request.is_disconnected` (AHC-0096)."""

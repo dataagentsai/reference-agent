@@ -25,10 +25,10 @@ import time
 from cryptography.fernet import Fernet
 from psycopg_pool import AsyncConnectionPool
 
+from agent_harness.erasure import retention
+from agent_harness.requests.postgres import PostgresRequests
+from agent_harness.state.postgres import PostgresCheckpointStore, PostgresSessionStore
 from support_agent.config import Settings
-from support_agent.erasure import retention
-from support_agent.requests.postgres import PostgresRequests
-from support_agent.state.postgres import PostgresCheckpointStore, PostgresSessionStore
 
 
 async def main(dsn: str, days: int, now: int) -> retention.Expired:

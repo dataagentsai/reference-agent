@@ -259,12 +259,18 @@ unmatched_ignore_imports_alerting = "none"
 [[tool.importlinter.contracts]]
 name = "Only state and requests touch the database"
 type = "forbidden"
-source_modules = ["support_agent"]
+# Both packages: the stores are the harness's now (T-019), and the agent reaches
+# the database only through them.
+source_modules = ["support_agent", "agent_harness"]
 forbidden_modules = ["psycopg"]
 ignore_imports = [
     "support_agent.state -> psycopg",
     "support_agent.state.* -> psycopg",
     "support_agent.requests -> psycopg",
     "support_agent.requests.* -> psycopg",
+    "agent_harness.state -> psycopg",
+    "agent_harness.state.* -> psycopg",
+    "agent_harness.requests -> psycopg",
+    "agent_harness.requests.* -> psycopg",
 ]
 unmatched_ignore_imports_alerting = "none"

@@ -24,7 +24,7 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 
-from support_agent import identity as ident
+from agent_harness import identity as ident
 from support_agent.contracts import Identity
 
 URL = "http://local-issuer.test/realms/support"

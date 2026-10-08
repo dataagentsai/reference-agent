@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from evals import issuer as local_issuer  # noqa: E402
 
-from support_agent import telemetry as tel  # noqa: E402
+from agent_harness import telemetry as tel
 from support_agent.config import Settings  # noqa: E402
 from support_agent.watch import canary  # noqa: E402
 

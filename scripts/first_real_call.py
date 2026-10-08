@@ -25,16 +25,16 @@ from pathlib import Path
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel
 
+from agent_harness import identity as ident
+from agent_harness import telemetry as tel
+from agent_harness.cassette import Cassette, Context, Player, Recorder
+from agent_harness.cost import Meter
+from agent_harness.requests import InMemoryRequests
+from agent_harness.state import InMemoryCheckpointStore
 from support_agent import entrypoint as ep
-from support_agent import identity as ident
-from support_agent import telemetry as tel
-from support_agent.cassette import Cassette, Context, Player, Recorder
 from support_agent.config import Settings, resolve
 from support_agent.contracts import Identity, SideEffectClass
-from support_agent.cost import Meter
-from support_agent.requests import InMemoryRequests
 from support_agent.llm import connect_model
-from support_agent.state import InMemoryCheckpointStore
 from support_agent.tools import META_SIDE_EFFECT, connect
 
 CASSETTE = Path(__file__).parent.parent / "cassettes" / "first_real_call.json"

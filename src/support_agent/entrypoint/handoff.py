@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from agent_harness import telemetry as tel
+from agent_harness.state import Conversation
 from support_agent import escalation as esc
 from support_agent.contracts import (
     Completed,
@@ -32,7 +33,6 @@ from support_agent.contracts import (
     TurnResult,
 )
 from support_agent.escalation import rules as t2
-from support_agent.state import Conversation
 
 
 class Handoff(Protocol):

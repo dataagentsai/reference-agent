@@ -15,8 +15,8 @@ and every budget alert stay quiet.
 
 from __future__ import annotations
 
+from agent_harness.cost import Meter
 from support_agent.contracts import Usage
-from support_agent.cost import Meter
 
 
 def account(

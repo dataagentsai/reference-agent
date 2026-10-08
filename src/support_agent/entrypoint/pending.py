@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from agent_harness import telemetry as tel
+from agent_harness.state import Conversation
 from support_agent import approvals as ap
 from support_agent.contracts import (
     Approvals,
@@ -34,7 +35,6 @@ from support_agent.contracts import (
     ToolClient,
     TurnResult,
 )
-from support_agent.state import Conversation
 
 REFUND_FAILED = "The refund could not be completed."
 STILL_WAITING = "That is still with a colleague to authorise."

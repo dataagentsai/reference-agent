@@ -27,9 +27,13 @@ from dataclasses import dataclass, field
 
 from agenttwin import Approver, Desk, Live, Subject, project
 
+from agent_harness import identity as ident
+from agent_harness.cost import Meter
+from agent_harness.requests import InMemoryRequests
+from agent_harness.resilience import ResilientLLM
+from agent_harness.state import Conversation, InMemoryCheckpointStore
 from evals import durable
 from support_agent import entrypoint as ep
-from support_agent import identity as ident
 from support_agent.binding import SCOPES
 from support_agent.config import RunConfig
 from support_agent.contracts import (
@@ -44,10 +48,6 @@ from support_agent.contracts import (
     ModelUnavailable,
     ToolClient,
 )
-from support_agent.cost import Meter
-from support_agent.requests import InMemoryRequests
-from support_agent.resilience import ResilientLLM
-from support_agent.state import Conversation, InMemoryCheckpointStore
 from support_agent.tools import connect
 
 DECISIONS = {
