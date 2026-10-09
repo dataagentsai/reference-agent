@@ -79,12 +79,19 @@ class KeyVaultSecrets:
 
 
 def managed_identity_token(environ: Mapping[str, str] | None = None) -> str:
-    """The managed identity's token for Key Vault, from Container Apps' endpoint."""
+    """The managed identity's token for Key Vault, from Container Apps' endpoint.
+
+    `AZURE_CLIENT_ID` (the Azure SDKs' name for it) picks a user-assigned
+    identity; without it the endpoint answers for the system-assigned one, and
+    an app that has only a user-assigned identity gets no token."""
     env = os.environ if environ is None else environ
     endpoint, header = env.get("IDENTITY_ENDPOINT"), env.get("IDENTITY_HEADER")
     if not endpoint or not header:
         raise OverlayRefused("no managed identity here (IDENTITY_ENDPOINT is unset)")
-    query = urllib.parse.urlencode({"resource": VAULT_SCOPE, "api-version": "2019-08-01"})
+    asked = {"resource": VAULT_SCOPE, "api-version": "2019-08-01"}
+    if env.get("AZURE_CLIENT_ID"):
+        asked["client_id"] = env["AZURE_CLIENT_ID"]
+    query = urllib.parse.urlencode(asked)
     request = urllib.request.Request(f"{endpoint}?{query}", headers={"X-IDENTITY-HEADER": header})
     with urllib.request.urlopen(request, timeout=10) as answer:  # noqa: S310 — platform endpoint
         return str(json.load(answer)["access_token"])

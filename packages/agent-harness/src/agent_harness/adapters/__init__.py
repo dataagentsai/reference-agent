@@ -38,7 +38,9 @@ from agent_harness.contracts.failures import AgentFailure, Fault
 
 PORTS = ("secrets", "telemetry", "model", "state", "identity", "tool_runtime", "approval")
 """The ports composed from configuration, in the order they are built: each may
-read the ones before it (secrets first, so every other setting can be a reference)."""
+read the ones before it (secrets first, so every other setting can be a reference).
+The secrets port's own settings can only name the environment (`{env: NAME}`):
+nothing that reads a vault exists yet when the vault's address is read."""
 
 ADAPTERS = Registry(
     "port",
@@ -243,6 +245,12 @@ async def compose(
 
 def _resolved(bound: Bound, built: Mapping[str, Any]) -> dict[str, Any]:
     reader = built.get("secrets")
+    if reader is None and bound.adapter.port == "secrets":
+        # The vault's own address from the deployment's environment (an azd
+        # output), so no overlay hard-codes a globally unique vault name.
+        from agent_harness.adapters.secrets import EnvironmentSecrets
+
+        reader = EnvironmentSecrets()
     out: dict[str, Any] = {}
     for name, value in bound.settings.items():
         if is_reference(value):

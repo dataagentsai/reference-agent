@@ -12,6 +12,8 @@ rows the others pass. Rows that need an outside service skip and say which.
                   each adapter's verifier (claims-fnol-azure F-30)
     telemetry     console, otel-to-langfuse, azure-monitor-otel — exporters
                   and the Azure distro replaced, as `test_telemetry_azure` does
+    secrets       environment-settings, key-vault — Key Vault's REST and the
+                  managed identity endpoint answered in process
     approval      temporal-updates (the cached time-skipping server),
                   dbos-workflows (a throwaway PostgreSQL)
 
@@ -396,6 +398,149 @@ def test_a_misshapen_role_mapping_is_refused_at_startup() -> None:
 
     with pytest.raises(OverlayRefused, match="role_scopes"):
         asyncio.run(build())
+
+
+# ========================================================================= secrets
+class _Answer:
+    """What `urllib.request.urlopen` gives back: a JSON body, as a context manager."""
+
+    def __init__(self, body: dict[str, Any]) -> None:
+        self._body = json.dumps(body).encode()
+
+    def __enter__(self) -> _Answer:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def read(self, *_: Any) -> bytes:
+        return self._body
+
+
+@pytest.fixture
+def vault(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Key Vault's REST answered in process: every secret reads "from-the-vault"."""
+    from agent_harness.adapters import secrets
+
+    asked: list[str] = []
+
+    def urlopen(request: Any, timeout: float = 0) -> _Answer:
+        asked.append(request.full_url)
+        return _Answer({"value": "from-the-vault", "access_token": "mi-token"})
+
+    monkeypatch.setattr(secrets.urllib.request, "urlopen", urlopen)
+    monkeypatch.setenv("TEST_GREETING", "hello")
+    monkeypatch.delenv("TEST_MISSING", raising=False)
+    monkeypatch.setenv("TEST_VAULT_URL", "https://kv-test.vault.azure.net/")
+    return asked
+
+
+SECRETS_ADAPTERS: list[tuple[str, str]] = [
+    ("environment-settings", "{adapter: environment-settings, why: tests}"),
+    # The vault's address from the environment: the deployment's output, never
+    # a name written into the overlay (claims-fnol-azure, Tier 3).
+    ("key-vault", "{adapter: key-vault, vault_url: {env: TEST_VAULT_URL}, why: tests}"),
+]
+# (row, the reference, what each adapter reads it as; None is a refusal)
+SECRETS_ROWS: list[tuple[str, dict[str, Any], dict[str, str | None]]] = [
+    (
+        "an environment reference reads the environment",
+        {"env": "TEST_GREETING"},
+        {"environment-settings": "hello", "key-vault": "hello"},
+    ),
+    (
+        "a missing variable takes the reference's default",
+        {"env": "TEST_MISSING", "default": "d"},
+        {"environment-settings": "d", "key-vault": "d"},
+    ),
+    (
+        "a missing variable with no default is refused",
+        {"env": "TEST_MISSING"},
+        {"environment-settings": None, "key-vault": None},
+    ),
+    (
+        "a vault reference is read from the vault, or refused where there is none",
+        {"key_vault": "groq-api-key"},
+        {"environment-settings": None, "key-vault": "from-the-vault"},
+    ),
+]
+
+
+@pytest.mark.discharges("AHC-0022")
+@pytest.mark.parametrize(
+    ("name", "binding"), SECRETS_ADAPTERS, ids=[a[0] for a in SECRETS_ADAPTERS]
+)
+@pytest.mark.parametrize(
+    ("row", "reference", "reads"), SECRETS_ROWS, ids=[r[0] for r in SECRETS_ROWS]
+)
+async def test_the_secrets_port(
+    tmp_path: Path,
+    vault: list[str],
+    name: str,
+    binding: str,
+    row: str,
+    reference: dict[str, Any],
+    reads: dict[str, str | None],
+) -> None:
+    planned = wiring.plan(overlay(tmp_path, f"  secrets: {binding}\n"))
+    hooks = {"secrets": {"token": lambda: "mi-token"}}
+    async with wiring.compose(planned, hooks=hooks, ports=("secrets",)) as built:
+        reader = built["secrets"]
+        if reads[name] is None:
+            with pytest.raises(OverlayRefused):
+                reader.read(reference)
+            return
+        assert reader.read(reference) == reads[name], row
+    if "key_vault" in reference:
+        assert vault == ["https://kv-test.vault.azure.net/secrets/groq-api-key?api-version=7.4"]
+
+
+def test_the_secrets_ports_own_settings_name_only_the_environment(tmp_path: Path) -> None:
+    binding = "  secrets: {adapter: key-vault, vault_url: {key_vault: where}, why: tests}\n"
+    planned = wiring.plan(overlay(tmp_path, binding))
+
+    async def build() -> None:
+        async with wiring.compose(planned, ports=("secrets",)):
+            pass
+
+    with pytest.raises(OverlayRefused, match="reads only"):
+        asyncio.run(build())
+
+
+# (row, the app's environment, the client_id the token request must carry)
+IDENTITY_TOKEN_ROWS: list[tuple[str, dict[str, str], str | None]] = [
+    (
+        "a user-assigned identity is named by AZURE_CLIENT_ID",
+        {
+            "IDENTITY_ENDPOINT": "http://mi.test/token",
+            "IDENTITY_HEADER": "h",
+            "AZURE_CLIENT_ID": "c-1",
+        },
+        "c-1",
+    ),
+    (
+        "without it the system-assigned identity is asked for",
+        {"IDENTITY_ENDPOINT": "http://mi.test/token", "IDENTITY_HEADER": "h"},
+        None,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("row", "environ", "client_id"), IDENTITY_TOKEN_ROWS, ids=[r[0] for r in IDENTITY_TOKEN_ROWS]
+)
+def test_the_key_vault_token_asks_for_the_apps_own_identity(
+    vault: list[str], row: str, environ: dict[str, str], client_id: str | None
+) -> None:
+    from urllib.parse import parse_qs, urlsplit
+
+    from agent_harness.adapters.secrets import managed_identity_token
+
+    assert managed_identity_token(environ) == "mi-token"
+    (url,) = vault
+    asked = parse_qs(urlsplit(url).query)
+    assert asked.get("client_id") == ([client_id] if client_id else None), row
+    assert asked["resource"] == ["https://vault.azure.net"]
 
 
 # ======================================================================= telemetry
