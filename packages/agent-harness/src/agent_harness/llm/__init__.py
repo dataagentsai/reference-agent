@@ -21,7 +21,7 @@ import json
 import time
 from collections import deque
 from collections.abc import Iterable
-from typing import Protocol
+from typing import Any, Protocol
 
 from openai import APIConnectionError, APIError, APIStatusError, AsyncOpenAI, RateLimitError
 
@@ -128,6 +128,7 @@ class GroqClient:
         temperature: float = 0.0,
         max_retries: int = 0,
         timeout_s: float = 60.0,
+        http_client: Any = None,
     ) -> None:
         self._model = model
         self._provider = provider
@@ -138,6 +139,7 @@ class GroqClient:
             base_url=base_url,
             max_retries=max_retries,
             timeout=timeout_s,
+            http_client=http_client,  # a test's transport; the SDK's own when None
         )
 
     async def complete(self, request: ModelRequest) -> ModelResponse:

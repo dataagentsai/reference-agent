@@ -209,14 +209,19 @@ class ApprovalWorkflow:
         # expiry. The reminder is the workflow's because the workflow is the
         # only thing awake — the agent's turn ended when it asked, and nobody
         # is watching a clock that runs for a day (T-059).
-        remind_after = max(0, ask.ttl_s - ask.remind_before_s)
+        rest = ask.ttl_s
         if ask.remind_before_s > 0:
+            remind_after = max(0, ask.ttl_s - ask.remind_before_s)
             await self._until(remind_after)
             if not self._current.decided:
                 await self._remind()
+            rest = ask.ttl_s - remind_after
         # The timeout is the approval expiring; what it means is decided below,
         # where "nobody answered" and "somebody answered no" are told apart.
-        await self._until(ask.ttl_s - remind_after)
+        # With no reminder the whole validity is this one wait: it was
+        # `ttl - ttl`, and an approval asked with no reminder expired at once
+        # (Tier 2b, found by the approval port's contract table; DBOS was right).
+        await self._until(rest)
         await queue.signal(ApprovalQueue.closed, ask.id)
 
     async def _until(self, seconds: int) -> None:

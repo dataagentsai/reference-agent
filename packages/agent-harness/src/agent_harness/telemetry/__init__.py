@@ -22,7 +22,7 @@ root.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
@@ -145,6 +145,7 @@ def configure(
     metrics_endpoint: str | None = None,
     metrics_headers: Mapping[str, str] | None = None,
     metrics_interval_s: float = 15.0,
+    backend: Backend | None = None,
 ) -> InMemorySpanExporter:
     """Install a provider and return the in-memory exporter.
 
@@ -186,9 +187,17 @@ def configure(
         metrics_endpoint,
         metrics_headers,
         metrics_interval_s,
+        backend,
     )
     _LAST_EXPORTER = exporter
     return exporter
+
+
+Backend = Callable[
+    [Resource, tuple[SpanProcessor, ...], InMemoryMetricReader], tuple[TracerProvider, Any]
+]
+"""Builds both providers around ours: an adapter's (`adapters.telemetry`). None
+is the plain SDK, unless the Azure variable below is set (the Tier 2b audit)."""
 
 
 def _install(
@@ -197,13 +206,15 @@ def _install(
     metrics_endpoint: str | None,
     metrics_headers: Mapping[str, str] | None,
     metrics_interval_s: float,
+    backend: Backend | None = None,
 ) -> TracerProvider:
     connection = azure.connection_string()
-    if connection is not None:
-        # The Azure stack: the distro builds both providers, exporting to
-        # Application Insights, with ours inside them (`telemetry.azure`).
+    if backend is None and connection is not None:
+        backend = lambda r, p, m: azure.install(connection, r, p, m)  # noqa: E731
+    if backend is not None:
+        # A backend's distro builds both providers, ours inside them.
         reader = InMemoryMetricReader()
-        provider, meter_provider = azure.install(connection, resource, processors, reader)
+        provider, meter_provider = backend(resource, processors, reader)
         meters.adopt(meter_provider, reader)
         return provider
     provider = TracerProvider(resource=resource)

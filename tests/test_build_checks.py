@@ -97,8 +97,14 @@ def test_only_the_composition_root_constructs_a_realisation() -> None:
             if isinstance(node, ast.ClassDef) and REALISATION.fullmatch(node.name):
                 defined[node.name] = path
 
+    # The composition from configuration (Tier 2b) is the composition root's
+    # library half: each adapter module there builds the realisation its
+    # overlay names, and nothing in the library imports it (the layer contract).
+    composition = LIB / "adapters"
     offences = []
     for path in sources():
+        if composition in path.parents:
+            continue
         for node in ast.walk(ast.parse(path.read_text())):
             if not isinstance(node, ast.Call):
                 continue

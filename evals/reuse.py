@@ -33,6 +33,14 @@ library's module under its old name, so it is not counted as either side."""
 
 MECHANISM = {
     "__init__.py",
+    "adapters/__init__.py",  # the composition from a profile and an overlay (Tier 2b)
+    "adapters/identity.py",  # identity adapters by name: local-dev, keycloak, entra-id
+    "adapters/model.py",  # model adapters by name: scripted, litellm-proxy, groq-direct, apim
+    "adapters/secrets.py",  # secrets by reference: environment-settings, key-vault
+    "adapters/state.py",  # state adapters by name: in-memory, postgres, azure-postgresql-flexible
+    "adapters/telemetry.py",  # telemetry adapters by name: console, otel-to-langfuse, azure-monitor
+    "adapters/tools.py",  # the tool runtime by name: mcp-client
+    "adapters/waits.py",  # approval adapters by name: temporal-updates, dbos-workflows
     "approvals/__init__.py",
     "approvals/dbos.py",  # an adapter: the Azure stack's approval binding (T-099)
     "approvals/desk.py",
@@ -79,6 +87,7 @@ MECHANISM = {
     "flow/__init__.py",
     "identity/__init__.py",
     "identity/entra.py",  # an adapter: the Azure stack's identity binding (T-099)
+    "identity/local.py",  # an adapter: sessions signed in process (local-dev, Tier 2b)
     "identity/sessions.py",
     "llm/__init__.py",
     "llm/pydantic_ai.py",  # an adapter: the Azure stack's model layer (T-099)
@@ -120,6 +129,7 @@ MECHANISM = {
     "watch/__init__.py",
     "watch/engine.py",
     "watch/langfuse.py",
+    "watch/online.py",  # the online position: a turn from its trace, judged (Tier 2b)
     "watch/outcomes.py",
     "watch/record.py",
     "watch/verdicts.py",

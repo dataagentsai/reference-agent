@@ -17,12 +17,29 @@ wrong one.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Any
+
 from cryptography.fernet import Fernet, InvalidToken
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
 from agent_harness.contracts import ConversationId, RunId, StoredSession
 from agent_harness.contracts.failures import AgentFailure, Fault
+
+
+@asynccontextmanager
+async def pool(url: str, *, min_size: int = 1, max_size: int = 4) -> AsyncIterator[Any]:
+    """A connection pool on `url`, open for the block: what both stores share."""
+    opened: AsyncConnectionPool[Any] = AsyncConnectionPool(
+        url, min_size=min_size, max_size=max_size, open=False
+    )
+    await opened.open(wait=True, timeout=10)
+    try:
+        yield opened
+    finally:
+        await opened.close()
 
 
 class PostgresCheckpointStore:

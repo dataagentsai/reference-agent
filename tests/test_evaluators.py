@@ -22,6 +22,8 @@ from agent_harness.evals import EvalRequest, Expected, Meta, Response, judge
 from agent_harness.evals import plan as ev
 from agent_harness.evals.rule import RuleSpec
 from agent_harness.policy import Context, Position, enforce
+from agent_harness.watch import online
+from agent_harness.watch.record import ToolUse, Turn
 from support_agent import policy as pol
 
 YAML = pol.EVALUATORS.read_text()
@@ -326,3 +328,59 @@ def test_the_shipped_yaml_places_every_catalogued_rule() -> None:
     placed = plan_of(YAML)
     assert set(pol.RULES) <= set(placed.evaluators)
     assert all(placed.where(name) for name in pol.RULES)
+
+
+# --------------------------------------------------------------------------- 7
+def _turn(**changes: object) -> Turn:
+    base: dict[str, object] = dict(
+        trace_id="t-1",
+        run_id="r-1",
+        session_id="s-1",
+        user_id="c-1",
+        started=0.0,
+        duration_s=1.0,
+        synthetic=False,
+        captured=True,
+        result="completed",
+        rule_id="",
+        reply_redacted=False,
+        input="Where is AB-10010?",
+        reply="Your order AB-10010 is on its way.",
+        route="agent",
+        termination="completed",
+        cost_usd=0.0,
+        model_calls=1,
+        malformed=0,
+        unbacked_promise=False,
+        tools=(ToolUse("get_order", "read", "ok", {"id": "AB-10010"}, {"id": "AB-10010"}, 0.1),),
+    )
+    return Turn(**{**base, **changes})  # type: ignore[arg-type]
+
+
+# (row, the turn, each online evaluator's verdict in YAML order)
+ONLINE: list[tuple[str, Turn, list[str]]] = [
+    ("a captured turn is judged on what was sent", _turn(), ["pass", "pass"]),
+    (
+        "an order nobody read, sent",
+        _turn(reply="Your order AB-99999 is on its way."),
+        ["fail", "pass"],
+    ),
+    (
+        "an uncaptured turn has no response: skipped",
+        _turn(captured=False, reply=None),
+        ["skip", "skip"],
+    ),
+    ("a synthetic turn is the canary's", _turn(synthetic=True), []),
+]
+
+
+@pytest.mark.discharges("AAC-0014")
+@pytest.mark.parametrize(("name", "turn", "verdicts"), ONLINE, ids=[o[0] for o in ONLINE])
+def test_the_watch_judges_a_turn_at_the_online_position(
+    name: str, turn: Turn, verdicts: list[str]
+) -> None:
+    results = online.judge(plan_of(YAML), [turn], agent="support-agent")
+    assert [r.verdict for r in results] == verdicts
+    assert [r.evaluator for r in results] == ["no_ungrounded_entity", "no_pii_echo"][
+        : len(verdicts)
+    ]

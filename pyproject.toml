@@ -208,6 +208,10 @@ name = "Arrows point down inside the harness"
 type = "layers"
 containers = ["agent_harness"]
 layers = [
+    # `adapters` is the composition from configuration (Tier 2b): it builds
+    # every port's adapter, so it sits above everything it builds, and nothing
+    # in the library imports it — only a composition root does.
+    "adapters",
     "serve | portal | channel | watch",
     "reviewer",
     "entrypoint",
