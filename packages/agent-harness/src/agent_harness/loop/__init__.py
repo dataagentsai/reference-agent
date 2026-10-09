@@ -112,8 +112,12 @@ async def run(
     gone: Gone | None = None,
     resumed: tuple[str, ...] = (),
     owed: tuple[tuple[str, str, tuple[str, ...]], ...] = (),
+    unreachable: str = UNREACHABLE,
 ) -> Ended:
     """One task, step by step, until one of the terminations above.
+
+    `unreachable` is what the caller is told when the tool surface cannot be
+    opened, in the agent's own words for its system (the default is neutral).
 
     The loop itself is only this: open the tool surface, take steps until one
     ends the run, and stop on the step budget if none does. What a step *is* —
@@ -127,7 +131,7 @@ async def run(
         try:
             registry = await tools.list_tools(identity)
         except ToolUnavailable as exc:
-            return failed(run_span, trace, UNREACHABLE, str(exc))
+            return failed(run_span, trace, unreachable, str(exc))
 
         local = dict(local_tools or {})
         registry = registry.model_copy(

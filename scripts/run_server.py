@@ -57,6 +57,7 @@ from support_agent import entrypoint as ep
 from support_agent import escalation as esc
 from support_agent import portal as ptl
 from support_agent import serve
+from support_agent.binding import SIGN_IN
 from support_agent.config import RunConfig, Settings, resolve
 from support_agent.contracts import Approvals, Identity, LLMClient, ModelResponse, ToolClient
 from agent_harness.llm import ScriptedClient, connect_model
@@ -163,6 +164,7 @@ def _with_chatwoot(app: Starlette, agent: ep.Agent, issuer: ident.Issuer) -> Sta
         api=ch.ChatwootClient(configured.chatwoot_base_url, token=configured.chatwoot_bot_token),
         portal_url=configured.portal_redirect_uri.rsplit("/", 1)[0] + "/",
         secret=configured.chatwoot_bot_secret,
+        sign_in=SIGN_IN,
     )
     print("  Customer portal at /portal; Chatwoot webhook at /chatwoot/webhook.")
     return Starlette(

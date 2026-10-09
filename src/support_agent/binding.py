@@ -27,6 +27,13 @@ SYSTEM_PROMPT = (
 """What the model is told it is. This shop's words, so this file and not the
 composition root, which only passes them on (prompt version v2, T-072)."""
 
+UNREACHABLE = "I cannot reach our order system right now."
+"""What a customer is told when the shop cannot be reached. The library's default
+is neutral; these are this shop's words (claims-fnol-azure F-14)."""
+
+SIGN_IN = "Please sign in so I can look at your orders: {portal}"
+"""What an unsigned Chatwoot visitor is told, in this shop's words (F-14)."""
+
 
 SCOPES: dict[str, str] = {
     "cancel_order": ident.SCOPE_ORDERS_WRITE,
@@ -50,4 +57,4 @@ rather than now.
 """
 
 
-__all__ = ["FRESH_FOR_S", "SCOPES"]
+__all__ = ["FRESH_FOR_S", "SCOPES", "SIGN_IN", "UNREACHABLE"]

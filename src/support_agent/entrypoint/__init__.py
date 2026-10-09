@@ -80,10 +80,9 @@ class Agent:
     store: CheckpointStore
     approvals: Approvals | None = None
     escalations: Escalations | None = None
-    """Absent means the agent cannot escalate at all, and it says so rather than
-    pretending: with no store the request is refused and nothing is claimed.
-    Same honesty as the approval flow refusing to offer a refund tool when no
-    approval store is wired."""
+    """Absent means the agent cannot escalate at all, and it says so rather than pretending:
+    with no store the request is refused and nothing is claimed. Same honesty as the approval
+    flow refusing to offer a refund tool when no approval store is wired."""
     deliveries: req.Requests | None = None
     clock: Clock | None = None
     """Epoch seconds, injected. Defaults to the wall clock.
@@ -320,6 +319,7 @@ class Agent:
                     gone=gone,
                     resumed=conversation.facts.read,
                     owed=router.owed(decision.goal),
+                    unreachable=binding.UNREACHABLE,
                 )
                 return result, tuple(trace.effects), tuple(trace.tool_calls), tuple(trace.reads)
             case _:

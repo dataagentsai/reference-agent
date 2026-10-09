@@ -57,7 +57,10 @@ UNANSWERED = "I could not deal with everything you raised here."
 """AHC-0118: a concern still not dealt with after the model was sent back once."""
 IN_CIRCLES = "I am going round in circles on this — let me pass you to a colleague."
 TROUBLE = "I am having trouble answering right now."
-UNREACHABLE = "I cannot reach our order system right now."
+UNREACHABLE = "I cannot reach the system that holds your records right now."
+"""When the far end cannot be reached. Neutral, because the library has no domain:
+an agent names its own system through `loop.run(unreachable=...)` (claims-fnol-azure
+F-14: a policyholder was told about "our order system")."""
 CALLER_LEFT = "This conversation was closed before I finished — ask again and I will pick it up."
 """Recorded on the conversation for whoever reopens it; nobody was there to read it."""
 

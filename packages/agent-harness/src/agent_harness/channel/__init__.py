@@ -8,9 +8,9 @@ decides what the webhook may cause, from four things checked in order:
    under the bot's secret; a timestamp more than five minutes off is refused
    too, so a captured webhook cannot be replayed later.
 2. **Whether it is the customer's turn.** Only an incoming, public message in a
-   conversation the bot still holds (`pending`) is acted on. The bot's own
-   replies, Chatwoot's automated messages and anything in a conversation a
-   person has taken are acknowledged and ignored.
+   conversation the bot still holds (`pending`) is acted on. The bot's own replies,
+   Chatwoot's automated messages and anything in a conversation a person has taken are
+   acknowledged and ignored.
 3. **Who it is.** The contact must be `hmac_verified`: its identifier is a
    login's `sub`, and only the portal can compute its HMAC. An anonymous visitor
    is told to sign in.
@@ -67,7 +67,7 @@ from agent_harness.state import Conversation
 
 MAX_SKEW_S = 300
 
-SIGN_IN = "Please sign in so I can look at your orders: {portal}"
+SIGN_IN = "Please sign in so I can look at your account: {portal}"  # neutral (F-14)
 SIGNED_OUT = "Your session has ended. Please sign in again so I can help: {portal}"
 
 
@@ -169,6 +169,7 @@ class Channel:
     portal_url: str
     secret: str = field(repr=False)
     clock: Callable[[], float] = time.time
+    sign_in: str = SIGN_IN  # what an unsigned visitor is told: the agent's words
 
     def signed(self, headers: Any, raw: bytes) -> bool:
         stamp, signature = headers.get("x-chatwoot-timestamp"), headers.get("x-chatwoot-signature")
@@ -329,7 +330,7 @@ async def _customer(channel: Channel, message: Incoming) -> Identity | str:
     """The customer's live session, or the sentence turning the message away:
     sign in, or send something shorter."""
     if not message.verified:
-        return SIGN_IN
+        return channel.sign_in
     if len(message.text) > MAX_TEXT:
         # Before a session is looked up or anything is paid for (AHC-0016).
         # /chat refuses a body over 8 KiB; this door had no bound, and the trim
