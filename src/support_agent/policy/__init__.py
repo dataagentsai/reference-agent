@@ -16,8 +16,11 @@ unauthorised refund and one that cannot *claim* it did.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from agent_harness.contracts import ToolResult
+from agent_harness.evals import plan as evaluators
+from agent_harness.evals.rule import RuleSpec
 from agent_harness.policy import (
     ALLOW,
     BLOCKED_CALL,
@@ -69,6 +72,9 @@ customer was handed to a colleague for no reason. A guardrail that blocks correc
 behaviour is worse than one that misses a claim, because it fires constantly and
 is therefore switched off.
 """
+
+GROUNDED = frozenset({"response", "tool_results"})
+"""What a grounding rule needs: the reply, and what the tools returned this turn."""
 
 CARD = re.compile(r"\b\d{13,19}\b")
 DISCOUNT_OFFER = re.compile(r"\b(\d{1,2}%\s*(off|discount)|voucher|coupon code)\b", re.I)
@@ -219,28 +225,35 @@ def no_discount_offer(ctx: Context) -> Verdict:
     return ALLOW
 
 
-OUTPUT_RULES = (
-    no_unclaimed_effect,
-    no_ungrounded_entity,
-    no_superseded_state,
-    no_invented_delivery_date,
-    no_pii_echo,
-    no_discount_offer,
-)
+RULES: dict[str, RuleSpec] = {
+    "no_unclaimed_effect": RuleSpec(no_unclaimed_effect, GROUNDED),
+    "no_ungrounded_entity": RuleSpec(no_ungrounded_entity, GROUNDED),
+    "no_superseded_state": RuleSpec(no_superseded_state, GROUNDED),
+    "no_invented_delivery_date": RuleSpec(no_invented_delivery_date),
+    "no_pii_echo": RuleSpec(no_pii_echo),
+    "no_discount_offer": RuleSpec(no_discount_offer),
+}
+"""This shop's reply rules, each with what it needs: the catalogue
+`evaluators.yaml` places from (Tier 2b). A rule here runs nowhere until the YAML
+puts it at a position.
 
-REPLY_RULES = (
-    no_invented_delivery_date,
-    no_pii_echo,
-    no_discount_offer,
-)
-"""The rules that judge a reply on its own text, run on **every** route.
+The grounding rules need the tool results. They compare a claim with what the
+tools returned, and on a deterministic route there is nothing to compare against
+— run with no evidence, they would block "the refund is on its way" on the one
+path that only says it after the refund succeeded. So the `reply` position runs
+them on the model's reply only, and the rest on every route's reply too: what a
+template is *not* protected against otherwise is the next edit to it."""
 
-The grounding rules are not here, deliberately. They compare a claim with what
-the tools returned, and outside the loop there is nothing to compare against —
-run with no evidence, they would block "the refund is on its way" on the one
-path that only says it after the refund succeeded. The deterministic routes are
-grounded by construction: they render from tool data. What they are *not*
-protected against, until now, is the next edit to one of their templates."""
+EVALUATORS = Path(__file__).with_name("evaluators.yaml")
+PLAN = evaluators.load(EVALUATORS, rules=RULES)
+"""Where each check runs, read and checked at import: a wrong YAML stops the
+process here, not on the first customer."""
+
+OUTPUT_RULES = PLAN.inline("model")
+"""The `reply` position after the model: every evaluator placed there, in order."""
+
+REPLY_RULES = PLAN.inline("every_route")
+"""The `reply` position on **every** route: the evaluators that need only the reply."""
 
 CONSENTED_TOOLS = frozenset(
     {"cancel_order", "open_return_request", "change_address", "request_refund"}
@@ -293,7 +306,9 @@ __all__ = [
     "CLAIM_PATTERNS",
     "no_superseded_state",
     "OUTPUT_RULES",
+    "PLAN",
     "REPLY_RULES",
+    "RULES",
     "SAFE_REPLY",
     "Context",
     "Position",

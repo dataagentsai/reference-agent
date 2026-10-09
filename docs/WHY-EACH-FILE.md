@@ -281,6 +281,22 @@ which is the same answer `evals/reuse.py`'s seam map gave from reading.
 
 ---
 
+## Tier 2b: adapters chosen from configuration, checks as plug-ins
+
+The second agent (claims-fnol-azure) is wired from its stack profile and an
+environment overlay instead of `if env == ...` branches, and every reply check
+sits behind one port placed by `evaluators.yaml` (architecture deck, slides
+93–94). Mechanism a third agent keeps whole: no agent's words and no vendor SDK.
+
+| File | Why |
+|---|---|
+| `config/registry.py` | Names to plug-ins: a port's adapter (`model: apim-ai-gateway`) or an evaluator's kind (`kind: rule`), each a lazy `module:attribute` string, so a choice imports only its own SDK. An unknown name fails at startup listing the known ones; a named-and-unbuilt one (`NotBuilt`) fails only when chosen. **AHC-0022** (substitutable by configuration), **AHC-0028**. |
+| `config/profile.py` | `extends` resolved with the catalog's rules (`ai-harness-catalog/tools/resolve.js` is normative), so the composition reads which adapter each port is bound to from the stack a profile inherits. Was the reference's `evals/profile.py`, which now re-exports it; the test pinning the two implementations is unchanged. |
+| `evals/__init__.py` | The `Evaluator` port and its one request and one result (slide 93): conversation and tools in OpenAI's formats, the response with its tool calls and results, context with source ids, a golden case's expectations, meta; verdict, normalised and raw score, threshold, reason, evaluator, version, provider, cost, latency. A request lacking what an evaluator needs is `skip: missing …`, never a failure. **AHC-0028**. |
+| `evals/plan.py` | `evaluators.yaml` (slide 94) read into a typed plan: kinds by registry, positions `reply`, `online`, `release` with `on_fail`, `sample`, `max_ms`, `min`. Startup refuses an unknown kind, name or field, a slow evaluator inline, and one whose needs its position cannot provide. `reply` reaches the existing hook (`policy.use_default_rules`): an erroring check fails closed exactly as a rule that raises (**AAC-0091**, **AHC-0094**); `online` samples repeatably by trace (**AAC-0014**); `release` gates a batch on a pass rate. |
+| `evals/rule.py` | The `rule` kind: an agent's reply rules, from its own catalogue with what each needs, and the library's golden-case checks (`tool_selection`, `must_include`), as evaluators — speed inline, provider ours, score 1 or 0. |
+| `evals/stubs.py` | The kinds named and not built — `guardrail_log`, `presidio`, `azure`, `open_model` — so the YAML speaks one vocabulary now and a file that uses one fails at startup saying when it arrives (Tier 3/12). Each declares its fields, so a misspelling is refused today. |
+
 ## Azure stack adapters (T-099)
 
 Each binds one AHC layer to the service `stacks/azure.yaml` (clean-ai-engineering)

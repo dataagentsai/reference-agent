@@ -55,6 +55,8 @@ dev = [
     "hypothesis>=6.100",
     "mypy>=1.13",
     "types-jsonschema>=4.26.0.20260518",
+    # The library reads YAML since Tier 2b (profiles, overlays, evaluators.yaml).
+    "types-PyYAML>=6.0",
 ]
 
 [tool.uv.workspace]
@@ -210,12 +212,29 @@ layers = [
     "reviewer",
     "entrypoint",
     "loop",
-    "context | tools | approvals | escalation",
+    "context | tools | approvals | escalation | evals",
     "llm | state | policy | cost | requests | erasure | resilience | flow | identity | cassette",
     "config | telemetry",
     "conformance | contracts",
 ]
 exhaustive = true
+
+[[tool.importlinter.contracts]]
+# Tier 2b. The checks' port, registry and our rule kind: no agent's rules (an
+# agent hands its catalogue in) and no vendor's SDK. A vendor's evaluators are
+# that vendor's adapter module, registered by name in `evals.plan.KINDS`, and
+# get their own line in the SDK contracts when they are built.
+name = "The evaluators know no agent and no vendor"
+type = "forbidden"
+source_modules = ["agent_harness.evals"]
+forbidden_modules = [
+    "support_agent", "order_system", "openai", "pydantic_ai", "azure", "dbos",
+    "temporalio", "mcp", "psycopg", "httpx2",
+]
+# The policy positions reach telemetry, which still picks Azure Monitor by an
+# environment variable (Tier 2b audit; the import inside it is lazy). That edge
+# is the telemetry adapter's own, confined by its contract below.
+ignore_imports = ["agent_harness.telemetry.azure -> azure"]
 
 [[tool.importlinter.contracts]]
 name = "The harness cannot see a simulator"

@@ -42,6 +42,8 @@ MECHANISM = {
     "cassette/__init__.py",
     "channel/__init__.py",
     "config/__init__.py",
+    "config/profile.py",  # resolving `extends`, read by the composition (Tier 2b)
+    "config/registry.py",  # names to plug-ins, lazily: adapters and evaluator kinds (Tier 2b)
     "conformance.py",
     "context/__init__.py",
     "contracts/__init__.py",
@@ -70,6 +72,10 @@ MECHANISM = {
     "escalation/durable.py",
     "escalation/rules.py",
     "escalation/workflow.py",
+    "evals/__init__.py",  # the Evaluator port, EvalRequest and EvalResult (Tier 2b)
+    "evals/plan.py",  # evaluators.yaml, refused at startup when wrong (Tier 2b)
+    "evals/rule.py",  # the `rule` kind: our rules as evaluators (Tier 2b)
+    "evals/stubs.py",  # kinds named and not built: guardrail_log, presidio, azure, open_model
     "flow/__init__.py",
     "identity/__init__.py",
     "identity/entra.py",  # an adapter: the Azure stack's identity binding (T-099)

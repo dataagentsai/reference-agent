@@ -21,6 +21,9 @@ dependencies = [
     "temporalio>=1.18",
     # The Entra on-behalf-of exchange (T-099): one form post, asynchronously.
     "httpx2>=2.0",
+    # Profiles, environment overlays and evaluators.yaml are read by the library
+    # itself since Tier 2b (`config.profile`, `adapters`, `evals`).
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]

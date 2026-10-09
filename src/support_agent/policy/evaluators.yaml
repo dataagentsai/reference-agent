@@ -1,0 +1,43 @@
+# Where each of this shop's checks runs: one request in, one result out
+# (architecture deck, slides 93-94; agent_harness.evals).
+#
+# Moving a check, changing a threshold, an on-fail action or a sample rate is a
+# change to this file and nothing else. A new rule is code once, in
+# support_agent.policy.RULES, and then a line here. Read at import and checked:
+# an unknown kind, name or field, a slow check at `reply`, or a check placed
+# where its inputs never exist stops the process.
+
+evaluators:
+  no_unclaimed_effect: {kind: rule}
+  no_ungrounded_entity: {kind: rule}
+  no_superseded_state: {kind: rule}
+  no_invented_delivery_date: {kind: rule}
+  no_pii_echo: {kind: rule}
+  no_discount_offer: {kind: rule}
+  tool_selection: {kind: rule}        # the library's: a golden case's must-call
+  must_include: {kind: rule}          # the library's: a golden case's must-include
+
+positions:
+  # Inline, before the customer reads it: a fail is the safe reply. Each runs on
+  # the model's reply; those that need nothing but the reply also run on every
+  # route's (a template's), where there are no tool results to ground against.
+  reply:
+    - {use: no_unclaimed_effect, on_fail: safe_reply}
+    - {use: no_ungrounded_entity, on_fail: safe_reply}
+    - {use: no_superseded_state, on_fail: safe_reply}
+    - {use: no_invented_delivery_date, on_fail: safe_reply}
+    - {use: no_pii_echo, on_fail: safe_reply}
+    - {use: no_discount_offer, on_fail: safe_reply}
+
+  # After the turn, on what the customer was actually sent: a fail is a finding.
+  online:
+    sample: 1.0
+    run:
+      - {use: no_ungrounded_entity, on_fail: alert}
+      - {use: no_pii_echo, on_fail: alert}
+
+  # Over golden cases and scenarios: a pass rate under `min` blocks the release.
+  release:
+    run:
+      - {use: tool_selection, on_fail: block, min: 1.0}
+      - {use: must_include, on_fail: block, min: 1.0}
