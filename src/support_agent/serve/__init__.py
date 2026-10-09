@@ -46,7 +46,8 @@ def build(
     """Wire an agent behind HTTP, with this shop's chat and desk pages."""
     return _serve.build(
         agent,
-        issuer=issuer,
+        # This shop's realm is Keycloak, so Keycloak's verifier (F-30).
+        verify=ident.verifier(issuer),
         chat_page=CHAT_PAGE,
         store=store,
         escalations=escalations,

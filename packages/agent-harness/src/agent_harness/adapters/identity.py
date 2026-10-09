@@ -4,7 +4,8 @@
                 adapter that can mint, so a sign-in page exists only here
     keycloak    the Open Stack's realm: its published keys, RFC 8693 exchange
     entra-id    Entra's v2.0 issuer for the tenant, Entra's claim shapes, and
-                the on-behalf-of grant
+                the on-behalf-of grant; `role_scopes` maps an app role (`roles`) to
+                the scopes it grants, e.g. `desk.handler` to the desk's four
 
 The product is `Sessions`: the issuer, the verifier that reads this issuer's
 claim shapes (Entra's `scp` is a string, Keycloak's a list), the exchange when
@@ -15,20 +16,21 @@ network.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
 from agent_harness import identity as ident
-from agent_harness.adapters import Adapter, Setting, Wiring
+from agent_harness.adapters import Adapter, OverlayRefused, Setting, Wiring
 from agent_harness.identity.local import LocalIssuer
 
 
 @dataclass(frozen=True)
 class Sessions:
     issuer: ident.Issuer
-    verify: Callable[[str], ident.Principal]
+    verify: ident.Verifier
+    """This issuer's verifier: what every edge checks a session with (F-30)."""
     exchange: ident.Exchange | None = None
     signer: LocalIssuer | None = None
 
@@ -37,7 +39,7 @@ class Sessions:
 async def _local(wiring: Wiring) -> AsyncIterator[Sessions]:
     signer = LocalIssuer(url=str(wiring.settings["url"]), audience=str(wiring.settings["audience"]))
     issuer = signer.issuer()
-    yield Sessions(issuer, lambda token: ident.verify(token, issuer=issuer), None, signer)
+    yield Sessions(issuer, ident.verifier(issuer), None, signer)
 
 
 @asynccontextmanager
@@ -57,7 +59,7 @@ async def _keycloak(wiring: Wiring) -> AsyncIterator[Sessions]:
             audience=str(settings["far_end_audience"]),
             scope=str(settings.get("scope") or ""),
         )
-    yield Sessions(issuer, lambda token: ident.verify(token, issuer=issuer), exchange)
+    yield Sessions(issuer, ident.verifier(issuer), exchange)
 
 
 @asynccontextmanager
@@ -75,7 +77,25 @@ async def _entra(wiring: Wiring) -> AsyncIterator[Sessions]:
             scope=str(settings["far_end_scope"]),
             client_secret=str(settings["client_secret"]),
         )
-    yield Sessions(issuer, lambda token: entra.verify_entra(token, issuer=issuer), exchange)
+    roles = _role_scopes(settings.get("role_scopes"))
+
+    def verify(token: str) -> ident.Principal:
+        return entra.verify_entra(token, issuer=issuer, role_scopes=roles)
+
+    yield Sessions(issuer, verify, exchange)
+
+
+def _role_scopes(value: Any) -> dict[str, tuple[str, ...]]:
+    """`role_scopes` from the overlay: a mapping of role to a list of scopes, or
+    a refusal at startup — a misspelt shape must not silently grant nothing."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict) or not all(
+        isinstance(scopes, list) and all(isinstance(s, str) for s in scopes)
+        for scopes in value.values()
+    ):
+        raise OverlayRefused("entra-id: role_scopes maps each app role to a list of scopes")
+    return {str(role): tuple(scopes) for role, scopes in value.items()}
 
 
 LOCAL_DEV = Adapter(
@@ -110,6 +130,7 @@ ENTRA_ID = Adapter(
         "client_id": Setting(),
         "client_secret": Setting(secret=True),
         "far_end_scope": Setting(),
+        "role_scopes": Setting(),
     },
 )
 

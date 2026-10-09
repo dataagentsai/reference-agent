@@ -118,14 +118,14 @@ class Inbound:
     delivery_id: str | None
 
 
-def _customer(request: Request, issuer: ident.Issuer) -> Identity:
+def _customer(request: Request, verify: ident.Verifier) -> Identity:
     """The customer a request's bearer token speaks for, or a refusal."""
     header = request.headers.get("authorization", "")
     token = header[7:].strip() if header[:7].lower() == "bearer " else ""
     if not token:
         raise BadRequest(401, "a bearer token is required")
     try:
-        principal = ident.verify(token, issuer=issuer)
+        principal = verify(token)
     except ident.InvalidSession as exc:
         # A fixed message. The library's own text is descriptive — it will
         # happily report a codec error from a malformed segment — and every word
@@ -144,7 +144,7 @@ def _customer(request: Request, issuer: ident.Issuer) -> Identity:
         raise BadRequest(403, "this session is not a customer's") from None
 
 
-async def decode(request: Request, *, issuer: ident.Issuer) -> Inbound:
+async def decode(request: Request, *, verify: ident.Verifier) -> Inbound:
     """Turn an HTTP request into arguments, refusing anything that is not one."""
     raw = await request.body()
     if len(raw) > MAX_BODY:
@@ -163,7 +163,7 @@ async def decode(request: Request, *, issuer: ident.Issuer) -> Inbound:
     # Identity comes from the token and only from the token. A `customer_id` in
     # the body is ignored rather than merged — silently preferring the token
     # would still leave the field there for the next reader to trust.
-    who = _customer(request, issuer)
+    who = _customer(request, verify)
 
     cid = body.get("conversation_id")
     if cid is not None and (not isinstance(cid, str) or not cid):
@@ -205,7 +205,7 @@ async def chat(request: Request) -> Response:
     state = request.app.state
     with tel.span("http.chat") as span:
         try:
-            inbound = await decode(request, issuer=state.issuer)
+            inbound = await decode(request, verify=state.verify)
         except BadRequest as exc:
             span.set_attribute("http.status_code", exc.status)
             if exc.internal:
@@ -314,7 +314,7 @@ async def page(chat_page: str, _: Request) -> Response:
 def build(
     agent: TurnAgent | AgentFactory,
     *,
-    issuer: ident.Issuer,
+    verify: ident.Verifier,
     chat_page: str,
     store: CheckpointStore | None = None,
     escalations: Escalations | None = None,
@@ -335,7 +335,8 @@ def build(
     agent's own escalation store and `/chat` its own checkpoint store — passing a
     different one would have the reviewer working a queue the agent never writes
     to, which runs, passes every test that mocks one side, and loses every
-    escalation in production. So a mismatch fails at startup.
+    escalation in production. So a mismatch fails at startup. Every route checks
+    sessions with `verify`, the identity adapter's own (claims-fnol-azure F-30).
     """
     store, escalations = _stores_of(agent, store, escalations)
     routes: list[BaseRoute] = [
@@ -355,7 +356,7 @@ def build(
                 "/ops",
                 app=reviewer.build(
                     escalations,
-                    issuer=issuer,
+                    verify=verify,
                     desk=desk,
                     approvals=approvals,
                     approver=approver,
@@ -366,14 +367,13 @@ def build(
 
     if isinstance(agent, TurnAgent):
         app = Starlette(routes=routes)
-        app.state.issuer, app.state.agent, app.state.store = issuer, agent, store
+        app.state.verify, app.state.agent, app.state.store = verify, agent, store
         return app
 
     @asynccontextmanager
     async def lifespan(app: Starlette) -> AsyncIterator[None]:
         async with agent() as built:
-            app.state.issuer, app.state.agent = issuer, built
-            app.state.store = store or built.store
+            app.state.verify, app.state.agent, app.state.store = verify, built, store or built.store
             yield
 
     return Starlette(routes=routes, lifespan=lifespan)

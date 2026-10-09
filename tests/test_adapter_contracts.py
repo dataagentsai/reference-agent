@@ -7,7 +7,9 @@ rows the others pass. Rows that need an outside service skip and say which.
 
     model         scripted, litellm-proxy, groq-direct, apim-ai-gateway
                   — the SDK's HTTP answered in process, no network
-    identity      local-dev, keycloak, entra-id — tokens signed in process
+    identity      local-dev, keycloak, entra-id — tokens signed in process, held
+                  to verifying *and* to the edges (`serve`, the desk) taking
+                  each adapter's verifier (claims-fnol-azure F-30)
     telemetry     console, otel-to-langfuse, azure-monitor-otel — exporters
                   and the Azure distro replaced, as `test_telemetry_azure` does
     approval      temporal-updates (the cached time-skipping server),
@@ -179,24 +181,41 @@ STRANGER = LocalIssuer(url=SIGNER.url, audience=SIGNER.audience)
 """Another key under the same names: what a forged session is signed with."""
 
 
+DESK_ROLE = "desk.handler"
+DESK_SCOPES = ident.REVIEWER_SCOPES | ident.APPROVER_SCOPES
+"""What the desk role grants. Keycloak's realm (and the local issuer) write the
+scopes into `scp`; Entra writes the app role's value into `roles`, and the
+overlay's `role_scopes` says what it grants."""
+
+
 def mint(
-    name: str, *, audience: str = "support-agent", ttl_s: int = 600, key: LocalIssuer = SIGNER
+    name: str,
+    *,
+    audience: str = "support-agent",
+    ttl_s: int = 600,
+    key: LocalIssuer = SIGNER,
+    handler: bool = False,
 ) -> str:
-    """A session in the shape this adapter's issuer writes it."""
+    """A session in the shape this adapter's issuer writes it: a customer's, or
+    with `handler`, a desk handler's (no customer behind it)."""
     now = int(time.time())
     if name == "entra-id":
-        claims = {
+        claims: dict[str, Any] = {
             "iss": f"https://login.microsoftonline.com/{TENANT}/v2.0",
             "aud": audience,
             "sub": "login-1",
-            "scp": "orders:read orders:write",
             "uti": uuid.uuid4().hex,
-            ident.CLAIM_CUSTOMER: "C-1042",
             "iat": now,
             "exp": now + ttl_s,
         }
+        if handler:
+            claims["roles"] = [DESK_ROLE]
+        else:
+            claims |= {"scp": "orders:read orders:write", ident.CLAIM_CUSTOMER: "C-1042"}
         return jwt.encode(claims, key._key, algorithm="RS256", headers={"kid": KID})
     signer = LocalIssuer(url=SIGNER.url, audience=audience, _key=key._key)
+    if handler:
+        return signer.mint(subject="login-9", scopes=DESK_SCOPES, ttl_s=ttl_s)
     return signer.mint(
         subject="login-1", scopes={"orders:read", "orders:write"}, customer_id="C-1042", ttl_s=ttl_s
     )
@@ -205,7 +224,14 @@ def mint(
 IDENTITY_ADAPTERS: list[tuple[str, dict[str, Any]]] = [
     ("local-dev", {"url": SIGNER.url, "audience": "support-agent"}),
     ("keycloak", {"issuer_url": SIGNER.url, "audience": "support-agent"}),
-    ("entra-id", {"tenant": TENANT, "audience": "support-agent"}),
+    (
+        "entra-id",
+        {
+            "tenant": TENANT,
+            "audience": "support-agent",
+            "role_scopes": {DESK_ROLE: sorted(DESK_SCOPES)},
+        },
+    ),
 ]
 # (row, how the session is made, whom it verifies as or None for refused)
 IDENTITY_ROWS: list[tuple[str, dict[str, Any], str | None]] = [
@@ -238,6 +264,138 @@ async def test_the_identity_port(
         principal = sessions.verify(token)
     assert principal.customer_id == customer
     assert {"orders:read", "orders:write"} <= principal.scopes
+
+
+class _EmptyQueue:
+    """Escalations and approvals with nothing waiting: the edge rows are about who
+    gets in, not about what a queue holds."""
+
+    async def pending(self) -> tuple[()]:
+        return ()
+
+    async def get(self, _: str) -> None:
+        return None
+
+    async def open_for(self, _: str) -> None:
+        return None
+
+
+class _NoTurns:
+    """A ready agent (`TurnAgent`) that is never asked for a turn: `/feedback`
+    reads its store, and nothing here posts to `/chat`."""
+
+    def __init__(self) -> None:
+        from agent_harness.state import InMemoryCheckpointStore
+
+        self.store = InMemoryCheckpointStore()
+        self.escalations = _EmptyQueue()
+
+    async def opening(self, identity: Identity) -> str:
+        raise AssertionError("not under test")
+
+    async def handle(self, *_: Any, **__: Any) -> Any:
+        raise AssertionError("not under test")
+
+
+# (row, the session, method, path, the status the edge must answer)
+EDGE_ROWS: list[tuple[str, dict[str, Any], str, str, int]] = [
+    (
+        "a handler with the desk role reads the escalation queue",
+        {"handler": True},
+        "GET",
+        "/ops/escalations",
+        200,
+    ),
+    (
+        "a handler with the desk role reads what waits for approval",
+        {"handler": True},
+        "GET",
+        "/ops/approvals",
+        200,
+    ),
+    (
+        "a policyholder without the desk role is refused at the desk",
+        {},
+        "GET",
+        "/ops/approvals",
+        403,
+    ),
+    (
+        "a policyholder's session is accepted at the customer edge",
+        {},
+        "POST",
+        "/feedback",
+        404,
+    ),  # past identity: the conversation is not theirs
+    (
+        "a handler's session is not a customer's at the customer edge",
+        {"handler": True},
+        "POST",
+        "/feedback",
+        403,
+    ),
+    (
+        "a forged desk session is refused at the desk",
+        {"handler": True, "key": STRANGER},
+        "GET",
+        "/ops/approvals",
+        401,
+    ),
+]
+
+
+@pytest.mark.discharges("AAC-0057", "AHC-0099")
+@pytest.mark.parametrize(
+    ("name", "settings"), IDENTITY_ADAPTERS, ids=[a[0] for a in IDENTITY_ADAPTERS]
+)
+@pytest.mark.parametrize(
+    ("row", "made", "method", "path", "status"), EDGE_ROWS, ids=[r[0] for r in EDGE_ROWS]
+)
+async def test_the_edges_verify_through_the_identity_port(
+    name: str,
+    settings: dict[str, Any],
+    row: str,
+    made: dict[str, Any],
+    method: str,
+    path: str,
+    status: int,
+) -> None:
+    """F-30: `serve` and the desk take the verifier of the adapter the
+    composition chose, so each issuer's sessions are read in its own shape at the
+    edge, not only by `Sessions.verify`."""
+    from agent_harness import serve
+
+    async with built("identity", name, settings, keys=ident.JWKS(SIGNER.jwks)) as sessions:
+        if name == "local-dev":
+            made = {**made, "key": made.get("key", sessions.signer)}
+        token = mint(name, **made)
+        queue = _EmptyQueue()
+        app = serve.build(
+            _NoTurns(),
+            verify=sessions.verify,
+            chat_page="",
+            approvals=queue,  # type: ignore[arg-type]
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://edge.test"
+        ) as client:
+            answer = await client.request(
+                method,
+                path,
+                headers={"authorization": f"Bearer {token}"},
+                json={"conversation_id": "cnv_none", "value": "up"} if method == "POST" else None,
+            )
+    assert answer.status_code == status, (row, answer.text)
+
+
+def test_a_misshapen_role_mapping_is_refused_at_startup() -> None:
+    async def build() -> None:
+        settings = {"tenant": TENANT, "audience": "a", "role_scopes": {DESK_ROLE: "approvals:read"}}
+        async with built("identity", "entra-id", settings, keys=ident.JWKS(SIGNER.jwks)):
+            pass
+
+    with pytest.raises(OverlayRefused, match="role_scopes"):
+        asyncio.run(build())
 
 
 # ======================================================================= telemetry

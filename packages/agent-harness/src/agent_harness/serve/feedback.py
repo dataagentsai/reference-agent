@@ -30,7 +30,7 @@ async def feedback(request: Request) -> Response:
 
     state = request.app.state
     try:
-        who = _customer(request, state.issuer)
+        who = _customer(request, state.verify)
         body: Any = json.loads(await request.body() or b"{}")
     except BadRequest as exc:
         return JSONResponse({"error": exc.detail}, status_code=exc.status)

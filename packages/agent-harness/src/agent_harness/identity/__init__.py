@@ -229,6 +229,30 @@ def verify(token: str, *, issuer: Issuer, now: int | None = None) -> Principal:
     )
 
 
+class Verifier(Protocol):
+    """A session token in, a `Principal` out, or `InvalidSession`: what an edge
+    checks a bearer token with (claims-fnol-azure F-30).
+
+    Each issuer writes its claims in its own shape — Keycloak's `scp` is a list
+    and its session is `jti`; Entra's `scp` is a space-separated string, its
+    application roles are `roles` and its session is `uti` — so the verifier
+    belongs to the identity adapter the composition chose, and the edges
+    (`serve`, `reviewer`) take it rather than calling `verify` themselves.
+    """
+
+    def __call__(self, token: str) -> Principal: ...
+
+
+def verifier(issuer: Issuer) -> Verifier:
+    """`verify` bound to one issuer: Keycloak's claim shapes (and the local
+    issuer's, which writes the same)."""
+
+    def check(token: str) -> Principal:
+        return verify(token, issuer=issuer)
+
+    return check
+
+
 def decode(
     token: str, *, issuer: Issuer, require: tuple[str, ...], now: int | None = None
 ) -> dict[str, Any]:
@@ -338,6 +362,8 @@ __all__ = [
     "RefreshGrant",
     "SessionEnded",
     "RemoteJWKS",
+    "Verifier",
+    "verifier",
     "discovery",
     "require",
     "verify",

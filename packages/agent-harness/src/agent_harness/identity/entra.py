@@ -21,7 +21,7 @@ the caller branches on (AHC-0110).
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 import httpx2 as httpx
@@ -90,30 +90,45 @@ def entra_issuer(tenant: str, audience: str, *, keys: KeySource | None = None) -
     )
 
 
-def verify_entra(token: str, *, issuer: Issuer, now: int | None = None) -> Principal:
+RoleScopes = Mapping[str, Iterable[str]]
+"""An app role's value -> the scopes it grants, from the overlay (`role_scopes`).
+
+Entra puts an app role a user is assigned in `roles` (its value, e.g.
+`desk.handler`), and a role is coarser than a scope: the desk checks
+`approvals:decide`, not a job title. The mapping says what each role may do;
+the role itself is kept as a scope as well, so nothing that read it before
+stops reading it."""
+
+
+def verify_entra(
+    token: str, *, issuer: Issuer, now: int | None = None, role_scopes: RoleScopes | None = None
+) -> Principal:
     """`identity.verify` for Entra's claims: the same signature check, issuer,
-    audience and expiry (`decode`), the session named by `uti`."""
+    audience and expiry (`decode`), the session named by `uti`, and an app role
+    granting the scopes `role_scopes` gives it."""
     claims = decode(token, issuer=issuer, now=now, require=("uti",))
     customer = claims.get(CLAIM_CUSTOMER)
     party = claims.get("azp")
     return Principal(
         subject=str(claims["sub"]),
         customer_id=customer if isinstance(customer, str) and customer else None,
-        scopes=frozenset(entra_scopes(claims)),
+        scopes=frozenset(entra_scopes(claims, role_scopes)),
         session=str(claims["uti"]),
         party=party if isinstance(party, str) else None,
         token=token,
     )
 
 
-def entra_scopes(claims: dict[str, Any]) -> list[str]:
+def entra_scopes(claims: dict[str, Any], role_scopes: RoleScopes | None = None) -> list[str]:
     """Delegated scopes from `scp`, a space-separated string, and application
-    roles from `roles`, a list. Anything else grants nothing, as in `verify`."""
+    roles from `roles`, a list, each with the scopes `role_scopes` maps it to.
+    Anything else grants nothing, as in `verify`."""
     scp = claims.get("scp", "")
     roles = claims.get("roles", [])
     delegated = scp.split() if isinstance(scp, str) else []
     granted = [r for r in roles if isinstance(r, str)] if isinstance(roles, list) else []
-    return delegated + granted
+    mapped = [str(s) for r in granted for s in (role_scopes or {}).get(r, ())]
+    return delegated + granted + mapped
 
 
 class EntraOnBehalfOf:
@@ -219,6 +234,7 @@ __all__ = [
     "EntraMisconfigured",
     "EntraOnBehalfOf",
     "EntraUnreachable",
+    "RoleScopes",
     "entra_issuer",
     "entra_scopes",
     "token_endpoint",

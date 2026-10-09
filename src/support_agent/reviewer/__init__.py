@@ -34,7 +34,7 @@ def build(
     """The reviewer app, ready to mount, with this shop's desk page."""
     return _reviewer.build(
         store,
-        issuer=issuer,
+        verify=ident.verifier(issuer),
         clock=clock,
         desk=desk,
         approvals=approvals,

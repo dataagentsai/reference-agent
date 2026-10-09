@@ -25,7 +25,9 @@ class _Desk:
     """What one mounted desk serves from. Held on `app.state`, read per request."""
 
     store: Escalations
-    issuer: ident.Issuer
+    verify: ident.Verifier
+    """The identity adapter's verifier (F-30): Entra's `scp` and `roles` read as
+    Entra writes them, Keycloak's as Keycloak does."""
     clock: Clock | None = None
     desk: esc.EscalationDesk | None = None
     """How this desk closes one. Absent on a read-only mount, which answers
@@ -61,7 +63,7 @@ def reviewer(request: Request, authorization: str | None = Header(default=None))
     if not token:
         raise HTTPException(401, "a bearer token is required")
     try:
-        return ident.verify(token, issuer=_desk(request).issuer)
+        return _desk(request).verify(token)
     except ident.InvalidSession as exc:
         detail = tel.redact(f"{type(exc).__name__}: {exc}")
         with tel.span("agent.escalation.refused", **{"http.refusal_detail": detail}):

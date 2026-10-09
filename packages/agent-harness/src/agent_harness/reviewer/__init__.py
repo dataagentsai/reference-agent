@@ -190,7 +190,7 @@ async def close(
 def build(
     store: Escalations,
     *,
-    issuer: ident.Issuer,
+    verify: ident.Verifier,
     clock: Clock | None = None,
     desk: esc.EscalationDesk | None = None,
     approvals: Approvals | None = None,
@@ -202,7 +202,8 @@ def build(
     Takes the store rather than the agent: this surface never runs a turn, never
     reaches a model, and never touches the world. It reads and closes rows.
     `pages` are the agent's own pages for the desk, in its own words — routers
-    mounted beside the API (the reference agent's is `/desk`).
+    mounted beside the API (the reference agent's is `/desk`). `verify` is the
+    identity adapter's verifier (F-30).
     """
     app = FastAPI(
         title="Support desk",
@@ -214,7 +215,7 @@ def build(
     )
     app.state.desk = _Desk(
         store=store,
-        issuer=issuer,
+        verify=verify,
         clock=clock,
         desk=desk,
         approvals=approvals,
