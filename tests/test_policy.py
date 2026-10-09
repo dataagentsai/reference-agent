@@ -432,6 +432,14 @@ SUPERSEDED = [
         True,
     ),
     (
+        # claims-fnol-azure F-17: a sentence about a row nobody read (a claim
+        # just created) was judged against the one row that was read.
+        "another row named, one row read",
+        "Your new order AB-10009 is pending.",
+        (order("delivered"),),
+        False,
+    ),
+    (
         "no row named, two rows read",
         "It has shipped.",
         (order("delivered"), order("shipped", "AB-10002")),

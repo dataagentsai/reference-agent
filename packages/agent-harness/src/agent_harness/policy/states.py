@@ -48,8 +48,12 @@ def no_superseded_state(ctx: Context) -> Verdict:
     for sentence in re.split(r"(?<=[.!?])\s+", ctx.text) if latest else ():
         if _HEDGED.search(sentence):
             continue
-        rows = [i for i in words.identifier.findall(sentence) if i in latest]
-        for row in rows or (list(latest) if len(latest) == 1 else []):
+        named = words.identifier.findall(sentence)
+        rows = [i for i in named if i in latest]
+        # The only row read stands in for a sentence that names *no* row. One that
+        # names a row nobody read (a claim just created) is not about the one read
+        # (claims-fnol-azure F-17: "registered under CLM-019002" judged its policy).
+        for row in rows or (list(latest) if len(latest) == 1 and not named else []):
             wrong = words.claimed_states(sentence, present_only=True) - {latest[row]}
             if wrong:
                 said = "/".join(sorted(wrong))
