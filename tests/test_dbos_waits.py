@@ -108,6 +108,16 @@ def database(postgres: str) -> Iterator[str]:
         yield url
     finally:
         box.shutdown()
+        _drop(postgres, url.rsplit("/", 1)[1])
+
+
+def _drop(server: str, name: str) -> None:
+    """Drop the row's database: on a server given by `AGENT_HARNESS_TEST_PG` it
+    would otherwise outlive the run (on the throwaway cluster it goes anyway)."""
+    import psycopg
+
+    with psycopg.connect(f"{server}/postgres", autocommit=True) as conn:
+        conn.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
 
 
 # --------------------------------------------------------------------------- #
