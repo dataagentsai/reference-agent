@@ -2,8 +2,12 @@
 
     evaluators:                      # name -> kind, and the kind's own fields
       no_ungrounded_entity: {kind: rule}
+      no_known_injection: {kind: rule}
       tool_selection: {kind: rule}
     positions:
+      pre_model:                     # inline, before the model is paid for (`screens`)
+        - {use: no_known_injection, on_fail: safe_reply}
+      post_tool: []                  # inline, on each tool result (`screens`)
       reply:                         # inline: a fail blocks, the customer gets the safe reply
         - {use: no_ungrounded_entity, on_fail: safe_reply, max_ms: 50}
       online:                        # after the turn, sampled
@@ -27,6 +31,8 @@ a YAML declares one.
 evaluators become the `POST_MODEL` rules (the model's reply, with the turn's tool
 results), and those that need nothing but the reply also run at `REPLY` (every
 route's reply, where there are no tool results to read). Order is the YAML's.
+`pre_model` and `post_tool` reach `PRE_MODEL`, `POST_TOOL` and, for a
+`hold_writes`, `PRE_TOOL` (`Plan.at`, `evals.screens`).
 """
 
 from __future__ import annotations
@@ -43,7 +49,9 @@ from agent_harness.config.registry import NotBuilt, Registry, UnknownName
 from agent_harness.contracts.failures import AgentFailure, Fault
 from agent_harness.evals import NEEDS, EvalResult, Evaluator, judge
 from agent_harness.evals.rule import LIBRARY_RULES, RuleSpec, request_of
+from agent_harness.evals.screens import Alert, EvaluatorFailed, Placed, rules_at
 from agent_harness.policy import ALLOW, Context, Rule, Verdict, block
+from agent_harness.policy import Position as At
 
 KINDS = Registry(
     "evaluator kinds",
@@ -59,8 +67,10 @@ KINDS = Registry(
 )
 """Each kind is an adapter, loaded only when a YAML names it."""
 
-Position = Literal["reply", "online", "release"]
+Position = Literal["pre_model", "post_tool", "reply", "online", "release"]
 PROVIDES: dict[str, frozenset[str]] = {
+    "pre_model": frozenset({"query"}),
+    "post_tool": frozenset({"tool_results"}),
     "reply": frozenset({"response", "tool_results"}),
     "online": frozenset(NEEDS) - {"expected"},
     "release": frozenset(NEEDS),
@@ -68,8 +78,18 @@ PROVIDES: dict[str, frozenset[str]] = {
 """What each position can ever hand an evaluator. Only a golden case has `expected`."""
 EVERY_ROUTE = frozenset({"response"})
 """What every route's reply provides: the text, and no tool results."""
-ON_FAIL = {"reply": ("safe_reply", "alert"), "online": ("alert",), "release": ("block", "alert")}
+ON_FAIL = {
+    "pre_model": ("safe_reply", "alert"),
+    "post_tool": ("hold_writes", "withhold", "alert"),
+    "reply": ("safe_reply", "alert"),
+    "online": ("alert",),
+    "release": ("block", "alert"),
+}
+INLINE = ("pre_model", "post_tool", "reply")
+"""The positions inside a customer's wait: a list of entries, inline-fast only."""
 ENTRY_FIELDS = {
+    "pre_model": frozenset({"use", "on_fail", "max_ms"}),
+    "post_tool": frozenset({"use", "on_fail", "max_ms"}),
     "reply": frozenset({"use", "on_fail", "max_ms"}),
     "online": frozenset({"use", "on_fail", "sample", "max_ms"}),
     "release": frozenset({"use", "on_fail", "min"}),
@@ -82,17 +102,6 @@ class PlanRefused(AgentFailure):
     """`evaluators.yaml` is wrong; the process does not start."""
 
     fault = Fault.MISCONFIGURED
-
-
-@dataclass(frozen=True)
-class Placed:
-    """One evaluator at one position, with what a fail there does."""
-
-    evaluator: Evaluator
-    on_fail: str
-    sample: float = 1.0
-    max_ms: float | None = None
-    min: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -121,6 +130,8 @@ class Gate:
 @dataclass(frozen=True)
 class Plan:
     evaluators: Mapping[str, Evaluator]
+    pre_model: tuple[Placed, ...] = ()
+    post_tool: tuple[Placed, ...] = ()
     reply: tuple[Placed, ...] = ()
     online: tuple[Placed, ...] = ()
     release: tuple[Placed, ...] = ()
@@ -133,6 +144,11 @@ class Plan:
         """The `reply` evaluators as the harness's rules at one inline point."""
         provided = PROVIDES["reply"] if point == "model" else EVERY_ROUTE
         return tuple(_as_rule(p, alert) for p in self.reply if p.evaluator.needs <= provided)
+
+    def at(self, position: At, alert: Alert | None = None) -> tuple[Rule, ...]:
+        """The `pre_model` and `post_tool` evaluators as the harness's rules at
+        one policy position, and at `PRE_TOOL` the write hold `hold_writes` asks for."""
+        return rules_at(position, self.pre_model, self.post_tool, alert)
 
     def run_online(self, request_for: Any, *, key: str) -> list[EvalResult]:
         """Every `online` evaluator this turn is sampled into. `request_for` is
@@ -169,18 +185,16 @@ class Plan:
 
     def where(self, name: str) -> tuple[str, ...]:
         """The positions `name` is placed at."""
-        held = {"reply": self.reply, "online": self.online, "release": self.release}
+        held = {
+            "pre_model": self.pre_model,
+            "post_tool": self.post_tool,
+            "reply": self.reply,
+            "online": self.online,
+            "release": self.release,
+        }
         return tuple(
             pos for pos, placed in held.items() if any(p.evaluator.name == name for p in placed)
         )
-
-
-class EvaluatorFailed(AgentFailure):
-    """An inline evaluator errored. Raised so `policy.enforce` fails closed and
-    names it, exactly as a rule that raises (AAC-0091). Malformed: the check
-    broke on this input, and the same input breaks it again."""
-
-    fault = Fault.MALFORMED
 
 
 def _as_rule(placed: Placed, alert: Callable[[EvalResult], None] | None) -> Rule:
@@ -241,6 +255,8 @@ def parse(
     _only(positions, frozenset(ON_FAIL), "positions")
     return Plan(
         evaluators=built,
+        pre_model=_placed("pre_model", positions.get("pre_model") or [], 1.0, built),
+        post_tool=_placed("post_tool", positions.get("post_tool") or [], 1.0, built),
         reply=_placed("reply", positions.get("reply") or [], 1.0, built),
         online=_placed("online", *_run(positions, "online"), built),
         release=_placed("release", *_run(positions, "release"), built),
@@ -311,13 +327,13 @@ def _checked(
         raise PlanRefused(
             f"{where}: {name} needs {', '.join(sorted(missing))}, which {position} cannot provide"
         )
-    max_ms = entry.get("max_ms", REPLY_MAX_MS if position == "reply" else None)
-    if position == "reply" and (
+    max_ms = entry.get("max_ms", REPLY_MAX_MS if position in INLINE else None)
+    if position in INLINE and (
         evaluator.speed != "inline" or evaluator.expected_ms > float(max_ms)
     ):
         raise PlanRefused(
             f"{where}: {name} is {evaluator.speed}, ~{evaluator.expected_ms:g} ms; "
-            f"reply allows inline evaluators within {float(max_ms):g} ms"
+            f"{position} allows inline evaluators within {float(max_ms):g} ms"
         )
     minimum = entry.get("min", 1.0)
     if not isinstance(minimum, (int, float)) or not 0.0 <= float(minimum) <= 1.0:
@@ -333,6 +349,7 @@ def _checked(
 
 __all__ = [
     "EVERY_ROUTE",
+    "INLINE",
     "KINDS",
     "PROVIDES",
     "REPLY_MAX_MS",

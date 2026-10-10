@@ -24,7 +24,7 @@ from typing import Any
 from opentelemetry.trace import Span
 
 from agent_harness import policy as pol
-from agent_harness.contracts import IdempotencyKey, Identity, ToolCall, ToolResult
+from agent_harness.contracts import IdempotencyKey, Identity, ToolCall, ToolRegistry, ToolResult
 
 
 @dataclass(frozen=True)
@@ -34,6 +34,8 @@ class Screen:
     identity: Identity
     rules: Mapping[pol.Position, tuple[pol.Rule, ...]] | None
     span: Span
+    registry: ToolRegistry | None = None
+    """The run's tool surface: what each call's side effect is, at `PRE_TOOL`."""
 
     def at(
         self, position: pol.Position, results: tuple[ToolResult, ...], **fields: Any
@@ -57,11 +59,13 @@ class Screen:
         """
         refused: dict[str, ToolResult] = {}
         for call, _ in planned:
+            spec = self.registry.get(call.name) if self.registry is not None else None
             verdict = self.at(
                 pol.Position.PRE_TOOL,
                 results,
                 tool_name=call.name,
                 arguments=dict(call.arguments),
+                side_effect=spec.side_effect.value if spec is not None else "",
             )
             if verdict.blocked:
                 refused[call.id] = ToolResult(

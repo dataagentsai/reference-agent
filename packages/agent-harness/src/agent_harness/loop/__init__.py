@@ -154,7 +154,7 @@ async def run(
             fresh=freshness.Freshness(window_s=fresh_for_s),
             fan_out=fan_out,
             messages=[*history, ctx.user_message(goal)],
-            screen=Screen(identity=identity, rules=policy_rules, span=run_span),
+            screen=Screen(identity=identity, rules=policy_rules, span=run_span, registry=registry),
             gone=gone,
             owed=owed,
         )

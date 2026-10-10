@@ -16,8 +16,20 @@ evaluators:
   no_discount_offer: {kind: rule}
   tool_selection: {kind: rule}        # the library's: a golden case's must-call
   must_include: {kind: rule}          # the library's: a golden case's must-include
+  # The library's injection checks (agent_harness.evals.injection; claims-fnol-azure A11).
+  no_known_injection: {kind: rule}
+  no_instructions_in_result: {kind: rule}
 
 positions:
+  # Inline, before the model is paid for: a fail ends the turn with the safe reply.
+  pre_model:
+    - {use: no_known_injection, on_fail: safe_reply}
+
+  # Inline, on each tool result: it still enters context, fenced as data; any
+  # write later in the same run is refused until the customer confirms it.
+  post_tool:
+    - {use: no_instructions_in_result, on_fail: hold_writes}
+
   # Inline, before the customer reads it: a fail is the safe reply. Each runs on
   # the model's reply; those that need nothing but the reply also run on every
   # route's (a template's), where there are no tool results to ground against.

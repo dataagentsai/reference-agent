@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from agent_harness.contracts import Identity
-from agent_harness.evals import EvalRequest, EvalResult, Meta, Outcome, Response, Speed
+from agent_harness.evals import EvalRequest, EvalResult, Meta, Outcome, Response, Speed, injection
 from agent_harness.policy import Context, Position, Rule, Verdict
 from agent_harness.policy.verdicts import ALLOW, block
 
@@ -180,6 +180,16 @@ LIBRARY_RULES: dict[str, RuleSpec] = {
         tool_selection, frozenset({"tool_calls", "expected"}), reads_request=True
     ),
     "must_include": RuleSpec(must_include, frozenset({"response", "expected"}), reads_request=True),
+    # A11: known injection phrasing (`evals.injection`), placed at pre_model and post_tool.
+    "no_known_injection": RuleSpec(
+        injection.no_known_injection, frozenset({"query"}), injection.VERSION, reads_request=True
+    ),
+    "no_instructions_in_result": RuleSpec(
+        injection.no_instructions_in_result,
+        frozenset({"tool_results"}),
+        injection.VERSION,
+        reads_request=True,
+    ),
 }
 """Placed by any agent's `evaluators.yaml` beside its own rules."""
 

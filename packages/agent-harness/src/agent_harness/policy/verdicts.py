@@ -54,6 +54,10 @@ class Context:
     """Everything the tools returned this turn: what a claim is checked against."""
     result: ToolResult | None = None
     """At `POST_TOOL`, the one result just returned, apart from the list above."""
+    side_effect: str = ""
+    """At `PRE_TOOL`, the tool's declared side-effect class (`read`, `reversible`,
+    `irreversible`); empty where the surface did not say, which a rule about
+    writes must read as a write (claims-fnol-azure A11)."""
 
     def __post_init__(self) -> None:  # every rule reads one spelling (AHC-0094)
         object.__setattr__(self, "text", normalised(self.text))

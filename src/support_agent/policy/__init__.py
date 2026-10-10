@@ -286,10 +286,10 @@ def customer_asked(ctx: Context) -> Verdict:
 
 
 DEFAULT_RULES: dict[Position, tuple[Rule, ...]] = {
-    Position.PRE_MODEL: (),
+    Position.PRE_MODEL: PLAN.at(Position.PRE_MODEL),
     Position.POST_MODEL: OUTPUT_RULES,
-    Position.PRE_TOOL: (customer_asked,),
-    Position.POST_TOOL: (),
+    Position.PRE_TOOL: (customer_asked, *PLAN.at(Position.PRE_TOOL)),
+    Position.POST_TOOL: PLAN.at(Position.POST_TOOL),
     Position.REPLY: REPLY_RULES,
 }
 

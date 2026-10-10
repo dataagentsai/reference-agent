@@ -89,6 +89,8 @@ MECHANISM = {
     "evals/plan.py",  # evaluators.yaml, refused at startup when wrong (Tier 2b)
     "evals/rule.py",  # the `rule` kind: our rules as evaluators (Tier 2b)
     "evals/guardrail.py",  # the `guardrail_log` kind: a gateway's own verdict, recorded (A9)
+    "evals/injection.py",  # known injection phrasing: customer's words, a tool's result (A11)
+    "evals/screens.py",  # evaluators at pre_model and post_tool, and the write hold (A11)
     "evals/stubs.py",  # kinds named and not built: guardrail_log, presidio, azure, open_model
     "flow/__init__.py",
     "identity/__init__.py",
