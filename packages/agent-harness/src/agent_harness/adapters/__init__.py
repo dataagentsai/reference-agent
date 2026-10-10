@@ -84,6 +84,11 @@ ADAPTERS = Registry(
             "entra-id": "agent_harness.adapters.identity:ENTRA_ID",
         },
         "tool_runtime": {"mcp-client": "agent_harness.adapters.tools:MCP_CLIENT"},
+        "authorise": {
+            "asserted": "agent_harness.adapters.authorise:ASSERTED",
+            "local-dev": "agent_harness.adapters.authorise:LOCAL_DEV",
+            "entra-id": "agent_harness.adapters.authorise:ENTRA_ID",
+        },
         "approval": {
             "temporal-updates": "agent_harness.adapters.waits:TEMPORAL",
             "dbos-workflows": "agent_harness.adapters.waits:DBOS",
@@ -92,7 +97,10 @@ ADAPTERS = Registry(
 )
 """Every adapter the library ships, under the name `stacks/*.yaml` binds it by.
 Names no stack used yet were added: `scripted`, `groq-direct`, `in-memory`,
-`local-dev`, `console`. An agent adds its own with `ADAPTERS.merged(...)`."""
+`local-dev`, `console`. An agent adds its own with `ADAPTERS.merged(...)`.
+
+`authorise` is a far end's port, not the agent's (A1): a tool server's own
+overlay binds it, so it is not in `PORTS`, and `compose` builds it after them."""
 
 
 class OverlayRefused(AgentFailure):
@@ -136,6 +144,10 @@ class Adapter:
     hooks: tuple[str, ...] = ()
     """What the composition root must hand in: an agent's own work (a payout's
     steps), its resolved model choice, a script. Missing ones fail at compose."""
+    environments: tuple[str, ...] = ()
+    """The only overlay environments that may bind it; empty means any. A
+    stand-in that believes what it is told (`authorise: asserted`) names
+    `test`, so no deployment's overlay can choose it (A1)."""
 
 
 @dataclass(frozen=True)
@@ -179,6 +191,13 @@ def plan(overlay: Path, *, registry: Registry = ADAPTERS) -> Plan:
         port: _bound(port, entry, registry, stack.get(port) or {}, overlay.name)
         for port, entry in bindings.items()
     }
+    for port, chosen in bound.items():
+        allowed = chosen.adapter.environments
+        if allowed and document["environment"] not in allowed:
+            raise OverlayRefused(
+                f"{overlay.name}: bindings.{port} is {chosen.adapter.name}, which only a "
+                f"{' or '.join(allowed)} overlay may bind (this one is {document['environment']})"
+            )
     app = dict(document.get("app") or {})
     return Plan(str(document["environment"]), bound, app, resolved, overlay.parent.resolve())
 
@@ -235,9 +254,11 @@ async def compose(
     hooks: Mapping[str, Mapping[str, Any]] | None = None,
     ports: tuple[str, ...] | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
-    """Build `ports` (default: every port the overlay binds), in `PORTS` order,
-    and yield `{port: product}`. Everything opened is closed on exit."""
-    wanted = tuple(p for p in PORTS if p in (ports or tuple(planned.bound)))
+    """Build `ports` (default: every port the overlay binds), in `PORTS` order
+    and then a far end's own (`authorise`), and yield `{port: product}`.
+    Everything opened is closed on exit."""
+    chosen = ports or tuple(planned.bound)
+    wanted = (*(p for p in PORTS if p in chosen), *(p for p in chosen if p not in PORTS))
     missing = [p for p in wanted if p not in planned.bound]
     if missing:
         raise OverlayRefused(f"overlay {planned.environment} binds no adapter for {missing[0]!r}")

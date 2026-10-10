@@ -34,6 +34,7 @@ library's module under its old name, so it is not counted as either side."""
 MECHANISM = {
     "__init__.py",
     "adapters/__init__.py",  # the composition from a profile and an overlay (Tier 2b)
+    "adapters/authorise.py",  # a far end's caller check by name: asserted, local-dev, entra-id
     "adapters/identity.py",  # identity adapters by name: local-dev, keycloak, entra-id
     "adapters/model.py",  # model adapters by name: scripted, litellm-proxy, groq-direct, apim
     "adapters/records.py",  # records adapters by name: in-memory, postgres (A3)
@@ -89,6 +90,7 @@ MECHANISM = {
     "flow/__init__.py",
     "identity/__init__.py",
     "identity/entra.py",  # an adapter: the Azure stack's identity binding (T-099)
+    "identity/far_end.py",  # the `authorise` port: a far end verifies its caller (A1)
     "identity/local.py",  # an adapter: sessions signed in process (local-dev, Tier 2b)
     "identity/sessions.py",
     "llm/__init__.py",

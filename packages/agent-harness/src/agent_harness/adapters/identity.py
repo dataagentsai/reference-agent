@@ -77,7 +77,7 @@ async def _entra(wiring: Wiring) -> AsyncIterator[Sessions]:
             scope=str(settings["far_end_scope"]),
             client_secret=str(settings["client_secret"]),
         )
-    roles = _role_scopes(settings.get("role_scopes"))
+    roles = role_scopes(settings.get("role_scopes"))
 
     def verify(token: str) -> ident.Principal:
         return entra.verify_entra(token, issuer=issuer, role_scopes=roles)
@@ -85,7 +85,7 @@ async def _entra(wiring: Wiring) -> AsyncIterator[Sessions]:
     yield Sessions(issuer, verify, exchange)
 
 
-def _role_scopes(value: Any) -> dict[str, tuple[str, ...]]:
+def role_scopes(value: Any) -> dict[str, tuple[str, ...]]:
     """`role_scopes` from the overlay: a mapping of role to a list of scopes, or
     a refusal at startup — a misspelt shape must not silently grant nothing."""
     if value is None:
@@ -134,4 +134,4 @@ ENTRA_ID = Adapter(
     },
 )
 
-__all__ = ["ENTRA_ID", "KEYCLOAK", "LOCAL_DEV", "Sessions"]
+__all__ = ["ENTRA_ID", "KEYCLOAK", "LOCAL_DEV", "Sessions", "role_scopes"]
