@@ -17,6 +17,8 @@ rows the others pass. Rows that need an outside service skip and say which.
     approval      temporal-updates (the cached time-skipping server),
                   dbos-workflows (a throwaway PostgreSQL)
     records       in-memory, postgres — their table is `tests/test_records.py`
+    config        environment-settings, static, app-configuration — their
+                  table is `tests/test_config_port.py` (A6)
 
 And one table for the composition itself: what an overlay may not say.
 """

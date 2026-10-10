@@ -35,6 +35,7 @@ MECHANISM = {
     "__init__.py",
     "adapters/__init__.py",  # the composition from a profile and an overlay (Tier 2b)
     "adapters/authorise.py",  # a far end's caller check by name: asserted, local-dev, entra-id
+    "adapters/config.py",  # config by name: environment-settings, static, app-configuration (A6)
     "adapters/identity.py",  # identity adapters by name: local-dev, keycloak, entra-id
     "adapters/model.py",  # model adapters by name: scripted, litellm-proxy, groq-direct, apim
     "adapters/records.py",  # records adapters by name: in-memory, postgres (A3)
@@ -53,6 +54,7 @@ MECHANISM = {
     "channel/__init__.py",
     "config/__init__.py",
     "config/profile.py",  # resolving `extends`, read by the composition (Tier 2b)
+    "config/settings.py",  # the config port: declared, typed keys, re-read, last good kept (A6)
     "config/registry.py",  # names to plug-ins, lazily: adapters and evaluator kinds (Tier 2b)
     "conformance.py",
     "context/__init__.py",

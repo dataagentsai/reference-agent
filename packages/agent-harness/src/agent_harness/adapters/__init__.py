@@ -38,6 +38,7 @@ from agent_harness.contracts.failures import AgentFailure, Fault
 
 PORTS = (
     "secrets",
+    "config",
     "telemetry",
     "model",
     "state",
@@ -47,7 +48,8 @@ PORTS = (
     "approval",
 )
 """The ports composed from configuration, in the order they are built: each may
-read the ones before it (secrets first, so every other setting can be a reference).
+read the ones before it (secrets first, so every other setting can be a reference;
+config next, so a value that changes while the app runs is there for the rest).
 The secrets port's own settings can only name the environment (`{env: NAME}`):
 nothing that reads a vault exists yet when the vault's address is read."""
 
@@ -57,6 +59,11 @@ ADAPTERS = Registry(
         "secrets": {
             "environment-settings": "agent_harness.adapters.secrets:ENVIRONMENT",
             "key-vault": "agent_harness.adapters.secrets:KEY_VAULT",
+        },
+        "config": {
+            "environment-settings": "agent_harness.adapters.config:ENVIRONMENT",
+            "static": "agent_harness.adapters.config:STATIC",
+            "app-configuration": "agent_harness.adapters.config:APP_CONFIGURATION",
         },
         "telemetry": {
             "console": "agent_harness.adapters.telemetry:CONSOLE",
