@@ -65,7 +65,7 @@ provides-extras = ["azure"]
 
 [[package]]
 name = "agenttwin"
-version = "0.8.0"
+version = "0.9.0"
 source = { editable = "../agenttwin" }
 dependencies = [
     { name = "httpx2" },
