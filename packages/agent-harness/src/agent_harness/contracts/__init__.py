@@ -19,6 +19,8 @@ from agent_harness.contracts.ids import (
     Identity,
     RunId,
     StoredSession,
+    delivered_conversation_id,
+    delivered_run_id,
     new_conversation_id,
     new_run_id,
 )
@@ -146,6 +148,8 @@ __all__ = [
     "TurnResult",
     "UnknownTool",
     "Usage",
+    "delivered_conversation_id",
+    "delivered_run_id",
     "new_conversation_id",
     "new_run_id",
 ]

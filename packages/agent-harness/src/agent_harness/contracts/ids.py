@@ -5,6 +5,7 @@ L6 · L16 · L10. Bottom layer — stdlib and pydantic only.
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from typing import NewType
 
@@ -23,6 +24,33 @@ def new_run_id() -> RunId:
 
 def new_conversation_id() -> ConversationId:
     return ConversationId(f"cnv_{uuid.uuid4().hex[:16]}")
+
+
+def delivered_run_id(
+    customer_id: str, delivery_id: str, *, conversation_id: str = "", part: int | None = None
+) -> RunId:
+    """The run a delivered message *is*: the same message, delivered again, is
+    the same run (claims-fnol-azure A5).
+
+    A random run id per attempt gave a retry after the delivery claim expired a
+    fresh idempotency key space, so a crash between a tool's effect and the
+    turn's checkpoint repeated the effect under a new key. Named by what the
+    delivery ledger names (the customer and their message id), the conversation
+    and the message's part, the retry's keys are the first attempt's, and the
+    far end answers them with what it answered first. Same shape as
+    `new_run_id`, so nothing that reads one can tell them apart."""
+    return RunId(f"run_{_named(customer_id, conversation_id, delivery_id, part)}")
+
+
+def delivered_conversation_id(customer_id: str, delivery_id: str) -> ConversationId:
+    """The conversation a first message opens, named by that message, so its
+    redelivery opens the same one rather than a second."""
+    return ConversationId(f"cnv_{_named(customer_id, '', delivery_id, None)}")
+
+
+def _named(*parts: object) -> str:
+    seed = "\x1f".join("" if p is None else str(p) for p in parts)
+    return hashlib.sha256(seed.encode()).hexdigest()[:16]
 
 
 class Identity(BaseModel):

@@ -14,7 +14,12 @@ from dataclasses import dataclass
 
 from agent_harness import context as ctx
 from agent_harness import telemetry as tel
-from agent_harness.contracts import CheckpointStore, RunId
+from agent_harness.contracts import (
+    CheckpointStore,
+    RunId,
+    delivered_conversation_id,
+    delivered_run_id,
+)
 from agent_harness.state import Conversation
 
 
@@ -50,6 +55,35 @@ class TurnPersister:
         return bounded
 
 
+def delivered(
+    customer_id: str,
+    conversation: Conversation | None,
+    run_id: RunId | None,
+    delivery_id: str | None,
+    *,
+    part: int | None = None,
+) -> tuple[Conversation | None, RunId | None]:
+    """Name a delivered message's turn by the message (claims-fnol-azure A5).
+
+    A crash after a tool's effect and before the checkpoint leaves the delivery
+    claim to expire, and the message is delivered again. That retry must run as
+    the same run, or its tool calls carry new idempotency keys and the far end
+    acts twice. So with a delivery id, the run id is derived from the customer,
+    the conversation, the message id and its part; a first message's
+    conversation is named by the message too. Without one, or with a run id the
+    caller chose, nothing changes."""
+    if delivery_id is None or run_id is not None:
+        return conversation, run_id
+    conversation = conversation or Conversation(
+        conversation_id=delivered_conversation_id(customer_id, delivery_id),
+        customer_id=customer_id,
+    )
+    named = delivered_run_id(
+        customer_id, delivery_id, conversation_id=conversation.conversation_id, part=part
+    )
+    return conversation, named
+
+
 def agree_on_durability(**stores: object) -> None:
     """Refuse a set of stores that disagree about surviving a restart.
 
@@ -79,4 +113,4 @@ def agree_on_durability(**stores: object) -> None:
         )
 
 
-__all__ = ["TurnPersister", "agree_on_durability"]
+__all__ = ["TurnPersister", "agree_on_durability", "delivered"]

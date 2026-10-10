@@ -30,7 +30,7 @@ from agent_harness import requests as req
 from agent_harness import telemetry as tel
 from agent_harness.cost import Meter
 from agent_harness.entrypoint import ending
-from agent_harness.entrypoint.persist import TurnPersister, agree_on_durability
+from agent_harness.entrypoint.persist import TurnPersister, agree_on_durability, delivered
 from agent_harness.loop import freshness
 from agent_harness.loop.ends import CALLER_LEFT
 from agent_harness.state import Conversation, TurnNote, facts
@@ -155,11 +155,11 @@ class Agent:
         before the route's work starts and, on the agentic route, wherever the
         loop checks its deadline. A door that cannot tell passes nothing.
         """
-        # AAC-0076. The guard is outermost, before a run id exists: a duplicate
-        # delivery must not mint a second run, because a second run gets its own
-        # idempotency key space and every control below this line is scoped to
-        # one run. Refusing here is the only place it can be refused.
-        # Keyed under the customer, or another's key reads the first reply (run 2).
+        # AAC-0076. The guard is outermost: a duplicate delivery must not mint a
+        # second run, whose idempotency keys would be new. A redelivery after the
+        # claim expired is the same run, named by the message (A5). Keyed under
+        # the customer, or another's key reads the first reply (run 2).
+        conversation, run_id = delivered(identity.customer_id, conversation, run_id, delivery_id)
         if self.deliveries is not None and delivery_id is not None:
             named = f"{identity.customer_id}:{delivery_id}"
             async with req.once(self.deliveries, named, scope=req.Scope.DELIVERY) as claim:
