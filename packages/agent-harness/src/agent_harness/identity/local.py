@@ -35,6 +35,10 @@ class LocalIssuer:
     url: str = "http://local-issuer.test/realms/agent"
     audience: str = "agent"
     ttl_s: int = 8 * 3600
+    kid: str = KID
+    """Which key this is. A process that makes a new key at every start gives
+    it a new id (`adapters.identity`), so a far end holding the last start's
+    key by id fetches the new one instead of refusing every token (A1)."""
     _key: rsa.RSAPrivateKey = field(
         default_factory=lambda: rsa.generate_private_key(public_exponent=65537, key_size=2048),
         repr=False,
@@ -43,7 +47,7 @@ class LocalIssuer:
     @cached_property
     def jwks(self) -> dict[str, Any]:
         public = RSAAlgorithm.to_jwk(self._key.public_key(), as_dict=True)
-        return {"keys": [{**public, "kid": KID, "use": "sig", "alg": "RS256"}]}
+        return {"keys": [{**public, "kid": self.kid, "use": "sig", "alg": "RS256"}]}
 
     def issuer(self) -> Issuer:
         return Issuer(url=self.url, audience=self.audience, keys=JWKS(self.jwks))
@@ -75,7 +79,7 @@ class LocalIssuer:
             claims[CLAIM_CUSTOMER] = customer_id
         if party:
             claims["azp"] = party
-        return jwt.encode(claims, self._key, algorithm="RS256", headers={"kid": KID})
+        return jwt.encode(claims, self._key, algorithm="RS256", headers={"kid": self.kid})
 
 
 @dataclass

@@ -23,6 +23,7 @@ network; `transport`, the token endpoint's answers, for the Entra grants.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -30,7 +31,7 @@ from typing import Any
 
 from agent_harness import identity as ident
 from agent_harness.adapters import Adapter, OverlayRefused, Setting, Wiring
-from agent_harness.identity.local import LocalIssuer
+from agent_harness.identity.local import KID, LocalIssuer
 
 
 @dataclass(frozen=True)
@@ -50,7 +51,8 @@ async def _local(wiring: Wiring) -> AsyncIterator[Sessions]:
     from agent_harness.identity.local import LocalExchange, LocalWorkerLogin
 
     settings = wiring.settings
-    signer = LocalIssuer(url=str(settings["url"]), audience=str(settings["audience"]))
+    kid = f"{KID}-{uuid.uuid4().hex[:8]}"  # a new key each start, so a new id
+    signer = LocalIssuer(url=str(settings["url"]), audience=str(settings["audience"]), kid=kid)
     issuer = signer.issuer()
     far, ttl = settings.get("far_end_audience"), int(settings["far_end_ttl_s"])
     party = str(settings["party"])

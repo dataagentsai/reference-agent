@@ -216,7 +216,7 @@ def mint(
         else:
             claims |= {"scp": "orders:read orders:write", ident.CLAIM_CUSTOMER: "C-1042"}
         return jwt.encode(claims, key._key, algorithm="RS256", headers={"kid": KID})
-    signer = LocalIssuer(url=SIGNER.url, audience=audience, _key=key._key)
+    signer = LocalIssuer(url=SIGNER.url, audience=audience, _key=key._key, kid=key.kid)
     if handler:
         return signer.mint(subject="login-9", scopes=DESK_SCOPES, ttl_s=ttl_s)
     return signer.mint(
