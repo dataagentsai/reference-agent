@@ -199,12 +199,65 @@ class EntraOnBehalfOf:
         return fields
 
     async def _post(self, assertion: str) -> dict[str, Any]:
-        try:
-            async with httpx.AsyncClient(transport=self._transport, timeout=self._timeout) as http:
-                response = await http.post(self._endpoint, data=self.form(assertion))
-        except httpx.TransportError as exc:  # timeouts are transport errors too
-            raise EntraUnreachable(f"token endpoint: {type(exc).__name__}") from exc
-        return _answer(response)
+        return await _posted(self._endpoint, self.form(assertion), self._transport, self._timeout)
+
+
+class EntraClientCredentials:
+    """The payout workflow's own login on Azure (`Exchange`, A1): the
+    client-credentials grant for the far end's `scope` (its `/.default`), as
+    the agent's app. No person is there when a handler approves an hour later,
+    so there is no session to exchange; the token carries the app roles the far
+    end granted the agent (`roles`, e.g. `payouts.issue`) and no holder — the
+    far end reads whose call it is from the approval the call names.
+
+    Cached until thirty seconds before it expires, one token for every call."""
+
+    def __init__(
+        self,
+        tenant: str,
+        *,
+        client_id: str,
+        scope: str,
+        client_secret: str,
+        transport: httpx.AsyncBaseTransport | None = None,
+        timeout_s: float = 10.0,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
+        self._endpoint = token_endpoint(tenant)
+        self._form = {
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": scope,
+        }
+        self._transport, self._timeout, self._clock = transport, timeout_s, clock
+        self._held: tuple[str, float] | None = None
+
+    async def for_far_end(self, identity: Identity) -> str:
+        del identity
+        now = float(self._clock())
+        if self._held is not None and self._held[1] - 30 > now:
+            return self._held[0]
+        body = await _posted(self._endpoint, self._form, self._transport, self._timeout)
+        token = body.get("access_token")
+        if not isinstance(token, str) or not token:
+            raise EntraMalformed("client credentials answered 200 with no access_token")
+        self._held = (token, now + float(body.get("expires_in", 60)))
+        return token
+
+
+async def _posted(
+    endpoint: str,
+    form: dict[str, str],
+    transport: httpx.AsyncBaseTransport | None,
+    timeout: float,
+) -> dict[str, Any]:
+    try:
+        async with httpx.AsyncClient(transport=transport, timeout=timeout) as http:
+            response = await http.post(endpoint, data=form)
+    except httpx.TransportError as exc:  # timeouts are transport errors too
+        raise EntraUnreachable(f"token endpoint: {type(exc).__name__}") from exc
+    return _answer(response)
 
 
 def _answer(response: httpx.Response) -> dict[str, Any]:
@@ -230,6 +283,7 @@ def _answer(response: httpx.Response) -> dict[str, Any]:
 
 
 __all__ = [
+    "EntraClientCredentials",
     "EntraMalformed",
     "EntraMisconfigured",
     "EntraOnBehalfOf",

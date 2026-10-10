@@ -9,9 +9,16 @@
 
 The product is `Sessions`: the issuer, the verifier that reads this issuer's
 claim shapes (Entra's `scp` is a string, Keycloak's a list), the exchange when
-one is configured, and the signer where there is one. The hook `keys` replaces
+one is configured, the approval worker's own login for the far end when one is
+configured (`worker`), and the signer where there is one.
+
+The far end's token (A1): `local-dev` with `far_end_audience` exchanges a
+session by minting a short-lived token for that audience (`LocalExchange`), and
+with `worker_scopes` gives the worker a login with no holder; `entra-id` with
+a client id and secret uses the on-behalf-of grant, and with `worker_scope` the
+client-credentials grant for the worker. The hook `keys` replaces
 a remote key set with a local one, which is how the contract tests run with no
-network.
+network; `transport`, the token endpoint's answers, for the Entra grants.
 """
 
 from __future__ import annotations
@@ -33,13 +40,26 @@ class Sessions:
     """This issuer's verifier: what every edge checks a session with (F-30)."""
     exchange: ident.Exchange | None = None
     signer: LocalIssuer | None = None
+    worker: ident.Exchange | None = None
+    """The approval worker's login for the far end: no person's session is
+    there when a handler decides later (A1)."""
 
 
 @asynccontextmanager
 async def _local(wiring: Wiring) -> AsyncIterator[Sessions]:
-    signer = LocalIssuer(url=str(wiring.settings["url"]), audience=str(wiring.settings["audience"]))
+    from agent_harness.identity.local import LocalExchange, LocalWorkerLogin
+
+    settings = wiring.settings
+    signer = LocalIssuer(url=str(settings["url"]), audience=str(settings["audience"]))
     issuer = signer.issuer()
-    yield Sessions(issuer, ident.verifier(issuer), None, signer)
+    far, ttl = settings.get("far_end_audience"), int(settings["far_end_ttl_s"])
+    party = str(settings["party"])
+    exchange: ident.Exchange | None = LocalExchange(signer, str(far), party, ttl) if far else None
+    worker: ident.Exchange | None = None
+    if far and settings.get("worker_scopes"):
+        scopes = frozenset(str(s) for s in settings["worker_scopes"])
+        worker = LocalWorkerLogin(signer, str(far), scopes, f"{party}-workflow", ttl)
+    yield Sessions(issuer, ident.verifier(issuer), exchange, signer, worker)
 
 
 @asynccontextmanager
@@ -69,20 +89,32 @@ async def _entra(wiring: Wiring) -> AsyncIterator[Sessions]:
     settings = wiring.settings
     tenant = str(settings["tenant"])
     issuer = entra.entra_issuer(tenant, str(settings["audience"]), keys=wiring.hooks.get("keys"))
-    exchange = None
-    if settings.get("client_id") and settings.get("client_secret"):
+    exchange: ident.Exchange | None = None
+    worker: ident.Exchange | None = None
+    client_id, secret = settings.get("client_id"), settings.get("client_secret")
+    http = wiring.hooks.get("transport")  # the token endpoint answered in process
+    if client_id and secret:
         exchange = entra.EntraOnBehalfOf(
             tenant,
-            client_id=str(settings["client_id"]),
+            client_id=str(client_id),
             scope=str(settings["far_end_scope"]),
-            client_secret=str(settings["client_secret"]),
+            client_secret=str(secret),
+            transport=http,
         )
+        if settings.get("worker_scope"):
+            worker = entra.EntraClientCredentials(
+                tenant,
+                client_id=str(client_id),
+                scope=str(settings["worker_scope"]),
+                client_secret=str(secret),
+                transport=http,
+            )
     roles = role_scopes(settings.get("role_scopes"))
 
     def verify(token: str) -> ident.Principal:
         return entra.verify_entra(token, issuer=issuer, role_scopes=roles)
 
-    yield Sessions(issuer, verify, exchange)
+    yield Sessions(issuer, verify, exchange, worker=worker)
 
 
 def role_scopes(value: Any) -> dict[str, tuple[str, ...]]:
@@ -105,6 +137,10 @@ LOCAL_DEV = Adapter(
     {
         "url": Setting(default="http://local-issuer.test/realms/agent"),
         "audience": Setting(default="agent"),
+        "far_end_audience": Setting(),
+        "far_end_ttl_s": Setting(default=300),
+        "party": Setting(default="agent"),
+        "worker_scopes": Setting(),
     },
 )
 KEYCLOAK = Adapter(
@@ -130,6 +166,7 @@ ENTRA_ID = Adapter(
         "client_id": Setting(),
         "client_secret": Setting(secret=True),
         "far_end_scope": Setting(),
+        "worker_scope": Setting(),
         "role_scopes": Setting(),
     },
 )

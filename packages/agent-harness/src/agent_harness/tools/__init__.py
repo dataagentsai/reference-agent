@@ -53,6 +53,7 @@ from agent_harness.tools.mcp import (
     SESSION_META,
     MCPTransport,
     ToolRejected,
+    opened,
     transport_for,
 )
 
@@ -291,7 +292,7 @@ async def connect(
     declared world — and may be an in-process server instance in tests, so the
     adapter under test is the one that runs in production.
     """
-    async with Client(server) as client:
+    async with opened(server) as client:
         yield MCPToolClient(
             client, requests=requests, max_result_chars=max_result_chars, exchange=exchange
         )

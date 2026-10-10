@@ -4,9 +4,11 @@
                  process, as a test runs the real adapter against it
 
 Every call is claimed in the state port's ledger, and when the identity port has
-an exchange, carries a token addressed to the far end. `connect` opens another
+an exchange, carries a token addressed to the far end — over HTTP as the
+`Authorization` header (`tools.mcp.BearerFromSession`). `connect` opens another
 connection to the same server: an approval worker's own, as a deployment's
-worker has its own.
+worker has its own, carrying the worker's own login (`Sessions.worker`) when
+the identity port has one (A1).
 """
 
 from __future__ import annotations
@@ -34,13 +36,16 @@ async def _mcp(wiring: Wiring) -> AsyncIterator[Tools]:
         raise OverlayRefused("mcp-client: give a `url`, or the hook `server`")
     sessions = wiring.built.get("identity")
     exchange = getattr(sessions, "exchange", None)
+    worker = getattr(sessions, "worker", None) or exchange
     ledger = wiring.built["state"].requests
     limit = int(wiring.settings["max_result_chars"])
 
     def another() -> AbstractAsyncContextManager[ToolClient]:
-        return connect(target, requests=ledger, max_result_chars=limit, exchange=exchange)
+        return connect(target, requests=ledger, max_result_chars=limit, exchange=worker)
 
-    async with another() as client:
+    async with connect(
+        target, requests=ledger, max_result_chars=limit, exchange=exchange
+    ) as client:
         yield Tools(client, another)
 
 

@@ -12,9 +12,14 @@ class and the required scope — and nothing outside this protocol has a `meta`.
 
 from __future__ import annotations
 
+import json
+from collections.abc import AsyncIterator, Generator
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any, cast
 
+import httpx2
 from mcp.client import Client
+from mcp.client.streamable_http import streamable_http_client
 from mcp_types import RequestParamsMeta
 
 from agent_harness.contracts import (
@@ -182,9 +187,73 @@ class MCPTransport:
         exchange, the assertion alone, which only a simulation should accept.
         """
         session: dict[str, object] = {"customer_id": caller.customer_id}
+        # Over HTTP the token leaves `_meta` for the Authorization header on
+        # its way out (`BearerFromSession`); in process it stays here.
         if self._exchange is not None:
             session["token"] = await self._exchange.for_far_end(caller)
         return session
+
+
+class BearerFromSession(httpx2.Auth):
+    """The far end's token, moved from the call's `_meta` to its `Authorization`
+    header, on the streamable HTTP transport (A1).
+
+    The MCP client has no per-call header: `call_tool` takes `meta` and nothing
+    that reaches the HTTP request, and one connection carries every turn's
+    calls, so a header set on the connection would be one turn's token on
+    another's call. So the token travels with its own call, in `_meta`, as far
+    as the HTTP client, and this auth flow lifts it out of that request's body
+    into that request's header — one request, one token, no shared state.
+    In process (no HTTP) nothing runs here and the token stays in `_meta`."""
+
+    requires_request_body = True
+
+    def auth_flow(
+        self, request: httpx2.Request
+    ) -> Generator[httpx2.Request, httpx2.Response, None]:
+        yield lifted(request)
+
+
+def lifted(request: httpx2.Request) -> httpx2.Request:
+    """`request` with its session's token as a bearer header, or as it was."""
+    try:
+        body = json.loads(request.content) if request.method == "POST" else None
+    except ValueError:
+        return request
+    params = body.get("params") if isinstance(body, dict) else None
+    meta = params.get("_meta") if isinstance(params, dict) else None
+    session = meta.get(SESSION_META) if isinstance(meta, dict) else None
+    token = session.pop("token", None) if isinstance(session, dict) else None
+    if not isinstance(token, str) or not token:
+        return request
+    headers = {k: v for k, v in request.headers.items() if k.lower() != "content-length"}
+    headers["authorization"] = f"Bearer {token}"
+    return httpx2.Request(
+        request.method,
+        request.url,
+        headers=headers,
+        content=json.dumps(body).encode(),
+        extensions=request.extensions,
+    )
+
+
+@asynccontextmanager
+async def opened(server: Any) -> AsyncIterator[Client]:
+    """An MCP client for `server`: a URL over streamable HTTP with the bearer
+    lifted into the header, or anything else `Client` takes (an in-process
+    server, in tests) as it is."""
+    async with AsyncExitStack() as stack:
+        target = server
+        if isinstance(server, str):
+            http = await stack.enter_async_context(
+                httpx2.AsyncClient(
+                    auth=BearerFromSession(),
+                    follow_redirects=True,
+                    timeout=httpx2.Timeout(30.0, read=300.0),
+                )
+            )
+            target = streamable_http_client(server, http_client=http)
+        yield await stack.enter_async_context(Client(target))
 
 
 def transport_for(client: Client, *, exchange: Exchange | None = None) -> MCPTransport:
