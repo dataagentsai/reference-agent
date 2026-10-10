@@ -63,6 +63,7 @@ MECHANISM = {
     "contracts/model.py",
     "contracts/protocols.py",
     "contracts/reading.py",
+    "contracts/records.py",  # our own approval and escalation records, behind a port (A3)
     "contracts/requests.py",
     "contracts/results.py",
     "contracts/tools.py",

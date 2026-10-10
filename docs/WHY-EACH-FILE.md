@@ -325,3 +325,16 @@ the layer, and the stack file says which service realises it.
 | `llm/served.py` | **T-018** — who serves the model behind a route, as the route can say. Split from `llm/__init__.py` when a second provider client needed the same answers; unchanged in purpose. |
 | `telemetry/azure.py` | The `telemetry` binding (`azure-monitor-otel`): when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, the Azure Monitor distro builds the providers with this harness's processors inside them, so the `agent.*` spans, the span contract (**AAC-0011**) and the in-memory exporter the evals assert against are unchanged. Unset, nothing differs. |
 | `state/dbos.py` | What both DBOS waits share: launch on PostgreSQL, the clock read as a step so a recovered wait sees the moment it first read, and the ballot box — a decision sent as a message, judged inside the workflow, answered through an event the sender waits on. Kept apart so neither wait carries a copy, and so `dbos` is imported by three modules and no others. |
+
+## Tier 4a: our own approval and escalation records (claims-fnol-azure A3)
+
+A far end that must check a payout was granted read the grant from the wait's
+engine (a DBOS workflow event), so the money path depended on DBOS's storage
+format. The record is ours now: a port, written by the wait in the step that
+moves its state, read by the far end with no engine in sight.
+
+| File | Why |
+|---|---|
+| `contracts/records.py` | The records and their ports: `ApprovalRecord` and `EscalationRecord` as the deck's tables (c-L5-pgdesign) with the code's state names and the mapping to the deck's; `args_digest`, sha256 over canonical JSON of the action, arguments, whose it is and the key it runs under, so a grant covers one call; `refusals`, the far end's check that a record is granted, unexpired and has this call's digest (**AHC-0057**). `ApprovalRecordReader` is all a far end is given (A4). |
+| `state/records.py` | The stores realising those ports: `InMemoryRecords` and `PostgresRecords`, each an upsert keyed by the wait's id, so a step re-run after a crash writes the same row again and nothing else. The DDL is the agent's (F-24): `sql/002_records.sql` here, `002_records.sql` in claims-fnol-azure. |
+| `adapters/records.py` | The `records` port's adapters by name — `in-memory`, `postgres` — built before `approval`, which hands the store to its waits. |
