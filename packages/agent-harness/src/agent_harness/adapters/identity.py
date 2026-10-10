@@ -5,7 +5,10 @@
     keycloak    the Open Stack's realm: its published keys, RFC 8693 exchange
     entra-id    Entra's v2.0 issuer for the tenant, Entra's claim shapes, and
                 the on-behalf-of grant; `role_scopes` maps an app role (`roles`) to
-                the scopes it grants, e.g. `desk.handler` to the desk's four
+                the scopes it grants, e.g. `desk.handler` to the desk's four;
+                `holder_claim` names the claim the customer id is read from; with
+                `login_redirect_uri` (and `session_key`) the browser sign-in,
+                `entra_login.EntraLogin`, and the sealer for its cookies
 
 The product is `Sessions`: the issuer, the verifier that reads this issuer's
 claim shapes (Entra's `scp` is a string, Keycloak's a list), the exchange when
@@ -27,11 +30,14 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agent_harness import identity as ident
-from agent_harness.adapters import Adapter, OverlayRefused, Setting, Wiring
+from agent_harness.adapters import Adapter, OverlayRefused, Setting, Wiring, sealing_key
 from agent_harness.identity.local import KID, LocalIssuer
+
+if TYPE_CHECKING:
+    from agent_harness.identity.entra_login import EntraLogin, Sealer
 
 
 @dataclass(frozen=True)
@@ -44,6 +50,11 @@ class Sessions:
     worker: ident.Exchange | None = None
     """The approval worker's login for the far end: no person's session is
     there when a handler decides later (A1)."""
+    login: EntraLogin | None = None
+    """The browser sign-in (code flow + PKCE + nonce), where the overlay gives
+    one (A2): an edge mounts its routes only then, as `/signin` only with a signer."""
+    sealer: Sealer | None = None
+    """Seals what the sign-in's cookies carry; present exactly when `login` is."""
 
 
 @asynccontextmanager
@@ -112,11 +123,42 @@ async def _entra(wiring: Wiring) -> AsyncIterator[Sessions]:
                 transport=http,
             )
     roles = role_scopes(settings.get("role_scopes"))
+    holder = str(settings["holder_claim"])
 
     def verify(token: str) -> ident.Principal:
-        return entra.verify_entra(token, issuer=issuer, role_scopes=roles)
+        return entra.verify_entra(token, issuer=issuer, role_scopes=roles, holder_claim=holder)
 
-    yield Sessions(issuer, verify, exchange, worker=worker)
+    login, sealer = _login(wiring, tenant, issuer)
+    yield Sessions(issuer, verify, exchange, worker=worker, login=login, sealer=sealer)
+
+
+def _login(
+    wiring: Wiring, tenant: str, issuer: ident.Issuer
+) -> tuple[EntraLogin | None, Sealer | None]:
+    """The browser sign-in, when the overlay gives a redirect URI (A2): the app's
+    own client id and secret, and a key for the cookies, or a refusal at startup."""
+    settings = wiring.settings
+    redirect = settings.get("login_redirect_uri")
+    if not redirect:
+        return None, None
+    client_id, secret = settings.get("client_id"), settings.get("client_secret")
+    key = settings.get("session_key")
+    if not (client_id and secret and key):
+        raise OverlayRefused(
+            "entra-id: login_redirect_uri needs client_id, client_secret and session_key"
+        )
+    from agent_harness.identity.entra_login import EntraLogin, Sealer
+
+    login = EntraLogin(
+        tenant,
+        issuer=issuer,
+        client_id=str(client_id),
+        client_secret=str(secret),
+        redirect_uri=str(redirect),
+        scopes=tuple(str(s) for s in settings.get("login_scopes") or ()),
+        transport=wiring.hooks.get("transport"),
+    )
+    return login, Sealer(sealing_key(str(key), "identity.sign-in-cookies"))
 
 
 def role_scopes(value: Any) -> dict[str, tuple[str, ...]]:
@@ -170,6 +212,10 @@ ENTRA_ID = Adapter(
         "far_end_scope": Setting(),
         "worker_scope": Setting(),
         "role_scopes": Setting(),
+        "holder_claim": Setting(default=ident.CLAIM_CUSTOMER),
+        "login_redirect_uri": Setting(),
+        "login_scopes": Setting(),
+        "session_key": Setting(secret=True),
     },
 )
 

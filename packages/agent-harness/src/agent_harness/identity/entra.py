@@ -101,13 +101,22 @@ stops reading it."""
 
 
 def verify_entra(
-    token: str, *, issuer: Issuer, now: int | None = None, role_scopes: RoleScopes | None = None
+    token: str,
+    *,
+    issuer: Issuer,
+    now: int | None = None,
+    role_scopes: RoleScopes | None = None,
+    holder_claim: str = CLAIM_CUSTOMER,
 ) -> Principal:
     """`identity.verify` for Entra's claims: the same signature check, issuer,
     audience and expiry (`decode`), the session named by `uti`, and an app role
-    granting the scopes `role_scopes` gives it."""
+    granting the scopes `role_scopes` gives it.
+
+    `holder_claim` is where the customer id is read from. Entra writes a
+    directory extension attribute as `extn.<name>` (claims-fnol-azure A2), not
+    `customer_id`, so the overlay names it, and the far end reads the same name."""
     claims = decode(token, issuer=issuer, now=now, require=("uti",))
-    customer = claims.get(CLAIM_CUSTOMER)
+    customer = claims.get(holder_claim)
     party = claims.get("azp")
     return Principal(
         subject=str(claims["sub"]),
@@ -199,7 +208,7 @@ class EntraOnBehalfOf:
         return fields
 
     async def _post(self, assertion: str) -> dict[str, Any]:
-        return await _posted(self._endpoint, self.form(assertion), self._transport, self._timeout)
+        return await posted(self._endpoint, self.form(assertion), self._transport, self._timeout)
 
 
 class EntraClientCredentials:
@@ -238,7 +247,7 @@ class EntraClientCredentials:
         now = float(self._clock())
         if self._held is not None and self._held[1] - 30 > now:
             return self._held[0]
-        body = await _posted(self._endpoint, self._form, self._transport, self._timeout)
+        body = await posted(self._endpoint, self._form, self._transport, self._timeout)
         token = body.get("access_token")
         if not isinstance(token, str) or not token:
             raise EntraMalformed("client credentials answered 200 with no access_token")
@@ -246,21 +255,25 @@ class EntraClientCredentials:
         return token
 
 
-async def _posted(
+async def posted(
     endpoint: str,
     form: dict[str, str],
     transport: httpx.AsyncBaseTransport | None,
     timeout: float,
+    *,
+    grant: str = "on-behalf-of",
 ) -> dict[str, Any]:
+    """One form post to the tenant's token endpoint, and its answer as a body or
+    a failure kind. Every grant here (and the sign-in's, `entra_login`) is this."""
     try:
         async with httpx.AsyncClient(transport=transport, timeout=timeout) as http:
             response = await http.post(endpoint, data=form)
     except httpx.TransportError as exc:  # timeouts are transport errors too
         raise EntraUnreachable(f"token endpoint: {type(exc).__name__}") from exc
-    return _answer(response)
+    return _answer(response, grant)
 
 
-def _answer(response: httpx.Response) -> dict[str, Any]:
+def _answer(response: httpx.Response, grant: str) -> dict[str, Any]:
     """The body, or the failure kind the status and Entra's `error` say it is.
     Entra's description goes to the operator's span, never to the caller."""
     status = response.status_code
@@ -276,10 +289,10 @@ def _answer(response: httpx.Response) -> dict[str, Any]:
         return body
     error = str(body.get("error", ""))
     if error in REFUSALS:
-        raise InvalidSession(f"on-behalf-of refused: {error}")
+        raise InvalidSession(f"{grant} refused: {error}")
     if error in MISCONFIGURATIONS:
-        raise EntraMisconfigured(f"on-behalf-of refused: {error}")
-    raise InvalidSession(f"on-behalf-of refused: {status} {error or 'no error code'}")
+        raise EntraMisconfigured(f"{grant} refused: {error}")
+    raise InvalidSession(f"{grant} refused: {status} {error or 'no error code'}")
 
 
 __all__ = [
@@ -291,6 +304,7 @@ __all__ = [
     "RoleScopes",
     "entra_issuer",
     "entra_scopes",
+    "posted",
     "token_endpoint",
     "verify_entra",
 ]

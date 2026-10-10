@@ -180,6 +180,20 @@ def is_reference(value: object) -> bool:
     return isinstance(value, Mapping) and bool({"env", "key_vault"} & set(value))
 
 
+def sealing_key(secret: str, purpose: str) -> bytes:
+    """A Fernet key for one purpose, from one secret setting (claims-fnol-azure A2).
+
+    The secret is any random string a vault holds (azd's `secretOrRandomPassword`
+    makes one); SHA-256 over the purpose and the secret gives the 32 bytes Fernet
+    wants. Two purposes from one secret give unrelated keys, so the sign-in's
+    cookies and the stored refresh tokens never share one."""
+    import base64
+    import hashlib
+
+    digest = hashlib.sha256(f"{purpose}\0{secret}".encode()).digest()
+    return base64.urlsafe_b64encode(digest)
+
+
 def plan(overlay: Path, *, registry: Registry = ADAPTERS) -> Plan:
     """Read the overlay and its profile, look every adapter up, check every
     setting. Imports each chosen adapter's factory module, never its SDK."""
@@ -318,4 +332,5 @@ __all__ = [
     "compose",
     "is_reference",
     "plan",
+    "sealing_key",
 ]
