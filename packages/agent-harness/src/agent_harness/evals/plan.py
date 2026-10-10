@@ -50,7 +50,7 @@ KINDS = Registry(
     {
         "kind": {
             "rule": "agent_harness.evals.rule:RuleKind",
-            "guardrail_log": "agent_harness.evals.stubs:GuardrailLog",
+            "guardrail_log": "agent_harness.evals.guardrail:GuardrailLogKind",
             "presidio": "agent_harness.evals.stubs:Presidio",
             "azure": "agent_harness.evals.stubs:AzureEvaluator",
             "open_model": "agent_harness.evals.stubs:OpenModel",

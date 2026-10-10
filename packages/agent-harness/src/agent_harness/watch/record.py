@@ -23,6 +23,7 @@ from typing import Any
 from opentelemetry.sdk.trace import ReadableSpan
 
 from agent_harness import telemetry as tel
+from agent_harness.llm import gateway
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,9 @@ class Turn:
     models: tuple[tuple[str, str], ...] = ()
     """Each model call's (requested, served) model names, as the provider wrote
     them (AACP-0054). `checks.model_name` is the one form they are compared in."""
+    gateway: tuple[Mapping[str, str], ...] = ()
+    """What a gateway said about each model call (`llm.gateway`), in order: APIM's
+    Content Safety verdict, read by the `guardrail_log` evaluator (A9)."""
 
 
 @dataclass(frozen=True)
@@ -186,6 +190,7 @@ def _turn(group: list[Node]) -> Turn | None:
             (str(c.get(tel.GEN_AI_REQUEST_MODEL, "")), str(c.get(tel.GEN_AI_RESPONSE_MODEL, "")))
             for c in chats
         ),
+        gateway=tuple(gateway.recorded(c) for c in chats),
     )
 
 

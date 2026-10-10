@@ -31,7 +31,7 @@ import time
 from collections.abc import Iterable, Mapping
 from typing import Any, cast
 
-from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI, DefaultAsyncHttpxClient
 from pydantic_ai import messages as pa
 from pydantic_ai.direct import model_request
 from pydantic_ai.exceptions import (
@@ -60,7 +60,7 @@ from agent_harness.contracts import (
     ToolCall,
     Usage,
 )
-from agent_harness.llm import RETRYABLE_4XX, ModelChoice
+from agent_harness.llm import RETRYABLE_4XX, ModelChoice, gateway
 from agent_harness.llm.served import provider_from_host
 
 AZURE_API_VERSION = "2024-10-21"
@@ -77,12 +77,10 @@ header: the SDK refuses an empty key, and the gateway sets the backend's own."""
 
 def to_messages(messages: Iterable[Message]) -> list[pa.ModelMessage]:
     """Our transcript as Pydantic AI's: requests and responses, alternating.
-
     Consecutive system, user and tool messages are parts of one request; an
     assistant turn is a response carrying its text and the calls it made, so a
     tool result can refer to the call id that produced it. Provenance is ours and
-    does not go on the wire, as in `GroqClient`.
-    """
+    does not go on the wire, as in `GroqClient`."""
     out: list[pa.ModelMessage] = []
     parts: list[pa.ModelRequestPart] = []
     for m in messages:
@@ -109,13 +107,11 @@ def to_messages(messages: Iterable[Message]) -> list[pa.ModelMessage]:
 
 
 def to_tools(tools: Iterable[Mapping[str, object]]) -> list[ToolDefinition]:
-    """`context`'s OpenAI-shaped tool definitions as Pydantic AI's.
-
-    Never strict: strict mode rewrites the schema the model is shown, and the
-    schema is the tool's own (`ToolSpec.input_schema`), the same as the other
-    client sends. A definition of another shape is this build's mistake, not the
-    model's, and fails before any call is made.
-    """
+    """`context`'s OpenAI-shaped tool definitions as Pydantic AI's. Never strict:
+    strict mode rewrites the schema the model is shown, and the schema is the
+    tool's own (`ToolSpec.input_schema`), the same as the other client sends. A
+    definition of another shape is this build's mistake, not the model's, and
+    fails before any call is made."""
     out = []
     for tool in tools:
         function = tool.get("function")
@@ -135,12 +131,10 @@ def to_tools(tools: Iterable[Mapping[str, object]]) -> list[ToolDefinition]:
 
 
 def from_response(response: pa.ModelResponse) -> ModelResponse:
-    """The typed boundary (AHC-0001), on Pydantic AI's parsed response.
-
-    The same two outcomes as `_from_wire`: a response, or `ModelMalformed` for
-    tool arguments that are not a JSON object and for a paid-for answer with
-    neither text nor a call (F-031).
-    """
+    """The typed boundary (AHC-0001), on Pydantic AI's parsed response. The same
+    two outcomes as `_from_wire`: a response, or `ModelMalformed` for tool
+    arguments that are not a JSON object and for a paid-for answer with neither
+    text nor a call (F-031)."""
     calls: list[ToolCall] = []
     for part in response.parts:
         if not isinstance(part, pa.ToolCallPart):
@@ -253,25 +247,28 @@ class PydanticAIClient:
                 "gen_ai.request.model": self._model.model_name,
             }
             started = time.monotonic()
-            try:
-                raw = await model_request(
-                    self._model,
-                    to_messages(request.messages),
-                    model_settings=ModelSettings(
-                        max_tokens=request.max_tokens, temperature=temperature
-                    ),
-                    model_request_parameters=ModelRequestParameters(
-                        function_tools=to_tools(request.tools), allow_text_output=True
-                    ),
-                    instrument=False,
-                )
-            except (ModelAPIError, UnexpectedModelBehavior) as exc:
-                failure = failure_of(exc)
-                tel.counters.operation_duration.record(
-                    time.monotonic() - started, standard | {"error.type": type(failure).__name__}
-                )
-                raise failure from exc
-            response = from_response(raw)
+            with gateway.heard() as heard:  # what APIM said about this call (A9)
+                try:
+                    raw = await model_request(
+                        self._model,
+                        to_messages(request.messages),
+                        model_settings=ModelSettings(
+                            max_tokens=request.max_tokens, temperature=temperature
+                        ),
+                        model_request_parameters=ModelRequestParameters(
+                            function_tools=to_tools(request.tools), allow_text_output=True
+                        ),
+                        instrument=False,
+                    )
+                except (ModelAPIError, UnexpectedModelBehavior) as exc:
+                    gateway.record(span, heard)
+                    failure = failure_of(exc)
+                    error = {"error.type": type(failure).__name__}
+                    tel.counters.operation_duration.record(
+                        time.monotonic() - started, standard | error
+                    )
+                    raise failure from exc
+            response = from_response(raw).model_copy(update={"gateway": dict(heard)})
             _record(span, standard, response, time.monotonic() - started)
             return response
 
@@ -294,6 +291,7 @@ def _record(span: Any, standard: dict[str, str], response: ModelResponse, took: 
             count, standard | {"gen_ai.token.type": kind, "config": tel.counters.configuration()}
         )
     span.set_attribute(tel.GEN_AI_RESPONSE_MODEL, response.model)
+    gateway.record(span, response.gateway)
     tel.set_usage(
         span, input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens
     )
@@ -330,7 +328,7 @@ def openai_compatible(
         default_headers=headers or None,
         max_retries=0,
         timeout=timeout_s,
-        http_client=http_client,
+        http_client=gateway.listening(http_client or DefaultAsyncHttpxClient()),
     )
     chat = OpenAIChatModel(model, provider=OpenAIProvider(openai_client=sdk))
     return PydanticAIClient(chat, provider=provider, base_url=base_url, temperature=temperature)
@@ -358,7 +356,7 @@ def azure_openai(
         default_headers=_key_headers(api_key, key_header) or None,
         max_retries=0,
         timeout=timeout_s,
-        http_client=http_client,
+        http_client=gateway.listening(http_client or DefaultAsyncHttpxClient()),
     )
     chat = OpenAIChatModel(deployment, provider=AzureProvider(openai_client=sdk))
     return PydanticAIClient(chat, provider=provider, base_url="", temperature=temperature)

@@ -97,6 +97,10 @@ class ModelResponse(BaseModel):
     usage: Usage = Field(default_factory=Usage)
     model: str = ""
     stop_reason: str = ""
+    gateway: dict[str, str] = Field(default_factory=dict)
+    """What a gateway in front of the provider said about this call, by
+    lower-cased header name (`x-content-safety: pass; prompt=pass; …`). Empty
+    when there is no gateway or it said nothing (`llm.gateway.SIGNALS`)."""
 
     @property
     def wants_tools(self) -> bool:

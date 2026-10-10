@@ -120,7 +120,7 @@ def test_startup_refuses_a_wrong_plan(name: str, text: str, says: str) -> None:
     assert says in str(refused.value)
 
 
-STUBS = ["guardrail_log", "presidio", "azure", "open_model"]
+STUBS = ["presidio", "azure", "open_model"]
 
 
 @pytest.mark.discharges("AHC-0028")

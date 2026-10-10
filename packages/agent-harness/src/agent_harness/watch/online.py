@@ -38,7 +38,9 @@ def request_of(turn: Turn, *, agent: str = "", version: str = "") -> EvalRequest
     return EvalRequest(
         query=turn.input if turn.captured else None,
         messages=({"role": "user", "content": turn.input},) if words and turn.input else None,
-        response=Response(text=turn.reply or "", tool_calls=calls, tool_results=results)
+        response=Response(
+            text=turn.reply or "", tool_calls=calls, tool_results=results, gateway=turn.gateway
+        )
         if words
         else None,
         meta=Meta(

@@ -23,7 +23,14 @@ from collections import deque
 from collections.abc import Iterable
 from typing import Any, Protocol
 
-from openai import APIConnectionError, APIError, APIStatusError, AsyncOpenAI, RateLimitError
+from openai import (
+    APIConnectionError,
+    APIError,
+    APIStatusError,
+    AsyncOpenAI,
+    DefaultAsyncHttpxClient,
+    RateLimitError,
+)
 
 from agent_harness import telemetry as tel
 from agent_harness.contracts import (
@@ -39,6 +46,7 @@ from agent_harness.contracts import (
     ToolCall,
     Usage,
 )
+from agent_harness.llm import gateway
 from agent_harness.llm.served import PROVIDER_HOSTS, provider_from_host, provider_from_model_info
 
 
@@ -139,7 +147,8 @@ class GroqClient:
             base_url=base_url,
             max_retries=max_retries,
             timeout=timeout_s,
-            http_client=http_client,  # a test's transport; the SDK's own when None
+            # A test's transport, or the SDK's own; either way heard by `gateway` (A9).
+            http_client=gateway.listening(http_client or DefaultAsyncHttpxClient()),
         )
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
@@ -160,19 +169,22 @@ class GroqClient:
                 "gen_ai.request.model": self._model,
             }
             started = time.monotonic()
+            heard: dict[str, str] = {}
             try:
-                raw = await self._client.chat.completions.create(
-                    model=self._model,
-                    # The two ignores left in the package, both here, at the one
-                    # line where our types meet the vendor's. The wire dicts are
-                    # built to the SDK's per-role TypedDicts; restating each role
-                    # as its own type would re-derive the SDK, not check it.
-                    messages=_to_wire(request.messages),  # type: ignore[arg-type]
-                    tools=list(request.tools) or None,  # type: ignore[arg-type]
-                    max_tokens=request.max_tokens,
-                    temperature=temperature,
-                )
+                with gateway.heard() as heard:
+                    raw = await self._client.chat.completions.create(
+                        model=self._model,
+                        # The two ignores left in the package, both here, at the one
+                        # line where our types meet the vendor's. The wire dicts are
+                        # built to the SDK's per-role TypedDicts; restating each role
+                        # as its own type would re-derive the SDK, not check it.
+                        messages=_to_wire(request.messages),  # type: ignore[arg-type]
+                        tools=list(request.tools) or None,  # type: ignore[arg-type]
+                        max_tokens=request.max_tokens,
+                        temperature=temperature,
+                    )
             except APIError as exc:
+                gateway.record(span, heard)  # a refused call's verdict too (A9)
                 failure = failure_from(exc)
                 # The GenAI conventions' own client metric, with `error.type` on
                 # a failed call as they specify (T-055).
@@ -181,7 +193,8 @@ class GroqClient:
                 )
                 raise failure from exc
 
-            response = _from_wire(raw)
+            response = _from_wire(raw).model_copy(update={"gateway": dict(heard)})
+            gateway.record(span, heard)
             standard["gen_ai.response.model"] = response.model
             tel.counters.operation_duration.record(time.monotonic() - started, standard)
             for kind, count in (

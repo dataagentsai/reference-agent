@@ -63,6 +63,10 @@ class Response:
     text: str
     tool_calls: tuple[ToolCall, ...] | None = None
     tool_results: tuple[ToolResult, ...] | None = None
+    gateway: tuple[Mapping[str, str], ...] = ()
+    """What a gateway said about each model call behind this reply (APIM's
+    `x-content-safety`, `llm.gateway`): read by `guardrail_log`; empty where
+    there was no gateway or it was not recorded."""
 
 
 @dataclass(frozen=True)

@@ -25,13 +25,6 @@ class _Stub:
         raise NotBuilt(f"evaluator {name!r}: kind {cls.kind!r} is not built yet ({cls.arrives})")
 
 
-class GuardrailLog(_Stub):
-    """A guardrail's own verdict, read from its log (Content Safety at APIM)."""
-
-    kind, arrives = "guardrail_log", "Tier 3/12"
-    fields = frozenset({"source", "categories", "threshold"})
-
-
 class Presidio(_Stub):
     """Personal data in a reply, found by Presidio's analyzers."""
 
@@ -53,4 +46,4 @@ class OpenModel(_Stub):
     fields = frozenset({"model", "threshold", "expected_ms"})
 
 
-__all__ = ["AzureEvaluator", "GuardrailLog", "OpenModel", "Presidio"]
+__all__ = ["AzureEvaluator", "OpenModel", "Presidio"]

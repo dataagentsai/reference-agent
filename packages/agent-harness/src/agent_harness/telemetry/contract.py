@@ -223,6 +223,9 @@ CONTRACT: dict[str, SpanSpec] = {
                 GEN_AI_OUTPUT_TOKENS,
                 RESOLUTION,
                 "agent.cassette.match",
+                # What a gateway said about the call (`llm.gateway.SIGNALS`): APIM's
+                # Content Safety verdict, for the `guardrail_log` evaluator (A9).
+                "agent.gateway.x-content-safety",
                 "prompt",
                 "response",
             }
