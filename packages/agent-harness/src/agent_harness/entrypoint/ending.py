@@ -12,7 +12,9 @@ ends is pass its words through the reply guardrails, whichever route made them.
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Protocol
 
 from opentelemetry.trace import Span
@@ -22,6 +24,20 @@ from agent_harness import telemetry as tel
 from agent_harness.contracts import Completed, Failed, Identity, Refused, Route, RunId, TurnResult
 from agent_harness.state import Conversation
 from agent_harness.telemetry import counters
+from agent_harness.telemetry.names import AGENT_ENABLED
+
+_switch: ContextVar[bool | None] = ContextVar("agent_enabled", default=None)
+
+
+@contextmanager
+def switched(enabled: bool) -> Iterator[None]:
+    """The kill switch's state for the turn inside (`entrypoint.switch`, A13):
+    what `opened` puts on the turn's span, whichever agent opens it."""
+    token = _switch.set(enabled)
+    try:
+        yield
+    finally:
+        _switch.reset(token)
 
 
 class RunLabels(Protocol):
@@ -60,6 +76,8 @@ def opened(
     if config is not None:
         attributes[tel.CONFIG_FINGERPRINT] = config.fingerprint
         attributes[tel.RESOLUTION] = config.resolution
+    if (enabled := _switch.get()) is not None:
+        attributes[AGENT_ENABLED] = enabled
     return attributes
 
 
@@ -140,4 +158,4 @@ def screened(
     return result.model_copy(update={"reply": pol.SAFE_REPLY})
 
 
-__all__ = ["RunLabels", "as_answer", "closed", "opened", "screened"]
+__all__ = ["RunLabels", "as_answer", "closed", "opened", "screened", "switched"]

@@ -16,6 +16,7 @@ from typing import Any
 from opentelemetry.sdk.trace import ReadableSpan
 
 from agent_harness.telemetry.names import (
+    AGENT_ENABLED,
     CAPTURED,
     CONFIG_FINGERPRINT,
     CONTEXT_CHARS,
@@ -110,6 +111,7 @@ CONTRACT: dict[str, SpanSpec] = {
                 REPLY_REDACTED,
                 INPUT,
                 REPLY,
+                AGENT_ENABLED,
             }
         ),
     ),

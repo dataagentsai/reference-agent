@@ -177,6 +177,7 @@ statement, because no statement asked for them.
 |---|---:|---|
 | `serve/__init__.py` | 359 | **F-006.** Checkpoints were filed under run id and a customer holds only a conversation id, so the HTTP handler *could not be written*. The file is the proof the finding was real. |
 | `reviewer/__init__.py` | 260 | **F-007.** `agent_state.escalations` held rows nothing could read. *"A queue with no surface is a queue whose entries are indistinguishable from lost."* |
+| `entrypoint/switch.py` | 142 | claims-fnol-azure A13: a kill switch per agent. `Switched` wraps any `TurnAgent` and reads `agent.enabled` (a bool on the config port) before every turn; false, the turn is the paused reply — no model call and no route, the message kept on the conversation, `agent.enabled` on the turn's span, `agent.turns{result="paused"}`. Approvals and escalations waiting at the desk are decided there, untouched. |
 | `entrypoint/persist.py` | 74 | Three call sites wrote the conversation and none capped it, so the one durable structure grew on every turn. |
 
 **This is the pile worth arguing about.** A regeneration from the specs would

@@ -76,6 +76,7 @@ MECHANISM = {
     "entrypoint/ending.py",
     "entrypoint/handoff.py",
     "entrypoint/persist.py",
+    "entrypoint/switch.py",  # a kill switch per agent: agent.enabled, every turn (A13)
     "erasure/__init__.py",
     "erasure/retention.py",
     "escalation/__init__.py",

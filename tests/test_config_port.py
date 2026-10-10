@@ -251,3 +251,28 @@ async def test_an_unreachable_store_keeps_the_last_good_value(tmp_path: Path) ->
 def test_a_default_its_own_check_refuses_is_a_bug_at_import() -> None:
     with pytest.raises(ValueError, match="default"):
         Key("payout.automatic_limit_inr", Decimal, Decimal("30000"), check=between(1, 25000))
+
+
+SWITCH = Key("agent.enabled", bool, True)
+# (how the store writes it, what it reads as; None: refused)
+BOOLEANS = [
+    ("true", True),
+    ("False", False),
+    (" 0 ", False),
+    ("on", True),
+    ("off", False),
+    ("paused", None),
+    ("", None),
+]
+
+
+@pytest.mark.discharges("AHC-0022")
+@pytest.mark.parametrize(("raw", "read"), BOOLEANS, ids=[repr(b[0]) for b in BOOLEANS])
+def test_a_bool_is_read_from_a_few_spellings_and_nothing_else(raw: str, read: bool | None) -> None:
+    """claims-fnol-azure A13: `agent.enabled`. A value that is not plainly a bool
+    is refused, never guessed: a typo must not switch an agent on or off."""
+    if read is None:
+        with pytest.raises(ValueError, match="not true or false"):
+            SWITCH.parse(raw)
+    else:
+        assert SWITCH.parse(raw) is read

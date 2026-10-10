@@ -6,7 +6,8 @@ binds `config: app-configuration` so that a change applies without a redeploy
 (claims-fnol-azure A6, Tier 5's exercise). The port is small on purpose:
 
     Key        one value: the source key it is stored under
-               (`payout.automatic_limit_inr`), its type (str, int or Decimal),
+               (`payout.automatic_limit_inr`), its type (str, int, Decimal or
+               bool — `agent.enabled`, A13),
                a declared default for when the source does not hold it, and a
                check that says why a value is not acceptable.
     Settings   the port: `get(key)` the current value; `refresh()` re-read now.
@@ -44,6 +45,11 @@ from agent_harness.contracts.failures import AgentFailure, Fault
 log = logging.getLogger(__name__)
 
 
+_BOOLEANS = {"true": True, "1": True, "yes": True, "on": True}
+_BOOLEANS |= {"false": False, "0": False, "no": False, "off": False}
+"""How a bool is written in a store or an environment: nothing else is read as one."""
+
+
 class SettingRefused(AgentFailure):
     """A value could not be read, or its check refused it, on the first load."""
 
@@ -55,7 +61,7 @@ class UnknownSetting(SettingRefused):
 
 
 @dataclass(frozen=True)
-class Key[T: (str, int, Decimal)]:
+class Key[T: (str, int, Decimal, bool)]:
     """One named, typed value and what it is when the source does not hold it."""
 
     name: str
@@ -65,8 +71,8 @@ class Key[T: (str, int, Decimal)]:
     """Why a value is not acceptable, or `None`; the default must pass it."""
 
     def __post_init__(self) -> None:
-        if self.kind not in (str, int, Decimal):
-            raise TypeError(f"{self.name}: a setting is a str, an int or a Decimal")
+        if self.kind not in (str, int, Decimal, bool):
+            raise TypeError(f"{self.name}: a setting is a str, an int, a Decimal or a bool")
         why = self.check(self.default) if self.check else None
         if why is not None:
             raise ValueError(f"{self.name}: the default {self.default!r} is refused: {why}")
@@ -74,25 +80,33 @@ class Key[T: (str, int, Decimal)]:
     def parse(self, raw: object) -> T:
         """The raw value as this key's type and checked, or `ValueError` saying why."""
         text = str(raw).strip()
-        value: Any
-        if self.kind is Decimal:
-            try:
-                value = Decimal(text)
-            except InvalidOperation:
-                raise ValueError(f"{self.name}={text!r} is not a number") from None
-            if not value.is_finite():
-                raise ValueError(f"{self.name}={text!r} is not a finite number")
-        elif self.kind is int:
-            try:
-                value = int(text)
-            except ValueError:
-                raise ValueError(f"{self.name}={text!r} is not a whole number") from None
-        else:
-            value = text
+        value: Any = _converted(self.name, self.kind, text)
         why = self.check(value) if self.check else None
         if why is not None:
             raise ValueError(f"{self.name}={text!r} is refused: {why}")
         return cast(T, value)
+
+
+def _converted(name: str, kind: type, text: str) -> Any:
+    """`text` as `kind`, or `ValueError` saying why it is not one."""
+    if kind is Decimal:
+        try:
+            number = Decimal(text)
+        except InvalidOperation:
+            raise ValueError(f"{name}={text!r} is not a number") from None
+        if not number.is_finite():
+            raise ValueError(f"{name}={text!r} is not a finite number")
+        return number
+    if kind is bool:
+        if text.lower() not in _BOOLEANS:
+            raise ValueError(f"{name}={text!r} is not true or false")
+        return _BOOLEANS[text.lower()]
+    if kind is int:
+        try:
+            return int(text)
+        except ValueError:
+            raise ValueError(f"{name}={text!r} is not a whole number") from None
+    return text
 
 
 def between(low: Decimal | int, high: Decimal | int) -> Callable[[Any], str | None]:
@@ -107,7 +121,7 @@ def between(low: Decimal | int, high: Decimal | int) -> Callable[[Any], str | No
 class Settings(Protocol):
     """The port: a declared key in, its current value out."""
 
-    def get[T: (str, int, Decimal)](self, key: Key[T]) -> T: ...
+    def get[T: (str, int, Decimal, bool)](self, key: Key[T]) -> T: ...
 
     def refresh(self) -> None: ...
 
@@ -141,7 +155,7 @@ class Cached:
             raise SettingRefused(f"{self.where}: {exc}") from None
         self._read_at = self.clock()
 
-    def get[T: (str, int, Decimal)](self, key: Key[T]) -> T:
+    def get[T: (str, int, Decimal, bool)](self, key: Key[T]) -> T:
         if self._declared.get(key.name) != key:
             known = ", ".join(sorted(self._declared)) or "none"
             raise UnknownSetting(f"{self.where}: {key.name!r} is not declared; declared: {known}")

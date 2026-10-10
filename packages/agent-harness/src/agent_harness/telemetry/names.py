@@ -175,6 +175,10 @@ contradiction in a turn whose reply was never recorded would count as a pass."""
 INPUT = "agent.input"
 REPLY = "agent.reply"
 
+AGENT_ENABLED = "agent.enabled"
+"""The kill switch's state for this turn (`entrypoint.switch`, A13); absent where
+no switch is wired."""
+
 TURN_RESULT = "agent.turn.result"
 """completed · refused · escalated · needs_approval · failed — how the turn ended."""
 
