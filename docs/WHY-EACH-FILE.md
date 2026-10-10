@@ -142,7 +142,7 @@ traceability gap one level up, and is worth raising against the format.
 | `escalation/desk.py` | 224 | P-ESC-OWNS read as a boundary: the agent raises and reads, a colleague closes, and no type gives one the other's power. |
 | `escalation/__init__.py` | 78 | The AOAS `policies.escalation` block in full — `on_request`, `on_condition`, and the nine statements. |
 | `escalation/capacity.py` | 32 | **P-ESC-TOLD** — *"a wait only when one is measured from queue depth and observed throughput"*. This file is that clause, and the clause is the reason it exists at all. |
-| `telemetry/redaction.py` | 26 | AOAS `personal_data_in_conversation`, plus the payload-capture rule in `telemetry/__init__.py`. Nothing that leaves the process carries what a customer typed. |
+| `telemetry/redaction.py` | 135 | AOAS `personal_data_in_conversation`, plus the payload-capture rule in `telemetry/__init__.py`. Nothing that leaves the process carries what a customer typed. Aadhaar (Verhoeff check digit, so a random 12-digit figure is left alone) and PAN are the library's (claims-fnol-azure A12); an agent adds its own with `register`, after the library's (F-10). |
 | `flow/__init__.py` | 88 | **AHC-0020** — the fan-out limiter. Found by this document's own coverage test, not by reading, and it is the sharpest case in the table: the file exists, the capability it satisfies is one of the seven in `harness-profile.yaml`'s `x_untested`, and nothing in the file names it. Believed met, untested, and uncited — three ways of not being checked, stacked. |
 
 ---

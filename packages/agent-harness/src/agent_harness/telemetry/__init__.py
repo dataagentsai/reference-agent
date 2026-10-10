@@ -94,8 +94,8 @@ from agent_harness.telemetry.names import (
     set_identity,
 )
 from agent_harness.telemetry.redaction import (
-    _REDACTIONS,
     redact,
+    register,
 )
 
 
@@ -395,7 +395,7 @@ __all__ = [
     "TERMINATION",
     "TOOL_CALL_BOUND",
     "USER_ID",
-    "_REDACTIONS",
+    "register",
     "attributes_of",
     "configure",
     "identify",

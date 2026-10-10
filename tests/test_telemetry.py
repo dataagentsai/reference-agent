@@ -54,6 +54,46 @@ def test_redaction_leaves_ordinary_text_alone(name: str, raw: str) -> None:
     assert tel.redact(raw) == raw
 
 
+# India's identity numbers (claims-fnol-azure A12): (what, raw, exactly what is exported).
+# 234567890124 and 499812345673 carry a correct Verhoeff check digit; 234567890125 does not.
+INDIAN_IDS = [
+    ("aadhaar, whole", "my aadhaar is 234567890124", "my aadhaar is [aadhaar]"),
+    ("aadhaar, in fours", "aadhaar 2345 6789 0124 ok", "aadhaar [aadhaar] ok"),
+    ("aadhaar, hyphens", "id 4998-1234-5673.", "id [aadhaar]."),
+    ("pan", "PAN ABCPE1234F please", "PAN [pan] please"),
+    ("pan, lower case", "pan is abcpe1234f", "pan is [pan]"),
+    ("checksum fails: not aadhaar", "ref 234567890125", "ref 234567890125"),
+    ("starts with 1: not aadhaar", "ref 134567890124", "ref 134567890124"),
+    ("mixed separators: not aadhaar", "2345 6789-0124", "2345 6789-0124"),
+    ("a spaced card is not aadhaar", "4111 1111 1111 1111", "4111 1111 1111 1111"),
+    ("claim reference", "claim CLM-010003 is open", "claim CLM-010003 is open"),
+    ("policy number", "policy POL-010004", "policy POL-010004"),
+    ("amount", "a payout of ₹25,000 (Rs 25000)", "a payout of ₹25,000 (Rs 25000)"),
+    ("pan-shaped, wrong fourth letter", "code ABCDE1234F", "code ABCDE1234F"),
+]
+
+
+@pytest.mark.parametrize(("name", "raw", "exported"), INDIAN_IDS, ids=[c[0] for c in INDIAN_IDS])
+@pytest.mark.discharges("AAC-0095", "AHC-0019")
+def test_aadhaar_and_pan_are_masked_and_nothing_else_is(name: str, raw: str, exported: str) -> None:
+    assert tel.redact(raw) == exported
+
+
+@pytest.mark.discharges("AHC-0019")
+def test_an_agent_registers_its_own_patterns_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    import re
+
+    from agent_harness.telemetry import redaction
+
+    monkeypatch.setattr(redaction, "_registered", [])
+    licence = (re.compile(r"\bDL-\d{6}\b"), "[licence]")
+    redaction.register(licence)
+    redaction.register(licence)
+    assert redaction.registered() == (licence,)
+    out = tel.redact("licence DL-123456, card 4111111111111111")
+    assert out == "licence [licence], card [card]"
+
+
 @pytest.mark.discharges("AHC-0019")
 def test_redaction_bounds_length() -> None:
     out = tel.redact("x" * 9000, limit=100)
