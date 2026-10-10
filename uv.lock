@@ -65,7 +65,7 @@ provides-extras = ["azure"]
 
 [[package]]
 name = "agenttwin"
-version = "0.7.0"
+version = "0.8.0"
 source = { editable = "../agenttwin" }
 dependencies = [
     { name = "httpx2" },
@@ -2607,7 +2607,7 @@ wheels = [
 
 [[package]]
 name = "support-agent"
-version = "0.1.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "agent-harness" },

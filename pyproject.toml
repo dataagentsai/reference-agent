@@ -1,6 +1,6 @@
 [project]
 name = "support-agent"
-version = "0.1.0"
+version = "0.3.0"
 description = "Reference agent for Clean AI Engineering — customer support, built to the AI Harness Catalog's sixteen layers, with no framework."
 requires-python = ">=3.12"
 dependencies = [
