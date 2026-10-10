@@ -145,6 +145,11 @@ label every inconvenient obligation eventually acquired.
 `evals/a6_obligations.json` carries identifiers and metadata only. The normative
 statement of each obligation stays in the catalog: cite, don't restate.
 
+## Citing
+
+Cite the release you used. Metadata is in [CITATION.cff](CITATION.cff); GitHub's
+"Cite this repository" button renders it as APA or BibTeX.
+
 ## Licence
 
-Apache 2.0.
+[Apache 2.0](LICENSE).

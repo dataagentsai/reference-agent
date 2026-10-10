@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+type: software
+title: "Reference Agent: a production-grade customer-support agent built to the AI Harness Catalog"
+version: "0.3.0"
+date-released: "2026-10-10"
+authors:
+  - given-names: Basant
+    family-names: Choudhary
+    affiliation: "DataAgents.ai"
+repository-code: "https://github.com/dataagentsai/reference-agent"
+url: "https://github.com/dataagentsai/reference-agent"
+abstract: >-
+  A reference implementation for Clean AI Engineering: a customer-support agent for a clothing e-commerce site, built without an agent framework as one module per AI Harness Catalog layer, with the architecture enforced by build-time checks and the agent exercised against AgentTwin worlds.
+keywords:
+  - AI agents
+  - reference implementation
+  - agent harness
+  - LLM applications
+  - production engineering
+license:
+  - Apache-2.0
