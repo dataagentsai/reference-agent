@@ -42,9 +42,11 @@ from agent_harness.contracts import (  # noqa: E402
     Identity,
     RunId,
 )
+from agent_harness.contracts.records import approval_record, escalation_record  # noqa: E402
 from agent_harness.escalation import dbos as escalations  # noqa: E402
 from agent_harness.escalation.workflow import EscalationError  # noqa: E402
 from agent_harness.state import dbos as box  # noqa: E402
+from agent_harness.state.records import InMemoryRecords  # noqa: E402
 
 CUSTOMER = "C-1042"
 BINARIES = [Path("/opt/homebrew/bin"), *Path("/opt/homebrew/opt").glob("postgresql*/bin")]
@@ -278,7 +280,8 @@ def test_an_approval_waits_on_dbos(
             remind=far.remind,
             retry_interval_s=0.05,
             timeout_s=0.5,
-        )
+        ),
+        records := InMemoryRecords(),
     )
     reader = approvals.DBOSApprovals(wait_s=20)
     desk = approvals.DBOSApprovalDesk(wait_s=20)
@@ -312,6 +315,12 @@ def test_an_approval_waits_on_dbos(
 
     found = asyncio.run(scenario())
     assert found.state.value == final, case
+    # A3: our own record, written in the step that moved the state, says the same.
+    kept = asyncio.run(records.approval(found.id))
+    assert kept is not None and kept.status == final, case
+    assert kept.model_dump(exclude={"updated_at"}) == approval_record(found).model_dump(
+        exclude={"updated_at"}
+    ), case
     assert far.carried == carried, case
     assert far.reminded == reminded, case
     if final == "failed" and carried:
@@ -398,6 +407,7 @@ def test_an_escalation_waits_on_dbos(
 ) -> None:
     raising = escalations.DBOSEscalations()
     desk = escalations.DBOSEscalationDesk(wait_s=20)
+    escalations.serve(records := InMemoryRecords())
 
     async def scenario() -> tuple[EscalationState, bool]:
         raised = await raising.raise_for(
@@ -422,6 +432,12 @@ def test_an_escalation_waits_on_dbos(
                 await desk.resolve(raised.id, outcome=outcome, by=by)
         found = await raising.get(raised.id)
         assert found is not None
+        # A3: our own record says what the wait says.
+        kept = await records.escalation(raised.id)
+        assert kept is not None
+        assert kept.model_dump(exclude={"updated_at"}) == escalation_record(found).model_dump(
+            exclude={"updated_at"}
+        ), case
         return found.state, await raising.open_for("conv-1") is not None
 
     state, still_held = asyncio.run(scenario())

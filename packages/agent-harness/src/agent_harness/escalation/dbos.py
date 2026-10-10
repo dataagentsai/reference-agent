@@ -19,6 +19,7 @@ from dbos import DBOS
 
 from agent_harness import telemetry as tel
 from agent_harness.contracts import Escalation, EscalationOutcome, EscalationState
+from agent_harness.contracts.records import EscalationRecordStore, escalation_record
 from agent_harness.escalation.durable import Raise, Resolution, closed_labels
 from agent_harness.escalation.workflow import (
     DEFAULT_TTL_S,
@@ -31,6 +32,29 @@ from agent_harness.state import dbos as box
 WORKFLOW = "escalation.wait"
 TOPIC = "escalation.resolution"
 RECORD = "escalation"
+
+_records: EscalationRecordStore | None = None
+
+
+def serve(records: EscalationRecordStore | None) -> None:
+    """The store of our own records (A3) this process's escalation waits write."""
+    global _records
+    _records = records
+
+
+async def _publish(escalation: Escalation) -> None:
+    """Our record, then DBOS's event, as `approvals.dbos._record` explains: the
+    record's write is a checkpointed step and an upsert keyed by the wait's id,
+    so a step re-run after a crash lands on the same row with the same values."""
+    if _records is not None:
+        await box.step(
+            "escalation.record",
+            _records.put_escalation,
+            escalation_record(escalation),
+            retries_allowed=True,
+            max_attempts=3,
+        )
+    await box.publish(RECORD, escalation)
 
 
 @DBOS.workflow(name=WORKFLOW)
@@ -50,7 +74,7 @@ async def _wait(raised: Raise) -> Escalation:
         created_at=now,
         expires_at=now + raised.ttl_s,
     )
-    await box.publish(RECORD, escalation)
+    await _publish(escalation)
     accepted: box.Ballot | None = None
     while escalation.open:
         moment = await box.now()
@@ -69,7 +93,7 @@ async def _wait(raised: Raise) -> Escalation:
             continue
         accepted = ballot
         escalation = _resolved(escalation, ballot.decision, int(await box.now()))
-    await box.publish(RECORD, escalation)
+    await _publish(escalation)
     await box.count("agent.escalations.closed", closed_labels(escalation))
     if accepted is not None:
         await box.reply(accepted, box.Answer(record=escalation))
@@ -217,4 +241,4 @@ async def _closed(escalation_id: str) -> str:
     return f"escalation {escalation_id!r} is already {found.state.value}"
 
 
-__all__ = ["DBOSEscalationDesk", "DBOSEscalations"]
+__all__ = ["DBOSEscalationDesk", "DBOSEscalations", "serve"]

@@ -49,6 +49,7 @@ from agent_harness.approvals.durable import (
 )
 from agent_harness.approvals.workflow import ApprovalError, ApprovalTerms, Terms, refusal
 from agent_harness.contracts import Approval, ApprovalState, IdempotencyKey, Identity
+from agent_harness.contracts.records import ApprovalRecordStore, approval_record
 from agent_harness.state import dbos as box
 
 WORKFLOW = "approval.wait"
@@ -70,13 +71,15 @@ class Work:
 
 
 _work: Work | None = None
+_records: ApprovalRecordStore | None = None
 
 
-def serve(work: Work) -> None:
-    """Give this process's approval waits their steps. Before `box.launch`, so a
-    recovered approval finds them."""
-    global _work
-    _work = work
+def serve(work: Work, records: ApprovalRecordStore | None = None) -> None:
+    """Give this process's approval waits their steps, and the store of our own
+    records (A3) they write. Before `box.launch`, so a recovered approval finds
+    them."""
+    global _work, _records
+    _work, _records = work, records
 
 
 def _steps() -> Work:
@@ -226,9 +229,26 @@ class _Run:
     async def _set(self, approval: Approval) -> None:
         was = self.approval
         self.approval = approval
+        await _record(approval)
         await box.publish(RECORD, approval)
         if approval.state in SETTLED and (was is None or was.state not in SETTLED):
             await box.publish(ASSESSED, True)
+
+
+async def _record(approval: Approval) -> None:
+    """Our own record (A3), written by a checkpointed step in the move that
+    changes the wait's state, before DBOS's event of it.
+
+    A crash between this step and DBOS checkpointing it: recovery replays the
+    workflow to here and runs the step again. The write is an upsert keyed by
+    the wait's id with the same values, so the second run lands on the same row
+    and changes nothing but `updated_at`. A crash after it: the step's result is
+    replayed, not re-run, and the event is published. Nothing is carried out
+    until the step recording the grant has returned, so a far end never sees a
+    payout before the record that covers it."""
+    if _records is not None:
+        record = approval_record(approval)
+        await box.step("approval.record", _records.put_approval, record, **_retried())
 
 
 def _retried() -> dict[str, object]:

@@ -9,6 +9,10 @@ and the desks a person decides through. What runs inside a wait is the agent's:
 the hook `work` is called with the worker's own tool connection and returns the
 steps (`assess`, `carry_out`, each a Temporal activity where Temporal runs it);
 the hook `terms` is how long an approval lives and when it reminds.
+
+When the overlay binds the `records` port (built first), the DBOS waits write
+our own record of each approval and escalation through it, in the step that
+moves the wait's state (A3). The Temporal waits do not yet: a follow-up.
 """
 
 from __future__ import annotations
@@ -67,7 +71,10 @@ async def _dbos(wiring: Wiring) -> AsyncIterator[Waits]:
     terms = {"policy": wiring.hooks["terms"]} if wiring.hooks.get("terms") is not None else {}
     async with wiring.built["tool_runtime"].connect() as worker_tools:
         work = wiring.hooks["work"](worker_tools)
-        approvals.serve(approvals.Work(assess=work.assess, carry_out=work.carry_out))
+        # Our own records (A3), when the overlay binds the `records` port.
+        records = wiring.built.get("records")
+        approvals.serve(approvals.Work(assess=work.assess, carry_out=work.carry_out), records)
+        escalations.serve(records)
         box.launch(str(wiring.settings["url"]), name=str(wiring.settings["name"]))
         try:
             yield Waits(
@@ -78,6 +85,7 @@ async def _dbos(wiring: Wiring) -> AsyncIterator[Waits]:
             )
         finally:
             box.shutdown()
+            escalations.serve(None)
 
 
 TEMPORAL = Adapter(
