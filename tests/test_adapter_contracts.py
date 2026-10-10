@@ -16,6 +16,7 @@ rows the others pass. Rows that need an outside service skip and say which.
                   managed identity endpoint answered in process
     approval      temporal-updates (the cached time-skipping server),
                   dbos-workflows (a throwaway PostgreSQL)
+    records       in-memory, postgres — their table is `tests/test_records.py`
 
 And one table for the composition itself: what an overlay may not say.
 """

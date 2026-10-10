@@ -36,7 +36,16 @@ from agent_harness.config import profile as profiles
 from agent_harness.config.registry import Registry
 from agent_harness.contracts.failures import AgentFailure, Fault
 
-PORTS = ("secrets", "telemetry", "model", "state", "identity", "tool_runtime", "approval")
+PORTS = (
+    "secrets",
+    "telemetry",
+    "model",
+    "state",
+    "records",
+    "identity",
+    "tool_runtime",
+    "approval",
+)
 """The ports composed from configuration, in the order they are built: each may
 read the ones before it (secrets first, so every other setting can be a reference).
 The secrets port's own settings can only name the environment (`{env: NAME}`):
@@ -64,6 +73,10 @@ ADAPTERS = Registry(
             "in-memory": "agent_harness.adapters.state:IN_MEMORY",
             "postgres": "agent_harness.adapters.state:POSTGRES",
             "azure-postgresql-flexible": "agent_harness.adapters.state:AZURE_POSTGRES",
+        },
+        "records": {
+            "in-memory": "agent_harness.adapters.records:IN_MEMORY",
+            "postgres": "agent_harness.adapters.records:POSTGRES",
         },
         "identity": {
             "local-dev": "agent_harness.adapters.identity:LOCAL_DEV",

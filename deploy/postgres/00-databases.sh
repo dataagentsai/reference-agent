@@ -49,3 +49,5 @@ SQL
 
 psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d support_agent \
   -c "SET ROLE agent" -f /agent-sql/001_schemas.sql
+psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d support_agent \
+  -c "SET ROLE agent" -f /agent-sql/002_records.sql

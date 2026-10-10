@@ -36,6 +36,7 @@ MECHANISM = {
     "adapters/__init__.py",  # the composition from a profile and an overlay (Tier 2b)
     "adapters/identity.py",  # identity adapters by name: local-dev, keycloak, entra-id
     "adapters/model.py",  # model adapters by name: scripted, litellm-proxy, groq-direct, apim
+    "adapters/records.py",  # records adapters by name: in-memory, postgres (A3)
     "adapters/secrets.py",  # secrets by reference: environment-settings, key-vault
     "adapters/state.py",  # state adapters by name: in-memory, postgres, azure-postgresql-flexible
     "adapters/telemetry.py",  # telemetry adapters by name: console, otel-to-langfuse, azure-monitor
@@ -118,6 +119,7 @@ MECHANISM = {
     "state/facts.py",
     "state/file.py",
     "state/postgres.py",
+    "state/records.py",  # our own approval and escalation records: in memory, PostgreSQL (A3)
     "telemetry/__init__.py",
     "telemetry/azure.py",  # an adapter: the Azure stack's telemetry binding (T-099)
     "telemetry/contract.py",
