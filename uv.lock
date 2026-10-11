@@ -65,7 +65,7 @@ provides-extras = ["azure"]
 
 [[package]]
 name = "agenttwin"
-version = "0.11.0"
+version = "0.12.0"
 source = { editable = "../agenttwin" }
 dependencies = [
     { name = "httpx2" },
@@ -84,6 +84,7 @@ requires-dist = [
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.100" },
     { name = "hypothesis-jsonschema", marker = "extra == 'dev'", specifier = ">=0.23.1" },
     { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.20" },
+    { name = "langwatch-scenario", marker = "extra == 'langwatch'", specifier = ">=1.6.0" },
     { name = "mcp", specifier = ">=1.9" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyrit", marker = "extra == 'dev'", specifier = ">=1.1.0" },
@@ -95,7 +96,7 @@ requires-dist = [
     { name = "starlette", specifier = ">=0.40" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
-provides-extras = ["dev", "pairwise", "pyrit"]
+provides-extras = ["dev", "pairwise", "pyrit", "langwatch"]
 
 [[package]]
 name = "allpairspy"
