@@ -65,7 +65,7 @@ provides-extras = ["azure"]
 
 [[package]]
 name = "agenttwin"
-version = "0.9.0"
+version = "0.10.0"
 source = { editable = "../agenttwin" }
 dependencies = [
     { name = "httpx2" },
@@ -78,8 +78,11 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "allpairspy", marker = "extra == 'dev'", specifier = ">=2.5.1" },
+    { name = "allpairspy", marker = "extra == 'pairwise'", specifier = ">=2.5.1" },
     { name = "httpx2", specifier = ">=2.0" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.100" },
+    { name = "hypothesis-jsonschema", marker = "extra == 'dev'", specifier = ">=0.23.1" },
     { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.20" },
     { name = "mcp", specifier = ">=1.9" },
     { name = "pydantic", specifier = ">=2.9" },
@@ -90,7 +93,7 @@ requires-dist = [
     { name = "starlette", specifier = ">=0.40" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["dev", "pairwise"]
 
 [[package]]
 name = "allpairspy"
