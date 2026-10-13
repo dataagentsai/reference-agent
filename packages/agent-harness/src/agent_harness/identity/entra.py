@@ -36,6 +36,7 @@ from agent_harness.identity import (
     Principal,
     RemoteJWKS,
     decode,
+    holder_of,
 )
 
 AUTHORITY = "https://login.microsoftonline.com"
@@ -116,11 +117,10 @@ def verify_entra(
     directory extension attribute as `extn.<name>` (claims-fnol-azure A2), not
     `customer_id`, so the overlay names it, and the far end reads the same name."""
     claims = decode(token, issuer=issuer, now=now, require=("uti",))
-    customer = claims.get(holder_claim)
     party = claims.get("azp")
     return Principal(
         subject=str(claims["sub"]),
-        customer_id=customer if isinstance(customer, str) and customer else None,
+        customer_id=holder_of(claims.get(holder_claim)),
         scopes=frozenset(entra_scopes(claims, role_scopes)),
         session=str(claims["uti"]),
         party=party if isinstance(party, str) else None,

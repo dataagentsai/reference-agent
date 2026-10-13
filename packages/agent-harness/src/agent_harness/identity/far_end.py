@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from agent_harness.contracts.failures import AgentFailure, Fault
-from agent_harness.identity import CLAIM_CUSTOMER, InvalidSession, Issuer, decode
+from agent_harness.identity import CLAIM_CUSTOMER, InvalidSession, Issuer, decode, holder_of
 
 SESSION_META = "aoas/session"
 """Where the agent's MCP client puts what it says about the caller: the asserted
@@ -134,10 +134,9 @@ class Verified:
         granted = frozenset(str(s) for s in self._scopes(claims))
         if call.required_scope and call.required_scope not in granted:
             raise CallRefused(f"{call.operation} needs {call.required_scope}")
-        holder = claims.get(self._holder)
         party = claims.get("azp")
         return Caller(
-            holder=holder if isinstance(holder, str) and holder else None,
+            holder=holder_of(claims.get(self._holder)),
             scopes=granted,
             party=party if isinstance(party, str) else None,
             subject=str(claims["sub"]),

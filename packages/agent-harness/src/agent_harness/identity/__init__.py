@@ -45,6 +45,19 @@ login by an administrator. Keeping them apart means a username change, a second
 identity provider or a staff login with no customer at all changes nothing
 here."""
 
+
+def holder_of(value: object) -> str | None:
+    """The policyholder id a token's holder claim names, or None.
+
+    A non-empty string, or a list of exactly one: Entra writes a directory
+    extension attribute (`extn.<name>`) as a one-item list, `["PH-1001"]`
+    (claims-fnol-azure F-114, seen in a live v2 access token). Any other shape,
+    a list of several included, names nobody: an ambiguous token never picks one."""
+    if isinstance(value, list) and len(value) == 1:
+        value = value[0]
+    return value if isinstance(value, str) and value else None
+
+
 # Scopes are coarse on purpose. A scope per tool becomes a scope nobody audits.
 SCOPE_ORDERS_READ = "orders:read"
 SCOPE_ORDERS_WRITE = "orders:write"
@@ -218,10 +231,9 @@ def verify(token: str, *, issuer: Issuer, now: int | None = None) -> Principal:
     partially-trusted path for a caller to take by accident.
     """
     claims = decode(token, issuer=issuer, now=now, require=("jti",))
-    customer = claims.get(CLAIM_CUSTOMER)
     return Principal(
         subject=str(claims["sub"]),
-        customer_id=customer if isinstance(customer, str) and customer else None,
+        customer_id=holder_of(claims.get(CLAIM_CUSTOMER)),
         scopes=frozenset(_scopes(claims)),
         session=str(claims["jti"]),
         party=claims.get("azp") if isinstance(claims.get("azp"), str) else None,
@@ -359,6 +371,7 @@ __all__ = [
     "NotACustomer",
     "Principal",
     "decode",
+    "holder_of",
     "RefreshGrant",
     "SessionEnded",
     "RemoteJWKS",

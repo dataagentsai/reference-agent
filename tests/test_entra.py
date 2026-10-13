@@ -108,6 +108,28 @@ VERIFY = [
         lambda: _token(scp=["orders.read"]),
         {"customer_id": "C-1042", "scopes": set(), "session": "uti-1"},
     ),
+    # The holder as Entra writes a directory extension attribute: a one-item
+    # list (F-114, a live tenant's token). Several, empty or not text: no holder.
+    (
+        "holder as a one-item list, as Entra writes extn.*",
+        lambda: _token(customer_id=["C-1042"]),
+        {"customer_id": "C-1042", "scopes": {"orders.read", "orders.write"}, "session": "uti-1"},
+    ),
+    (
+        "holder as a list of two names nobody",
+        lambda: _token(customer_id=["C-1042", "C-2077"]),
+        {"customer_id": None, "scopes": {"orders.read", "orders.write"}, "session": "uti-1"},
+    ),
+    (
+        "holder as an empty list names nobody",
+        lambda: _token(customer_id=[]),
+        {"customer_id": None, "scopes": {"orders.read", "orders.write"}, "session": "uti-1"},
+    ),
+    (
+        "holder that is not text names nobody",
+        lambda: _token(customer_id=1042),
+        {"customer_id": None, "scopes": {"orders.read", "orders.write"}, "session": "uti-1"},
+    ),
     ("expired", lambda: _token(exp=NOW), None),
     ("another tenant's issuer", lambda: _token(iss=ISS.replace("1111", "9999")), None),
     ("another app's audience", lambda: _token(aud="api://someone-else"), None),
@@ -321,3 +343,29 @@ def test_a_fresh_token_round_trips_through_verify() -> None:
     principal = verify_entra(token, issuer=far_end, now=NOW)
     assert principal.party == CLIENT_ID
     assert principal.customer_id == "C-1042"
+
+
+# ---------------------------------------------------------------- the far end's holder
+
+FAR_HOLDER = [
+    # (id, the holder claim as the token carries it, the holder the far end reads)
+    ("a string", "PH-1001", "PH-1001"),
+    ("a one-item list, as Entra writes extn.* (F-114)", ["PH-1001"], "PH-1001"),
+    ("a list of two names nobody", ["PH-1001", "PH-1002"], None),
+    ("an empty list names nobody", [], None),
+    ("an empty string names nobody", "", None),
+    ("not text names nobody", 1001, None),
+]
+
+
+@pytest.mark.parametrize(("case", "claim", "holder"), FAR_HOLDER, ids=[f[0] for f in FAR_HOLDER])
+def test_the_far_end_reads_the_holder_entra_writes(
+    case: str, claim: Any, holder: str | None
+) -> None:
+    from agent_harness.identity.far_end import Call, Verified
+
+    verified = Verified(
+        _issuer(), session_claim="uti", holder_claim="extn.customer_id", clock=lambda: NOW
+    )
+    caller = asyncio.run(verified(Call("get_claim", bearer=_token(**{"extn.customer_id": claim}))))
+    assert caller.holder == holder, case
