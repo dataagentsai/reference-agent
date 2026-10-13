@@ -1,6 +1,6 @@
 [project]
 name = "agent-harness"
-version = "0.1.0"
+version = "0.2.0"
 description = "The harness a support-style agent keeps whatever its domain: typed contracts, the loop, policy positions, approvals and escalation waits, telemetry, state. No agent's domain reaches it."
 requires-python = ">=3.12"
 # Exactly what the package imports. A provider SDK is here because the `llm`

@@ -74,6 +74,11 @@ class TerminationReason(StrEnum):
     after being sent back once (AHC-0118, T-093). A person takes it."""
     """A far end refused an action for good — the same answer however often it is
     asked (P-REFUND-DECLINED). Not a failure to retry: a person arranges another way."""
+    MODEL_UNAVAILABLE = "model_unavailable"
+    """The model could not be reached for this turn, after the harness's own
+    retries and breaker (T-114). Its own value since 13 Oct: recorded as
+    `unrecoverable_error`, it was one failed turn of two, and a customer who left
+    after one outage was never handed to a person."""
     UNRECOVERABLE_ERROR = "unrecoverable_error"
 
 

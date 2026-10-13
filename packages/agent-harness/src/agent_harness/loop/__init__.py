@@ -274,7 +274,9 @@ class _Run:
             answered = await self.llm.complete(request)
         except ModelUnavailable as exc:
             tel.counters.model_calls.add(1, {"outcome": "unavailable"})
-            return failed(self.span, self.trace, TROUBLE, str(exc))
+            return failed(
+                self.span, self.trace, TROUBLE, str(exc), TerminationReason.MODEL_UNAVAILABLE
+            )
         except ModelMalformed as exc:
             # AHC-0001's `parse_failure` decision: fail into a declared shape and
             # **count** the failures. Retrying is deliberately not the answer —

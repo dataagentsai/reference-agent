@@ -15,9 +15,9 @@ behind the specs, because it is made of them.
 | Concern | AOAS | AHC | AAC | Scenarios |
 |---|---|---|---|---|
 | **functional-suitability** | 17 | 10 | 15 | 8 |
-| **safety** | 20 | 3 | 4 | 4 |
+| **safety** | 21 | 3 | 4 | 4 |
 | **security** | 6 | 16 | 9 | 3 |
-| **reliability** | 9 | 14 | 7 | 8 |
+| **reliability** | 9 | 14 | 7 | 9 |
 | **cost** | 4 | 9 | 6 | 3 |
 | **maintainability** | 6 | 22 | 10 | 0 |
 | **performance-efficiency** | 1 | 6 | 0 | 0 |
@@ -90,7 +90,7 @@ behind the specs, because it is made of them.
 - `two-requests-the-model-answers-one` two requests in one message, the model answers one, and is sent back for the other
 
 
-## safety — 31
+## safety — 32
 
 **AOAS**
 
@@ -106,10 +106,11 @@ behind the specs, because it is made of them.
 - `op:cancel_order` irreversible operation on order
 - `op:issue_refund` irreversible operation on order
 - `esc:asked-for-human` escalate when the customer asks to speak to a person
-- `esc:lost-in-transit` escalate when the item is reported lost in transit
+- `esc:lost-in-transit` escalate when the customer reports an item lost or gone missing on its way to them, in their own words (intents.lost_in_transit)
 - `esc:outside-scope` escalate when the customer raises a concern this agent has no route for: a billing dispute or a warranty claim
 - `esc:declined` escalate when termination
 - `esc:loop-exhausted` escalate when termination
+- `esc:model-unavailable` escalate when termination
 - `esc:tool-unavailable` escalate when consecutive_failed
 - `esc:repeated-intent` escalate when repeated_intent
 - `esc:second-refusal` escalate when refusals
@@ -185,7 +186,7 @@ behind the specs, because it is made of them.
 - `planted-instructions` a planted instruction produces no effect, whatever it says
 
 
-## reliability — 38
+## reliability — 39
 
 **AOAS**
 
@@ -233,7 +234,8 @@ behind the specs, because it is made of them.
 - `a-refund-timeout-is-retried` a refund that times out twice is retried and lands once
 - `failures-before-a-handback-do-not-count` failures before a handback do not count towards the next one
 - `the-belief-goes-stale-mid-turn` a belief older than its window is re-read before it is acted on
-- `the-model-fails-twice` two failed turns in a row fetch a person
+- `the-model-fails-twice` a model outage on two turns fetches a person each time
+- `the-model-is-down-on-the-only-turn` a model outage on the only turn still reaches a person
 - `the-provider-throttles` the provider throttles, and the customer still gets an answer
 - `the-reply-is-lost-after-the-return-opens` a lost reply must not open the return twice
 
@@ -282,7 +284,7 @@ behind the specs, because it is made of them.
 - `P-ESC-OUTCOME` closing records an outcome from a declared set, once, and the rule that raised it stays with the record
 - `fact:turn_count` turns taken in this conversation
 - `fact:termination` why the loop stopped on the latest turn, or absent if it never ran
-- `fact:consecutive_failed` turns ending in failure, counting back from the latest until one did not; a turn ends in failure when its loop stopped on unrecoverable_error, or when an operation it called did not answer (unavailable, or slow past the turn's deadline) and the turn ended without that answer
+- `fact:consecutive_failed` turns ending in failure, counting back from the latest until one did not; a turn ends in failure when its loop stopped on model_unavailable or unrecoverable_error, or when an operation it called did not answer (unavailable, or slow past the turn's deadline) and the turn ended without that answer
 - `fact:refusals` turns in this conversation refused by the harness — on the customer's words or by an output rule — not a model's own decline
 - `fact:repeated_intent` for each of the latest turn's intents other than `other`, the turns carrying it, counting back until one does not; the largest of those counts, and zero when the latest turn carries only `other`
 

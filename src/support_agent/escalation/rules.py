@@ -37,6 +37,16 @@ DEFAULT_RULES: tuple[Tier2Rule, ...] = (
         ttl_s=15 * 60,
     ),
     Tier2Rule(
+        # T-114: one turn the model could not answer is enough. The harness has
+        # already retried inside it; a customer told only "I am having trouble"
+        # has nothing that can continue it (AHC-0106).
+        id="model-unavailable",
+        when=(Condition(field="termination", equals=("model_unavailable",)),),
+        reason="the model could not be reached to answer this",
+        priority=2,
+        ttl_s=15 * 60,
+    ),
+    Tier2Rule(
         id="tool-unavailable",
         when=(Condition(field="consecutive_failed", at_least=2),),
         reason="the systems needed to answer this are not responding",
@@ -63,7 +73,7 @@ DEFAULT_RULES: tuple[Tier2Rule, ...] = (
         ttl_s=45 * 60,
     ),
 )
-"""Five rules, and none of them reads a word the customer wrote.
+"""Seven rules, and none of them reads a word the customer wrote.
 
 `turns-exceeded` is last on purpose. It is the weakest signal here — a long
 conversation may simply be a chatty one — so it sits at the bottom of the

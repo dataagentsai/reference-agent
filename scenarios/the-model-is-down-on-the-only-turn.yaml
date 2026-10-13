@@ -1,0 +1,34 @@
+# T-114, the second fault the model-played customer found (12 Oct): the model
+# was unavailable for the whole of a one-turn conversation, the customer was told
+# "I am having trouble answering right now", and nobody was handed it. The
+# escalation rule for failures (`tool-unavailable`) needs two failed turns in a
+# row, and a customer who gives up after one never reaches a person.
+apiVersion: awd-scenario/v0
+scenario: a model outage on the only turn still reaches a person
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  The model is unreachable for the customer's only message. Nothing is claimed,
+  nothing changes, and a person ends up holding the conversation.
+concern: reliability
+discharges: [esc:model-unavailable, fact:termination, op:escalate]
+max_turns: 1
+step_seconds: 600
+
+actor:
+  says:
+    - I need help with something about my account
+
+perturbations:
+  - {kind: provider_unavailable, at_call: 1, lasts_s: 1200}
+
+desk:
+  resolves: handled
+
+expect:
+  - {handed_off: 1}
+  - {world: unchanged}
+
+model:
+  - says: "Yes — you can return it within thirty days of delivery."
+    times: 30

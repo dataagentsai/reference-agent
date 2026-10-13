@@ -1,18 +1,21 @@
-# Two failures fetch a person, the colleague hands the conversation back, and
-# the next failure is the first, not the third.
+# P-ESC-FRESH: what a colleague already saw does not count towards the next person.
 #
-# P-ESC-FRESH (T-076c, 2026-10-01): the facts the condition rules read count
-# only turns since the conversation came back to the agent. The colleague has
-# already seen the two failures before the handback; counting them again would
-# fetch a person on the very next hiccup and hand the desk the same problem
-# twice. With the count carried across the handback this scenario sees two
-# references; counted from the return, one.
+# The order system is unreachable for three turns. Two failed turns fetch a person
+# (`tool-unavailable`); the colleague hands the conversation back; the third
+# failure, alone since the return, fetches nobody.
+#
+# Until 13 Oct this was the *model* being unreachable. T-114 made one turn the
+# model could not answer a person's at once (`model-unavailable`), so the
+# two-turn count is now about the operations the agent calls, and the scenario
+# fails the order system instead. The status question goes the deterministic
+# way (P-DIRECT), so no model is involved and every failure is the order
+# system's. One injected failure a turn: the status read is not retried.
 apiVersion: awd-scenario/v0
 scenario: failures before a handback do not count towards the next one
 world: ../worlds/clothing.yaml
 as: C-1042
 objective: >-
-  The model is unreachable for three turns. A person is fetched after the
+  The order system is unreachable for three turns. A person is fetched after the
   second and hands it back; the third failure, alone since the return, fetches
   nobody.
 concern: reliability
@@ -22,12 +25,14 @@ step_seconds: 600
 
 actor:
   says:
-    - I need help with something about my account
-    - are you still there
-    - hello?
+    - where is my order AB-10003
+    - what is the status of AB-10003
+    - has AB-10003 shipped
 
 perturbations:
-  - {kind: provider_unavailable, at_call: 1, lasts_s: 7200}
+  - {kind: channel_error, channel: protocol, tool: get_order, at_call: 1}
+  - {kind: channel_error, channel: protocol, tool: get_order, at_call: 2}
+  - {kind: channel_error, channel: protocol, tool: get_order, at_call: 3}
 
 desk:
   resolves: handled
@@ -35,7 +40,3 @@ desk:
 expect:
   - {handed_off: 1}
   - {world: unchanged}
-
-model:
-  - says: "Yes — you can return it within thirty days of delivery."
-    times: 30

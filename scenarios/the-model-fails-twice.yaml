@@ -1,32 +1,32 @@
-# The provider fails twice, and the second failure fetches a person.
+# The model fails on two turns, and each turn fetches a person.
 #
-# One outage is bad luck and the customer is told something true. Two in a row is
-# a conversation that is not going to recover by itself, and the rule that
-# notices reads a *fact about the conversation* rather than the turn's words —
-# which is the whole distinction between the two tiers.
+# Until 13 Oct the first outage was "bad luck": the customer was told something
+# true and nobody came until a second failed turn (`tool-unavailable`). A
+# model-played customer showed what that costs (T-114): it gave up after one
+# turn, and nobody was ever handed the conversation. The harness has already
+# retried inside the turn, so a turn the model could not answer is an outage, and
+# `model-unavailable` fetches a person at once. The colleague hands it back; the
+# model is still down on the next turn, so a person is fetched again (P-ESC-ONCE
+# counts from the return) — two references, within P-ESC-CAP.
 apiVersion: awd-scenario/v0
-scenario: two failed turns in a row fetch a person
+scenario: a model outage on two turns fetches a person each time
 world: ../worlds/clothing.yaml
 as: C-1042
 objective: >-
-  The model is unreachable twice. Nothing is claimed, nothing changes, and a
-  person ends up holding the conversation.
+  The model is unreachable for two turns. Nothing is claimed, nothing changes,
+  and each turn ends with a person holding the conversation.
 concern: reliability
-discharges: [esc:tool-unavailable, fact:consecutive_failed, fact:termination, op:escalate]
-max_turns: 3
+discharges: [esc:model-unavailable, P-ESC-ONCE, P-ESC-CAP, fact:termination, op:escalate]
+max_turns: 2
 step_seconds: 600
 
 actor:
   says:
     - I need help with something about my account
     - are you still there
-    - hello?
 
-# An outage of two turns' clock, not two failed calls. Two calls was what this
-# said until 17 Sep, and it tested nothing: the agent's own retries absorbed
-# both in the first turn, and the scenario passed only because its scripted
-# model had no answers and failed every turn by itself. Live, with a model that
-# answered, no person was ever fetched (T-050).
+# An outage of two turns' clock, not two failed calls (T-050): the agent's own
+# retries absorb a failed call or two inside a turn.
 perturbations:
   - {kind: provider_unavailable, at_call: 1, lasts_s: 1200}
 
@@ -34,11 +34,10 @@ desk:
   resolves: handled
 
 expect:
-  - {handed_off: 1}
+  - {handed_off: 2}
   - {world: unchanged}
 
-# The model's side, when the run is scripted. A model that answers, so only the declared
-# outage can fail the turns (T-050).
+# A model that answers, so only the declared outage can fail the turns (T-050).
 model:
   - says: "Yes — you can return it within thirty days of delivery."
     times: 30

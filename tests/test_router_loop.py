@@ -105,6 +105,35 @@ def test_routing(name: str, text: str, kind: str) -> None:
     assert router.route(text).kind == kind
 
 
+# (why, what the customer says, whether it is a lost item for a person)
+# The positives beyond the AOAS's own examples (tests/test_aoas_intents.py) are
+# other ways of putting it; the negatives are the words v3 must not take (T-114).
+LOST_CASES = [
+    ("a model-played customer's words", "my jacket is lost need help", True),
+    ("any item, past tense", "the dress I ordered was lost", True),
+    ("the carrier did it", "the courier has lost my order", True),
+    ("you did it", "you lost my parcel!", True),
+    ("gone missing", "my shoes have gone missing", True),
+    ("a shipment noun, missing", "my delivery is missing", True),
+    ("never turned up", "the parcel never turned up", True),
+    ("a part missing is damage", "my jacket is missing a button", False),
+    ("an item missing from an order", "the order was missing one of the shirts", False),
+    ("the customer lost something of theirs", "I lost my order number", False),
+    ("the customer is lost", "I'm lost, how do returns work?", False),
+    ("the delivery agent is not a request", "the delivery agent left it at the wrong door", False),
+    ("a status question", "where is my order AB-10003", False),
+]
+
+
+@pytest.mark.parametrize(("name", "text", "lost"), LOST_CASES, ids=[c[0] for c in LOST_CASES])
+@pytest.mark.discharges("esc:lost-in-transit")
+def test_a_lost_item_is_read_in_the_customers_words(name: str, text: str, lost: bool) -> None:
+    decision = router.route(text)
+    rule = getattr(decision, "rule_id", None)
+    is_lost = decision.kind == "escalate" and rule == "lost-in-transit"
+    assert is_lost is lost, decision
+
+
 # (why, what the customer says, whether it is refused as discount negotiation)
 DISCOUNT_CASES = [
     ("asks for a discount", "can I get a discount on this?", True),
@@ -271,7 +300,10 @@ async def test_provider_failure_is_a_declared_path_not_a_stack_trace(server) -> 
     assert isinstance(result, Failed)
     assert "trouble" in result.customer_message
     assert "unavailable" in result.detail
-    assert trace.termination is TerminationReason.UNRECOVERABLE_ERROR
+    # Typed as the model's absence since T-114, so a rule can fetch a person on
+    # the first such turn rather than the second.
+    assert trace.termination is TerminationReason.MODEL_UNAVAILABLE
+    assert result.termination is TerminationReason.MODEL_UNAVAILABLE
 
 
 @pytest.mark.discharges("AHC-0037")

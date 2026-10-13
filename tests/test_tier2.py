@@ -77,6 +77,17 @@ FIRES = [
     ("cost ceiling", t2.Facts(termination="cost_ceiling_reached"), "loop-exhausted"),
     ("going in circles", t2.Facts(termination="oscillation_detected"), "loop-exhausted"),
     ("tools are down", t2.Facts(consecutive_failed=2), "tool-unavailable"),
+    # T-114: one turn is enough when it was the model that was not there.
+    (
+        "the model is down for one turn",
+        t2.Facts(termination="model_unavailable", consecutive_failed=1),
+        "model-unavailable",
+    ),
+    (
+        "the model is down for a second turn",
+        t2.Facts(termination="model_unavailable", consecutive_failed=2),
+        "model-unavailable",
+    ),
     ("asked three times", t2.Facts(repeated_intent=3), "repeated-intent"),
     ("refused twice", t2.Facts(refusals=2), "second-refusal"),
     ("a very long conversation", t2.Facts(turn_count=10), "turns-exceeded"),
@@ -86,6 +97,7 @@ FIRES = [
 @pytest.mark.parametrize(("name", "facts", "rule_id"), FIRES, ids=[c[0] for c in FIRES])
 @pytest.mark.discharges(
     "esc:loop-exhausted",
+    "esc:model-unavailable",
     "esc:tool-unavailable",
     "esc:repeated-intent",
     "esc:second-refusal",
@@ -100,7 +112,10 @@ def test_what_earns_a_person(name: str, facts: t2.Facts, rule_id: str) -> None:
 
 QUIET = [
     ("a normal turn", t2.Facts(turn_count=1)),
-    ("one failure is not a pattern", t2.Facts(consecutive_failed=1)),
+    (
+        "one failed operation is not a pattern",
+        t2.Facts(termination="unrecoverable_error", consecutive_failed=1),
+    ),
     ("one refusal is the agent working", t2.Facts(refusals=1)),
     ("asked twice", t2.Facts(repeated_intent=2)),
     ("the loop finished", t2.Facts(termination="goal_reached")),
@@ -111,6 +126,7 @@ QUIET = [
 @pytest.mark.parametrize(("name", "facts"), QUIET, ids=[c[0] for c in QUIET])
 @pytest.mark.discharges(
     "esc:loop-exhausted",
+    "esc:model-unavailable",
     "esc:tool-unavailable",
     "esc:repeated-intent",
     "esc:second-refusal",

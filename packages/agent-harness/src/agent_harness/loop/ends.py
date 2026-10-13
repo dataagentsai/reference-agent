@@ -127,10 +127,18 @@ def handed_on(span: Span, trace: Trace, raised: ApprovalRequested | ActionDeclin
     return declined, trace
 
 
-def failed(span: Span, trace: Trace, customer_message: str, detail: str) -> Ended:
-    trace.termination = TerminationReason.UNRECOVERABLE_ERROR
+def failed(
+    span: Span,
+    trace: Trace,
+    customer_message: str,
+    detail: str,
+    termination: TerminationReason = TerminationReason.UNRECOVERABLE_ERROR,
+) -> Ended:
+    """A turn that could not finish, typed by why: `model_unavailable` when the
+    model was not there to answer (T-114), `unrecoverable_error` otherwise."""
+    trace.termination = termination
     span.set_attribute(tel.TERMINATION, trace.termination.value)
-    return Failed(customer_message=customer_message, detail=detail), trace
+    return Failed(customer_message=customer_message, detail=detail, termination=termination), trace
 
 
 __all__ = [

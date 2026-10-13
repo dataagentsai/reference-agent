@@ -36,10 +36,12 @@ class Rules:
     """Routing rules are versioned configuration, not code you edit casually —
     AAC-0101 gates routing changes like model changes."""
 
-    version: str = "v2"
+    version: str = "v3"
     """v2 (17 Sep): R-DISCOUNT no longer refuses a customer describing a voucher or
     coupon they paid with (T-050). A routing change is gated like a model change,
-    so the version moves and the fingerprint with it."""
+    so the version moves and the fingerprint with it.
+    v3 (13 Oct): `lost-in-transit` reads the customer's own words — any item,
+    "gone missing", "the courier lost it" (T-114)."""
     refuse: tuple[tuple[str, str, re.Pattern[str]], ...] = field(
         default_factory=lambda: (
             (
@@ -149,11 +151,23 @@ class Rules:
                 # The AOAS's own examples (T-094): "My parcel is lost", and
                 # "Tracking says delivered but I never got it" — which went to
                 # the status path and was told the parcel was delivered.
+                #
+                # v3 (T-114): the subject was a list of shipment nouns, so "my
+                # jacket is lost need help" — a model-played customer's words —
+                # reached the model and no person. A customer names what they
+                # bought. "Lost" after a verb of being takes any subject; "is
+                # missing" keeps a shipment noun, because "the jacket is missing
+                # a button" is a damaged item, not a lost one.
                 re.compile(
                     r"\blost in transit\b"
-                    r"|\b(?:parcel|package|order|item|it)\s+(?:is|was|has been|got)\s+lost\b"
+                    r"|\b(?:is|was|got|been|gone|went)\s+lost\b"
+                    r"|\b(?:gone|went|go|goes)\s+missing\b"
+                    r"|\b(?:parcel|package|delivery|shipment|order)\s+(?:is|was|has\s+been)"
+                    r"\s+missing\b(?!\s+(?:a|an|the|some|one|its|from)\b)"
+                    r"|\b(?:courier|carrier|driver|postman|post\s+office|delivery\s+(?:company|firm|service)"
+                    r"|they|you)\s+(?:have\s+|has\s+)?lost\b"
                     r"|\bsays\s+delivered\s+but\b"
-                    r"|\bnever\s+(?:got|received|arrived|came)\b",
+                    r"|\bnever\s+(?:got|received|arrived|came|showed\s+up|turned\s+up)\b",
                     re.I,
                 ),
             ),

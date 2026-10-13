@@ -72,7 +72,7 @@ def test_sealed_mode_fails_closed(name: str, sealed: bool, resolution: str, ok: 
 FINGERPRINT_CASES = [
     ("model change", {"model": "openai/gpt-oss-20b"}, True),
     ("prompt version change", {"prompt_version": "v3"}, True),
-    ("router rules change", {"router_rules_version": "v3"}, True),
+    ("router rules change", {"router_rules_version": "v4"}, True),
     ("temperature change", {"temperature": 0.7}, True),
     ("step budget change", {"max_steps": 30}, True),
     # AHC-0097: the fan-out bounds are configuration, and change what runs.
@@ -153,9 +153,9 @@ def test_a_gateway_routing_elsewhere_fails_at_startup() -> None:
 # whether it starts) — F-070: the label is in the fingerprint and the rules are
 # what run, and nothing held one to the other.
 ROUTING = [
-    ("label and rules agree", "v2", None, True),
-    ("the label moved and the rules did not", "v3", None, False),
-    ("the rules moved and the label did not", "v2", "v3", False),
+    ("label and rules agree", "v3", None, True),
+    ("the label moved and the rules did not", "v4", None, False),
+    ("the rules moved and the label did not", "v3", "v4", False),
 ]
 
 

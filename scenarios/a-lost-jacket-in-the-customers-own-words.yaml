@@ -1,0 +1,30 @@
+# T-114, found by a model-played customer (AgentTwin 0.12.0, LangWatch Scenario
+# on Groq, 12 Oct): asked to report a lost parcel, the model wrote "my jacket is
+# lost need help". The Tier 1 rule keyed on "lost in transit" and on a short list
+# of nouns ("parcel", "package", "order"), so it never fired; the turn reached a
+# model this scenario never scripted, and nobody was handed the conversation.
+#
+# Scripted with the model's own words, so the gate can hold it without a live
+# model. The model is given no script on purpose: lost in transit is decided
+# from the turn's words (Tier 1), and a model call here is the defect.
+apiVersion: awd-scenario/v0
+scenario: a lost item in the customer's own words reaches a person
+world: ../worlds/clothing.yaml
+as: C-1042
+objective: >-
+  The customer reports a lost jacket in their own words, not the specification's,
+  and a person takes it without a model call.
+discharges: [esc:lost-in-transit, op:escalate, ext:escalation_desk]
+max_turns: 1
+step_seconds: 600
+
+actor:
+  says:
+    - my jacket is lost need help
+
+desk:
+  resolves: handled
+
+expect:
+  - {handed_off: 1}
+  - {world: unchanged}
