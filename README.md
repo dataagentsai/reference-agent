@@ -4,7 +4,7 @@ A working customer-support agent for a clothing web shop, built in the open to
 show that the AI Assurance Catalog, the AI Harness Catalog and AgentTwin together
 are enough to specify, build and test a production-grade AI agent.
 
-**Status: version 0.3.0, released 10 October 2026.**
+**Status: version 0.4.0, released 14 October 2026.**
 
 - **Done:** the agent passes all four gates of
   [Clean AI Engineering](https://github.com/dataagentsai/clean-ai-engineering),
