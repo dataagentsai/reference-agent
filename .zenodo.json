@@ -1,0 +1,19 @@
+{
+  "title": "Reference Agent: a production-grade customer-support agent built to the AI Harness Catalog",
+  "upload_type": "software",
+  "description": "A reference implementation for Clean AI Engineering: a customer-support agent for a clothing e-commerce site, built without an agent framework as one module per AI Harness Catalog layer, with the architecture enforced by build-time checks and the agent exercised against AgentTwin worlds.",
+  "creators": [
+    {
+      "affiliation": "DataAgents.ai",
+      "name": "Choudhary, Basant"
+    }
+  ],
+  "keywords": [
+    "AI agents",
+    "reference implementation",
+    "agent harness",
+    "LLM applications",
+    "production engineering"
+  ],
+  "license": "Apache-2.0"
+}
