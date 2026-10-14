@@ -4,6 +4,7 @@ type: software
 title: "Reference Agent: a production-grade customer-support agent built to the AI Harness Catalog"
 version: "0.4.0"
 date-released: "2026-10-14"
+doi: "10.5281/zenodo.23366149"
 authors:
   - given-names: Basant
     family-names: Choudhary

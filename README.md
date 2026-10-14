@@ -1,5 +1,7 @@
 # Reference Agent
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23366149.svg)](https://doi.org/10.5281/zenodo.23366149)
+
 A working customer-support agent for a clothing web shop, built in the open to
 show that the AI Assurance Catalog, the AI Harness Catalog and AgentTwin together
 are enough to specify, build and test a production-grade AI agent.
@@ -51,7 +53,7 @@ test AI agents:
 | **Reference Agent** (this repository) | the reference implementation: one agent built and tested to all of the above |
 | [AgentTwin Lab](https://github.com/dataagentsai/agenttwin-lab) | the lab: a world that keeps running for days, for testing long-running agents |
 
-**How to cite:** cite the release you used. Metadata is in
+**How to cite:** DOI [10.5281/zenodo.23366149](https://doi.org/10.5281/zenodo.23366149) (all versions; Zenodo also gives each release its own). cite the release you used. Metadata is in
 [CITATION.cff](CITATION.cff); GitHub's "Cite this repository" button renders it
 as APA or BibTeX.
 
