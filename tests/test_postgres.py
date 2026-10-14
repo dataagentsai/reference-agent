@@ -448,3 +448,26 @@ async def test_the_daily_script_expires_every_store_and_says_how_many(pool) -> N
     assert done.returncode == 0, done.stderr[-2000:]
     assert "checkpoints  1" in done.stdout, done.stdout
     assert await store.resume(RunId("run_script")) is None
+
+
+async def test_newest_for_finds_a_customers_latest_conversation_only(pool) -> None:
+    """`ConversationFinder` on PostgreSQL (claims-fnol-azure F-117): newest by
+    `updated_at`, one customer's only, and an empty id finds nothing."""
+    from support_agent.state.postgres import PostgresCheckpointStore
+
+    store = PostgresCheckpointStore(pool)
+    rows = [  # (run, conversation, customer, state), written in this order
+        ("run_n1", "cnv_old", "C-1042", b'{"n": 1}'),
+        ("run_n2", "cnv_new", "C-1042", b'{"n": 2}'),
+        ("run_n3", "cnv_theirs", "C-2077", b'{"n": 3}'),
+        ("run_n4", "cnv_blank", "", b'{"n": 4}'),
+    ]
+    for run, conversation, who, state in rows:
+        await store.checkpoint(
+            RunId(run), state, conversation_id=ConversationId(conversation), customer_id=who
+        )
+    found = await store.newest_for("C-1042")
+    assert found is not None and found[0] == b'{"n": 2}' and found[1] > 0
+    assert (await store.newest_for("C-2077"))[0] == b'{"n": 3}'
+    assert await store.newest_for("") is None
+    assert await store.newest_for("C-9999") is None

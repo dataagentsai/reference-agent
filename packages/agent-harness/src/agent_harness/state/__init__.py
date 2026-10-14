@@ -317,6 +317,22 @@ class InMemoryCheckpointStore:
         async with self._lock:
             return self._conversations.get(conversation_id)
 
+    async def newest_for(self, customer_id: str) -> tuple[bytes, int] | None:
+        """`ConversationFinder`: the conversation of this customer's latest run."""
+        if not customer_id:
+            return None
+        async with self._lock:
+            mine = [
+                (self._written[run], conversation)
+                for run, (whose, conversation) in self._whose.items()
+                if whose == customer_id and run in self._written
+            ]
+            if not mine:
+                return None
+            at, conversation = max(mine)
+            state = self._conversations.get(conversation)
+            return None if state is None else (state, self._written.get(conversation, at))
+
 
 class InMemorySessionStore:
     """Stored sessions for one process: tests, and a demo nobody logs out of."""

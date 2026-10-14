@@ -125,6 +125,24 @@ class CheckpointStore(Protocol):
 
 
 @runtime_checkable
+class ConversationFinder(Protocol):
+    """One customer's newest conversation, and when it was last written.
+
+    A separate port from `CheckpointStore` on purpose: `latest` needs a
+    conversation id, which only the browser that started the conversation holds,
+    so a reload, a closed tab or a second device starts again (claims-fnol-azure
+    F-117). Asked with the customer id a verified session carries — never one the
+    caller supplies — this finds what to resume. Kept apart so a store, a fake or
+    an agent that has no use for resuming is not made to grow a method.
+    """
+
+    async def newest_for(self, customer_id: str) -> tuple[bytes, int] | None:
+        """The state of the customer's most recently written conversation and
+        its write time (Unix seconds), or `None`. An empty id finds nothing."""
+        ...
+
+
+@runtime_checkable
 class Requests(Protocol):
     """The seam. Three calls, and the rule lives in the caller's choice between
     the last two."""

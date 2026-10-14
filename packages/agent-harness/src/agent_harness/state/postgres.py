@@ -152,6 +152,26 @@ class PostgresCheckpointStore:
             ).fetchone()
         return bytes(row[0]) if row else None
 
+    async def newest_for(self, customer_id: str) -> tuple[bytes, int] | None:
+        """`ConversationFinder`, in one statement on the `checkpoints_customer`
+        index: the newest turn this customer wrote is their newest conversation."""
+        if not customer_id:
+            return None
+        async with self._pool.connection() as conn:
+            row = await (
+                await conn.execute(
+                    """
+                    SELECT state, extract(epoch FROM updated_at)::bigint
+                    FROM agent_state.checkpoints
+                    WHERE customer_id = %s
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """,
+                    (customer_id,),
+                )
+            ).fetchone()
+        return None if row is None else (bytes(row[0]), int(row[1]))
+
 
 class UnreadableSession(AgentFailure):
     """A stored session this key cannot decrypt: rotated keys, or a row written by

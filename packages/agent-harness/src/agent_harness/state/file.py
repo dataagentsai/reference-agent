@@ -97,6 +97,29 @@ class FileCheckpointStore:
     async def latest(self, conversation_id: ConversationId) -> bytes | None:
         return await self._read(self._conversation_path(conversation_id))
 
+    async def newest_for(self, customer_id: str) -> tuple[bytes, int] | None:
+        """`ConversationFinder`: through the `whose-*` index files, newest by the
+        stamp this store wrote (its own clock, not the filesystem's)."""
+        if not customer_id:
+            return None
+        async with self._lock:
+            newest: tuple[int, Path] | None = None
+            for index in self._dir.glob("whose-*.json"):
+                try:
+                    whose = json.loads(index.read_bytes())
+                    if whose.get("customer_id") != customer_id:
+                        continue
+                    path = self._conversation_path(ConversationId(whose["conversation_id"]))
+                    at = int(path.stat().st_mtime)
+                except (OSError, ValueError, KeyError):  # a torn or missing file: not a match
+                    continue
+                if newest is None or at > newest[0]:
+                    newest = (at, path)
+        if newest is None:
+            return None
+        state = await self._read(newest[1])
+        return None if state is None else (state, newest[0])
+
     async def forget(self, customer_id: str) -> tuple[RunId, ...]:
         """Every file this customer's turns produced, removed — F-056.
 
