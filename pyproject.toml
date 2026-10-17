@@ -64,6 +64,8 @@ members = ["packages/agent-harness"]
 
 [tool.uv.sources]
 agent-harness = { workspace = true }
+# A local path while the two repositories move together, as claims-fnol-azure does.
+evalharness = { path = "../eval-harness-framework", editable = true }
 # A local path while both repositories move together. Switch to a git reference
 # once AgentTwin tags a release and CI needs to resolve it without this checkout.
 agenttwin = { path = "../agenttwin", editable = true }

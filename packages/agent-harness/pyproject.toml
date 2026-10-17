@@ -24,6 +24,8 @@ dependencies = [
     # Profiles, environment overlays and evaluators.yaml are read by the library
     # itself since Tier 2b (`config.profile`, `adapters`, `evals`).
     "pyyaml>=6.0",
+    # The eval shapes and port (D2, 17 Oct 2026): `agent_harness.evals` re-exports them.
+    "evalharness",
 ]
 
 [project.optional-dependencies]

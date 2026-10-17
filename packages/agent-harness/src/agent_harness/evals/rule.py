@@ -18,7 +18,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
-from agent_harness.contracts import Identity
+from agent_harness.contracts import Identity, ToolResult
 from agent_harness.evals import EvalRequest, EvalResult, Meta, Outcome, Response, Speed, injection
 from agent_harness.policy import Context, Position, Rule, Verdict
 from agent_harness.policy.verdicts import ALLOW, block
@@ -54,7 +54,9 @@ def context_of(request: EvalRequest) -> Context:
         position=Position.REPLY if results is None else Position.POST_MODEL,
         identity=Identity(customer_id=request.meta.user),
         text=response.text,
-        tool_results=results or (),
+        # The harness built this request from its own `ToolResult`s (`request_of`);
+        # `evalharness` only knows them as `ToolResultLike`.
+        tool_results=cast("tuple[ToolResult, ...]", results or ()),
     )
 
 

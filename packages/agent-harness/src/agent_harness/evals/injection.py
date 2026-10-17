@@ -25,7 +25,9 @@ of both evaluators, and the version is on every result.
 from __future__ import annotations
 
 import re
+from typing import cast
 
+from agent_harness.contracts import ToolResult
 from agent_harness.contracts.reading import normalised
 from agent_harness.evals import EvalRequest
 from agent_harness.policy.verdicts import ALLOW, Verdict, block
@@ -117,7 +119,9 @@ def no_known_injection(request: EvalRequest) -> Verdict:
 
 def no_instructions_in_result(request: EvalRequest) -> Verdict:
     """Post-tool: no tool result carries instructions aimed at the agent."""
-    for result in (request.response.tool_results if request.response else None) or ():
+    results = request.response.tool_results if request.response else None
+    # Requests reaching this rule are built by the harness from its own results.
+    for result in cast("tuple[ToolResult, ...]", results or ()):
         phrase = found(f"{result.for_context()} {result.text}", in_result=True)
         if phrase is not None:
             return block(

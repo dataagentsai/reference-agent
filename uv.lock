@@ -18,6 +18,7 @@ name = "agent-harness"
 version = "0.2.0"
 source = { editable = "packages/agent-harness" }
 dependencies = [
+    { name = "evalharness" },
     { name = "fastapi" },
     { name = "httpx2" },
     { name = "jsonschema" },
@@ -45,6 +46,7 @@ azure = [
 requires-dist = [
     { name = "azure-monitor-opentelemetry", marker = "extra == 'azure'", specifier = ">=1.6" },
     { name = "dbos", marker = "extra == 'azure'", specifier = ">=1.0" },
+    { name = "evalharness", editable = "../eval-harness-framework" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx2", specifier = ">=2.0" },
     { name = "jsonschema", specifier = ">=4.23" },
@@ -612,6 +614,34 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/02/a4/0c56927d991067ba0532cd6bdf81d59b64bfcae8526e549c8bcb99cad617/dbos-3.2.0.tar.gz", hash = "sha256:91e0e56f0102f63bce81f306b807540f1ed4962a145b86591f87cfa26b2a29bc", size = 577692, upload-time = "2026-09-29T15:43:51.828Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ff/48/0664bf0f495cd49d6bfd078f6788a1ff435b1178d08bffb3f996e63ed7a5/dbos-3.2.0-py3-none-any.whl", hash = "sha256:8b78c38e3d1904acca98484107a8f50f38d7605eb6c7c03550259405d7f1b801", size = 278580, upload-time = "2026-09-29T15:43:49.709Z" },
+]
+
+[[package]]
+name = "evalharness"
+version = "0.1.0"
+source = { editable = "../eval-harness-framework" }
+dependencies = [
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "azure-ai-evaluation", marker = "extra == 'azure'", specifier = "==1.18.9" },
+    { name = "deepeval", marker = "extra == 'deepeval'", specifier = "==4.3.1" },
+    { name = "langchain-community", marker = "extra == 'ragas'", specifier = "==0.4.1" },
+    { name = "openai", marker = "extra == 'judge'", specifier = ">=1.50" },
+    { name = "presidio-analyzer", marker = "extra == 'presidio'", specifier = "==2.2.364" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "ragas", marker = "extra == 'ragas'", specifier = "==0.4.3" },
+]
+provides-extras = ["judge", "azure", "deepeval", "ragas", "presidio"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.11" },
+    { name = "pytest", specifier = ">=8" },
+    { name = "ruff", specifier = ">=0.6" },
+    { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]
