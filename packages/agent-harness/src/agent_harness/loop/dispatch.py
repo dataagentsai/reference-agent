@@ -11,6 +11,7 @@ nothing ran.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable, Mapping
 from functools import partial
 
@@ -76,8 +77,7 @@ async def _invoke(
 
     local = local_tools.get(call.name)
     if local is not None:
-        with tel.span("agent.tool.local", **{tel.GEN_AI_TOOL_NAME: call.name}):
-            return await local.handler(call.arguments)
+        return await _local(local, call)
 
     try:
         return await tools.call(call.name, call.arguments, identity, key)
@@ -97,6 +97,26 @@ async def _invoke(
             is_error=True,
             error_channel="execution",
         )
+
+
+async def _local(local: LocalTool, call: ToolCall) -> ToolResult:
+    """A harness-answered tool, recorded as an MCP one is: its arguments, its
+    result and its outcome, so a reader of the record sees `request_payout`
+    beside `get_claim` rather than a bare name (FINDINGS run 2, eval harness)."""
+    with tel.span(
+        "agent.tool.local",
+        **{tel.GEN_AI_TOOL_NAME: call.name, tel.SIDE_EFFECT: local.spec.side_effect.value},
+    ) as span:
+        tel.set_payload(span, tel.TOOL_ARGUMENTS, json.dumps(call.arguments, sort_keys=True))
+        outcome = "error"
+        try:
+            result = await local.handler(call.arguments)
+            outcome = "error" if result.is_error else "ok"
+            shown = result.structured if result.structured is not None else result.text
+            tel.set_payload(span, tel.TOOL_RESULT, json.dumps(shown, default=str))
+            return result
+        finally:
+            span.set_attribute(tel.TOOL_OUTCOME, outcome)
 
 
 __all__ = ["dispatch"]

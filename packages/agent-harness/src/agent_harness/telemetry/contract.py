@@ -75,6 +75,14 @@ from agent_harness.telemetry.names import (
 # --------------------------------------------------------------------------- #
 
 
+ANYWHERE = frozenset({SESSION_ID})
+"""What any span may carry. The conversation's id, which `work_scope` puts on
+every span opened for a conversation's work outside a turn (an approval's
+lookup and the payout it carries out), so the record can put that work back
+into its conversation. Declared once rather than on each span, because which
+spans that work opens is the work's business."""
+
+
 @dataclass(frozen=True)
 class SpanSpec:
     """What one span must carry, and what it may."""
@@ -85,7 +93,7 @@ class SpanSpec:
     def violations(self, name: str, attributes: Mapping[str, Any]) -> list[str]:
         present = set(attributes)
         missing = self.required - present
-        unknown = present - self.required - self.optional
+        unknown = present - self.required - self.optional - ANYWHERE
         out = [f"{name}: missing {a}" for a in sorted(missing)]
         out += [f"{name}: undeclared attribute {a}" for a in sorted(unknown)]
         return out
@@ -245,7 +253,14 @@ CONTRACT: dict[str, SpanSpec] = {
             }
         ),
     ),
-    "agent.tool.local": SpanSpec(required=frozenset({GEN_AI_TOOL_NAME})),
+    # A harness-answered tool (`request_payout` raising an approval) is recorded
+    # as an MCP one is, so a reader of the record sees what it was asked and what
+    # it answered. Its outcome is set in `finally`, so it is always there; the
+    # words only for a captured turn.
+    "agent.tool.local": SpanSpec(
+        required=frozenset({GEN_AI_TOOL_NAME, SIDE_EFFECT, TOOL_OUTCOME}),
+        optional=frozenset({TOOL_ARGUMENTS, TOOL_RESULT}),
+    ),
     # A customer's verdict on a conversation, recorded against it (AHC-0112).
     "agent.feedback": SpanSpec(required=frozenset({SESSION_ID, USER_ID, FEEDBACK})),
     "agent.tools.list": SpanSpec(required=frozenset({"agent.tools.count", "agent.tools.rejected"})),

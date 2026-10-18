@@ -189,41 +189,43 @@ class RefundWork:
 
     @activity.defn(name=ASSESS)
     async def assess(self, ask: Ask) -> Assessment:
-        # Named on the read as well as on the refund: a worker with no customer
-        # of its own is acting for this approval, and the far end reads whose
-        # it is from the approval rather than from anything this side asserts.
-        who = (await self.acting_for(ask.customer_id)).model_copy(update={"grant": ask.id})
-        key = stored_key(_keyed(ask))
-        order = await _order(self.tools, ask.args.get("order_id"), who, key)
-        if not isinstance(order, dict):
-            return Assessment(args=ask.args, reason=None, failed=order.text)
-        total = order.get("total")
-        args = {**ask.args, "amount": None if total is None else str(total)}
-        refused = not_requestable(order, self.policy)
-        if refused is not None:
-            return Assessment(args=args, reason=None, failed=refused)
-        reason = requires_approval(order, self.policy)
-        # What the decision rests on, recorded at the moment it is read, so the
-        # carry-out an hour later can tell whether it still rests on anything.
-        return Assessment(
-            args=args, reason=reason, approver=POLICY_APPROVER, decided_against=judged(order)
-        )
+        with tel.work_scope(ask.conversation_id, ask.id):
+            # Named on the read as well as on the refund: a worker with no customer
+            # of its own is acting for this approval, and the far end reads whose
+            # it is from the approval rather than from anything this side asserts.
+            who = (await self.acting_for(ask.customer_id)).model_copy(update={"grant": ask.id})
+            key = stored_key(_keyed(ask))
+            order = await _order(self.tools, ask.args.get("order_id"), who, key)
+            if not isinstance(order, dict):
+                return Assessment(args=ask.args, reason=None, failed=order.text)
+            total = order.get("total")
+            args = {**ask.args, "amount": None if total is None else str(total)}
+            refused = not_requestable(order, self.policy)
+            if refused is not None:
+                return Assessment(args=args, reason=None, failed=refused)
+            reason = requires_approval(order, self.policy)
+            # What the decision rests on, recorded at the moment it is read, so the
+            # carry-out an hour later can tell whether it still rests on anything.
+            return Assessment(
+                args=args, reason=reason, approver=POLICY_APPROVER, decided_against=judged(order)
+            )
 
     @activity.defn(name=CARRY_OUT)
     async def carry_out(self, approval: Approval) -> CarriedOut:
-        who = await self.acting_for(approval.customer_id)
-        # Judged at the moment the workflow scheduled this, which is the
-        # workflow's clock and not this machine's.
-        now = int(activity.info().current_attempt_scheduled_time.timestamp())
-        with tel.span("agent.approval.carry_out", **{"agent.approval.id": approval.id}):
-            changed = await self._changed(approval, who)
-            if changed is not None:
-                return CarriedOut(ok=False, stale=True, text=changed)
-            try:
-                result = await carry_out(approval, who, self.tools, policy=self.policy, now=now)
-            except ApprovalError as exc:
-                return CarriedOut(ok=False, text=str(exc))
-        return _outcome_of(result)
+        with tel.work_scope(approval.conversation_id, approval.id):
+            who = await self.acting_for(approval.customer_id)
+            # Judged at the moment the workflow scheduled this, which is the
+            # workflow's clock and not this machine's.
+            now = int(activity.info().current_attempt_scheduled_time.timestamp())
+            with tel.span("agent.approval.carry_out", **{"agent.approval.id": approval.id}):
+                changed = await self._changed(approval, who)
+                if changed is not None:
+                    return CarriedOut(ok=False, stale=True, text=changed)
+                try:
+                    result = await carry_out(approval, who, self.tools, policy=self.policy, now=now)
+                except ApprovalError as exc:
+                    return CarriedOut(ok=False, text=str(exc))
+            return _outcome_of(result)
 
     async def _changed(self, approval: Approval, who: Identity) -> str | None:
         """Re-read the order and say what has moved since it was assessed, if

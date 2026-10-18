@@ -6,7 +6,8 @@ from typing import Any
 
 import pytest
 
-from agent_harness.watch.record import ToolUse, Turn
+from agent_harness import telemetry as tel
+from agent_harness.watch.record import Node, ToolUse, Turn, Work, background
 from agent_harness.watch.sessions import session_of, sessions
 
 
@@ -140,3 +141,113 @@ def test_conversations_are_grouped_ordered_and_the_canary_left_out() -> None:
     assert [s.text for s in first.steps if s.kind == "user"] == ["first", "second"]
     assert first.outcome == "goal_reached"  # how the last turn ended
     assert ("decision", "awaiting_human") in [(s.kind, s.name) for s in first.steps]
+
+
+# ------------------------------------------------------------------ work outside a turn
+def work(started: float, *tools: ToolUse, session: str = "cnv_1") -> Work:
+    return Work(trace_id=f"w{started}", session_id=session, started=started, tools=tools)
+
+
+PLACED = [
+    (
+        "a payout carried out inside the turn goes before its reply",
+        [turn(10, tools=(use("request_payout"),), reply="It has been issued.")],
+        [work(10.5, use("issue_payout"))],
+        [
+            "user",
+            "tool_call:request_payout",
+            "tool_result:request_payout",
+            "tool_call:issue_payout",
+            "tool_result:issue_payout",
+            "assistant",
+        ],
+    ),
+    (
+        "a payout a person approved later goes between the turns",
+        [
+            turn(10, reply="Sent to a handler.", ended="awaiting_approval"),
+            turn(100, said="Paid yet?", reply="Yes."),
+        ],
+        [work(50, use("issue_payout"))],
+        [
+            "user",
+            "assistant",
+            "decision:awaiting_approval",
+            "tool_call:issue_payout",
+            "tool_result:issue_payout",
+            "user",
+            "assistant",
+        ],
+    ),
+]
+
+
+@pytest.mark.parametrize(("name", "turns", "done", "steps"), PLACED, ids=[p[0] for p in PLACED])
+def test_work_for_a_conversation_goes_where_it_happened(
+    name: str, turns: list[Turn], done: list[Work], steps: list[str]
+) -> None:
+    found = session_of("cnv_1", turns, done).steps
+    assert [f"{s.kind}:{s.name}" if s.name else s.kind for s in found] == steps
+
+
+def test_work_for_another_conversation_stays_out() -> None:
+    (found,) = sessions([turn(1)], [work(1.5, use("issue_payout"), session="cnv_other")])
+    assert "tool_call" not in [s.kind for s in found.steps]
+
+
+def test_background_reads_tool_calls_that_name_a_conversation_from_traces_without_a_turn() -> None:
+    def node(trace: str, name: str, at: float, **attributes: Any) -> Node:
+        return Node(trace_id=trace, name=name, attributes=attributes, start=at, end=at + 0.1)
+
+    nodes = [
+        node("t1", "agent.turn", 1.0),
+        node(
+            "t1", "agent.tool", 1.2, **{tel.GEN_AI_TOOL_NAME: "get_claim", tel.SESSION_ID: "cnv_1"}
+        ),
+        node("t2", "agent.approval.carry_out", 5.0, **{tel.SESSION_ID: "cnv_1"}),
+        node(
+            "t2",
+            "agent.tool",
+            5.1,
+            **{
+                tel.GEN_AI_TOOL_NAME: "issue_payout",
+                tel.SESSION_ID: "cnv_1",
+                tel.TOOL_OUTCOME: "ok",
+                tel.TOOL_RESULT: '{"status": "paid"}',
+            },
+        ),
+        node(
+            "t3", "agent.tool", 9.0, **{tel.GEN_AI_TOOL_NAME: "get_claim"}
+        ),  # names no conversation
+    ]
+    (found,) = background(nodes)
+    assert (found.trace_id, found.session_id, found.started) == ("t2", "cnv_1", 5.1)
+    assert [(u.name, u.outcome, u.result) for u in found.tools] == [
+        ("issue_payout", "ok", {"status": "paid"})
+    ]
+
+
+def test_work_scope_names_the_conversation_on_every_span_inside_it_and_only_there() -> None:
+    exporter = tel.configure(capture_payloads=True)
+    with tel.span("before"):
+        pass
+    with (
+        tel.work_scope("cnv_9", "apr_1") as keep,
+        tel.span("agent.approval.carry_out"),
+        tel.span("agent.tool"),
+    ):
+        assert tel.capturing()
+    with tel.span("after"):
+        pass
+    sessions_of = {
+        s.name: (s.attributes or {}).get(tel.SESSION_ID) for s in exporter.get_finished_spans()
+    }
+    assert keep is True
+    assert sessions_of == {
+        "before": None,
+        "agent.approval.carry_out": "cnv_9",
+        "agent.tool": "cnv_9",
+        "after": None,
+    }
+    assert not tel.capturing()
+    tel.configure()

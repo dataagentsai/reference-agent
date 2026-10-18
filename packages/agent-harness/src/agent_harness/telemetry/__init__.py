@@ -130,6 +130,8 @@ _CAPTURING: ContextVar[bool] = ContextVar("capturing", default=False)
 """Whether this turn's words are kept. Decided once per turn, so a turn is
 captured whole or not at all: a sample whose tool results were kept and whose
 reply was not is a sample no rule can read (AHC-0114)."""
+_WORKING_FOR: ContextVar[str | None] = ContextVar("working_for", default=None)
+"""The conversation that work outside a turn is done for (`work_scope`)."""
 _LAST_EXPORTER: InMemorySpanExporter | None = None
 """The most recently configured exporter, so a harness can check the span
 contract without every test threading the exporter through."""
@@ -256,6 +258,25 @@ def turn_scope(run_id: str, config: str | None = None) -> Iterator[bool]:
         _CAPTURING.reset(token)
 
 
+@contextmanager
+def work_scope(session_id: str, key: str) -> Iterator[bool]:
+    """Work done outside a turn on one conversation's behalf: an approval's
+    assessment and carrying out, run by the approvals worker in traces of their
+    own. Every span opened inside carries the conversation's `SESSION_ID`, so a
+    reader of the record can put the work back into its conversation (a payout
+    is then on the conversation, not in a trace nobody joins to it). Whether its
+    words are kept is decided as a turn's is, by `key` (the approval id), so a
+    replay decides the same. Both are restored on the way out."""
+    keep = capture_decision(key)
+    capturing_token = _CAPTURING.set(keep)
+    session_token = _WORKING_FOR.set(session_id or None)
+    try:
+        yield keep
+    finally:
+        _WORKING_FOR.reset(session_token)
+        _CAPTURING.reset(capturing_token)
+
+
 def capturing() -> bool:
     return _CAPTURING.get()
 
@@ -315,6 +336,9 @@ def span(name: str, **attributes: Any) -> Iterator[Span]:
     """A span with attributes set at open, and errors recorded rather than
     swallowed. Exceptions propagate — observability never changes control flow."""
     with _tracer().start_as_current_span(name) as current:
+        working_for = _WORKING_FOR.get()
+        if working_for is not None and SESSION_ID not in attributes:
+            current.set_attribute(SESSION_ID, working_for)
         for key, value in attributes.items():
             if value is not None:
                 current.set_attribute(key, value)
@@ -405,6 +429,7 @@ __all__ = [
     "set_current_attribute",
     "capture_decision",
     "turn_scope",
+    "work_scope",
     "capturing",
     "exporting_metrics",
     "flush_metrics",

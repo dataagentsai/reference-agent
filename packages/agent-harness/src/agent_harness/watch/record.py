@@ -83,6 +83,23 @@ class Turn:
     Content Safety verdict, read by the `guardrail_log` evaluator (A9)."""
 
 
+TOOL_SPANS = frozenset({"agent.tool", "agent.tool.local"})
+"""A tool call is either: dispatched over MCP, or answered by the harness itself
+(`request_payout`, which raises an approval). Both are the agent acting."""
+
+
+@dataclass(frozen=True)
+class Work:
+    """Tools run outside any turn on one conversation's behalf — an approval's
+    assessment and carrying out (`telemetry.work_scope`) — from one trace. It is
+    where a payout a person approved is actually made."""
+
+    trace_id: str
+    session_id: str
+    started: float
+    tools: tuple[ToolUse, ...]
+
+
 @dataclass(frozen=True)
 class Feedback:
     """A customer's verdict on a conversation (AHC-0112)."""
@@ -141,6 +158,37 @@ def turns(nodes: Iterable[Node]) -> list[Turn]:
     return sorted(out, key=lambda t: t.started)
 
 
+def background(nodes: Iterable[Node]) -> list[Work]:
+    """One `Work` per trace with no `agent.turn` whose tool calls name a
+    conversation, oldest first. Its words are present where its own capture
+    decision kept them (`work_scope`)."""
+    by_trace: dict[str, list[Node]] = defaultdict(list)
+    for node in nodes:
+        by_trace[node.trace_id].append(node)
+    out = []
+    for trace_id, group in by_trace.items():
+        if any(n.name == "agent.turn" for n in group):
+            continue
+        tools = sorted(
+            (n for n in group if n.name in TOOL_SPANS and n.attributes.get(tel.SESSION_ID)),
+            key=lambda n: n.start,
+        )
+        if tools:
+            out.append(
+                Work(
+                    trace_id=trace_id,
+                    session_id=str(tools[0].attributes[tel.SESSION_ID]),
+                    started=tools[0].start,
+                    tools=tuple(_tool(n, _has_words(n)) for n in tools),
+                )
+            )
+    return sorted(out, key=lambda w: w.started)
+
+
+def _has_words(node: Node) -> bool:
+    return tel.TOOL_ARGUMENTS in node.attributes or tel.TOOL_RESULT in node.attributes
+
+
 def feedback(nodes: Iterable[Node]) -> list[Feedback]:
     return [
         Feedback(
@@ -161,7 +209,7 @@ def _turn(group: list[Node]) -> Turn | None:
     a = turn.attributes
     run = next((n.attributes for n in group if n.name == "agent.run"), {})
     route = next((n.attributes for n in group if n.name == "agent.route"), {})
-    tools = sorted((n for n in group if n.name == "agent.tool"), key=lambda n: n.start)
+    tools = sorted((n for n in group if n.name in TOOL_SPANS), key=lambda n: n.start)
     chats = [n.attributes for n in sorted(group, key=lambda n: n.start) if n.name == "gen_ai.chat"]
     captured = _flag(a.get(tel.CAPTURED))
     return Turn(
