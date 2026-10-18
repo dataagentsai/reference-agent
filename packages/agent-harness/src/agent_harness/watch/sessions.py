@@ -65,7 +65,24 @@ def session_of(session_id: str, turns: Sequence[Turn], work: Sequence[Work] = ()
     for w in pending:
         steps += _tools(w.trace_id, w.tools, len(ordered))
     outcome = ordered[-1].termination if ordered else ""
-    return Session(id=session_id, steps=tuple(steps), outcome=outcome)
+    return Session(
+        id=session_id, steps=tuple(steps), outcome=outcome, unrecorded=_unrecorded(ordered, work)
+    )
+
+
+def _unrecorded(turns: Sequence[Turn], work: Sequence[Work]) -> frozenset[str]:
+    """What the record does not hold, so a pattern says it can't judge rather
+    than reading an absence as a fact: the words when content capture was off
+    for a turn, and a tool's arguments or result when they were not recorded."""
+    uses = [u for t in turns for u in t.tools] + [u for w in work for u in w.tools]
+    missing = set()
+    if any(not t.captured for t in turns):
+        missing.add("text")
+    if any(u.arguments is None for u in uses):
+        missing.add("arguments")
+    if any(u.result is None and u.outcome not in NOT_DONE for u in uses):
+        missing.add("results")
+    return frozenset(missing)
 
 
 def _decision(turn: Turn) -> str:

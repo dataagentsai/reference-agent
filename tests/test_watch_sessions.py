@@ -257,3 +257,80 @@ def test_work_scope_names_the_conversation_on_every_span_inside_it_and_only_ther
     }
     assert not tel.capturing()
     tel.configure()
+
+
+# ------------------------------------------------------- from any trace source
+def _span(name: str, at: float, **attributes: str) -> Any:
+    from evalharness.traces import Span
+
+    return Span(
+        trace_id="tr1", span_id=f"s{at}", name=name, start=at, end=at + 0.1, attributes=attributes
+    )
+
+
+@pytest.mark.parametrize(
+    ("spans", "expected"),
+    [
+        (  # as App Insights keeps them: every value a string, no content captured
+            [
+                _span(
+                    "agent.turn",
+                    1.0,
+                    **{
+                        "agent.captured": "False",
+                        "agent.turn.result": "escalated",
+                        "agent.turn.rule_id": "asked-for-human",
+                        "agent.run.id": "run_1",
+                        "user.id": "PH-1001",
+                        "agent.synthetic": "False",
+                    },
+                ),
+                _span(
+                    "agent.tool",
+                    1.2,
+                    **{
+                        "gen_ai.tool.name": "get_policy",
+                        "agent.tool.outcome": "ok",
+                        "agent.tool.side_effect": "read",
+                    },
+                ),
+            ],
+            ("escalated", "asked-for-human", False, None, ("get_policy",)),
+        ),
+    ],
+)
+def test_turns_rebuild_from_a_trace_source(spans: list[Any], expected: tuple[Any, ...]) -> None:
+    from agent_harness.watch.record import from_trace_spans, turns
+
+    (t,) = turns(from_trace_spans(spans))
+    assert (t.result, t.rule_id, t.captured, t.input, tuple(u.name for u in t.tools)) == expected
+
+
+@pytest.mark.parametrize(
+    ("captured", "tool", "unrecorded"),
+    [
+        (
+            True,
+            ToolUse("get_claim", "read", "ok", {"id": "C1"}, {"status": "approved"}, 0.1),
+            set(),
+        ),
+        (
+            False,
+            ToolUse("get_claim", "read", "ok", {"id": "C1"}, {"status": "approved"}, 0.1),
+            {"text"},
+        ),
+        (True, ToolUse("get_claim", "read", "ok", None, None, 0.1), {"arguments", "results"}),
+        (
+            True,
+            ToolUse("get_claim", "read", "error", {"id": "C1"}, None, 0.1),
+            set(),
+        ),  # failed: no result due
+    ],
+)
+def test_a_session_says_what_its_record_does_not_hold(
+    captured: bool, tool: ToolUse, unrecorded: set[str]
+) -> None:
+    from dataclasses import replace
+
+    t = replace(turn(1.0, tools=(tool,)), captured=captured)
+    assert set(session_of("cnv_1", [t]).unrecorded) == unrecorded

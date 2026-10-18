@@ -149,6 +149,24 @@ def from_observations(observations: Iterable[Mapping[str, Any]]) -> list[Node]:
     return out
 
 
+def from_trace_spans(spans: Iterable[Any]) -> list[Node]:
+    """Spans from any `evalharness.traces.TraceSource` (App Insights, an OTLP
+    file): already one neutral shape, so this only renames. App Insights keeps
+    no instrumentation scope, so the source's own filter (span name prefixes)
+    is what keeps other libraries' spans out; the MCP SDK's spans are named
+    `MCP send …`, never `agent.tool`, so they cannot be counted twice here."""
+    return [
+        Node(
+            trace_id=span.trace_id,
+            name=span.name,
+            attributes=dict(span.attributes),
+            start=span.start,
+            end=span.end,
+        )
+        for span in spans
+    ]
+
+
 def turns(nodes: Iterable[Node]) -> list[Turn]:
     """One `Turn` per trace that holds an `agent.turn`, oldest first."""
     by_trace: dict[str, list[Node]] = defaultdict(list)
