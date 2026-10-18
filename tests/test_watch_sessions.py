@@ -20,6 +20,7 @@ def turn(
     tools: tuple[ToolUse, ...] = (),
     ended: str = "goal_reached",
     synthetic: bool = False,
+    result: str = "completed",
 ) -> Turn:
     return Turn(
         trace_id=f"t{started}",
@@ -30,7 +31,7 @@ def turn(
         duration_s=1.0,
         synthetic=synthetic,
         captured=True,
-        result="completed",
+        result=result,
         rule_id="",
         reply_redacted=False,
         input=said,
@@ -105,6 +106,11 @@ SHAPES = [
         "an ending that is a decision",
         turn(1, ended="awaiting_approval"),
         [("user", "", False), ("assistant", "", False), ("decision", "awaiting_approval", False)],
+    ),
+    (
+        "a hand-over the router made by rule",
+        turn(1, ended="", result="escalated"),
+        [("user", "", False), ("assistant", "", False), ("decision", "awaiting_human", False)],
     ),
     (
         "an ending that is not",

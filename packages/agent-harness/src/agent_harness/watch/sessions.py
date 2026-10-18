@@ -59,12 +59,25 @@ def session_of(session_id: str, turns: Sequence[Turn], work: Sequence[Work] = ()
             steps += _tools(w.trace_id, w.tools, number)
         if turn.reply:
             steps.append(Step("assistant", text=turn.reply, turn=number))
-        if turn.termination in DECISIONS:
-            steps.append(Step("decision", name=turn.termination, turn=number))
+        decided = _decision(turn)
+        if decided:
+            steps.append(Step("decision", name=decided, turn=number))
     for w in pending:
         steps += _tools(w.trace_id, w.tools, len(ordered))
     outcome = ordered[-1].termination if ordered else ""
     return Session(id=session_id, steps=tuple(steps), outcome=outcome)
+
+
+def _decision(turn: Turn) -> str:
+    """The decision a turn ended in, named as the loop names its ending. A turn
+    the router escalated by rule (`result: escalated`, say after two tool calls
+    failed in a row) never ran the loop, so it has no termination; it is the same
+    decision, a person owning the conversation."""
+    if turn.termination in DECISIONS:
+        return turn.termination
+    if turn.result == "escalated":
+        return Ending.AWAITING_HUMAN.value
+    return ""
 
 
 def _tools(prefix: str, uses: Sequence[ToolUse], turn: int) -> list[Step]:
