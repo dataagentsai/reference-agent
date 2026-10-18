@@ -143,6 +143,7 @@ MECHANISM = {
     "watch/engine.py",
     "watch/langfuse.py",
     "watch/online.py",  # the online position: a turn from its trace, judged (Tier 2b)
+    "watch/sessions.py",  # the record's turns as evalharness Sessions, for the domain patterns
     "watch/outcomes.py",
     "watch/record.py",
     "watch/verdicts.py",
