@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from agent_harness.cost import Price
+from agent_harness.cost import Meter, Price
 from agent_harness.cost import conformance as cost_cases
 from agent_harness.cost.port import CostLedger, InMemoryLedger
 
@@ -55,3 +55,23 @@ def test_every_dynamic_invariant_has_a_case() -> None:
     port = yaml.safe_load((CATALOG / "ports" / "cost_ledger.yaml").read_text())
     dynamic = {f"cost_ledger/{i['key']}" for i in port["invariants"] if i["checkable"] == "dynamic"}
     assert dynamic <= {case.key for case in cost_cases.CASES}
+
+
+@pytest.mark.parametrize(
+    ("attempts", "calls", "retries"),
+    [((1,), 1, 0), ((1, 2), 2, 1), ((1, 1, 2, 3), 4, 2)],
+    ids=["one call", "one retry", "two steps, the second retried twice"],
+)
+@pytest.mark.discharges("AHC-0024", "AHC-0030")
+def test_the_loops_meter_records_through_the_ledger_it_is_given(
+    attempts: tuple[int, ...], calls: int, retries: int
+) -> None:
+    ledger = InMemoryLedger(cost_cases.PRICES)
+    meter = Meter(
+        cost_cases.MODEL, ceiling_usd=100, prices=cost_cases.PRICES, ledger=ledger, unit="run-1"
+    )
+    for attempt in attempts:
+        meter.record(cost_cases.CALL, attempt=attempt)
+    spent = ledger.spent("run-1")
+    assert (spent.calls, spent.retries) == (calls, retries)
+    assert meter.spend == spent.usd == 2 * calls

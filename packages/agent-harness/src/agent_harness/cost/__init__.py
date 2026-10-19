@@ -21,11 +21,16 @@ reports it as though it were.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from agent_harness.contracts import Usage
 from agent_harness.contracts.failures import AgentFailure, Fault
+
+if TYPE_CHECKING:
+    from agent_harness.cost.port import CostLedger
 
 MTOK = Decimal(1_000_000)
 
@@ -95,6 +100,12 @@ class Meter:
 
     Constructed with the price resolved, so an unknown model fails when the run
     is set up rather than three calls in.
+
+    With a `cost_ledger` handed in (`cost.port`), every call is recorded there
+    under `unit`, so the loop's spend goes through the same port, and is held to
+    the same cases, as a framework's would. Without one the meter keeps its own
+    tally; it never builds a ledger itself, because only the composition
+    constructs a realization (B13).
     """
 
     def __init__(
@@ -103,19 +114,36 @@ class Meter:
         *,
         ceiling_usd: float | Decimal,
         prices: dict[str, Price] | None = None,
+        ledger: CostLedger | None = None,
+        unit: str | None = None,
     ) -> None:
         self.model = model
         self.price = price_of(model, prices)
         self.ceiling = Decimal(str(ceiling_usd))
-        self.spend = Decimal(0)
-        self.calls = 0
+        self.ledger = ledger
+        self.unit = unit or f"meter-{uuid.uuid4().hex}"
+        self._spend = Decimal(0)
+        self._calls = 0
 
-    def record(self, usage: Usage) -> Decimal:
-        """Price one call, add it, and return what it cost."""
+    def record(self, usage: Usage, *, attempt: int = 1) -> Decimal:
+        """Price one call, add it to the unit, and return what it cost."""
+        if self.ledger is not None:
+            from agent_harness.cost.port import Observation
+
+            observation = Observation(self.unit, self.model, usage, attempt=attempt)
+            return self.ledger.record(observation)
         amount = cost_of(usage, self.price)
-        self.spend += amount
-        self.calls += 1
+        self._spend += amount
+        self._calls += 1
         return amount
+
+    @property
+    def spend(self) -> Decimal:
+        return self._spend if self.ledger is None else self.ledger.spent(self.unit).usd
+
+    @property
+    def calls(self) -> int:
+        return self._calls if self.ledger is None else self.ledger.spent(self.unit).calls
 
     @property
     def exceeded(self) -> bool:
