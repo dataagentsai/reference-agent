@@ -66,6 +66,8 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `contracts/requests.py` | AAC-0076, AHC-0053, AHC-0074 |
 | `contracts/tools.py` | AAC-0051, AAC-0105, AHC-0074, AHC-0107 |
 | `cost/__init__.py` | AAC-0008, AAC-0104 |
+| `cost/conformance.py` | AHC-0007, AHC-0024, AHC-0030, AHC-0090 |
+| `cost/port.py` | AHC-0007, AHC-0024, AHC-0030, AHC-0090 |
 | `entrypoint/__init__.py` | AHC-0010 — since T-019 the surface an edge drives (`TurnAgent`); the turn itself, which cited AAC-0076, AHC-0017, AHC-0107, AHC-0108 and P-DIRECT-READS, is the agent's |
 | `entrypoint/handoff.py` | AAC-0110, AHC-0070, AHC-0108, P-ESC-CAP |
 | `identity/__init__.py` | AAC-0057, AAC-0106 |
@@ -80,6 +82,8 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `loop/screen.py` | AAC-0051 |
 | `loop/spend.py` | AHC-0101 |
 | `policy/reading.py` | AHC-0094 |
+| `policy/conformance.py` | AHC-0018, AHC-0093, AHC-0094, AHC-0095 |
+| `policy/port.py` | AHC-0018, AHC-0095 |
 | `policy/states.py` | AHC-0117 |
 | `policy/verdicts.py` | AHC-0094 |
 | `resilience/__init__.py` | AAC-0009, AHC-0005, AHC-0021, AHC-0024, AHC-0058 |
@@ -87,6 +91,7 @@ These name their statement in the file. Extracted mechanically, not asserted.
 | `state/facts.py` | AHC-0108 |
 | `telemetry/__init__.py` | AAC-0095 |
 | `telemetry/counters.py` | AHC-0106, AHC-0111, AAC-0114, AAC-0007 |
+| `telemetry/export.py` | AHC-0111 |
 | `entrypoint/ending.py` | AHC-0114, AHC-0111, F-020, F-026 |
 | `telemetry/meters.py` | AHC-0111, AAC-0008 |
 | `serve/feedback.py` | AHC-0112, AAC-0115 |

@@ -72,6 +72,8 @@ MECHANISM = {
     "contracts/results.py",
     "contracts/tools.py",
     "cost/__init__.py",
+    "cost/conformance.py",  # the cost_ledger port's cases, for any adapter (T-048)
+    "cost/port.py",
     "entrypoint/__init__.py",
     "entrypoint/ending.py",
     "entrypoint/handoff.py",
@@ -112,6 +114,8 @@ MECHANISM = {
     "loop/screen.py",
     "loop/spend.py",
     "policy/__init__.py",
+    "policy/conformance.py",  # the policy port's cases, for any adapter (T-048)
+    "policy/port.py",
     "policy/reading.py",
     "policy/states.py",
     "policy/verdicts.py",
@@ -134,6 +138,7 @@ MECHANISM = {
     "telemetry/azure.py",  # an adapter: the Azure stack's telemetry binding (T-099)
     "telemetry/contract.py",
     "telemetry/counters.py",
+    "telemetry/export.py",
     "telemetry/meters.py",
     "telemetry/names.py",
     "telemetry/redaction.py",

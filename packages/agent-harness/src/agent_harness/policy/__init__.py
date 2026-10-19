@@ -31,7 +31,10 @@ having none, because nobody goes looking for the control they think they have.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 
 from agent_harness import telemetry as tel
 from agent_harness.policy.states import no_superseded_state
@@ -60,19 +63,50 @@ def default_rules() -> Mapping[Position, tuple[Rule, ...]]:
 # --------------------------------------------------------------------------- #
 
 
-def enforce(ctx: Context, rules: Sequence[Rule] | None = None) -> Verdict:
+_pool: list[ThreadPoolExecutor] = []
+
+
+def _workers() -> ThreadPoolExecutor:
+    """Where a rule runs when a position has a time budget. Created on first use,
+    so an agent without a budget never starts a thread."""
+    if not _pool:
+        _pool.append(ThreadPoolExecutor(max_workers=4, thread_name_prefix="policy"))
+    return _pool[0]
+
+
+def enforce(
+    ctx: Context, rules: Sequence[Rule] | None = None, *, budget_s: float | None = None
+) -> Verdict:
     """Run the rules for this position. First block wins.
 
     A rule that raises **blocks**. That is the whole of AAC-0091: a guardrail
     that errors open is believed and absent at once, and nobody goes looking for
     a control they think they have.
+
+    With `budget_s`, the position's rules share that many seconds, and a rule
+    still running when they are spent **blocks** too (AHC-0095,
+    `policy/failure_takes_declared_default`). Python cannot stop a thread, so a
+    rule that hangs keeps its worker; once all four are held, every budgeted
+    position times out and blocks, which is the declared default doing its job
+    rather than a second failure.
     """
     applicable = default_rules().get(ctx.position, ()) if rules is None else rules
+    deadline = None if budget_s is None else time.monotonic() + budget_s
     with tel.span("agent.policy", **{"agent.policy.position": ctx.position.value}) as span:
         for rule in applicable:
             name = getattr(rule, "__name__", repr(rule))
             try:
-                verdict = rule(ctx)
+                if deadline is None:
+                    verdict = rule(ctx)
+                else:
+                    left = max(0.0, deadline - time.monotonic())
+                    verdict = _workers().submit(rule, ctx).result(timeout=left)
+            except FutureTimeout:
+                span.set_attribute("agent.policy.blocked_by", name)
+                span.set_attribute("agent.policy.timed_out", True)
+                return block(
+                    name, f"rule ran past the policy budget of {budget_s}s and traffic was blocked"
+                )
             except Exception as exc:  # noqa: BLE001 — deliberate: fail closed
                 span.set_attribute("agent.policy.blocked_by", name)
                 span.set_attribute("agent.policy.errored", True)

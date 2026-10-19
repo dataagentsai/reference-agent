@@ -37,7 +37,7 @@ and before a step's tools run, so no call starts for nobody (AHC-0096).
 from __future__ import annotations
 
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
 from opentelemetry.trace import Span
@@ -79,6 +79,7 @@ from agent_harness.loop.ends import (
     UNANSWERED,
     UNREACHABLE,
     Ended,
+    Gone,
     Trace,
     completed,
     failed,
@@ -87,9 +88,6 @@ from agent_harness.loop.ends import (
 )
 from agent_harness.loop.screen import Screen
 from agent_harness.resilience import unit_retries
-
-Gone = Callable[[], Awaitable[bool]]
-"""Whether the caller has left: `/chat`'s `request.is_disconnected` (AHC-0096)."""
 
 
 async def run(

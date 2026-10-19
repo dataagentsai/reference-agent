@@ -8,6 +8,7 @@ the span in agreement.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from opentelemetry.trace import Span
@@ -61,6 +62,9 @@ UNREACHABLE = "I cannot reach the system that holds your records right now."
 """When the far end cannot be reached. Neutral, because the library has no domain:
 an agent names its own system through `loop.run(unreachable=...)` (claims-fnol-azure
 F-14: a policyholder was told about "our order system")."""
+Gone = Callable[[], Awaitable[bool]]
+"""Whether the caller has left: `/chat`'s `request.is_disconnected` (AHC-0096)."""
+
 CALLER_LEFT = "This conversation was closed before I finished — ask again and I will pick it up."
 """Recorded on the conversation for whoever reopens it; nobody was there to read it."""
 
@@ -143,6 +147,7 @@ def failed(
 
 __all__ = [
     "CALLER_LEFT",
+    "Gone",
     "IN_CIRCLES",
     "PASS_ON",
     "TROUBLE",
