@@ -89,6 +89,8 @@ def refusal(approval: Approval, *, by: str, by_customer: str | None = None, now:
     if approval.decided or approval.state is not ApprovalState.WAITING:
         if approval.state is ApprovalState.EXPIRED:
             return f"approval {approval.id!r} has expired"
+        if approval.state is ApprovalState.WITHDRAWN:
+            return f"approval {approval.id!r} was withdrawn"
         if approval.state is ApprovalState.ASSESSING:
             return f"approval {approval.id!r} is still being assessed"
         return f"approval {approval.id!r} was already decided"

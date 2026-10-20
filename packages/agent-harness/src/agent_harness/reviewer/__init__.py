@@ -41,10 +41,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from agent_harness import approvals as ap
 from agent_harness import escalation as esc
 from agent_harness import identity as ident
 from agent_harness import telemetry as tel
+from agent_harness.approvals.port import Desk
 from agent_harness.contracts import (
     Approvals,
     Clock,
@@ -194,7 +194,7 @@ def build(
     clock: Clock | None = None,
     desk: esc.EscalationDesk | None = None,
     approvals: Approvals | None = None,
-    approver: ap.ApprovalDesk | None = None,
+    approver: Desk | None = None,
     pages: Sequence[APIRouter] = (),
 ) -> FastAPI:
     """The reviewer app, ready to mount. Wiring only — the routes are above.

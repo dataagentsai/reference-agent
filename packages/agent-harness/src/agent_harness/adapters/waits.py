@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from agent_harness.adapters import Adapter, Setting, Wiring
+from agent_harness.approvals.port import Desk
 from agent_harness.contracts import Approvals, Escalations
 
 
@@ -30,8 +31,8 @@ from agent_harness.contracts import Approvals, Escalations
 class Waits:
     approvals: Approvals
     escalations: Escalations
-    approver: Any
-    """The approval desk: `decide`. Never handed to the agent."""
+    approver: Desk
+    """The approval desk: `decide` and `stop`. Never handed to the agent."""
     desk: Any
     """The escalation desk: `close`. Never handed to the agent."""
 

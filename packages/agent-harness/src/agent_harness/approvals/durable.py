@@ -58,6 +58,7 @@ FINAL = frozenset(
         ApprovalState.STALE,
         ApprovalState.REFUSED,
         ApprovalState.EXPIRED,
+        ApprovalState.WITHDRAWN,
     }
 )
 SETTLED = FINAL | {ApprovalState.WAITING}
@@ -138,6 +139,12 @@ class Decision(BaseModel):
     granted: bool
     by: str
     by_customer: str | None = None
+    withdraw: bool = False
+    """A stop, not a judgement of the action: the wait settles `WITHDRAWN` and
+    nothing is carried out. Judged by the same rule as any decision, so only
+    someone entitled to decide may stop it, and only while it waits."""
+    because: str = ""
+    """Why it was stopped, kept on the record's `result`."""
 
 
 class CarriedOut(BaseModel):
@@ -154,6 +161,12 @@ class CarriedOut(BaseModel):
     approval needs is a person deciding again rather than a retry."""
 
 
+def withdrawal(decision: Decision) -> str:
+    """What a withdrawn approval's `result` says: who stopped it, and why."""
+    because = f": {decision.because}" if decision.because else ""
+    return f"withdrawn by {decision.by}{because}"
+
+
 def _now() -> int:
     return int(workflow.now().timestamp())
 
@@ -162,6 +175,7 @@ def _now() -> int:
 class ApprovalWorkflow:
     def __init__(self) -> None:
         self.approval: Approval | None = None
+        self.withdrawn: Decision | None = None
 
     @workflow.run
     async def run(self, ask: Ask) -> Approval:
@@ -247,6 +261,8 @@ class ApprovalWorkflow:
 
     async def _act(self, ask: Ask) -> Approval:
         current = self._current
+        if self.withdrawn is not None:
+            return await self._settle(ApprovalState.WITHDRAWN, withdrawal(self.withdrawn))
         if not current.decided:
             return await self._settle(ApprovalState.EXPIRED)
         if not current.granted:
@@ -314,6 +330,8 @@ class ApprovalWorkflow:
 
     @workflow.update
     async def decide(self, decision: Decision) -> Approval:
+        if decision.withdraw:
+            self.withdrawn = decision
         self._set(decided=True, granted=decision.granted, decided_by=decision.by)
         await workflow.wait_condition(lambda: self._current.state in FINAL)
         return self._current

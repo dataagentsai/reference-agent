@@ -13,10 +13,10 @@ from dataclasses import dataclass
 
 from fastapi import Depends, Header, HTTPException, Request
 
-from agent_harness import approvals as ap
 from agent_harness import escalation as esc
 from agent_harness import identity as ident
 from agent_harness import telemetry as tel
+from agent_harness.approvals.port import Desk
 from agent_harness.contracts import Approvals, Clock, Escalations
 
 
@@ -36,7 +36,7 @@ class _Desk:
     """What is waiting for a decision (T-059). Absent where no approval store is
     wired, and the approvals routes then answer 503 rather than pretending the
     queue is empty — an empty queue and no queue are different facts."""
-    approver: ap.ApprovalDesk | None = None
+    approver: Desk | None = None
     """How this desk decides one. Held apart from `approvals` for the same
     reason `desk` is held apart from `store`: reading and deciding are different
     authorities, and a read-only mount holds only the first."""

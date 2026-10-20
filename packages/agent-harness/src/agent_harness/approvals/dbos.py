@@ -46,6 +46,7 @@ from agent_harness.approvals.durable import (
     CarriedOut,
     Decision,
     asked_again,
+    withdrawal,
 )
 from agent_harness.approvals.workflow import ApprovalError, ApprovalTerms, Terms, refusal
 from agent_harness.contracts import Approval, ApprovalState, IdempotencyKey, Identity
@@ -194,6 +195,9 @@ class _Run:
             await box.step("approval.remind", remind, self.current, **_retried())
 
     async def _act(self) -> Approval:
+        decision = None if self.accepted is None else self.accepted.decision
+        if isinstance(decision, Decision) and decision.withdraw:
+            return await self._settle(ApprovalState.WITHDRAWN, withdrawal(decision))
         if not self.current.decided:
             return await self._settle(ApprovalState.EXPIRED)
         if not self.current.granted:
@@ -333,7 +337,17 @@ class DBOSApprovalDesk:
         decision = Decision(granted=granted, by=by, by_customer=by_customer)
         attributes = {"agent.approval.id": approval_id, "agent.approval.granted": granted}
         with tel.span("agent.approval.decide", **attributes):
-            answer = await box.deliver(approval_id, TOPIC, decision, wait_s=self.wait_s)
+            return await self._send(approval_id, decision)
+
+    async def stop(self, approval_id: str, *, by: str, because: str = "") -> Approval:
+        """Withdraw a waiting approval: it settles `withdrawn` and is never
+        carried out (the port's `stop_signal`). Refused as a decision would be."""
+        decision = Decision(granted=False, by=by, withdraw=True, because=because)
+        with tel.span("agent.approval.stop", **{"agent.approval.id": approval_id}):
+            return await self._send(approval_id, decision)
+
+    async def _send(self, approval_id: str, decision: Decision) -> Approval:
+        answer = await box.deliver(approval_id, TOPIC, decision, wait_s=self.wait_s)
         if answer is None:
             raise ApprovalError(await _closed(approval_id))
         if answer.refused is not None:
@@ -349,6 +363,8 @@ async def _closed(approval_id: str) -> str:
         return f"no approval {approval_id!r}"
     if found.state is ApprovalState.EXPIRED:
         return f"approval {approval_id!r} has expired"
+    if found.state is ApprovalState.WITHDRAWN:
+        return f"approval {approval_id!r} was withdrawn"
     if found.state in FINAL:
         return f"approval {approval_id!r} was already decided"
     return f"approval {approval_id!r} is not waiting for a decision"

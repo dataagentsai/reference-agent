@@ -45,10 +45,12 @@ MECHANISM = {
     "adapters/tools.py",  # the tool runtime by name: mcp-client
     "adapters/waits.py",  # approval adapters by name: temporal-updates, dbos-workflows
     "approvals/__init__.py",
+    "approvals/conformance.py",  # the approval port's cases, for any adapter (T-048)
     "approvals/dbos.py",  # an adapter: the Azure stack's approval binding (T-099)
     "approvals/desk.py",
     "approvals/durable.py",
     "approvals/notify.py",
+    "approvals/port.py",
     "approvals/workflow.py",
     "cassette/__init__.py",
     "channel/__init__.py",

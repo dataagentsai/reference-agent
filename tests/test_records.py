@@ -8,7 +8,7 @@ far end's check (`contracts.records.refusals`) on a record read back from each
 store: the same call is covered, and another amount, claim, person or key, an
 expired grant or one not yet granted is refused, naming why.
 
-PostgreSQL is the server `test_dbos_waits` provides (a throwaway cluster, or
+PostgreSQL is the server `conftest.postgres` provides (a throwaway cluster, or
 `AGENT_HARNESS_TEST_PG`), a fresh database for each row with `sql/002_records.sql`
 applied, dropped after it.
 """
@@ -23,7 +23,6 @@ from typing import Any
 
 import psycopg
 import pytest
-import test_dbos_waits
 
 from agent_harness.adapters import ADAPTERS, Wiring
 from agent_harness.contracts import Approval, ApprovalState, Escalation, EscalationState
@@ -34,9 +33,6 @@ from agent_harness.contracts.records import (
     escalation_record,
     refusals,
 )
-
-postgres = test_dbos_waits.postgres
-"""The server `test_dbos_waits` starts or is given; each row makes its own database."""
 
 DDL = Path(__file__).resolve().parents[1] / "sql" / "002_records.sql"
 NOW = 1_800_000_000

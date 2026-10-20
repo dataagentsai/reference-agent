@@ -37,7 +37,6 @@ from typing import Any
 import httpx2 as httpx
 import jwt
 import pytest
-import test_dbos_waits
 from temporalio import activity
 
 import support_agent  # noqa: F401  the package root names the agent's telemetry
@@ -62,9 +61,6 @@ from agent_harness.contracts import (
 )
 from agent_harness.identity.local import KID, LocalIssuer
 from support_agent.telemetry import spans
-
-postgres = test_dbos_waits.postgres
-"""A throwaway PostgreSQL for the DBOS rows, the one `test_dbos_waits` starts."""
 
 PROFILE = Path(__file__).resolve().parents[1] / "harness-profile.yaml"
 

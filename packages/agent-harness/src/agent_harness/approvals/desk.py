@@ -206,16 +206,26 @@ class ApprovalDesk:
         decision = Decision(granted=granted, by=by, by_customer=by_customer)
         attributes = {"agent.approval.id": approval_id, "agent.approval.granted": granted}
         with tel.span("agent.approval.decide", **attributes):
-            handle = self.client.get_workflow_handle(approval_id)
-            try:
-                return await handle.execute_update(ApprovalWorkflow.decide, decision)
-            except WorkflowUpdateFailedError as exc:
-                cause = exc.cause
-                raise ApprovalError(getattr(cause, "message", None) or str(exc)) from None
-            except RPCError as exc:
-                if not _gone(exc):
-                    raise
-                raise ApprovalError(await self._closed(approval_id)) from None
+            return await self._send(approval_id, decision)
+
+    async def stop(self, approval_id: str, *, by: str, because: str = "") -> Approval:
+        """Withdraw a waiting approval: it settles `withdrawn` and is never
+        carried out (the port's `stop_signal`). Refused as a decision would be."""
+        decision = Decision(granted=False, by=by, withdraw=True, because=because)
+        with tel.span("agent.approval.stop", **{"agent.approval.id": approval_id}):
+            return await self._send(approval_id, decision)
+
+    async def _send(self, approval_id: str, decision: Decision) -> Approval:
+        handle = self.client.get_workflow_handle(approval_id)
+        try:
+            return await handle.execute_update(ApprovalWorkflow.decide, decision)
+        except WorkflowUpdateFailedError as exc:
+            cause = exc.cause
+            raise ApprovalError(getattr(cause, "message", None) or str(exc)) from None
+        except RPCError as exc:
+            if not _gone(exc):
+                raise
+            raise ApprovalError(await self._closed(approval_id)) from None
 
     async def _closed(self, approval_id: str) -> str:
         """Why a decision found no running workflow to take it."""
@@ -229,6 +239,8 @@ class ApprovalDesk:
             return f"no approval {approval_id!r}"
         if found.state is ApprovalState.EXPIRED:
             return f"approval {approval_id!r} has expired"
+        if found.state is ApprovalState.WITHDRAWN:
+            return f"approval {approval_id!r} was withdrawn"
         return f"approval {approval_id!r} was already decided"
 
 

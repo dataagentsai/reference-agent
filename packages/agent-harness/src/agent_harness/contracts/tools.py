@@ -239,6 +239,11 @@ class ApprovalState(StrEnum):
     """A person said no."""
     EXPIRED = "expired"
     """Nobody decided in time. A grant that arrives later is refused."""
+    WITHDRAWN = "withdrawn"
+    """Stopped from outside while it waited, by someone entitled to decide it
+    (the approval port's `stop_signal`, `approval/stop_reaches_running_run`).
+    Final: never carried out, and a grant that arrives later is refused. Told
+    apart from `REFUSED` because nobody judged the action itself."""
 
 
 class Approval(BaseModel):

@@ -17,14 +17,7 @@ two or three real seconds.
 from __future__ import annotations
 
 import asyncio
-import os
-import shutil
-import socket
-import subprocess
-import uuid
-from collections.abc import Iterator
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -49,76 +42,6 @@ from agent_harness.state import dbos as box  # noqa: E402
 from agent_harness.state.records import InMemoryRecords  # noqa: E402
 
 CUSTOMER = "C-1042"
-BINARIES = [Path("/opt/homebrew/bin"), *Path("/opt/homebrew/opt").glob("postgresql*/bin")]
-
-
-def _binary(name: str) -> str | None:
-    found = shutil.which(name)
-    if found:
-        return found
-    for directory in BINARIES:
-        if (directory / name).exists():
-            return str(directory / name)
-    return None
-
-
-def _free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return int(s.getsockname()[1])
-
-
-def _run(command: list[str]) -> None:
-    # A C locale, or the server refuses to start ("postmaster became
-    # multithreaded during startup") wherever the shell's locale is unset.
-    env = {**os.environ, "LC_ALL": "C", "LANG": "C"}
-    done = subprocess.run(command, capture_output=True, text=True, check=False, env=env)
-    if done.returncode != 0:
-        pytest.fail(f"{Path(command[0]).name} failed: {done.stdout[-800:]}{done.stderr[-800:]}")
-
-
-@pytest.fixture(scope="module")
-def postgres(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
-    """A server URL with no database in it; each row makes its own."""
-    given = os.environ.get("AGENT_HARNESS_TEST_PG")
-    if given:
-        yield given.rstrip("/")
-        return
-    initdb, pg_ctl = _binary("initdb"), _binary("pg_ctl")
-    if initdb is None or pg_ctl is None:
-        pytest.skip("no PostgreSQL: set AGENT_HARNESS_TEST_PG or put initdb on the path")
-    data = tmp_path_factory.mktemp("pg") / "data"
-    _run([initdb, "-D", str(data), "-U", "postgres", "--auth=trust", "-E", "UTF8", "--no-locale"])
-    port = _free_port()
-    options = f"-p {port} -c listen_addresses=127.0.0.1 -c unix_socket_directories=''"
-    log = data.parent / "server.log"
-    _run([pg_ctl, "-D", str(data), "-o", options, "-l", str(log), "-w", "start"])
-    try:
-        yield f"postgresql://postgres@127.0.0.1:{port}"
-    finally:
-        _run([pg_ctl, "-D", str(data), "-m", "immediate", "-w", "stop"])
-
-
-@pytest.fixture
-def database(postgres: str) -> Iterator[str]:
-    """DBOS launched on a fresh database for one row, and shut down after it."""
-    url = f"{postgres}/waits_{uuid.uuid4().hex[:10]}"
-    box.launch(url, name="agent-harness-test")
-    try:
-        yield url
-    finally:
-        box.shutdown()
-        _drop(postgres, url.rsplit("/", 1)[1])
-
-
-def _drop(server: str, name: str) -> None:
-    """Drop the row's database: on a server given by `AGENT_HARNESS_TEST_PG` it
-    would otherwise outlive the run (on the throwaway cluster it goes anyway)."""
-    import psycopg
-
-    with psycopg.connect(f"{server}/postgres", autocommit=True) as conn:
-        conn.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
-
 
 # --------------------------------------------------------------------------- #
 # Approvals

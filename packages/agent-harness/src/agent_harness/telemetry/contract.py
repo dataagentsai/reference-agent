@@ -281,6 +281,8 @@ CONTRACT: dict[str, SpanSpec] = {
     "agent.approval.decide": SpanSpec(
         required=frozenset({"agent.approval.id", "agent.approval.granted"})
     ),
+    # An approval withdrawn from outside while it waited (the port's stop_signal).
+    "agent.approval.stop": SpanSpec(required=frozenset({"agent.approval.id"})),
     "agent.flow.fanout": SpanSpec(
         required=frozenset({"agent.flow.count"}), optional=frozenset({"agent.flow.peak"})
     ),
