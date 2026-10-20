@@ -20,7 +20,7 @@ from agent_harness.cost import Meter
 
 
 def account(
-    running: Usage, call: Usage, *, meter: Meter | None
+    running: Usage, call: Usage, *, meter: Meter | None, attempt: int = 1
 ) -> tuple[Usage, float | None, float]:
     """The run's usage after this call, its spend so far, and what this call cost.
 
@@ -40,7 +40,7 @@ def account(
     if meter is None:
         return total, None, 0.0
 
-    cost = float(meter.record(call))
+    cost = float(meter.record(call, attempt=attempt))
     spent = meter.as_usd()
     return total, spent, cost
 

@@ -101,6 +101,10 @@ class ModelResponse(BaseModel):
     """What a gateway in front of the provider said about this call, by
     lower-cased header name (`x-content-safety: pass; prompt=pass; …`). Empty
     when there is no gateway or it said nothing (`llm.gateway.SIGNALS`)."""
+    attempt: int = 1
+    """Which try of this call answered: 1 unless the resilience layer retried
+    it. Carried to the cost ledger, so a retry counts as another attempt on the
+    same unit of work (`cost_ledger/retry_is_same_unit`)."""
 
     @property
     def wants_tools(self) -> bool:

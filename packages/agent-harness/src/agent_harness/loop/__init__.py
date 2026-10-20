@@ -291,7 +291,7 @@ class _Run:
     def _account(self, response: ModelResponse) -> None:
         """Tokens always; money when a meter is wired."""
         self.trace.usage, spent, cost = spend.account(
-            self.trace.usage, response.usage, meter=self.meter
+            self.trace.usage, response.usage, meter=self.meter, attempt=response.attempt
         )
         if spent is not None:
             self.trace.spend_usd = spent

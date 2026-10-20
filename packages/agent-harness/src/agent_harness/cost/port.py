@@ -72,15 +72,20 @@ class InMemoryLedger:
     An unknown model raises `UnknownPrice` rather than pricing at zero (AHC-0101).
     """
 
-    def __init__(self, prices: dict[str, Price] | None = None) -> None:
+    def __init__(self, prices: dict[str, Price] | None = None, *, keep: int = 10_000) -> None:
         self._prices = prices
         self._units: dict[str, Spent] = {}
+        self.keep = keep
+        """The most recent units held; the oldest is forgotten past it, so a
+        long-running process holds a bounded window, not every turn it served."""
 
     def record(self, observation: Observation) -> Decimal:
         if observation.attempt < 1:
             raise ValueError(f"attempt must be 1 or more, not {observation.attempt}")
         amount = cost_of(observation.usage, price_of(observation.model, self._prices))
-        was = self._units.get(observation.unit)
+        was = self._units.pop(observation.unit, None)
+        if was is None and len(self._units) >= self.keep:
+            del self._units[next(iter(self._units))]
         self._units[observation.unit] = Spent(
             unit=observation.unit,
             usd=amount if was is None else was.usd + amount,

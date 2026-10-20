@@ -328,7 +328,7 @@ class ResilientLLM:
             self._visible_retry("unavailable", tries[0])
             raise _Retry(exc) from exc
         self.breaker.record_success()
-        return response
+        return response if tries[0] == 1 else response.model_copy(update={"attempt": tries[0]})
 
     def _visible_retry(self, reason: str, tried: int) -> None:
         if tried < self.attempts:

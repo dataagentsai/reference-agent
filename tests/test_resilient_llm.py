@@ -101,7 +101,10 @@ async def test_each_provider_condition_gets_its_own_answer(
         sleep=sleep,
     )
     if raises is None:
-        assert await llm.complete(REQUEST) == OK
+        answered = await llm.complete(REQUEST)
+        # The attempt that answered is reported, so a retry is costed as one
+        # (cost_ledger/retry_is_same_unit): the provider's last call answered.
+        assert answered == OK.model_copy(update={"attempt": calls})
     else:
         with pytest.raises(raises):
             await llm.complete(REQUEST)

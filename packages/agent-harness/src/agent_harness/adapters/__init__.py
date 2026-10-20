@@ -40,6 +40,7 @@ PORTS = (
     "secrets",
     "config",
     "telemetry",
+    "cost_ledger",
     "model",
     "state",
     "records",
@@ -69,6 +70,9 @@ ADAPTERS = Registry(
             "console": "agent_harness.adapters.telemetry:CONSOLE",
             "otel-to-langfuse": "agent_harness.adapters.telemetry:OTLP",
             "azure-monitor-otel": "agent_harness.adapters.telemetry:AZURE_MONITOR",
+        },
+        "cost_ledger": {
+            "per-task-meter": "agent_harness.adapters.cost_ledger:PER_TASK_METER",
         },
         "model": {
             "scripted": "agent_harness.adapters.model:SCRIPTED",

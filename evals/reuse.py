@@ -35,6 +35,7 @@ MECHANISM = {
     "__init__.py",
     "adapters/__init__.py",  # the composition from a profile and an overlay (Tier 2b)
     "adapters/authorise.py",  # a far end's caller check by name: asserted, local-dev, entra-id
+    "adapters/cost_ledger.py",  # the cost_ledger port by name: per-task-meter (T-048)
     "adapters/config.py",  # config by name: environment-settings, static, app-configuration (A6)
     "adapters/identity.py",  # identity adapters by name: local-dev, keycloak, entra-id
     "adapters/model.py",  # model adapters by name: scripted, litellm-proxy, groq-direct, apim
