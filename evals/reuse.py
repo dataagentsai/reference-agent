@@ -38,7 +38,8 @@ MECHANISM = {
     "adapters/cost_ledger.py",  # the cost_ledger port by name: per-task-meter (T-048)
     "adapters/config.py",  # config by name: environment-settings, static, app-configuration (A6)
     "adapters/identity.py",  # identity adapters by name: local-dev, keycloak, entra-id
-    "adapters/model.py",  # model adapters by name: scripted, litellm-proxy, groq-direct, apim
+    # model adapters by name: scripted, litellm-proxy, groq-direct, apim, anthropic
+    "adapters/model.py",
     "adapters/records.py",  # records adapters by name: in-memory, postgres (A3)
     "adapters/secrets.py",  # secrets by reference: environment-settings, key-vault
     "adapters/state.py",  # state adapters by name: in-memory, postgres, azure-postgresql-flexible
@@ -107,6 +108,7 @@ MECHANISM = {
     "identity/sessions.py",
     "llm/__init__.py",
     "llm/pydantic_ai.py",  # an adapter: the Azure stack's model layer (T-099)
+    "llm/anthropic.py",  # an adapter: Claude through the Anthropic SDK (F-3, AG-102)
     "llm/served.py",
     "llm/gateway.py",  # what a gateway said about a call: Content Safety's header (A9)
     "loop/__init__.py",

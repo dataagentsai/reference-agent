@@ -36,6 +36,9 @@ def account(
     total = Usage(
         input_tokens=running.input_tokens + call.input_tokens,
         output_tokens=running.output_tokens + call.output_tokens,
+        # Dropped until F-5 (clinical-data-review-agent): a run on a cached
+        # prefix reported fewer tokens than it used.
+        cached_input_tokens=running.cached_input_tokens + call.cached_input_tokens,
     )
     if meter is None:
         return total, None, 0.0

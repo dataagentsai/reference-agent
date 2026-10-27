@@ -48,6 +48,17 @@ class Message(BaseModel):
     the transcript there is nothing for it to reference. Scripted tests never
     caught it because they never serialised anything.
     """
+    provider_blocks: tuple[dict[str, object], ...] = ()
+    """An assistant turn exactly as the provider returned it, to be sent back
+    byte for byte on the next call of the same run.
+
+    Opaque to the harness and read only by the adapter that wrote it. Claude's
+    current models think on every call and require those thinking blocks back,
+    unchanged, in a tool loop; a transcript rebuilt from `content` and
+    `tool_calls` alone drops them (clinical-data-review-agent F-1). An adapter
+    that does not recognise the blocks ignores them and uses `content` and
+    `tool_calls`, so the field costs other providers nothing.
+    """
     provenance: Literal["operator", "user", "tool", "retrieved"] = "operator"
     """Where this text came from.
 
@@ -105,10 +116,22 @@ class ModelResponse(BaseModel):
     """Which try of this call answered: 1 unless the resilience layer retried
     it. Carried to the cost ledger, so a retry counts as another attempt on the
     same unit of work (`cost_ledger/retry_is_same_unit`)."""
+    provider_blocks: tuple[dict[str, object], ...] = ()
+    """The response's content exactly as the provider sent it, for the loop to
+    store on the assistant `Message` (see `Message.provider_blocks`)."""
 
     @property
     def wants_tools(self) -> bool:
         return len(self.tool_calls) > 0
+
+    def as_assistant(self) -> Message:
+        """This response as the transcript's assistant turn, provider content kept."""
+        return Message(
+            role="assistant",
+            content=self.text or "",
+            tool_calls=self.tool_calls,
+            provider_blocks=self.provider_blocks,
+        )
 
 
 class ModelUnavailable(AgentFailure):

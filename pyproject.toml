@@ -234,7 +234,7 @@ name = "The evaluators know no agent and no vendor"
 type = "forbidden"
 source_modules = ["agent_harness.evals"]
 forbidden_modules = [
-    "support_agent", "order_system", "openai", "pydantic_ai", "azure", "dbos",
+    "support_agent", "order_system", "openai", "pydantic_ai", "anthropic", "azure", "dbos",
     "temporalio", "mcp", "psycopg", "httpx2",
 ]
 # The policy positions reach telemetry, which still picks Azure Monitor by an
@@ -376,6 +376,19 @@ forbidden_modules = ["pydantic_ai"]
 ignore_imports = [
     "agent_harness.llm.pydantic_ai -> pydantic_ai",
     "agent_harness.llm.pydantic_ai -> pydantic_ai.*",
+]
+unmatched_ignore_imports_alerting = "none"
+
+[[tool.importlinter.contracts]]
+# clinical-data-review-agent F-3. The same fail-closed ban for Claude's SDK:
+# exactly one adapter knows `anthropic`, and a new module inherits the ban.
+name = "Only the harness's Anthropic adapter knows the Anthropic SDK"
+type = "forbidden"
+source_modules = ["support_agent", "agent_harness"]
+forbidden_modules = ["anthropic"]
+ignore_imports = [
+    "agent_harness.llm.anthropic -> anthropic",
+    "agent_harness.llm.anthropic -> anthropic.*",
 ]
 unmatched_ignore_imports_alerting = "none"
 
