@@ -39,6 +39,13 @@ class Budgets(BaseModel):
     `tool_call_budget_exhausted` — never a silent cut to the first N (AHC-0059)."""
     max_retries_per_unit: int = 4
     """AHC-0024: retries across the whole turn, every call's together (F-087)."""
+    max_context_chars: int | None = 24_000
+    """How much transcript is sent per call before whole exchanges are trimmed
+    from the middle. `None` means **append-only**: nothing already sent is ever
+    dropped or changed, and the run ends on its step, time and cost budgets
+    instead. Claude's current models reject a call whose earlier messages
+    changed (preserved thinking), so a run on them must be append-only
+    (clinical-data-review-agent F-2)."""
 
 
 __all__ = ["Budgets"]

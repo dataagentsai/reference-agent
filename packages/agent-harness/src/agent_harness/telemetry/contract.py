@@ -29,6 +29,7 @@ from agent_harness.telemetry.names import (
     ESCALATION_RULE,
     ESCALATION_TIER,
     FEEDBACK,
+    GEN_AI_CACHE_READ_TOKENS,
     GEN_AI_INPUT_TOKENS,
     GEN_AI_OPERATION,
     GEN_AI_OUTPUT_TOKENS,
@@ -231,6 +232,7 @@ CONTRACT: dict[str, SpanSpec] = {
                 GEN_AI_RESPONSE_MODEL,
                 GEN_AI_INPUT_TOKENS,
                 GEN_AI_OUTPUT_TOKENS,
+                GEN_AI_CACHE_READ_TOKENS,
                 RESOLUTION,
                 "agent.cassette.match",
                 # What a gateway said about the call (`llm.gateway.SIGNALS`): APIM's

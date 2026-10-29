@@ -6,6 +6,10 @@
                       with no gateway (a developer's Mac)
     apim-ai-gateway   APIM in front of the backend, through Pydantic AI, the key
                       in APIM's subscription header (the Azure stack)
+    anthropic         Claude through the Anthropic SDK's Messages API; `base_url`
+                      reaches Anthropic directly or any Messages-API endpoint
+                      (Databricks Model Serving). Run with an append-only
+                      transcript (`Budgets.max_context_chars=None`).
 
 Which model, which provider and what temperature are the agent's resolved
 configuration (`llm.ModelChoice`, handed in as the hook `choice`), so its
@@ -80,6 +84,23 @@ async def _apim(wiring: Wiring) -> AsyncIterator[LLMClient]:
     yield _pydantic_ai(wiring, key_header=str(wiring.settings["key_header"]))
 
 
+@asynccontextmanager
+async def _anthropic(wiring: Wiring) -> AsyncIterator[LLMClient]:
+    from agent_harness.llm.anthropic import AnthropicClient
+
+    choice: Any = wiring.hooks["choice"]
+    fallbacks = wiring.settings.get("fallbacks")
+    client = AnthropicClient(
+        model=choice.model,
+        api_key=str(wiring.settings["api_key"]),
+        base_url=wiring.settings.get("base_url") or None,
+        effort=wiring.settings.get("effort") or None,
+        fallbacks=str(fallbacks) if fallbacks else None,
+        client=wiring.hooks.get("client"),
+    )
+    yield ResilientLLM(client)
+
+
 KEYED = {"api_key": Setting(required=True, secret=True)}
 
 SCRIPTED = Adapter("model", "scripted", _scripted, hooks=("script",))
@@ -101,4 +122,17 @@ APIM = Adapter(
     hooks=("choice",),
 )
 
-__all__ = ["APIM", "APIM_KEY_HEADER", "GROQ_DIRECT", "LITELLM_PROXY", "SCRIPTED"]
+ANTHROPIC = Adapter(
+    "model",
+    "anthropic",
+    _anthropic,
+    {
+        **KEYED,
+        "base_url": Setting(default=""),
+        "effort": Setting(default="medium"),
+        "fallbacks": Setting(default=""),
+    },
+    hooks=("choice",),
+)
+
+__all__ = ["ANTHROPIC", "APIM", "APIM_KEY_HEADER", "GROQ_DIRECT", "LITELLM_PROXY", "SCRIPTED"]

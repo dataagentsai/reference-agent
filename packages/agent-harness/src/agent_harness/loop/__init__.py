@@ -70,7 +70,7 @@ from agent_harness.contracts import (
 )
 from agent_harness.cost import Meter
 from agent_harness.loop import freshness, plan, spend
-from agent_harness.loop.dispatch import dispatch
+from agent_harness.loop.dispatch import bounded_locals, dispatch, surface
 from agent_harness.loop.ends import (
     CALLER_LEFT,
     IN_CIRCLES,
@@ -95,7 +95,7 @@ async def run(
     *,
     identity: Identity,
     llm: LLMClient,
-    tools: ToolClient,
+    tools: ToolClient | None,
     system_prompt: str,
     budgets: Budgets | None = None,
     run_id: RunId | None = None,
@@ -120,18 +120,20 @@ async def run(
     The loop itself is only this: open the tool surface, take steps until one
     ends the run, and stop on the step budget if none does. What a step *is* —
     ask, account, answer or act — is `_Run`'s, one phase per method.
+    `tools=None`: every tool is local, a job with no server to open (F-8).
     """
     budgets = budgets or Budgets()
     run_id = run_id or new_run_id()
     trace = Trace()
     run = {tel.RUN_ID: run_id, tel.TENANT: identity.customer_id}
     with tel.span("agent.run", **run) as run_span, unit_retries(budgets.max_retries_per_unit):
+        tools = surface(tools, local_tools)
         try:
             registry = await tools.list_tools(identity)
         except ToolUnavailable as exc:
             return failed(run_span, trace, unreachable, str(exc))
 
-        local = dict(local_tools or {})
+        local = bounded_locals(local_tools, budgets.max_tool_result_chars)
         registry = registry.model_copy(
             update={"tools": (*registry.tools, *(t.spec for t in local.values()))}
         )
@@ -218,11 +220,7 @@ class _Run:
             if self.meter is not None and self.meter.exceeded:
                 return self._stop(TerminationReason.COST_CEILING_REACHED, PASS_ON)
 
-            self.messages.append(
-                Message(
-                    role="assistant", content=response.text or "", tool_calls=response.tool_calls
-                )
-            )
+            self.messages.append(response.as_assistant())
             planned = self._plan(response.tool_calls, step)
             if not isinstance(planned, list):
                 return planned
@@ -244,7 +242,8 @@ class _Run:
         # Measured on the way past rather than computed separately: the assembly
         # already knows what it dropped, and asking again would do the work twice.
         try:
-            built = ctx.assembled(system=self.system_prompt, history=self.messages)
+            limit = self.budgets.max_context_chars
+            built = ctx.assembled(system=self.system_prompt, history=self.messages, max_chars=limit)
         except ctx.BrokenTranscript as exc:
             # A transcript no provider will accept is a typed end like any other
             # failure here. It escaped the loop, and the caller got a plain 500
@@ -309,7 +308,7 @@ class _Run:
         missing = [c for c, order, tools in self.owed if not self._dealt_with(order, tools)]
         if missing and not self.sent_back:
             self.sent_back = True
-            self.messages.append(Message(role="assistant", content=response.text or ""))
+            self.messages.append(response.as_assistant())
             note = "Also raised and not yet dealt with: " + "; ".join(missing)
             self.messages.append(Message(role="system", content=note, provenance="operator"))
             return None

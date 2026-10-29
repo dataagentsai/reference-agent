@@ -79,6 +79,7 @@ ADAPTERS = Registry(
             "litellm-proxy": "agent_harness.adapters.model:LITELLM_PROXY",
             "groq-direct": "agent_harness.adapters.model:GROQ_DIRECT",
             "apim-ai-gateway": "agent_harness.adapters.model:APIM",
+            "anthropic": "agent_harness.adapters.model:ANTHROPIC",
         },
         "state": {
             "in-memory": "agent_harness.adapters.state:IN_MEMORY",

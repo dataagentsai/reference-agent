@@ -794,7 +794,7 @@ REFUSED: list[tuple[str, str, str, str]] = [
         "an adapter nobody registered",
         "  model: {adapter: crystal-ball}\n",
         "",
-        "has no 'crystal-ball'; known: apim-ai-gateway",
+        "has no 'crystal-ball'; known: anthropic, apim-ai-gateway",
     ),
     ("a port nobody composes", "  oracle: {adapter: x}\n", "", "unknown field 'oracle'"),
     (

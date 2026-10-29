@@ -33,6 +33,8 @@ dependencies = [
 # the Azure Monitor OpenTelemetry distro under `telemetry`, and DBOS under the
 # approval and escalation waits. Optional, because a deployment on the Open
 # Stack imports none of them; each is imported only by the adapter that needs it.
+# Claude through the Anthropic SDK (`llm.anthropic`): imported only by that adapter.
+claude = ["anthropic>=2.3"]
 azure = [
     "pydantic-ai-slim[openai]>=1.0",
     "azure-monitor-opentelemetry>=1.6",

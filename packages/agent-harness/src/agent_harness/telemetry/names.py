@@ -37,6 +37,11 @@ GEN_AI_INPUT_TOKENS = "gen_ai.usage.input_tokens"
 GEN_AI_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
 
 
+GEN_AI_CACHE_READ_TOKENS = "gen_ai.usage.cache_read.input_tokens"
+"""Input tokens served from the provider's prompt cache (OpenTelemetry GenAI
+conventions). Priced differently, so a run's cost needs them apart."""
+
+
 GEN_AI_TOOL_NAME = "gen_ai.tool.name"
 
 

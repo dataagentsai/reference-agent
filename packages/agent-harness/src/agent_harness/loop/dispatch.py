@@ -119,4 +119,61 @@ async def _local(local: LocalTool, call: ToolCall) -> ToolResult:
             span.set_attribute(tel.TOOL_OUTCOME, outcome)
 
 
-__all__ = ["dispatch"]
+def _bounded(result: ToolResult, limit: int | None) -> ToolResult:
+    """AAC-0105 for harness-answered tools, the same bound `GatedTools._bound`
+    applies on the MCP path: measured on `for_context()`, cut with a mark that
+    says so. A local tool's result reached context unbounded until F-5
+    (clinical-data-review-agent)."""
+    from agent_harness.tools import TRUNCATION_MARK
+
+    rendered = result.for_context()
+    if limit is None or len(rendered) <= limit:
+        return result
+    tel.counters.tool_truncated.add(1, {"tool": result.name})
+    mark = TRUNCATION_MARK.format(total=len(rendered))
+    cut = rendered[: max(0, limit - len(mark))] + mark
+    return result.model_copy(update={"text": cut[:limit], "truncated": True})
+
+
+def bounded_locals(
+    local_tools: Mapping[str, LocalTool] | None, limit: int | None
+) -> dict[str, LocalTool]:
+    """Every local tool's handler, wrapped so its result enters context bounded."""
+
+    def wrap(tool: LocalTool) -> LocalTool:
+        async def handler(arguments: dict[str, object]) -> ToolResult:
+            return _bounded(await tool.handler(arguments), limit)
+
+        return LocalTool(spec=tool.spec, handler=handler)
+
+    return {name: wrap(tool) for name, tool in (local_tools or {}).items()}
+
+
+class _NoServer:
+    """The tool server of a run that has none: lists nothing, answers nothing."""
+
+    async def list_tools(self, identity: Identity) -> ToolRegistry:
+        return ToolRegistry()
+
+    async def call(
+        self,
+        name: str,
+        arguments: dict[str, object],
+        identity: Identity,
+        idempotency_key: IdempotencyKey | None = None,
+    ) -> ToolResult:
+        from agent_harness.contracts import UnknownTool
+
+        raise UnknownTool(name, available=())
+
+
+def surface(tools: ToolClient | None, local_tools: Mapping[str, LocalTool] | None) -> ToolClient:
+    """The run's tool server; none is needed when every tool is local (F-8)."""
+    if tools is not None:
+        return tools
+    if not local_tools:
+        raise ValueError("a run needs a tool server, local tools, or both")
+    return _NoServer()
+
+
+__all__ = ["bounded_locals", "dispatch", "surface"]

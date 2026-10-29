@@ -134,7 +134,7 @@ def assemble(
     *,
     system: str,
     history: Sequence[Message],
-    max_chars: int = 24_000,
+    max_chars: int | None = 24_000,
 ) -> tuple[Message, ...]:
     """The transcript alone. See `assembled` for the same work with its cost."""
     return assembled(system=system, history=history, max_chars=max_chars).messages
@@ -144,9 +144,13 @@ def assembled(
     *,
     system: str,
     history: Sequence[Message],
-    max_chars: int = 24_000,
+    max_chars: int | None = 24_000,
 ) -> Assembly:
     """Order for cache friendliness, then trim whole exchanges from the middle.
+
+    `max_chars=None` is append-only: nothing is trimmed, so every call sends
+    the previous call's messages unchanged plus what is new. Providers that
+    bind reasoning to the exact earlier transcript need exactly that.
 
     The system prompt is a stable prefix and goes first and unchanged: any byte
     that moves invalidates every cached token after it. Trimming takes from the
@@ -170,7 +174,7 @@ def assembled(
     def size(groups: Iterable[list[Message]]) -> int:
         return sum(len(m.content) for group in groups for m in group)
 
-    while len(units) > 2 and size(units) + len(system) > max_chars:
+    while max_chars is not None and len(units) > 2 and size(units) + len(system) > max_chars:
         units.pop(len(units) // 2)
 
     kept = [m for group in units for m in group]
