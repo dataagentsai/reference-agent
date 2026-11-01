@@ -2,6 +2,8 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23366149.svg)](https://doi.org/10.5281/zenodo.23366149)
 
+Open source (Apache 2.0) · Website: [cleandataengineering.ai/projects/reference-agent](https://cleandataengineering.ai/projects/reference-agent/) · Part of [Clean Data Engineering](https://cleandataengineering.ai/)
+
 A working customer-support agent for a clothing web shop, built in the open to
 show that the AI Assurance Catalog, the AI Harness Catalog and AgentTwin together
 are enough to specify, build and test a production-grade AI agent.
