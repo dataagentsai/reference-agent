@@ -14,7 +14,9 @@
                 through `role_scopes`. Cognito has no on-behalf-of grant, so with
                 `far_end_audience` the agent's own issuer signs the far end's
                 token with `signing_key` (one RSA key in Secrets Manager, shared
-                by every task) and `jwks` is what the app publishes
+                by every task) and `jwks` is what the app publishes; with
+                `login_redirect_uri` the pool's browser sign-in
+                (`cognito.CognitoLogin`) and the sealer for its cookies
 
 The product is `Sessions`: the issuer, the verifier that reads this issuer's
 claim shapes (Entra's `scp` is a string, Keycloak's a list), the exchange when
@@ -160,9 +162,10 @@ async def _cognito(wiring: Wiring) -> AsyncIterator[Sessions]:
     def verify(token: str) -> ident.Principal:
         return cognito.verify_cognito(token, issuer=issuer, role_scopes=roles, holder_claim=holder)
 
+    login, sealer = _cognito_login(wiring, issuer)
     far = settings.get("far_end_audience")
     if not far:
-        yield Sessions(issuer, verify)
+        yield Sessions(issuer, verify, login=login, sealer=sealer)
         return
     if not settings.get("signing_key") or not settings.get("token_issuer_url"):
         raise OverlayRefused(
@@ -175,7 +178,40 @@ async def _cognito(wiring: Wiring) -> AsyncIterator[Sessions]:
     if settings.get("worker_scopes"):
         scopes = frozenset(str(s) for s in settings["worker_scopes"])
         worker = LocalWorkerLogin(signer, str(far), scopes, f"{party}-workflow", ttl)
-    yield Sessions(issuer, verify, exchange, worker=worker, jwks=signer.jwks)
+    yield Sessions(
+        issuer, verify, exchange, worker=worker, login=login, sealer=sealer, jwks=signer.jwks
+    )
+
+
+def _cognito_login(wiring: Wiring, issuer: ident.Issuer) -> tuple[EntraLogin | None, Sealer | None]:
+    """The user pool's browser sign-in, when the overlay gives a redirect URI:
+    the pool's domain, the app client's id and secret, and a cookie key."""
+    settings = wiring.settings
+    redirect = settings.get("login_redirect_uri")
+    if not redirect:
+        return None, None
+    domain, secret, key = (
+        settings.get("login_domain"),
+        settings.get("client_secret"),
+        settings.get("session_key"),
+    )
+    if not (domain and secret and key):
+        raise OverlayRefused(
+            "cognito: login_redirect_uri needs login_domain, client_secret and session_key"
+        )
+    from agent_harness.identity.cognito import CognitoLogin
+    from agent_harness.identity.entra_login import Sealer
+
+    login = CognitoLogin(
+        str(domain),
+        issuer=issuer,
+        client_id=issuer.audience,
+        client_secret=str(secret),
+        redirect_uri=str(redirect),
+        scopes=tuple(str(s) for s in settings.get("login_scopes") or ()),
+        transport=wiring.hooks.get("transport"),
+    )
+    return login, Sealer(sealing_key(str(key), "identity.sign-in-cookies"))
 
 
 def _login(
@@ -281,6 +317,11 @@ COGNITO = Adapter(
         "far_end_ttl_s": Setting(default=300),
         "party": Setting(default="agent"),
         "worker_scopes": Setting(),
+        "login_domain": Setting(),
+        "client_secret": Setting(secret=True),
+        "login_redirect_uri": Setting(),
+        "login_scopes": Setting(),
+        "session_key": Setting(secret=True),
     },
 )
 
