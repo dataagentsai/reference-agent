@@ -9,6 +9,12 @@
                 `holder_claim` names the claim the customer id is read from; with
                 `login_redirect_uri` (and `session_key`) the browser sign-in,
                 `entra_login.EntraLogin`, and the sealer for its cookies
+    cognito     a Cognito user pool's access tokens (`identity.cognito`): the app
+                client in `client_id`, `scope` as a string, `cognito:groups`
+                through `role_scopes`. Cognito has no on-behalf-of grant, so with
+                `far_end_audience` the agent's own issuer signs the far end's
+                token with `signing_key` (one RSA key in Secrets Manager, shared
+                by every task) and `jwks` is what the app publishes
 
 The product is `Sessions`: the issuer, the verifier that reads this issuer's
 claim shapes (Entra's `scp` is a string, Keycloak's a list), the exchange when
@@ -55,6 +61,10 @@ class Sessions:
     one (A2): an edge mounts its routes only then, as `/signin` only with a signer."""
     sealer: Sealer | None = None
     """Seals what the sign-in's cookies carry; present exactly when `login` is."""
+    jwks: dict[str, Any] | None = None
+    """The public keys of the agent's own issuer for far-end tokens, which the app
+    publishes at `/.well-known/jwks.json` (`cognito`). Unlike `signer`, it opens
+    no sign-in page: this adapter can mint for the far end, never a session."""
 
 
 @asynccontextmanager
@@ -130,6 +140,42 @@ async def _entra(wiring: Wiring) -> AsyncIterator[Sessions]:
 
     login, sealer = _login(wiring, tenant, issuer)
     yield Sessions(issuer, verify, exchange, worker=worker, login=login, sealer=sealer)
+
+
+@asynccontextmanager
+async def _cognito(wiring: Wiring) -> AsyncIterator[Sessions]:
+    from agent_harness.identity import cognito
+    from agent_harness.identity.local import LocalWorkerLogin
+
+    settings = wiring.settings
+    issuer = cognito.cognito_issuer(
+        str(settings["region"]),
+        str(settings["user_pool_id"]),
+        str(settings["audience"]),
+        keys=wiring.hooks.get("keys"),
+    )
+    roles = role_scopes(settings.get("role_scopes"))
+    holder = str(settings["holder_claim"])
+
+    def verify(token: str) -> ident.Principal:
+        return cognito.verify_cognito(token, issuer=issuer, role_scopes=roles, holder_claim=holder)
+
+    far = settings.get("far_end_audience")
+    if not far:
+        yield Sessions(issuer, verify)
+        return
+    if not settings.get("signing_key") or not settings.get("token_issuer_url"):
+        raise OverlayRefused(
+            "cognito: far_end_audience needs signing_key (a reference) and token_issuer_url"
+        )
+    signer = cognito.agent_issuer(str(settings["token_issuer_url"]), str(settings["signing_key"]))
+    party, ttl = str(settings["party"]), int(settings["far_end_ttl_s"])
+    exchange = cognito.CognitoExchange(verify, signer, str(far), party, ttl)
+    worker: ident.Exchange | None = None
+    if settings.get("worker_scopes"):
+        scopes = frozenset(str(s) for s in settings["worker_scopes"])
+        worker = LocalWorkerLogin(signer, str(far), scopes, f"{party}-workflow", ttl)
+    yield Sessions(issuer, verify, exchange, worker=worker, jwks=signer.jwks)
 
 
 def _login(
@@ -219,4 +265,23 @@ ENTRA_ID = Adapter(
     },
 )
 
-__all__ = ["ENTRA_ID", "KEYCLOAK", "LOCAL_DEV", "Sessions", "role_scopes"]
+COGNITO = Adapter(
+    "identity",
+    "cognito",
+    _cognito,
+    {
+        "region": Setting(required=True),
+        "user_pool_id": Setting(required=True),
+        "audience": Setting(required=True),
+        "role_scopes": Setting(),
+        "holder_claim": Setting(default=ident.CLAIM_CUSTOMER),
+        "far_end_audience": Setting(),
+        "token_issuer_url": Setting(),
+        "signing_key": Setting(secret=True),
+        "far_end_ttl_s": Setting(default=300),
+        "party": Setting(default="agent"),
+        "worker_scopes": Setting(),
+    },
+)
+
+__all__ = ["COGNITO", "ENTRA_ID", "KEYCLOAK", "LOCAL_DEV", "Sessions", "role_scopes"]

@@ -5,10 +5,10 @@ an overlay's settings (`agent_harness.adapters`), never by constructing the clas
 A new adapter for a port joins its table by being registered, and is held to the
 rows the others pass. Rows that need an outside service skip and say which.
 
-    model         scripted, litellm-proxy, groq-direct, apim-ai-gateway,
+    model         scripted, litellm-proxy, groq-direct, apim-ai-gateway, anthropic,
                   agentcore-gateway (signed with a fixed role key, or a bearer)
                   — the SDK's HTTP answered in process, no network
-    identity      local-dev, keycloak, entra-id — tokens signed in process, held
+    identity      local-dev, keycloak, entra-id, cognito — tokens signed in process, held
                   to verifying *and* to the edges (`serve`, the desk) taking
                   each adapter's verifier (claims-fnol-azure F-30)
     telemetry     console, otel-to-langfuse, azure-monitor-otel,
@@ -41,6 +41,7 @@ import httpx2 as httpx
 import jwt
 import pytest
 from botocore.credentials import Credentials  # type: ignore[import-untyped]
+from cryptography.hazmat.primitives import serialization
 from temporalio import activity
 
 import support_agent  # noqa: F401  the package root names the agent's telemetry
@@ -205,6 +206,8 @@ async def test_the_model_port(
 
 # ======================================================================== identity
 TENANT = "00000000-0000-0000-0000-0000000000aa"
+POOL = "ap-south-1_TEST01"
+COGNITO_URL = f"https://cognito-idp.ap-south-1.amazonaws.com/{POOL}"
 SIGNER = LocalIssuer(url="http://keycloak.test/realms/shop", audience="support-agent")
 STRANGER = LocalIssuer(url=SIGNER.url, audience=SIGNER.audience)
 """Another key under the same names: what a forged session is signed with."""
@@ -228,6 +231,21 @@ def mint(
     """A session in the shape this adapter's issuer writes it: a customer's, or
     with `handler`, a desk handler's (no customer behind it)."""
     now = int(time.time())
+    if name == "cognito":
+        claims = {
+            "iss": COGNITO_URL,
+            "client_id": audience,  # Cognito access tokens name the app client here, not in aud
+            "token_use": "access",
+            "sub": "login-1",
+            "jti": uuid.uuid4().hex,
+            "iat": now,
+            "exp": now + ttl_s,
+        }
+        if handler:
+            claims["cognito:groups"] = [DESK_ROLE]
+        else:
+            claims |= {"scope": "orders:read orders:write", ident.CLAIM_CUSTOMER: "C-1042"}
+        return jwt.encode(claims, key._key, algorithm="RS256", headers={"kid": KID})
     if name == "entra-id":
         claims: dict[str, Any] = {
             "iss": f"https://login.microsoftonline.com/{TENANT}/v2.0",
@@ -257,6 +275,15 @@ IDENTITY_ADAPTERS: list[tuple[str, dict[str, Any]]] = [
         "entra-id",
         {
             "tenant": TENANT,
+            "audience": "support-agent",
+            "role_scopes": {DESK_ROLE: sorted(DESK_SCOPES)},
+        },
+    ),
+    (
+        "cognito",
+        {
+            "region": "ap-south-1",
+            "user_pool_id": POOL,
             "audience": "support-agent",
             "role_scopes": {DESK_ROLE: sorted(DESK_SCOPES)},
         },
@@ -415,6 +442,98 @@ async def test_the_edges_verify_through_the_identity_port(
                 json={"conversation_id": "cnv_none", "value": "up"} if method == "POST" else None,
             )
     assert answer.status_code == status, (row, answer.text)
+
+
+# ============================================== the far end's token on AWS (A1)
+# Cognito has no on-behalf-of grant, so the agent's own issuer signs the far
+# end's token with one key every task shares (Secrets Manager), and the far end
+# checks it with `authorise: agent-issuer` against the keys the app publishes.
+SHARED_KEY = (
+    LocalIssuer()
+    ._key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    )
+    .decode()
+)
+AGENT_URL = "https://agent.test"
+FAR = {
+    "far_end_audience": "claims-system",
+    "token_issuer_url": AGENT_URL,
+    "signing_key": SHARED_KEY,
+    "worker_scopes": ["payouts:issue"],
+}
+COGNITO_SETTINGS = dict(IDENTITY_ADAPTERS)["cognito"]
+
+# (row, the turn's scopes, worker or not, the far end's required scope, holder seen or refused)
+EXCHANGE_ROWS: list[tuple[str, frozenset[str], bool, str, str | None]] = [
+    (
+        "the customer's token carries the holder",
+        frozenset({"orders:read"}),
+        False,
+        "orders:read",
+        "C-1042",
+    ),
+    (
+        "only scopes both the session and the turn hold",
+        frozenset({"orders:read"}),
+        False,
+        "orders:write",
+        None,
+    ),
+    ("the workflow's own login names no holder", frozenset(), True, "payouts:issue", ""),
+]
+
+
+@pytest.mark.discharges("AAC-0057")
+@pytest.mark.parametrize(
+    ("row", "turn", "worker", "needs", "holder"), EXCHANGE_ROWS, ids=[r[0] for r in EXCHANGE_ROWS]
+)
+async def test_the_cognito_exchange_reaches_the_far_end(
+    row: str, turn: frozenset[str], worker: bool, needs: str, holder: str | None
+) -> None:
+    from agent_harness.identity.far_end import Call, CallRefused
+
+    settings = {**COGNITO_SETTINGS, **FAR}
+    async with built("identity", "cognito", settings, keys=ident.JWKS(SIGNER.jwks)) as sessions:
+        assert sessions.signer is None, "no sign-in page: it mints for the far end only"
+        session = sessions.verify(mint("cognito"))
+        who = Identity(customer_id="C-1042", scopes=turn, token=session.token)
+        token = await (sessions.worker if worker else sessions.exchange).for_far_end(who)
+        published = sessions.jwks
+    far_settings = {"issuer_url": AGENT_URL, "audience": "claims-system"}
+    async with built(
+        "authorise", "agent-issuer", far_settings, keys=ident.JWKS(published)
+    ) as check:
+        if holder is None:
+            with pytest.raises(CallRefused):
+                await check(Call("update_order", needs, bearer=token))
+            return
+        caller = await check(Call("read", needs, bearer=token))
+    assert caller.holder == (holder or None), row
+    assert caller.party == ("agent-workflow" if worker else "agent")
+
+
+async def test_every_task_signs_with_the_same_key_id() -> None:
+    """One key in Secrets Manager, so two tasks publish the same key id: a far end
+    caching keys by id accepts a token from either."""
+    settings = {**COGNITO_SETTINGS, **FAR}
+    keys = ident.JWKS(SIGNER.jwks)
+    async with (
+        built("identity", "cognito", settings, keys=keys) as one,
+        built("identity", "cognito", settings, keys=keys) as two,
+    ):
+        assert one.jwks == two.jwks
+        assert one.jwks is not None
+        assert one.jwks["keys"][0]["kid"] != KID
+
+
+async def test_a_far_end_audience_without_a_key_is_refused_at_startup() -> None:
+    settings = {**COGNITO_SETTINGS, "far_end_audience": "claims-system"}
+    with pytest.raises(OverlayRefused, match="signing_key"):
+        async with built("identity", "cognito", settings, keys=ident.JWKS(SIGNER.jwks)):
+            pass
 
 
 def test_a_misshapen_role_mapping_is_refused_at_startup() -> None:

@@ -99,12 +99,14 @@ ADAPTERS = Registry(
             "local-dev": "agent_harness.adapters.identity:LOCAL_DEV",
             "keycloak": "agent_harness.adapters.identity:KEYCLOAK",
             "entra-id": "agent_harness.adapters.identity:ENTRA_ID",
+            "cognito": "agent_harness.adapters.identity:COGNITO",
         },
         "tool_runtime": {"mcp-client": "agent_harness.adapters.tools:MCP_CLIENT"},
         "authorise": {
             "asserted": "agent_harness.adapters.authorise:ASSERTED",
             "local-dev": "agent_harness.adapters.authorise:LOCAL_DEV",
             "entra-id": "agent_harness.adapters.authorise:ENTRA_ID",
+            "agent-issuer": "agent_harness.adapters.authorise:AGENT_ISSUER",
         },
         "approval": {
             "temporal-updates": "agent_harness.adapters.waits:TEMPORAL",

@@ -2,7 +2,7 @@
 
 One contract table, every registered adapter, the same rows. Each adapter is
 built through the registry from an overlay's settings, with tokens signed in
-process (the hook `keys`). The verifying adapters (`local-dev`, `entra-id`)
+process (the hook `keys`). The verifying adapters (`local-dev`, `agent-issuer`, `entra-id`)
 refuse anything but a valid token for their audience with the operation's
 scope; `asserted` believes the agent, and its column says so — which is why the
 registry refuses it in any overlay that is not a test's.
@@ -35,6 +35,9 @@ WORKFLOW_ROLE = "payouts.issue"
 SETTINGS: dict[str, dict[str, Any]] = {
     "asserted": {},
     "local-dev": {"issuer_url": ISSUER, "audience": AUDIENCE},
+    # The agent's own issuer on AWS (Cognito has no on-behalf-of grant): the
+    # same token shape as local-dev's, under the name a deployment uses.
+    "agent-issuer": {"issuer_url": ISSUER, "audience": AUDIENCE},
     "entra-id": {
         "tenant": TENANT,
         "audience": AUDIENCE,

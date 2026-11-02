@@ -5,6 +5,8 @@
                 `plan` refuses it anywhere else
     local-dev   tokens the agent app's local issuer signed for this far end's
                 audience, verified with the keys it publishes at `jwks_uri`
+    agent-issuer  the same check, for the agent's own issuer in a deployment
+                (AWS, where Cognito has no on-behalf-of grant)
     entra-id    Entra v2 access tokens for this far end's own app registration:
                 the tenant's issuer and key set, `uti`, `scp` as a string and
                 `roles` mapped through `role_scopes`
@@ -77,6 +79,20 @@ LOCAL_DEV = Adapter(
         "holder_claim": Setting(default=ident.CLAIM_CUSTOMER),
     },
 )
+AGENT_ISSUER = Adapter(
+    "authorise",
+    "agent-issuer",
+    _local,
+    {
+        "issuer_url": Setting(required=True),
+        "audience": Setting(required=True),
+        "jwks_uri": Setting(),
+        "holder_claim": Setting(default=ident.CLAIM_CUSTOMER),
+    },
+)
+"""Tokens the agent's own issuer signed for this far end (`identity.cognito`,
+the AWS stack): the same check as `local-dev`, under the name a deployment's
+overlay can say honestly."""
 ENTRA_ID = Adapter(
     "authorise",
     "entra-id",
@@ -89,4 +105,4 @@ ENTRA_ID = Adapter(
     },
 )
 
-__all__ = ["ASSERTED", "ENTRA_ID", "LOCAL_DEV"]
+__all__ = ["AGENT_ISSUER", "ASSERTED", "ENTRA_ID", "LOCAL_DEV"]

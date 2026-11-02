@@ -102,6 +102,7 @@ MECHANISM = {
     "evals/stubs.py",  # kinds named and not built: guardrail_log, presidio, azure, open_model
     "flow/__init__.py",
     "identity/__init__.py",
+    "identity/cognito.py",  # an adapter: the AWS stack's identity + agent issuer (T-123)
     "identity/entra.py",  # an adapter: the Azure stack's identity binding (T-099)
     "identity/entra_login.py",  # Entra's browser sign-in: code flow, PKCE, nonce (A2)
     "identity/far_end.py",  # the `authorise` port: a far end verifies its caller (A1)
