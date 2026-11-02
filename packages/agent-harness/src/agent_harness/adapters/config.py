@@ -13,6 +13,13 @@
                           adapter's pattern (`adapters.secrets`), no Azure SDK.
                           Re-read after `ttl_s` (30 s), so a value set with
                           `az appconfig kv set` applies without a redeploy.
+    appconfig             AWS AppConfig: one freeform document (JSON or YAML)
+                          per application, environment and profile, polled
+                          through the AppConfig Data API with the task role's
+                          rights; re-read after `ttl_s` (45 s). An empty answer
+                          means "unchanged", so the last document stays. A
+                          deployment of the document (with AppConfig's own bake
+                          time and rollback alarm) applies without a redeploy.
 
 Every adapter's product is `config.settings.Cached`: the agent's declared keys
 (the hook `keys`) over that adapter's source, with the same first-load refusal,
@@ -108,6 +115,59 @@ async def _app_configuration(wiring: Wiring) -> AsyncIterator[Settings]:
         yield _cached(wiring, read, f"app-configuration {endpoint} (label {label})")
 
 
+@asynccontextmanager
+async def _appconfig(wiring: Wiring) -> AsyncIterator[Settings]:
+    from agent_harness.adapters import aws
+
+    data = aws.client("appconfigdata", wiring)
+    settings = wiring.settings
+    ids = {
+        "ApplicationIdentifier": str(settings["application"]),
+        "EnvironmentIdentifier": str(settings["environment"]),
+        "ConfigurationProfileIdentifier": str(settings["profile"]),
+    }
+    held: dict[str, object] = {"token": None, "document": {}}
+
+    def read(names: Sequence[str]) -> Mapping[str, object]:
+        if held["token"] is None:
+            held["token"] = data.start_configuration_session(**ids)["InitialConfigurationToken"]
+        answer = data.get_latest_configuration(ConfigurationToken=held["token"])
+        held["token"] = answer["NextPollConfigurationToken"]
+        body = answer.get("Configuration") or b""
+        if hasattr(body, "read"):
+            body = body.read()
+        if body:  # empty means unchanged since the last poll: keep what we hold
+            held["document"] = _document(body)
+        document = held["document"]
+        assert isinstance(document, dict)
+        return {n: document[n] for n in names if n in document}
+
+    where = f"appconfig {ids['ApplicationIdentifier']}/{ids['EnvironmentIdentifier']}"
+    yield _cached(wiring, read, where)
+
+
+def _document(body: bytes | str) -> dict[str, object]:
+    """AppConfig's freeform document: JSON or YAML, flat keys
+    (`payout.automatic_limit_inr: 25000`) or nested ones (`payout: {…}`)."""
+    import yaml
+
+    loaded = yaml.safe_load(body) or {}
+    if not isinstance(loaded, dict):
+        raise ValueError("an AppConfig document must be a mapping")
+    flat: dict[str, object] = {}
+
+    def walk(prefix: str, node: Mapping[str, object]) -> None:
+        for key, value in node.items():
+            name = f"{prefix}{key}"
+            if isinstance(value, Mapping):
+                walk(f"{name}.", value)
+            else:
+                flat[name] = str(value) if not isinstance(value, str) else value
+
+    walk("", loaded)
+    return flat
+
+
 TTL = Setting(default=30)
 ENVIRONMENT = Adapter(
     "config",
@@ -127,7 +187,22 @@ APP_CONFIGURATION = Adapter(
     hooks=("keys",),
 )
 
+APPCONFIG = Adapter(
+    "config",
+    "appconfig",
+    _appconfig,
+    {
+        "application": Setting(required=True),
+        "environment": Setting(required=True),
+        "profile": Setting(required=True),
+        "region": Setting(),
+        "ttl_s": Setting(default=45),
+    },
+    hooks=("keys",),
+)
+
 __all__ = [
+    "APPCONFIG",
     "APP_CONFIGURATION",
     "APP_CONFIGURATION_API",
     "APP_CONFIGURATION_SCOPE",

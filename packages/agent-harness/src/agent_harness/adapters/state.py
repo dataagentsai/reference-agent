@@ -4,6 +4,8 @@
     postgres                   PostgreSQL, the Open Stack's
     azure-postgresql-flexible  the same engine operated by Azure; refuses a URL
                                that does not require TLS
+    rds-postgresql             the same engine operated by AWS (RDS), the same
+                               TLS rule; the URL usually from `{aws_secret: …}`
 
 Both stores share one pool. The tables are the agent's to create (the library
 ships the adapters, not the DDL: claims-fnol-azure F-24), so an agent hands its
@@ -64,13 +66,22 @@ async def _postgres(wiring: Wiring) -> AsyncIterator[Stores]:
         yield Stores(PostgresCheckpointStore(opened), PostgresRequests(opened), sessions)
 
 
+def require_tls(url: str, adapter: str) -> None:
+    """A managed database reached over a network: the URL must insist on TLS."""
+    if not any(f"sslmode={mode}" in url for mode in ("require", "verify-ca", "verify-full")):
+        raise OverlayRefused(f"{adapter}: the URL must require TLS (sslmode=require)")
+
+
 @asynccontextmanager
 async def _azure_postgres(wiring: Wiring) -> AsyncIterator[Stores]:
-    url = str(wiring.settings["url"])
-    if not any(f"sslmode={mode}" in url for mode in ("require", "verify-ca", "verify-full")):
-        raise OverlayRefused(
-            "azure-postgresql-flexible: the URL must require TLS (sslmode=require)"
-        )
+    require_tls(str(wiring.settings["url"]), "azure-postgresql-flexible")
+    async with _postgres(wiring) as stores:
+        yield stores
+
+
+@asynccontextmanager
+async def _rds_postgres(wiring: Wiring) -> AsyncIterator[Stores]:
+    require_tls(str(wiring.settings["url"]), "rds-postgresql")
     async with _postgres(wiring) as stores:
         yield stores
 
@@ -84,5 +95,6 @@ DATABASE = {
 IN_MEMORY = Adapter("state", "in-memory", _in_memory)
 POSTGRES = Adapter("state", "postgres", _postgres, DATABASE)
 AZURE_POSTGRES = Adapter("state", "azure-postgresql-flexible", _azure_postgres, DATABASE)
+RDS_POSTGRES = Adapter("state", "rds-postgresql", _rds_postgres, DATABASE)
 
-__all__ = ["AZURE_POSTGRES", "IN_MEMORY", "POSTGRES", "Stores"]
+__all__ = ["AZURE_POSTGRES", "IN_MEMORY", "POSTGRES", "RDS_POSTGRES", "Stores", "require_tls"]

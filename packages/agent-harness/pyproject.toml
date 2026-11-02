@@ -42,6 +42,14 @@ azure = [
     # escalations as DBOS workflows (`approvals/dbos.py`, `escalation/dbos.py`).
     "dbos>=1.0",
 ]
+# The AWS stack: boto3 for Secrets Manager, Parameter Store and AppConfig, and
+# botocore's SigV4 signer for AgentCore Gateway. Telemetry needs nothing AWS:
+# it is plain OTLP to the ADOT collector sidecar.
+aws = [
+    "pydantic-ai-slim[openai]>=1.0",
+    "boto3>=1.40",
+    "dbos>=1.0",
+]
 
 [build-system]
 requires = ["hatchling"]

@@ -8,6 +8,9 @@ sends beyond this process:
     otel-to-langfuse    an OTLP collector (the Open Stack's Langfuse behind it)
     azure-monitor-otel  Application Insights, through the Azure Monitor distro
                         building the providers with ours inside them
+    otel-to-cloudwatch  the ADOT collector sidecar (OTLP over HTTP on
+                        localhost), which sends traces to X-Ray and metrics
+                        and logs to CloudWatch; no AWS code in the agent
 
 The product is the in-memory exporter, which is what a caller asserts against.
 """
@@ -51,7 +54,7 @@ async def _otlp(wiring: Wiring) -> AsyncIterator[Any]:
     pairs = (p.split("=", 1) for p in str(settings.get("headers") or "").split(",") if "=" in p)
     headers = {k.strip(): v.strip() for k, v in pairs}
     if not tel.export_to(str(settings["endpoint"]), headers=headers):
-        raise OverlayRefused("otel-to-langfuse: the tracer provider was not installed")
+        raise OverlayRefused("OTLP export: the tracer provider was not installed")
     yield exporter
 
 
@@ -79,6 +82,23 @@ OTLP = Adapter(
         "metrics_endpoint": Setting(),
     },
 )
+ADOT_TRACES = "http://localhost:4318/v1/traces"
+ADOT_METRICS = "http://localhost:4318/v1/metrics"
+CLOUDWATCH = Adapter(
+    "telemetry",
+    "otel-to-cloudwatch",
+    _otlp,
+    {
+        **COMMON,
+        "endpoint": Setting(default=ADOT_TRACES),
+        "headers": Setting(secret=True),
+        "metrics_endpoint": Setting(default=ADOT_METRICS),
+    },
+)
+"""The same OTLP export as `otel-to-langfuse`, to the ADOT collector running as a
+sidecar in the ECS task (localhost:4318). The collector, not this code, signs
+for and sends to X-Ray and CloudWatch, so nothing AWS is imported here, and
+moving clouds is the collector's configuration file."""
 AZURE_MONITOR = Adapter(
     "telemetry",
     "azure-monitor-otel",
@@ -86,4 +106,4 @@ AZURE_MONITOR = Adapter(
     {**COMMON, "connection_string": Setting(required=True, secret=True)},
 )
 
-__all__ = ["AZURE_MONITOR", "CONSOLE", "OTLP"]
+__all__ = ["ADOT_METRICS", "ADOT_TRACES", "AZURE_MONITOR", "CLOUDWATCH", "CONSOLE", "OTLP"]

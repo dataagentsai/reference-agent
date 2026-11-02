@@ -10,6 +10,9 @@
                       reaches Anthropic directly or any Messages-API endpoint
                       (Databricks Model Serving). Run with an append-only
                       transcript (`Budgets.max_context_chars=None`).
+    agentcore-gateway AgentCore Gateway's OpenAI-compatible inference endpoint,
+                      through Pydantic AI, each request signed with the ECS
+                      task's role (SigV4), or a bearer token (the AWS stack)
 
 Which model, which provider and what temperature are the agent's resolved
 configuration (`llm.ModelChoice`, handed in as the hook `choice`), so its
@@ -26,7 +29,9 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from agent_harness.adapters import Adapter, Setting, Wiring
+import httpx2
+
+from agent_harness.adapters import Adapter, OverlayRefused, Setting, Wiring
 from agent_harness.contracts import LLMClient
 from agent_harness.resilience import ResilientLLM
 
@@ -101,6 +106,47 @@ async def _anthropic(wiring: Wiring) -> AsyncIterator[LLMClient]:
     yield ResilientLLM(client)
 
 
+@asynccontextmanager
+async def _agentcore(wiring: Wiring) -> AsyncIterator[LLMClient]:
+    """AgentCore Gateway's OpenAI-compatible `/inference/v1`. With `auth: iam`
+    (the default) every request is signed with the task role (SigV4): no key
+    exists to leak. With `auth: jwt`, `api_key` is a bearer token the gateway's
+    authorizer accepts. Either way the provider's own key (Groq's) stays in the
+    gateway's credential store, never here."""
+    from agent_harness.adapters import aws
+    from agent_harness.llm.pydantic_ai import openai_compatible
+
+    settings = wiring.settings
+    base_url = str(settings["base_url"])
+    mode = str(settings["auth"])
+    http: Any = wiring.hooks.get("http_client")
+    if mode == "iam":
+        region = settings.get("region") or aws.region_of_gateway(base_url)
+        if not region:
+            raise OverlayRefused("agentcore-gateway: give `region`, or a gateway URL that names it")
+        credentials = wiring.hooks.get("credentials") or aws.role_credentials()
+        http = http or httpx2.AsyncClient()
+        http.auth = aws.SigV4(credentials, str(region), aws.AGENTCORE_SERVICE)
+        key = "signed-by-sigv4"  # the SDK wants a key; the signature replaces it
+    elif mode == "jwt":
+        if not settings.get("api_key"):
+            raise OverlayRefused("agentcore-gateway: auth jwt needs `api_key` (a reference)")
+        key = str(settings["api_key"])
+    else:
+        raise OverlayRefused(f"agentcore-gateway: auth is iam or jwt, not {mode!r}")
+    choice: Any = wiring.hooks["choice"]
+    yield ResilientLLM(
+        openai_compatible(
+            api_key=key,
+            base_url=base_url,
+            model=choice.model,
+            provider=choice.provider,
+            temperature=choice.temperature,
+            http_client=http,
+        )
+    )
+
+
 KEYED = {"api_key": Setting(required=True, secret=True)}
 
 SCRIPTED = Adapter("model", "scripted", _scripted, hooks=("script",))
@@ -134,5 +180,25 @@ ANTHROPIC = Adapter(
     },
     hooks=("choice",),
 )
+AGENTCORE_GATEWAY = Adapter(
+    "model",
+    "agentcore-gateway",
+    _agentcore,
+    {
+        "base_url": Setting(required=True),
+        "auth": Setting(default="iam"),
+        "region": Setting(),
+        "api_key": Setting(secret=True),
+    },
+    hooks=("choice",),
+)
 
-__all__ = ["ANTHROPIC", "APIM", "APIM_KEY_HEADER", "GROQ_DIRECT", "LITELLM_PROXY", "SCRIPTED"]
+__all__ = [
+    "AGENTCORE_GATEWAY",
+    "ANTHROPIC",
+    "APIM",
+    "APIM_KEY_HEADER",
+    "GROQ_DIRECT",
+    "LITELLM_PROXY",
+    "SCRIPTED",
+]

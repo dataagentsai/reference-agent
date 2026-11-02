@@ -60,16 +60,19 @@ ADAPTERS = Registry(
         "secrets": {
             "environment-settings": "agent_harness.adapters.secrets:ENVIRONMENT",
             "key-vault": "agent_harness.adapters.secrets:KEY_VAULT",
+            "secrets-manager": "agent_harness.adapters.secrets:SECRETS_MANAGER",
         },
         "config": {
             "environment-settings": "agent_harness.adapters.config:ENVIRONMENT",
             "static": "agent_harness.adapters.config:STATIC",
             "app-configuration": "agent_harness.adapters.config:APP_CONFIGURATION",
+            "appconfig": "agent_harness.adapters.config:APPCONFIG",
         },
         "telemetry": {
             "console": "agent_harness.adapters.telemetry:CONSOLE",
             "otel-to-langfuse": "agent_harness.adapters.telemetry:OTLP",
             "azure-monitor-otel": "agent_harness.adapters.telemetry:AZURE_MONITOR",
+            "otel-to-cloudwatch": "agent_harness.adapters.telemetry:CLOUDWATCH",
         },
         "cost_ledger": {
             "per-task-meter": "agent_harness.adapters.cost_ledger:PER_TASK_METER",
@@ -79,12 +82,14 @@ ADAPTERS = Registry(
             "litellm-proxy": "agent_harness.adapters.model:LITELLM_PROXY",
             "groq-direct": "agent_harness.adapters.model:GROQ_DIRECT",
             "apim-ai-gateway": "agent_harness.adapters.model:APIM",
+            "agentcore-gateway": "agent_harness.adapters.model:AGENTCORE_GATEWAY",
             "anthropic": "agent_harness.adapters.model:ANTHROPIC",
         },
         "state": {
             "in-memory": "agent_harness.adapters.state:IN_MEMORY",
             "postgres": "agent_harness.adapters.state:POSTGRES",
             "azure-postgresql-flexible": "agent_harness.adapters.state:AZURE_POSTGRES",
+            "rds-postgresql": "agent_harness.adapters.state:RDS_POSTGRES",
         },
         "records": {
             "in-memory": "agent_harness.adapters.records:IN_MEMORY",
@@ -181,8 +186,13 @@ class Plan:
         return self.bound[port].adapter.name
 
 
+REFERENCE_KINDS = frozenset({"env", "key_vault", "aws_secret", "aws_parameter"})
+"""How an overlay may name a secret: the environment, Azure Key Vault, AWS
+Secrets Manager, or an AWS Systems Manager parameter (SecureString)."""
+
+
 def is_reference(value: object) -> bool:
-    return isinstance(value, Mapping) and bool({"env", "key_vault"} & set(value))
+    return isinstance(value, Mapping) and bool(REFERENCE_KINDS & set(value))
 
 
 def sealing_key(secret: str, purpose: str) -> bytes:
@@ -248,7 +258,8 @@ def _bound(
         if setting.secret and value is not None and not is_reference(value):
             raise OverlayRefused(
                 f"{where}: bindings.{port}.{name} is a secret: give a reference "
-                "({env: NAME} or {key_vault: name}), never the value"
+                "({env: NAME}, {key_vault: name}, {aws_secret: name} or "
+                "{aws_parameter: name}), never the value"
             )
         settings[name] = value
     return Bound(adapter, settings, str(entry.get("why", "")))

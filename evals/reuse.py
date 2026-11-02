@@ -34,16 +34,17 @@ library's module under its old name, so it is not counted as either side."""
 MECHANISM = {
     "__init__.py",
     "adapters/__init__.py",  # the composition from a profile and an overlay (Tier 2b)
+    "adapters/aws.py",  # what the AWS adapters share: boto3 clients, SigV4 signing (T-123)
     "adapters/authorise.py",  # a far end's caller check by name: asserted, local-dev, entra-id
     "adapters/cost_ledger.py",  # the cost_ledger port by name: per-task-meter (T-048)
-    "adapters/config.py",  # config by name: environment-settings, static, app-configuration (A6)
+    "adapters/config.py",  # config by name: environment, static, app-configuration, appconfig
     "adapters/identity.py",  # identity adapters by name: local-dev, keycloak, entra-id
-    # model adapters by name: scripted, litellm-proxy, groq-direct, apim, anthropic
+    # model by name: scripted, litellm-proxy, groq-direct, apim, anthropic, agentcore
     "adapters/model.py",
     "adapters/records.py",  # records adapters by name: in-memory, postgres (A3)
-    "adapters/secrets.py",  # secrets by reference: environment-settings, key-vault
-    "adapters/state.py",  # state adapters by name: in-memory, postgres, azure-postgresql-flexible
-    "adapters/telemetry.py",  # telemetry adapters by name: console, otel-to-langfuse, azure-monitor
+    "adapters/secrets.py",  # secrets by reference: environment-settings, key-vault, secrets-manager
+    "adapters/state.py",  # state by name: in-memory, postgres, azure-postgresql-flexible, rds
+    "adapters/telemetry.py",  # telemetry by name: console, otel-to-langfuse, azure-monitor, adot
     "adapters/tools.py",  # the tool runtime by name: mcp-client
     "adapters/waits.py",  # approval adapters by name: temporal-updates, dbos-workflows
     "approvals/__init__.py",

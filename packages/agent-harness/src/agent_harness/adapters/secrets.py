@@ -9,6 +9,11 @@ An overlay never holds a secret. It names one: `{env: GROQ_API_KEY}`, or
                           endpoint); no Azure SDK. Environment references
                           still read the environment, which Container Apps
                           also fills from Key Vault references.
+    secrets-manager       AWS: `{aws_secret: name}` from Secrets Manager (with
+                          `field` for one field of a JSON secret) and
+                          `{aws_parameter: name}` from Systems Manager Parameter
+                          Store, with the ECS task role's rights; boto3, the
+                          `[aws]` extra.
 """
 
 from __future__ import annotations
@@ -100,6 +105,46 @@ def managed_identity_token(
         return str(json.load(answer)["access_token"])
 
 
+@dataclass(frozen=True)
+class AwsSecrets:
+    """Secrets Manager and Systems Manager parameters, with the task role's rights.
+
+    `{aws_secret: name}` reads a secret's string; with `field`, one field of a
+    JSON secret (RDS keeps its managed password as JSON: `field: password`).
+    `{aws_parameter: name}` reads a parameter, decrypted (SecureString): the free
+    choice for development. `{env: …}` from the environment, as above."""
+
+    secrets: Any
+    parameters: Any
+    environment: EnvironmentSecrets = field(default_factory=EnvironmentSecrets)
+
+    def read(self, reference: Mapping[str, Any]) -> str:
+        if "aws_secret" in reference:
+            answer = self.secrets.get_secret_value(SecretId=str(reference["aws_secret"]))
+            value = str(answer["SecretString"])
+            if "field" not in reference:
+                return value
+            document = json.loads(value)
+            if reference["field"] not in document:
+                raise OverlayRefused(
+                    f"{reference['aws_secret']} has no field {reference['field']!r}"
+                )
+            return str(document[reference["field"]])
+        if "aws_parameter" in reference:
+            answer = self.parameters.get_parameter(
+                Name=str(reference["aws_parameter"]), WithDecryption=True
+            )
+            return str(answer["Parameter"]["Value"])
+        return self.environment.read(reference)
+
+
+@asynccontextmanager
+async def _secrets_manager(wiring: Wiring) -> AsyncIterator[SecretReader]:
+    from agent_harness.adapters import aws
+
+    yield AwsSecrets(aws.client("secretsmanager", wiring), aws.client("ssm", wiring))
+
+
 @asynccontextmanager
 async def _environment(wiring: Wiring) -> AsyncIterator[SecretReader]:
     dotenv = wiring.settings.get("dotenv")
@@ -114,10 +159,13 @@ async def _key_vault(wiring: Wiring) -> AsyncIterator[SecretReader]:
 
 ENVIRONMENT = Adapter("secrets", "environment-settings", _environment, {"dotenv": Setting()})
 KEY_VAULT = Adapter("secrets", "key-vault", _key_vault, {"vault_url": Setting(required=True)})
+SECRETS_MANAGER = Adapter("secrets", "secrets-manager", _secrets_manager, {"region": Setting()})
 
 __all__ = [
     "ENVIRONMENT",
     "KEY_VAULT",
+    "SECRETS_MANAGER",
+    "AwsSecrets",
     "EnvironmentSecrets",
     "KeyVaultSecrets",
     "SecretReader",

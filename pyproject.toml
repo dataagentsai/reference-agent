@@ -44,9 +44,9 @@ dev = [
     # importing it at all, and a system that can see its own simulator is a
     # system whose results mean nothing.
     "agenttwin",
-    # The harness's Azure adapters (T-099), so their tests run; no runtime
+    # The harness's Azure and AWS adapters (T-099, T-123), so their tests run; no runtime
     # dependency of this agent, whose default provider stays as it was.
-    "agent-harness[azure]",
+    "agent-harness[azure,aws]",
     "import-linter>=2.0",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",

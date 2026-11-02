@@ -8,6 +8,8 @@ source the test holds and changes:
     static                the hook `values`, a dict the test changes
     app-configuration     App Configuration's key-value REST API answered in
                           process (httpx MockTransport); no network, no Azure
+    appconfig             AWS AppConfig's data API answered in process, empty
+                          bodies included; no network, no AWS account
 
 Rows: a value read; a default when absent; an invalid value, or one its check
 refuses, keeps the last good one; a change shows after a refresh, and after the
@@ -103,7 +105,42 @@ class AppConfigurationSource(Source):
         return {"transport": httpx.MockTransport(answer), "token": lambda: "mi-token"}
 
 
-SOURCES = [EnvironmentSource(), StaticSource(), AppConfigurationSource()]
+class FakeAppConfigData:
+    """AWS AppConfig's data API in process: a session token, then the whole
+    document on the first poll and after a change, and an empty body ("no
+    change") otherwise, as AppConfig answers."""
+
+    def __init__(self, store: Store) -> None:
+        self.store, self.sent, self.polls = store, None, 0
+
+    def start_configuration_session(self, **ids: str) -> dict[str, str]:
+        assert ids == {
+            "ApplicationIdentifier": "claims-agent",
+            "EnvironmentIdentifier": "dev",
+            "ConfigurationProfileIdentifier": "settings",
+        }
+        return {"InitialConfigurationToken": "t-0"}
+
+    def get_latest_configuration(self, ConfigurationToken: str) -> dict[str, Any]:  # noqa: N803
+        assert ConfigurationToken == f"t-{self.polls}", "each poll uses the token the last one gave"
+        self.polls += 1
+        now = dict(self.store.held)
+        body = b"" if now == self.sent else json.dumps(now).encode()
+        self.sent = now
+        return {"NextPollConfigurationToken": f"t-{self.polls}", "Configuration": body}
+
+
+class AppConfigSource(Source):
+    name = "appconfig"
+
+    def settings(self, tmp_path: Path) -> dict[str, Any]:
+        return {"application": "claims-agent", "environment": "dev", "profile": "settings"}
+
+    def hooks(self, store: Store, tmp_path: Path) -> dict[str, Any]:
+        return {"clients": {"appconfigdata": FakeAppConfigData(store)}}
+
+
+SOURCES = [EnvironmentSource(), StaticSource(), AppConfigurationSource(), AppConfigSource()]
 
 
 @asynccontextmanager

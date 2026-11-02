@@ -5,19 +5,22 @@ an overlay's settings (`agent_harness.adapters`), never by constructing the clas
 A new adapter for a port joins its table by being registered, and is held to the
 rows the others pass. Rows that need an outside service skip and say which.
 
-    model         scripted, litellm-proxy, groq-direct, apim-ai-gateway
+    model         scripted, litellm-proxy, groq-direct, apim-ai-gateway,
+                  agentcore-gateway (signed with a fixed role key, or a bearer)
                   — the SDK's HTTP answered in process, no network
     identity      local-dev, keycloak, entra-id — tokens signed in process, held
                   to verifying *and* to the edges (`serve`, the desk) taking
                   each adapter's verifier (claims-fnol-azure F-30)
-    telemetry     console, otel-to-langfuse, azure-monitor-otel — exporters
+    telemetry     console, otel-to-langfuse, azure-monitor-otel,
+                  otel-to-cloudwatch (OTLP to the ADOT sidecar) — exporters
                   and the Azure distro replaced, as `test_telemetry_azure` does
-    secrets       environment-settings, key-vault — Key Vault's REST and the
-                  managed identity endpoint answered in process
+    secrets       environment-settings, key-vault, secrets-manager — Key Vault's
+                  REST, the managed identity endpoint, Secrets Manager and
+                  Parameter Store answered in process
     approval      temporal-updates (the cached time-skipping server),
                   dbos-workflows (a throwaway PostgreSQL)
     records       in-memory, postgres — their table is `tests/test_records.py`
-    config        environment-settings, static, app-configuration — their
+    config        environment-settings, static, app-configuration, appconfig — their
                   table is `tests/test_config_port.py` (A6)
 
 And one table for the composition itself: what an overlay may not say.
@@ -37,6 +40,7 @@ from typing import Any
 import httpx2 as httpx
 import jwt
 import pytest
+from botocore.credentials import Credentials  # type: ignore[import-untyped]
 from temporalio import activity
 
 import support_agent  # noqa: F401  the package root names the agent's telemetry
@@ -136,13 +140,31 @@ MODEL_ADAPTERS: list[tuple[str, dict[str, Any], str]] = [
         {"api_key": "k-1", "base_url": "http://apim.test/v1"},
         "ocp-apim-subscription-key",
     ),
+    # Signed with the role's key id "k-1": SigV4 names it in the Authorization
+    # header's Credential, and never sends the secret half.
+    (
+        "agentcore-gateway",
+        {
+            "base_url": "https://gw-1.gateway.bedrock-agentcore.ap-south-1.amazonaws.com/inference/v1"
+        },
+        "authorization",
+    ),
+    (
+        "agentcore-gateway",
+        {"base_url": "https://gw-1.test/inference/v1", "auth": "jwt", "api_key": "k-1"},
+        "authorization",
+    ),
 ]
 ASK = ModelRequest(messages=(Message(role="user", content="Where is AB-10010?"),))
+ROLE = Credentials("k-1", "role-secret")
+"""The ECS task role's credentials, fixed: what AgentCore Gateway's SigV4 signs with."""
 
 
 @pytest.mark.discharges("AHC-0022")
 @pytest.mark.parametrize(
-    ("name", "settings", "key_at"), MODEL_ADAPTERS, ids=[a[0] for a in MODEL_ADAPTERS]
+    ("name", "settings", "key_at"),
+    MODEL_ADAPTERS,
+    ids=[a[0] + ("-jwt" if a[1].get("auth") == "jwt" else "") for a in MODEL_ADAPTERS],
 )
 @pytest.mark.parametrize(("row", "answer", "typed"), MODEL_ROWS, ids=[r[0] for r in MODEL_ROWS])
 async def test_the_model_port(
@@ -160,7 +182,7 @@ async def test_the_model_port(
         return httpx.Response(200, json=answer)
 
     http = httpx.AsyncClient(transport=httpx.MockTransport(reply))
-    hooks = {"choice": Choice(), "http_client": http, "script": [typed]}
+    hooks = {"choice": Choice(), "http_client": http, "script": [typed], "credentials": ROLE}
     async with built("model", name, settings, **hooks) as client:
         got = await client.complete(ASK)
     assert (got.text, got.tool_calls, got.usage.input_tokens, got.usage.output_tokens) == (
@@ -173,6 +195,12 @@ async def test_the_model_port(
         (sent,) = seen
         assert "k-1" in sent.headers.get(key_at, "")
         assert json.loads(sent.content)["messages"][-1]["content"] == "Where is AB-10010?"
+        if name == "agentcore-gateway" and settings.get("auth", "iam") == "iam":
+            signed = sent.headers["authorization"]
+            assert signed.startswith("AWS4-HMAC-SHA256 Credential=k-1/")
+            assert "/ap-south-1/bedrock-agentcore/aws4_request" in signed
+            assert "role-secret" not in signed
+            assert "x-amz-date" in sent.headers
 
 
 # ======================================================================== identity
@@ -439,30 +467,75 @@ SECRETS_ADAPTERS: list[tuple[str, str]] = [
     # The vault's address from the environment: the deployment's output, never
     # a name written into the overlay (claims-fnol-azure, Tier 3).
     ("key-vault", "{adapter: key-vault, vault_url: {env: TEST_VAULT_URL}, why: tests}"),
+    ("secrets-manager", "{adapter: secrets-manager, region: ap-south-1, why: tests}"),
 ]
 # (row, the reference, what each adapter reads it as; None is a refusal)
 SECRETS_ROWS: list[tuple[str, dict[str, Any], dict[str, str | None]]] = [
     (
         "an environment reference reads the environment",
         {"env": "TEST_GREETING"},
-        {"environment-settings": "hello", "key-vault": "hello"},
+        {"environment-settings": "hello", "key-vault": "hello", "secrets-manager": "hello"},
     ),
     (
         "a missing variable takes the reference's default",
         {"env": "TEST_MISSING", "default": "d"},
-        {"environment-settings": "d", "key-vault": "d"},
+        {"environment-settings": "d", "key-vault": "d", "secrets-manager": "d"},
     ),
     (
         "a missing variable with no default is refused",
         {"env": "TEST_MISSING"},
-        {"environment-settings": None, "key-vault": None},
+        {"environment-settings": None, "key-vault": None, "secrets-manager": None},
     ),
     (
         "a vault reference is read from the vault, or refused where there is none",
         {"key_vault": "groq-api-key"},
-        {"environment-settings": None, "key-vault": "from-the-vault"},
+        {"environment-settings": None, "key-vault": "from-the-vault", "secrets-manager": None},
+    ),
+    (
+        "a Secrets Manager reference is read from Secrets Manager",
+        {"aws_secret": "agent/groq"},
+        {
+            "environment-settings": None,
+            "key-vault": None,
+            "secrets-manager": "from-secrets-manager",
+        },
+    ),
+    (
+        "one field of a JSON secret (RDS's managed password)",
+        {"aws_secret": "rds/agent", "field": "password"},
+        {"environment-settings": None, "key-vault": None, "secrets-manager": "pw-1"},
+    ),
+    (
+        "a Parameter Store reference is read decrypted",
+        {"aws_parameter": "/agent/groq"},
+        {
+            "environment-settings": None,
+            "key-vault": None,
+            "secrets-manager": "from-parameter-store",
+        },
     ),
 ]
+
+
+class FakeAws:
+    """Secrets Manager and Parameter Store answered in process (`aws.client`'s hook)."""
+
+    SECRETS = {
+        "agent/groq": "from-secrets-manager",
+        "rds/agent": '{"username": "a", "password": "pw-1"}',
+    }
+
+    def __init__(self) -> None:
+        self.asked: list[tuple[str, str]] = []
+
+    def get_secret_value(self, SecretId: str) -> dict[str, Any]:  # noqa: N803 — boto3's name
+        self.asked.append(("secret", SecretId))
+        return {"SecretString": self.SECRETS[SecretId]}
+
+    def get_parameter(self, Name: str, WithDecryption: bool) -> dict[str, Any]:  # noqa: N803
+        self.asked.append(("parameter", Name))
+        assert WithDecryption, "a SecureString must be read decrypted"
+        return {"Parameter": {"Name": Name, "Value": "from-parameter-store"}}
 
 
 @pytest.mark.discharges("AHC-0022")
@@ -482,7 +555,10 @@ async def test_the_secrets_port(
     reads: dict[str, str | None],
 ) -> None:
     planned = wiring.plan(overlay(tmp_path, f"  secrets: {binding}\n"))
-    hooks = {"secrets": {"token": lambda: "mi-token"}}
+    fake = FakeAws()
+    hooks = {
+        "secrets": {"token": lambda: "mi-token", "clients": {"secretsmanager": fake, "ssm": fake}}
+    }
     async with wiring.compose(planned, hooks=hooks, ports=("secrets",)) as built:
         reader = built["secrets"]
         if reads[name] is None:
@@ -598,6 +674,8 @@ TELEMETRY_ADAPTERS: list[tuple[str, dict[str, Any], str]] = [
         {"connection_string": "InstrumentationKey=00000000-0000-0000-0000-000000000000"},
         "distro",
     ),
+    # No settings: the ADOT sidecar's local address is the default.
+    ("otel-to-cloudwatch", {}, "exported"),
 ]
 TELEMETRY_ROWS: list[tuple[str, str | None, str]] = [
     ("the agent's own service name", None, "support-agent"),
@@ -629,13 +707,61 @@ async def test_the_telemetry_port(
     assert finished.resource.attributes["deployment.environment.name"] == "test"
     assert tel.validate(exporter.get_finished_spans()) == []
     if leaves == "exported":
+        from agent_harness.adapters.telemetry import ADOT_TRACES
+
         assert no_network["exported"] == {
-            "endpoint": settings["endpoint"],
-            "headers": {"x-key": "k-1"},
+            "endpoint": settings.get("endpoint", ADOT_TRACES),
+            "headers": {"x-key": "k-1"} if "headers" in settings else {},
         }
     if leaves == "distro":
         (call,) = no_network["distro"].calls
         assert call["connection_string"] == settings["connection_string"]
+
+
+# =========================================================================== state
+# (row, adapter, URL, refused?) — a managed database must be reached over TLS;
+# the refusal comes before any connection, so no database is needed here.
+TLS_ROWS: list[tuple[str, str, str, bool]] = [
+    ("RDS without sslmode is refused", "rds-postgresql", "postgresql://a@db.test/agent", True),
+    (
+        "RDS with sslmode=disable is refused",
+        "rds-postgresql",
+        "postgresql://a@db.test/agent?sslmode=disable",
+        True,
+    ),
+    (
+        "RDS with sslmode=require starts",
+        "rds-postgresql",
+        "postgresql://a@db.test/agent?sslmode=require",
+        False,
+    ),
+    (
+        "RDS with sslmode=verify-full starts",
+        "rds-postgresql",
+        "postgresql://a@db.test/agent?sslmode=verify-full",
+        False,
+    ),
+    (
+        "Azure without sslmode is refused",
+        "azure-postgresql-flexible",
+        "postgresql://a@db.test/agent",
+        True,
+    ),
+]
+
+
+@pytest.mark.parametrize(("row", "name", "url", "refused"), TLS_ROWS, ids=[r[0] for r in TLS_ROWS])
+def test_a_managed_database_must_be_reached_over_tls(
+    row: str, name: str, url: str, refused: bool
+) -> None:
+    from agent_harness.adapters.state import require_tls
+
+    assert adapter("state", name).name == name
+    if refused:
+        with pytest.raises(OverlayRefused, match="TLS"):
+            require_tls(url, name)
+    else:
+        require_tls(url, name)
 
 
 # ======================================================================== approval
@@ -794,7 +920,7 @@ REFUSED: list[tuple[str, str, str, str]] = [
         "an adapter nobody registered",
         "  model: {adapter: crystal-ball}\n",
         "",
-        "has no 'crystal-ball'; known: anthropic, apim-ai-gateway",
+        "has no 'crystal-ball'; known: agentcore-gateway, anthropic, apim-ai-gateway",
     ),
     ("a port nobody composes", "  oracle: {adapter: x}\n", "", "unknown field 'oracle'"),
     (
